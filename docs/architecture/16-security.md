@@ -72,6 +72,11 @@ Per [B8](../product/decisions-and-assumptions.md#b8--privacy--gdpr-posture):
 - Parameterized queries / EF Core (no string SQL); output encoding in React by default.
 - Security headers, CORS locked to known origins, rate limiting on `/sync` and auth paths.
 - Secrets via Aspire/user-secrets in dev and the platform secret store in prod — never in source.
+- **Dependency auditing:** `NuGetAudit` runs on every restore (transitive included) and CI surfaces
+  advisories; known transitive CVEs are pinned to patched versions with a comment citing the GHSA
+  (e.g. `Microsoft.OpenApi` → 2.7.5, `MessagePack` → 2.5.302). Making high-severity audit warnings a
+  build error is a considered future gate (weighed against lockout when a framework-transitive CVE
+  has no fix yet).
 
 ## 7. Threat model (STRIDE-lite)
 
