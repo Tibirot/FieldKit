@@ -2,6 +2,8 @@
   <Project Path="FieldKit.AppHost/FieldKit.AppHost.csproj" />
   <Project Path="FieldKit.ArchitectureTests/FieldKit.ArchitectureTests.csproj" />
   <Project Path="FieldKit.BuildingBlocks/FieldKit.BuildingBlocks.csproj" />
+  <Project Path="FieldKit.Infrastructure.Tests/FieldKit.Infrastructure.Tests.csproj" />
+  <Project Path="FieldKit.Infrastructure/FieldKit.Infrastructure.csproj" />
   <Project Path="FieldKit.Server/FieldKit.Server.csproj" />
   <Project Path="FieldKit.SharedKernel.Tests/FieldKit.SharedKernel.Tests.csproj" />
   <Project Path="FieldKit.SharedKernel/FieldKit.SharedKernel.csproj" />

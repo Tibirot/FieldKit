@@ -56,25 +56,32 @@ flowchart TB
     P["Products.Contracts"]
     V["Visit.Contracts"]
   end
-  subgraph bb["Building blocks"]
-    SK["SharedKernel"]
-    INF["BuildingBlocks (bus, outbox, EF base, tenancy)"]
+  subgraph bb["Shared, non-module layers"]
+    SK["SharedKernel (value objects)"]
+    BB["BuildingBlocks (abstractions)"]
+    INF["Infrastructure (EF base · interceptors · bus · outbox)"]
   end
 
   H --> O
   O -->|references| P
   O -->|references| V
   O --> SK
-  O --> INF
+  O --> BB
+  O -->|impl only| INF
   P --> SK
+  P --> BB
   V --> SK
 ```
 
 - A module may reference **another module's `Contracts` project only** — never its
   implementation assembly.
-- A module may reference **`SharedKernel`** (dependency-free value objects: `Money`, `GeoPoint`,
-  strongly-typed ids, `Result`) and **`BuildingBlocks`** (the bus/outbox/EF-base/tenancy
-  infrastructure).
+- **Three shared layers, split by purity so `Contracts` stay lightweight:**
+  **`SharedKernel`** (dependency-free value objects: `Money`, `GeoPoint`, strongly-typed ids,
+  `Result`, `IClock`); **`BuildingBlocks`** (pure *abstractions*: messaging contracts,
+  `ITenantContext`, `ITenantOwned`/`IAuditable`, the `IReferenceChangeFeed`/`I…Ingest` shapes); and
+  **`Infrastructure`** (EF Core base `ModuleDbContext`, stamping interceptors, and — as they land —
+  the bus/outbox implementations). A module's **`Contracts`** reference only `SharedKernel` +
+  `BuildingBlocks`; its **implementation** may also reference `Infrastructure`.
 - **Building blocks never reference a module.** Dependencies point inward/toward shared, never
   from infrastructure to domain.
 - The **host references every module** (to compose them) and nothing references the host.
@@ -194,7 +201,7 @@ schema access" honest (resolves finding S3):
 - **`IReferenceChangeFeed`** — implemented by every reference module (Outlets, Products,
   Configuration, Journey). Returns a **territory-scoped, `rowVersion > cursor` delta with
   tombstones and a new high-water mark**. Sync composes these; it never reads another schema. The
-  row-version **stamping interceptor** lives in `BuildingBlocks`; the version *columns* live in
+  row-version **stamping interceptor** lives in `Infrastructure`; the version *columns* live in
   each module's own schema ([data & persistence](14-data-and-persistence.md#4-keys-concurrency-timestamps)).
 - **`I…Ingest`** — the **push** path, one per module that receives device-created mutations:
   `IVisitIngest`, `IAuditIngest`, `IOrderIngest`, **`IJourneyIngest`** (not-visited / unplanned /

@@ -25,9 +25,11 @@ Ten module schemas (`iam`, `org`, `outlets`, `products`, `config`, `journey`, `v
 catalog, visit-workflow / survey / weight definitions) and **retains historical versions** of each
 definition/set so as-of-capture validation & scoring can reference the version a mutation was
 captured under ([BR-CFG-1](../product/14-configuration.md#5-business-rules)) — [ADR-0009](adr/0009-config-driven-customization.md).
-`shared.*` holds `BuildingBlocks` primitives + cross-tenant reference lookups; it has an explicit
-owner — a **shared migrator** in `BuildingBlocks`, not a domain module — so "each module owns its
-migrations" still holds and no module reaches into another's schema.
+`shared.*` holds shared primitives + cross-tenant reference lookups; it has an explicit owner — a
+**shared migrator** in `Infrastructure`, not a domain module — so "each module owns its migrations"
+still holds and no module reaches into another's schema. The EF base (`ModuleDbContext`,
+schema-per-module, the tenant query filter and stamping interceptors) lives in `Infrastructure`;
+the marker interfaces (`ITenantOwned`, `IAuditable`) are pure abstractions in `BuildingBlocks`.
 
 - Each module's `DbContext` sets `HasDefaultSchema("<module>")`, maps only its tables, owns its
   migrations. **No cross-schema FKs; no cross-schema queries** — references are by id value.
