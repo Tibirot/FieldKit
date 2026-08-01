@@ -1,0 +1,131 @@
+name: CI
+
+# Runs on every PR into main and on pushes to main.
+# This is the enforcement half of docs/engineering/pull-requests.md — the gates are only real
+# once these checks are marked "required" in branch protection (see the note at the bottom).
+#
+# It is written to be GREEN on today's scaffold (no test projects yet) and to light up
+# automatically as Phase 0 lands the test projects — no workflow changes needed.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Newer runs on the same ref cancel older, still-running ones.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_VERSION: "10.0.x"
+  NODE_VERSION: "20"
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # Backend: build + unit + architecture + tenant-isolation + integration (Testcontainers)
+  # ubuntu-latest ships Docker, which Testcontainers needs for real-Postgres integration tests.
+  # ─────────────────────────────────────────────────────────────
+  dotnet:
+    name: dotnet (build + test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props', '**/nuget.config') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore FieldKit.slnx
+
+      - name: Build (Release)
+        run: dotnet build FieldKit.slnx -c Release --no-restore
+
+      # Runs every test project it finds. Once Phase 0 adds them, this covers unit,
+      # NetArchTest architecture tests, tenant-isolation, and Testcontainers integration.
+      # Skips cleanly (green) while the repo is still a scaffold with no tests.
+      - name: Test (unit · architecture · tenant-isolation · integration)
+        run: |
+          set -euo pipefail
+          projects=$(find . -name '*[Tt]est*.csproj' -not -path '*/bin/*' -not -path '*/obj/*' || true)
+          if [ -z "$projects" ]; then
+            echo "::notice title=No tests yet::No test projects found (scaffold). Add them in Phase 0 — see docs/architecture/17-testing-strategy.md"
+            exit 0
+          fi
+          dotnet test FieldKit.slnx -c Release --no-build \
+            --logger "trx;LogFileName=test-results.trx" \
+            --results-directory ./TestResults \
+            --collect:"XPlat Code Coverage"
+
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-test-results
+          path: "**/TestResults/**"
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ─────────────────────────────────────────────────────────────
+  # Frontend: lint + build (+ tests / e2e once they exist)
+  # Uses npm today (package-lock.json). If Phase 0 migrates to pnpm, swap the setup + commands.
+  # `--if-present` makes each step a no-op until the script exists, so this stays green.
+  # ─────────────────────────────────────────────────────────────
+  frontend:
+    name: frontend (lint + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Typecheck & build
+        run: npm run build --if-present
+
+      - name: Unit tests (Vitest)
+        run: npm test --if-present
+
+      # Playwright e2e lands in Phase 4 (docs/architecture/17-testing-strategy.md §6).
+      # When it does, add: `npx playwright install --with-deps` then `npm run e2e --if-present`.
+
+# ─────────────────────────────────────────────────────────────
+# Making the gates real (do this in the GitHub UI once tests exist):
+#   Settings → Branches → Branch protection for `main`:
+#     • Require a pull request before merging (block direct pushes to main)
+#     • Require status checks to pass:  dotnet (build + test)  ·  frontend (lint + build)
+#     • Require branches to be up to date before merging
+#   Do NOT add a paths-ignore filter to required checks — a skipped required check
+#   shows as pending and blocks merge forever.
+# When architecture + tenant-isolation tests exist and you want them as *separate* required
+# checks, split them into their own jobs here (e.g. `dotnet test --filter Category=Architecture`).
+# ─────────────────────────────────────────────────────────────
