@@ -129,7 +129,7 @@ flowchart LR
 
     subgraph bb["Building blocks (shared)"]
       SK["SharedKernel<br/>Money · GeoPoint · Ids · Result · IClock"]
-      INFRA["BuildingBlocks<br/>bus · outbox · row-version stamping · tenancy · audit"]
+      INFRA["BuildingBlocks (abstractions)<br/>+ Infrastructure (EF base · interceptors · bus · outbox)"]
     end
   end
 
@@ -170,12 +170,17 @@ flowchart LR
 > implements **`IReferenceChangeFeed`** (territory-scoped, row-version delta + tombstones + high-
 > water mark) for the pull path, and each field module implements **`I…Ingest`** (create/resubmit)
 > for the push path — so domain rules run in the owning module. The per-tenant **row-version**
-> stamping interceptor lives in `BuildingBlocks`; the version *columns* live in each module's
+> stamping interceptor lives in `Infrastructure`; the version *columns* live in each module's
 > schema. Detail: [sync engine](12-offline-sync-engine.md), [module boundaries §7](10-module-boundaries.md#7-module-registry).
 
-**Shared building blocks** (not domain modules): `SharedKernel` (dependency-free value
-objects, `IClock`, result types) and `BuildingBlocks` (the in-process bus, transactional outbox,
-row-version stamping, multi-tenancy filter, and audit interceptor).
+**Shared, non-module layers.** Three of them, split by purity so `Contracts` stay lightweight:
+`SharedKernel` (dependency-free value objects, `IClock`, `Result`); **`BuildingBlocks`** (pure
+*abstractions* — messaging contracts, `ITenantContext`, `ITenantOwned`/`IAuditable` markers, the
+`IReferenceChangeFeed`/`I…Ingest` shapes); and **`Infrastructure`** (the EF Core base
+`ModuleDbContext` with schema-per-module + the tenant query filter, the stamping interceptors, and —
+as they land — the in-process bus, transactional outbox, and row-version stamping). Modules'
+`Contracts` reference only `SharedKernel` + `BuildingBlocks`; module *implementations* reference
+`Infrastructure`.
 
 ### Communication rules (summary)
 

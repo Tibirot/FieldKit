@@ -43,15 +43,21 @@ sliced into **~1-week work packages**, each sized to a part-time solo cadence.
 ## Phase 0 — Foundation
 
 ### Week 1 · Backend skeleton & building blocks
-**Goal:** turn the weather-forecast scaffold into the real module-hosting skeleton.
-- Solution layout: `SharedKernel`, `BuildingBlocks`, one real module (start `Iam` stub), `ArchTests`.
-- `SharedKernel`: `Money`, `GeoPoint`, `Result`, `IClock`, strongly-typed id base ([domain model](architecture/11-domain-model.md#1-sharedkernel-dependency-free)).
-- `BuildingBlocks`: `IModule` self-registration, in-process bus/dispatcher, **outbox** table + dispatcher (with `FOR UPDATE SKIP LOCKED` claim), **per-tenant row-version stamping interceptor**, tenancy filter + `ITenantContext`, audit interceptor ([ADR-0006](architecture/adr/0006-in-process-messaging-and-outbox.md)). *Row-version lands now so W4/W6/W7 modules carry it natively rather than retrofitting it when Sync arrives in W8.*
-- Add **PostgreSQL** to the AppHost; EF base `DbContext` with `HasDefaultSchema`; first schema-per-module migration ([ADR-0005](architecture/adr/0005-postgres-schema-per-module.md)).
-- Replace `WeatherForecast` with one real endpoint mapped by its module.
-- `ArchTests` skeleton (AT-1, AT-5, AT-7) ([module boundaries §5](architecture/10-module-boundaries.md#5-enforcement--architecture-tests)).
+**Goal:** turn the weather-forecast scaffold into the real module-hosting skeleton. Shipped as
+several small PRs.
+- **[✓ PR #2]** Solution layout + `SharedKernel` (`Money`, `GeoPoint`, `Result`, `IClock`, `TenantId`)
+  + `BuildingBlocks` (pure abstractions) + `ArchTests`; **AT-7** enforced at compile time via the
+  banned-API analyzer ([module boundaries §5](architecture/10-module-boundaries.md#5-enforcement--architecture-tests)).
+- **[✓ this slice]** `Infrastructure`: EF base `ModuleDbContext` with `HasDefaultSchema`
+  (schema-per-module), the tenant query filter + `EntityStampingInterceptor` (tenant + audit),
+  `TenantId` value converter; **PostgreSQL added to the AppHost**; verified on real Postgres
+  (Testcontainers) — schema, stamping, and tenant isolation ([ADR-0005](architecture/adr/0005-postgres-schema-per-module.md)).
+- **[next]** In-process bus/dispatcher + **outbox** table + dispatcher (`FOR UPDATE SKIP LOCKED`) +
+  **per-tenant row-version stamping** ([ADR-0006](architecture/adr/0006-in-process-messaging-and-outbox.md)) — land with the messaging/sync slices.
+- **[next]** `IModule` self-registration; replace `WeatherForecast` with one real module endpoint.
 
-**Done when:** `dotnet run --project FieldKit.AppHost` boots the app + Postgres; one module answers `/api/…`; the outbox table exists; arch-tests pass in CI-less local run.
+**Done when:** `dotnet run --project FieldKit.AppHost` boots the app + Postgres; one module answers
+`/api/…`; arch-tests pass. *(Bus/outbox/row-version and the first module are the remaining W1 slices.)*
 
 ### Week 2 · Next.js + Aspire wiring + CI ⚠︎
 **Goal:** the front-end platform, themed and installable, plus the identity container and CI.

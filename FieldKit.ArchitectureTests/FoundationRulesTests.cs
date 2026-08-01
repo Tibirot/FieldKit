@@ -38,6 +38,18 @@ public class FoundationRulesTests
         Assert.True(result.IsSuccessful, Describe(result));
     }
 
+    [Fact] // Infrastructure may use EF, but stays host-agnostic — no web framework.
+    public void Infrastructure_does_not_depend_on_AspNetCore()
+    {
+        var infrastructure = typeof(FieldKit.Infrastructure.ModuleDbContext).Assembly;
+
+        var result = Types.InAssembly(infrastructure)
+            .Should().NotHaveDependencyOn("Microsoft.AspNetCore")
+            .GetResult();
+
+        Assert.True(result.IsSuccessful, Describe(result));
+    }
+
     private static string Describe(TestResult result) =>
         result.IsSuccessful
             ? "OK"

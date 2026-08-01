@@ -28,12 +28,16 @@ Turn the scaffold into a clean skeleton the rest hangs off.
 - [x] Aspire solution scaffolded (AppHost + Server + Redis)
 - [x] **Documentation & design complete** — product specs, [decisions & assumptions](product/decisions-and-assumptions.md),
   full architecture + 11 ADRs, [wireframes](ux/README.md) (12 screens)
-- [ ] Module hosting pattern: empty-but-real modules + **`SharedKernel`** (Money, GeoPoint,
-  `IClock`, Result, typed ids) and **`BuildingBlocks`** (in-process bus, transactional outbox,
-  **per-tenant row-version stamping**, tenancy filter, audit interceptor) ([ADR-0006](architecture/adr/0006-in-process-messaging-and-outbox.md)) —
-  the row-version primitive lands here so modules built later carry it natively, not as a retrofit
-- [ ] Add **PostgreSQL** to the AppHost; EF Core base, migrations, **schema-per-module** wiring
-  ([ADR-0005](architecture/adr/0005-postgres-schema-per-module.md))
+- [x] **`SharedKernel`** (Money, GeoPoint, `IClock`, Result, TenantId) + **`BuildingBlocks`**
+  (pure abstractions: messaging contracts, `ITenantContext`, `ITenantOwned`/`IAuditable`) +
+  **NetArchTest** harness with **AT-7** enforced at compile time (banned-API analyzer) — *[PR #2]*
+- [x] Add **PostgreSQL** to the AppHost + **`Infrastructure`**: EF Core base `ModuleDbContext`
+  (**schema-per-module**, ADR-0005), the tenant query filter + stamping interceptors, verified on
+  real Postgres (Testcontainers) — *[this slice]*
+- [ ] Remaining building blocks: in-process **bus + transactional outbox** (+ `SKIP LOCKED`) and
+  **per-tenant row-version stamping** ([ADR-0006](architecture/adr/0006-in-process-messaging-and-outbox.md)) — land with the messaging/sync slices
+- [ ] Module hosting pattern (`IModule` self-registration) + first real module replacing the sample
+  `WeatherForecast`
 - [ ] **Migrate the front end Vite → Next.js** (App Router) + **shadcn/ui & design tokens**
   ([ADR-0004](architecture/adr/0004-nextjs-offline-first-frontend.md)); **next-intl** i18n scaffold
   ([ADR-0010](architecture/adr/0010-internationalization.md)); PWA shell; re-wire in the AppHost
