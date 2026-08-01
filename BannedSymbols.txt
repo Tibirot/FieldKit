@@ -1,0 +1,5 @@
+P:System.DateTime.Now;Use IClock.UtcNow — static/local time is banned (docs/architecture module-boundaries AT-7).
+P:System.DateTime.UtcNow;Use IClock.UtcNow (injected) — static time is banned.
+P:System.DateTime.Today;Use IClock.UtcNow (injected).
+P:System.DateTimeOffset.Now;Use IClock.UtcNow — local time is banned.
+P:System.DateTimeOffset.UtcNow;Use IClock.UtcNow (injected) — static time is banned. The sole exception is SystemClock.
