@@ -1,0 +1,1070 @@
+<style>
+  :root{
+    --bg:#f5f8f8; --surface:#ffffff; --surface-2:#eef3f3; --inset:#f7fafa;
+    --ink:#0f1f22; --muted:#556169; --faint:#8b97a0; --border:#e0e8e8; --border-2:#d3dede;
+    --accent:#0f766e; --accent-ink:#ffffff; --accent-soft:#d3f2ec; --accent-soft-ink:#0b5a54;
+    --good:#0a7d54; --good-soft:#d6f2e6; --warn:#a4590a; --warn-soft:#fbe8c6;
+    --crit:#b81f42; --crit-soft:#ffdde3; --info:#1f6f8b; --info-soft:#d6ecf3;
+    --mono:#33474b;
+    --shadow:0 1px 2px rgba(15,31,34,.06), 0 8px 24px -12px rgba(15,31,34,.18);
+    --shadow-sm:0 1px 2px rgba(15,31,34,.05);
+    --r:14px; --r-sm:9px;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,"Helvetica Neue",Arial,sans-serif;
+    --mono-f:ui-monospace,"SF Mono","Cascadia Code","JetBrains Mono",Consolas,"Liberation Mono",monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#080f1a; --surface:#101a2a; --surface-2:#152033; --inset:#0d1626;
+      --ink:#e7eef4; --muted:#94a6b8; --faint:#5f7488; --border:#213048; --border-2:#2b3d59;
+      --accent:#2dd4bf; --accent-ink:#04302c; --accent-soft:#0f3734; --accent-soft-ink:#83f0e2;
+      --good:#34d39a; --good-soft:#0e3a2c; --warn:#f5b73f; --warn-soft:#3a2c0d;
+      --crit:#fb7189; --crit-soft:#3b1622; --info:#57b6d6; --info-soft:#0f3140;
+      --mono:#adbccb;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 30px -14px rgba(0,0,0,.6);
+      --shadow-sm:0 1px 2px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#f5f8f8; --surface:#ffffff; --surface-2:#eef3f3; --inset:#f7fafa;
+    --ink:#0f1f22; --muted:#556169; --faint:#8b97a0; --border:#e0e8e8; --border-2:#d3dede;
+    --accent:#0f766e; --accent-ink:#ffffff; --accent-soft:#d3f2ec; --accent-soft-ink:#0b5a54;
+    --good:#0a7d54; --good-soft:#d6f2e6; --warn:#a4590a; --warn-soft:#fbe8c6;
+    --crit:#b81f42; --crit-soft:#ffdde3; --info:#1f6f8b; --info-soft:#d6ecf3; --mono:#33474b;
+    --shadow:0 1px 2px rgba(15,31,34,.06), 0 8px 24px -12px rgba(15,31,34,.18);
+    --shadow-sm:0 1px 2px rgba(15,31,34,.05);
+  }
+  :root[data-theme="dark"]{
+    --bg:#080f1a; --surface:#101a2a; --surface-2:#152033; --inset:#0d1626;
+    --ink:#e7eef4; --muted:#94a6b8; --faint:#5f7488; --border:#213048; --border-2:#2b3d59;
+    --accent:#2dd4bf; --accent-ink:#04302c; --accent-soft:#0f3734; --accent-soft-ink:#83f0e2;
+    --good:#34d39a; --good-soft:#0e3a2c; --warn:#f5b73f; --warn-soft:#3a2c0d;
+    --crit:#fb7189; --crit-soft:#3b1622; --info:#57b6d6; --info-soft:#0f3140; --mono:#adbccb;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 30px -14px rgba(0,0,0,.6);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.3);
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    line-height:1.5;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 24px 72px}
+  .ic{width:1em;height:1em;flex:none;stroke:currentColor;stroke-width:2;fill:none;
+    stroke-linecap:round;stroke-linejoin:round;display:inline-block;vertical-align:-.125em}
+  code{font-family:var(--mono-f)}
+  .tnum{font-variant-numeric:tabular-nums}
+
+  /* ---------- page header ---------- */
+  .masthead{display:flex;flex-wrap:wrap;align-items:flex-end;gap:20px 32px;
+    justify-content:space-between;padding-bottom:22px;border-bottom:1px solid var(--border);margin-bottom:8px}
+  .brand{display:flex;align-items:center;gap:11px}
+  .brand .mark{width:30px;height:30px;border-radius:8px;background:var(--accent);
+    display:grid;place-items:center;color:var(--accent-ink);box-shadow:var(--shadow-sm)}
+  .brand .mark .ic{width:18px;height:18px;stroke-width:2.4}
+  .brand h1{font-size:23px;letter-spacing:-.02em;margin:0;font-weight:750}
+  .brand .kick{font-size:12px;color:var(--muted);margin-top:1px;letter-spacing:.01em}
+  .lede{max-width:52ch;color:var(--muted);font-size:14.5px;margin:0}
+  .lede b{color:var(--ink);font-weight:650}
+
+  /* ---------- legend ---------- */
+  .legend{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin:22px 0 4px;
+    font-size:12px;color:var(--muted)}
+  .legend .swatch{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .legend code{font-size:11px;background:var(--surface-2);border:1px solid var(--border);
+    padding:1px 6px;border-radius:5px;color:var(--mono)}
+
+  /* ---------- section ---------- */
+  .section{margin-top:46px}
+  .sec-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:4px}
+  .eyebrow{font-family:var(--mono-f);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent-soft-ink);background:var(--accent-soft);padding:3px 9px;border-radius:6px;font-weight:600}
+  .sec-head h2{font-size:19px;letter-spacing:-.01em;margin:0;font-weight:700}
+  .sec-head p{margin:0;color:var(--muted);font-size:13.5px;flex-basis:100%;max-width:64ch}
+
+  /* ---------- phone grid ---------- */
+  .phones{display:grid;grid-template-columns:repeat(auto-fill,minmax(288px,1fr));
+    gap:34px 26px;margin-top:26px;align-items:start}
+  figure{margin:0;display:flex;flex-direction:column;gap:13px}
+  .phone{width:100%;max-width:322px;margin:0 auto;background:var(--border-2);border-radius:34px;
+    padding:9px;box-shadow:var(--shadow);position:relative}
+  .phone .screen{background:var(--bg);border-radius:26px;overflow:hidden;position:relative;
+    display:flex;flex-direction:column;height:588px}
+  .notch{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:96px;height:20px;
+    background:var(--border-2);border-radius:0 0 13px 13px;z-index:5}
+
+  figcaption{font-size:13px;color:var(--muted);padding:0 2px}
+  figcaption .cap-t{display:flex;align-items:center;gap:9px;color:var(--ink);font-weight:650;font-size:14px}
+  figcaption .step-n{font-family:var(--mono-f);font-size:11px;font-weight:700;color:var(--accent-ink);
+    background:var(--accent);width:20px;height:20px;border-radius:6px;display:grid;place-items:center;flex:none}
+  figcaption .cap-d{margin:3px 0 7px;line-height:1.45}
+  .ids{display:flex;flex-wrap:wrap;gap:5px}
+  .ids code{font-size:10.5px;background:var(--surface-2);border:1px solid var(--border);
+    padding:1px 6px;border-radius:5px;color:var(--mono)}
+
+  /* ---------- in-app chrome ---------- */
+  .statusbar{display:flex;align-items:center;justify-content:space-between;padding:12px 18px 5px;
+    font-size:11.5px;font-weight:600;color:var(--ink);font-family:var(--mono-f)}
+  .statusbar .sb-r{display:flex;align-items:center;gap:6px}
+  .statusbar .ic{width:14px;height:14px}
+  .appbar{padding:6px 16px 12px;display:flex;align-items:center;gap:10px;justify-content:space-between}
+  .appbar .title{font-size:16px;font-weight:700;letter-spacing:-.01em}
+  .appbar .sub{font-size:11.5px;color:var(--muted)}
+  .appbar .av{width:30px;height:30px;border-radius:50%;background:var(--accent-soft);
+    color:var(--accent-soft-ink);display:grid;place-items:center;font-size:12px;font-weight:700;flex:none}
+  .body{flex:1;overflow:hidden;padding:2px 14px 12px;display:flex;flex-direction:column;gap:9px}
+  .scrollcue{-webkit-mask-image:linear-gradient(180deg,#000 88%,transparent);mask-image:linear-gradient(180deg,#000 88%,transparent)}
+
+  .tabbar{border-top:1px solid var(--border);background:var(--surface);
+    display:flex;justify-content:space-around;padding:8px 4px 12px}
+  .tab{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9.5px;color:var(--faint);font-weight:600}
+  .tab .ic{width:19px;height:19px}
+  .tab.on{color:var(--accent)}
+
+  /* ---------- generic app bits ---------- */
+  .bar{height:1px;background:var(--border);margin:2px 0}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);
+    box-shadow:var(--shadow-sm)}
+  .pad{padding:11px 12px}
+  .row{display:flex;align-items:center;gap:10px}
+  .between{justify-content:space-between}
+  .mut{color:var(--muted)} .fnt{color:var(--faint)}
+  .sm{font-size:12px} .xs{font-size:11px} .lg{font-size:15px}
+  .b{font-weight:650} .bb{font-weight:750}
+  .mono{font-family:var(--mono-f)}
+  .grow{flex:1;min-width:0}
+  .trunc{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .chip{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:650;
+    padding:2px 8px;border-radius:20px;border:1px solid transparent;line-height:1.6;white-space:nowrap}
+  .chip .ic{width:11px;height:11px}
+  .c-good{background:var(--good-soft);color:var(--good);border-color:color-mix(in srgb,var(--good) 26%,transparent)}
+  .c-warn{background:var(--warn-soft);color:var(--warn);border-color:color-mix(in srgb,var(--warn) 26%,transparent)}
+  .c-crit{background:var(--crit-soft);color:var(--crit);border-color:color-mix(in srgb,var(--crit) 26%,transparent)}
+  .c-accent{background:var(--accent-soft);color:var(--accent-soft-ink);border-color:color-mix(in srgb,var(--accent) 26%,transparent)}
+  .c-info{background:var(--info-soft);color:var(--info);border-color:color-mix(in srgb,var(--info) 26%,transparent)}
+  .c-ghost{background:var(--surface-2);color:var(--muted);border-color:var(--border)}
+
+  .btn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;
+    background:var(--accent);color:var(--accent-ink);border:none;border-radius:9px;
+    padding:11px;font-size:13.5px;font-weight:700;font-family:var(--sans);box-shadow:var(--shadow-sm)}
+  .btn .ic{width:16px;height:16px}
+  .btn.ghost{background:var(--surface);color:var(--ink);border:1px solid var(--border-2);box-shadow:none}
+  .btn.soft{background:var(--accent-soft);color:var(--accent-soft-ink);box-shadow:none}
+
+  .avn{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;flex:none;
+    font-weight:700;font-size:12px;font-family:var(--mono-f)}
+
+  .stepper{display:inline-flex;align-items:center;border:1px solid var(--border-2);border-radius:8px;overflow:hidden;background:var(--surface)}
+  .stepper span{width:26px;text-align:center;font-weight:700;font-family:var(--mono-f);font-size:13px}
+  .stepper b{width:26px;height:28px;display:grid;place-items:center;color:var(--accent);font-size:16px;background:var(--surface-2)}
+
+  .seg{display:flex;background:var(--surface-2);border-radius:8px;padding:2px;gap:2px}
+  .seg span{flex:1;text-align:center;font-size:10.5px;font-weight:650;padding:4px 2px;border-radius:6px;color:var(--muted)}
+  .seg span.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-sm)}
+  .seg span.on.good{color:var(--good)} .seg span.on.crit{color:var(--crit)} .seg span.on.warn{color:var(--warn)}
+
+  .banner{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:9px;font-size:12px;font-weight:600}
+  .banner .ic{width:16px;height:16px;flex:none}
+  .banner.warn{background:var(--warn-soft);color:var(--warn)}
+  .banner.good{background:var(--good-soft);color:var(--good)}
+
+  .progress{height:6px;border-radius:4px;background:var(--surface-2);overflow:hidden}
+  .progress i{display:block;height:100%;background:var(--accent);border-radius:4px}
+
+  .mapbox{position:relative;height:96px;border-radius:10px;overflow:hidden;border:1px solid var(--border);
+    background:
+      repeating-linear-gradient(0deg,transparent 0 19px,color-mix(in srgb,var(--border) 60%,transparent) 19px 20px),
+      repeating-linear-gradient(90deg,transparent 0 19px,color-mix(in srgb,var(--border) 60%,transparent) 19px 20px),
+      var(--surface-2)}
+  .mapbox .road{position:absolute;background:var(--border-2)}
+  .geofence{position:absolute;width:70px;height:70px;border-radius:50%;
+    border:2px dashed color-mix(in srgb,var(--accent) 70%,transparent);
+    background:color-mix(in srgb,var(--accent) 12%,transparent)}
+  .pin{position:absolute;color:var(--accent)}
+  .pin .ic{width:22px;height:22px;stroke-width:2.2;fill:var(--accent);stroke:var(--accent-ink)}
+
+  /* ---------- gauge ---------- */
+  .gauge{display:flex;align-items:center;gap:12px}
+  .gauge svg{width:64px;height:64px;flex:none}
+  .gauge .val{font-size:22px;font-weight:800;font-family:var(--mono-f);letter-spacing:-.02em}
+  .ring-bg{stroke:var(--surface-2)} .ring-fg{stroke:var(--accent);stroke-linecap:round}
+
+  /* ---------- browser frame ---------- */
+  .browser{border:1px solid var(--border);border-radius:var(--r);overflow:hidden;
+    box-shadow:var(--shadow);background:var(--surface);margin-top:24px}
+  .btop{display:flex;align-items:center;gap:8px;padding:11px 14px;background:var(--surface-2);
+    border-bottom:1px solid var(--border)}
+  .traffic{display:flex;gap:6px} .traffic i{width:11px;height:11px;border-radius:50%;background:var(--border-2)}
+  .omni{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:7px;
+    padding:5px 11px;font-size:11.5px;color:var(--muted);font-family:var(--mono-f);display:flex;align-items:center;gap:7px}
+  .omni .ic{width:12px;height:12px;color:var(--good)}
+
+  .console{display:grid;grid-template-columns:200px 1fr;min-height:520px}
+  .side{background:var(--inset);border-right:1px solid var(--border);padding:16px 12px;display:flex;flex-direction:column;gap:3px}
+  .side .org{display:flex;align-items:center;gap:9px;padding:6px 8px 14px;margin-bottom:6px;border-bottom:1px solid var(--border)}
+  .side .org .mark{width:26px;height:26px;border-radius:7px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center}
+  .side .org .mark .ic{width:15px;height:15px}
+  .navi{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;font-size:13px;color:var(--muted);font-weight:550}
+  .navi .ic{width:16px;height:16px}
+  .navi.on{background:var(--accent-soft);color:var(--accent-soft-ink);font-weight:700}
+  .navi .cnt{margin-left:auto;font-size:10px;font-family:var(--mono-f);background:var(--crit);color:#fff;
+    padding:0 6px;border-radius:20px;font-weight:700}
+  .navgroup{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);
+    font-weight:700;padding:14px 10px 4px;font-family:var(--mono-f)}
+  .main{padding:20px 22px;min-width:0}
+  .page-h{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:16px;flex-wrap:wrap}
+  .page-h h3{margin:0;font-size:18px;letter-spacing:-.01em}
+  .page-h .crumb{font-size:11.5px;color:var(--faint);font-family:var(--mono-f);margin-bottom:4px}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .kpi{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:13px 14px;
+    display:flex;flex-direction:column;gap:7px;box-shadow:var(--shadow-sm)}
+  .kpi .k-l{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.01em}
+  .kpi .k-v{font-size:24px;font-weight:800;letter-spacing:-.02em;font-family:var(--mono-f);line-height:1}
+  .kpi .k-f{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700}
+  .kpi svg{width:100%;height:26px;display:block}
+  .up{color:var(--good)} .down{color:var(--crit)}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .tscroll{overflow-x:auto;border:1px solid var(--border);border-radius:11px;background:var(--surface)}
+  thead th{text-align:left;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);
+    font-weight:700;padding:10px 13px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--inset)}
+  tbody td{padding:10px 13px;border-bottom:1px solid var(--border);white-space:nowrap}
+  tbody tr:last-child td{border-bottom:none}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:13px}
+  .inp{display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border-2);
+    border-radius:8px;padding:7px 11px;font-size:12px;color:var(--muted);font-weight:550}
+  .inp .ic{width:14px;height:14px}
+  .pill{font-size:11px;font-weight:650;padding:5px 11px;border-radius:8px;border:1px solid var(--border-2);
+    background:var(--surface);color:var(--muted)}
+  .pill.on{background:var(--accent-soft);color:var(--accent-soft-ink);border-color:transparent}
+
+  .bars{display:flex;flex-direction:column;gap:9px}
+  .barrow{display:grid;grid-template-columns:120px 1fr 42px;align-items:center;gap:10px;font-size:12px}
+  .track{height:9px;border-radius:5px;background:var(--surface-2);overflow:hidden}
+  .track i{display:block;height:100%;border-radius:5px;background:var(--accent)}
+  .track i.warn{background:var(--warn)} .track i.crit{background:var(--crit)}
+
+  .feed{display:flex;flex-direction:column}
+  .fitem{display:flex;gap:11px;padding:10px 2px;border-bottom:1px solid var(--border)}
+  .fitem:last-child{border-bottom:none}
+  .fitem .fdot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex:none}
+
+  .grid2{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;margin-top:16px}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:15px 16px;box-shadow:var(--shadow-sm)}
+  .panel h4{margin:0 0 3px;font-size:13.5px}
+  .panel .ph-sub{font-size:11.5px;color:var(--muted);margin-bottom:12px}
+
+  .foot{margin-top:56px;padding-top:20px;border-top:1px solid var(--border);
+    display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:center;
+    font-size:12.5px;color:var(--muted)}
+  .foot b{color:var(--ink)}
+  .note{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;
+    padding:11px 14px;font-size:12.5px;color:var(--muted);margin-top:22px;display:flex;gap:10px;align-items:flex-start}
+  .note .ic{width:16px;height:16px;color:var(--accent);margin-top:1px;flex:none}
+
+  .toggle{width:34px;height:20px;border-radius:20px;background:var(--accent);position:relative;flex:none}
+  .toggle::after{content:"";position:absolute;top:2px;right:2px;width:16px;height:16px;border-radius:50%;background:#fff}
+  .toggle.off{background:var(--border-2)}
+  .toggle.off::after{right:auto;left:2px}
+  .slider{display:flex;align-items:center;gap:11px}
+  .slider .strack{flex:1;height:6px;border-radius:4px;background:var(--surface-2);position:relative}
+  .slider .strack i{position:absolute;left:0;top:0;height:100%;border-radius:4px;background:var(--accent)}
+  .slider .strack b{position:absolute;top:50%;width:14px;height:14px;border-radius:50%;background:var(--surface);
+    border:2px solid var(--accent);transform:translate(-50%,-50%);box-shadow:var(--shadow-sm)}
+  .slider .sval{width:40px;text-align:right;font-family:var(--mono-f);font-weight:700;font-size:12.5px}
+  .stepitem{display:flex;align-items:center;gap:10px;padding:10px 11px;border:1px solid var(--border);
+    border-radius:9px;background:var(--surface);box-shadow:var(--shadow-sm)}
+  .handle{color:var(--faint);cursor:grab;font-weight:700;letter-spacing:-3px;font-size:15px;user-select:none}
+  .week{display:grid;grid-template-columns:repeat(5,minmax(96px,1fr));gap:9px;min-width:520px}
+  .daycol{background:var(--inset);border:1px solid var(--border);border-radius:10px;padding:9px 8px;
+    min-height:158px;display:flex;flex-direction:column;gap:6px}
+  .daycol .dh{font-size:10.5px;font-weight:700;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+  .daycol .dh .mono{color:var(--accent)}
+  .stopchip{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:5px 7px;
+    font-size:10.5px;font-weight:600;line-height:1.3}
+  .stopchip .xs{font-weight:500}
+  .qrow{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--border)}
+  .qrow:last-child{border-bottom:none}
+  .qtype{font-family:var(--mono-f);font-size:10px;color:var(--muted);background:var(--surface-2);
+    border:1px solid var(--border);padding:1px 6px;border-radius:5px;white-space:nowrap}
+  .swatchbox{width:22px;height:22px;border-radius:6px;border:1px solid var(--border-2);flex:none}
+
+  @media (max-width:720px){
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .console{grid-template-columns:1fr}
+    .side{flex-direction:row;flex-wrap:wrap;border-right:none;border-bottom:1px solid var(--border);gap:6px}
+    .side .org,.navgroup{display:none}
+    .grid2{grid-template-columns:1fr}
+  }
+  @media (prefers-reduced-motion:no-preference){
+    figure{transition:transform .18s ease}
+  }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-route" viewBox="0 0 24 24"><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H15a3.5 3.5 0 0 0 0-7H9a3.5 3.5 0 0 1 0-7h6.5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-checkcircle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.3-7-11a7 7 0 0 1 14 0c0 4.7-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+    <symbol id="i-cam" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.2"/></symbol>
+    <symbol id="i-wifioff" viewBox="0 0 24 24"><path d="m2 2 20 20"/><path d="M8.5 16.4a5 5 0 0 1 7 0"/><path d="M5 12.9a10 10 0 0 1 3-2"/><path d="M19 12.9a10 10 0 0 0-4.5-2.6"/><path d="M2 8.8A15 15 0 0 1 6 6.5m5-1c3.4 0 6.6 1.2 9 3.3"/><path d="M12 20h.01"/></symbol>
+    <symbol id="i-sync" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M3 21v-5h5"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="m3 8 9 5 9-5M12 13v8"/></symbol>
+    <symbol id="i-cart" viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12.4a1 1 0 0 0 1 .8h9.2a1 1 0 0 0 1-.8L21 7H6"/></symbol>
+    <symbol id="i-clip" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="M9 10h6M9 14h4"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11 12 4l8 7"/><path d="M6 10v9h12v-9"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 19a6 6 0 0 1 12 0"/><path d="M16 5.5a3 3 0 0 1 0 5.6M21 19a6 6 0 0 0-4-5.6"/></symbol>
+    <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9h16v10H4z"/><path d="M3 9 5 4h14l2 5a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0Z"/><path d="M10 19v-4h4v4"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9-9-9Z"/><circle cx="8" cy="8" r="1.6"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 4v16h16"/><path d="m7 15 3-4 3 2 4-6"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4-2v-4L3 5Z"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-signal" viewBox="0 0 24 24"><path d="M4 18h.01M8 18v-3M12 18v-6M16 18v-9M20 18V6"/></symbol>
+    <symbol id="i-batt" viewBox="0 0 24 24"><rect x="3" y="8" width="16" height="9" rx="2"/><path d="M21 11v3"/><rect x="5" y="10" width="9" height="5" rx="1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4M12 17h.01"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h8M16 18h4"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="14" cy="18" r="2"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M3.5 9h17M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.3 3 7.6 7 9 4-1.4 7-4.7 7-9V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/></symbol>
+    <symbol id="i-money" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9v6M18 9v6"/></symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div>
+      <div class="brand">
+        <span class="mark"><svg class="ic"><use href="#i-route"/></svg></span>
+        <div>
+          <h1>FieldKit</h1>
+          <div class="kick">SFA platform · interactive wireframes</div>
+        </div>
+      </div>
+    </div>
+    <p class="lede">Mid-fidelity wireframes of the key flows. The <b>field app</b> is the mobile,
+      offline-first PWA a rep uses in-store; the <b>back office</b> is where ops runs the trade
+      universe. Each screen is tagged with the spec requirements it realizes.</p>
+  </header>
+
+  <div class="legend">
+    <span class="swatch"><span class="dot" style="background:var(--good)"></span>synced / good</span>
+    <span class="swatch"><span class="dot" style="background:var(--warn)"></span>pending sync</span>
+    <span class="swatch"><span class="dot" style="background:var(--crit)"></span>rejected / attention</span>
+    <span class="swatch"><span class="dot" style="background:var(--accent)"></span>primary action</span>
+    <span class="swatch" style="margin-left:auto"><code>VIS-01</code> traces to a functional-spec requirement</span>
+  </div>
+
+  <!-- ============ FIELD APP ============ -->
+  <section class="section">
+    <div class="sec-head">
+      <span class="eyebrow">Field app</span>
+      <h2>The golden path, offline</h2>
+      <p>A rep's day, start to finish, with no connectivity in the store. Screens 1–5 run in
+        sequence — sync down, walk in, audit the shelf, take the order, reconcile on reconnect.</p>
+    </div>
+
+    <div class="phones">
+
+      <!-- 1 · JOURNEY -->
+      <figure>
+        <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="statusbar"><span>08:12</span><span class="sb-r">
+            <svg class="ic"><use href="#i-wifioff"/></svg><svg class="ic"><use href="#i-batt"/></svg></span></div>
+          <div class="appbar">
+            <div><div class="title">Today</div><div class="sub">Thu 1 Aug · Bucharest North</div></div>
+            <div class="av">MI</div>
+          </div>
+          <div class="body scrollcue">
+            <div class="banner good"><svg class="ic"><use href="#i-check"/></svg>
+              <span class="grow">Synced 08:12 — 25 stops ready offline</span></div>
+            <div class="row between xs mut"><span class="bb" style="color:var(--ink)">JOURNEY · 25 stops</span><span>6 done · 1 skipped</span></div>
+            <div class="progress"><i style="width:28%"></i></div>
+
+            <div class="card pad row">
+              <div class="avn" style="background:var(--good-soft);color:var(--good)"><svg class="ic" style="width:16px;height:16px"><use href="#i-check"/></svg></div>
+              <div class="grow"><div class="b sm trunc">Aurora MiniMarket</div><div class="xs mut">Traditional · done 07:58</div></div>
+              <span class="chip c-good">€148</span>
+            </div>
+
+            <div class="card pad" style="border-color:color-mix(in srgb,var(--accent) 45%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 30%,transparent)">
+              <div class="row">
+                <div class="avn" style="background:var(--accent);color:var(--accent-ink)"><svg class="ic" style="width:16px;height:16px"><use href="#i-pin"/></svg></div>
+                <div class="grow"><div class="b sm trunc">Select Market Dorobanți</div><div class="xs mut">Modern Trade · 0.4 km</div></div>
+                <span class="chip c-accent">Next</span>
+              </div>
+              <div class="row" style="margin-top:9px;gap:6px">
+                <span class="chip c-ghost mono">F2 · weekly</span><span class="chip c-ghost">Audit</span><span class="chip c-ghost">Order</span>
+              </div>
+            </div>
+
+            <div class="card pad row">
+              <div class="avn" style="background:var(--surface-2);color:var(--muted)"><svg class="ic" style="width:16px;height:16px"><use href="#i-store"/></svg></div>
+              <div class="grow"><div class="b sm trunc">Corner Shop Floreasca</div><div class="xs mut">Traditional · 1.1 km</div></div>
+              <svg class="ic mut"><use href="#i-chev"/></svg>
+            </div>
+            <div class="card pad row">
+              <div class="avn" style="background:var(--surface-2);color:var(--muted)"><svg class="ic" style="width:16px;height:16px"><use href="#i-store"/></svg></div>
+              <div class="grow"><div class="b sm trunc">Gara Nord Express</div><div class="xs mut">Impulse · 1.6 km</div></div>
+              <svg class="ic mut"><use href="#i-chev"/></svg>
+            </div>
+          </div>
+          <div class="tabbar">
+            <div class="tab on"><svg class="ic"><use href="#i-route"/></svg>Journey</div>
+            <div class="tab"><svg class="ic"><use href="#i-cart"/></svg>Orders</div>
+            <div class="tab"><svg class="ic"><use href="#i-sync"/></svg>Sync</div>
+            <div class="tab"><svg class="ic"><use href="#i-user"/></svg>Me</div>
+          </div>
+        </div></div>
+        <figcaption>
+          <div class="cap-t"><span class="step-n">1</span> Today's Journey</div>
+          <div class="cap-d">The day's stops, generated from frequency &amp; territory and pulled for
+            offline use. Status, distance, and per-stop workflow at a glance.</div>
+          <div class="ids"><code>JRN-05</code><code>JRN-03</code><code>OFF-01</code><code>OFF-05</code></div>
+        </figcaption>
+      </figure>
+
+      <!-- 2 · CHECK-IN -->
+      <figure>
+        <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="statusbar"><span>09:05</span><span class="sb-r">
+            <svg class="ic"><use href="#i-wifioff"/></svg><svg class="ic"><use href="#i-batt"/></svg></span></div>
+          <div class="appbar">
+            <div class="row" style="gap:8px"><svg class="ic mut" style="width:18px;height:18px"><use href="#i-chev"/></svg>
+              <div><div class="title" style="font-size:15px">Select Market Dorobanți</div><div class="sub">Modern Trade · #OUT-2214</div></div></div>
+          </div>
+          <div class="body scrollcue">
+            <div class="mapbox">
+              <div class="road" style="top:44px;left:0;right:0;height:8px"></div>
+              <div class="road" style="top:0;bottom:0;left:120px;width:8px"></div>
+              <div class="geofence" style="top:20px;left:88px"></div>
+              <div class="pin" style="top:34px;left:114px"><svg class="ic"><use href="#i-pin"/></svg></div>
+            </div>
+            <div class="banner good"><svg class="ic"><use href="#i-checkcircle"/></svg>
+              <span class="grow">Inside geofence — location confirmed</span></div>
+
+            <div class="row between xs mut"><span class="bb" style="color:var(--ink)">VISIT STEPS</span><span>0 / 4</span></div>
+            <div class="card pad row"><div class="avn" style="background:var(--accent-soft);color:var(--accent-soft-ink)"><svg class="ic" style="width:15px;height:15px"><use href="#i-clip"/></svg></div>
+              <div class="grow"><div class="b sm">Shelf audit</div><div class="xs mut">Perfect store · 18 SKUs</div></div><span class="chip c-crit">Required</span></div>
+            <div class="card pad row"><div class="avn" style="background:var(--accent-soft);color:var(--accent-soft-ink)"><svg class="ic" style="width:15px;height:15px"><use href="#i-cart"/></svg></div>
+              <div class="grow"><div class="b sm">Take order</div><div class="xs mut">Against assortment</div></div><span class="chip c-crit">Required</span></div>
+            <div class="card pad row"><div class="avn" style="background:var(--surface-2);color:var(--muted)"><svg class="ic" style="width:15px;height:15px"><use href="#i-cam"/></svg></div>
+              <div class="grow"><div class="b sm">Fridge photo</div><div class="xs mut">Optional</div></div><svg class="ic mut"><use href="#i-chev"/></svg></div>
+          </div>
+          <div style="padding:11px 14px 16px"><button class="btn"><svg class="ic"><use href="#i-checkcircle"/></svg>Check in &amp; start visit</button></div>
+        </div></div>
+        <figcaption>
+          <div class="cap-t"><span class="step-n">2</span> Check-in &amp; geofence</div>
+          <div class="cap-d">Location is validated against the outlet geofence before the visit opens.
+            Outside the fence? Check-in still proceeds — with a reason logged for the supervisor.</div>
+          <div class="ids"><code>VIS-01</code><code>VIS-02</code><code>VIS-03</code><code>VIS-04</code></div>
+        </figcaption>
+      </figure>
+
+      <!-- 3 · AUDIT -->
+      <figure>
+        <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="statusbar"><span>09:11</span><span class="sb-r">
+            <svg class="ic"><use href="#i-wifioff"/></svg><svg class="ic"><use href="#i-batt"/></svg></span></div>
+          <div class="appbar">
+            <div class="row" style="gap:8px"><svg class="ic mut" style="width:18px;height:18px"><use href="#i-chev"/></svg>
+              <div><div class="title" style="font-size:15px">Shelf audit</div><div class="sub">Step 1 of 4 · Dorobanți</div></div></div>
+          </div>
+          <div class="body scrollcue">
+            <div class="card pad row between" style="background:var(--inset)">
+              <div class="gauge">
+                <svg viewBox="0 0 36 36"><circle class="ring-bg" cx="18" cy="18" r="15.5" fill="none" stroke-width="4"/>
+                  <circle class="ring-fg" cx="18" cy="18" r="15.5" fill="none" stroke-width="4"
+                    stroke-dasharray="97.4" stroke-dashoffset="17.5" transform="rotate(-90 18 18)"/></svg>
+                <div><div class="val">82<span style="font-size:13px">%</span></div><div class="xs mut">Perfect store</div></div>
+              </div>
+              <div class="xs mut" style="text-align:right;line-height:1.7">
+                <div>Availability <b style="color:var(--good)">94%</b></div>
+                <div>Share of shelf <b style="color:var(--warn)">71%</b></div>
+                <div>Price compl. <b style="color:var(--good)">88%</b></div>
+              </div>
+            </div>
+
+            <div class="row between xs mut"><span class="bb" style="color:var(--ink)">MUST-STOCK · availability</span><span>17 / 18</span></div>
+            <div class="card pad">
+              <div class="row between"><div class="grow"><div class="b sm trunc">Veridian Still 0.5L</div><div class="xs mut mono">VRD-STL-050</div></div>
+                <div class="seg" style="width:130px"><span class="on good">In</span><span>Out</span><span>OOS</span></div></div>
+              <div class="bar"></div>
+              <div class="row between"><div class="grow"><div class="b sm trunc">Veridian Sparkling 1L</div><div class="xs mut mono">VRD-SPK-100</div></div>
+                <div class="seg" style="width:130px"><span class="on good">In</span><span>Out</span><span>OOS</span></div></div>
+              <div class="bar"></div>
+              <div class="row between"><div class="grow"><div class="b sm trunc">Veridian Zero 0.5L</div><div class="xs mut mono">VRD-ZRO-050</div></div>
+                <div class="seg" style="width:130px"><span>In</span><span>Out</span><span class="on crit">OOS</span></div></div>
+            </div>
+
+            <div class="card pad row between">
+              <div><div class="b sm">Facings — Veridian</div><div class="xs mut">share of shelf</div></div>
+              <div class="stepper"><b>–</b><span>12</span><b>+</b></div>
+            </div>
+            <div class="row" style="gap:9px">
+              <div class="card pad grow row" style="gap:8px"><svg class="ic" style="color:var(--accent)"><use href="#i-cam"/></svg><span class="sm b">2 photos</span></div>
+              <div class="card pad grow"><div class="xs mut">Shelf price 0.5L</div><div class="row between"><span class="mono b sm">€0.89</span><span class="chip c-good xs">match</span></div></div>
+            </div>
+          </div>
+          <div style="padding:11px 14px 16px"><button class="btn">Save audit · continue</button></div>
+        </div></div>
+        <figcaption>
+          <div class="cap-t"><span class="step-n">3</span> Shelf audit &amp; perfect store</div>
+          <div class="cap-d">Structured capture — must-stock availability, facings for share-of-shelf,
+            price checks, photos — with the weighted score computed live, on-device.</div>
+          <div class="ids"><code>AUD-01</code><code>AUD-02</code><code>AUD-03</code><code>AUD-05</code><code>AUD-06</code></div>
+        </figcaption>
+      </figure>
+
+      <!-- 4 · ORDER -->
+      <figure>
+        <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="statusbar"><span>09:24</span><span class="sb-r">
+            <svg class="ic"><use href="#i-wifioff"/></svg><svg class="ic"><use href="#i-batt"/></svg></span></div>
+          <div class="appbar">
+            <div class="row" style="gap:8px"><svg class="ic mut" style="width:18px;height:18px"><use href="#i-chev"/></svg>
+              <div><div class="title" style="font-size:15px">New order</div><div class="sub">Dorobanți · EUR price list</div></div></div>
+          </div>
+          <div class="body scrollcue">
+            <div class="inp" style="border-radius:9px"><svg class="ic"><use href="#i-search"/></svg><span class="grow">Add from assortment…</span><svg class="ic"><use href="#i-plus"/></svg></div>
+
+            <div class="card pad">
+              <div class="row between"><div class="grow"><div class="b sm trunc">Veridian Still 0.5L</div><div class="xs mut mono">VRD-STL-050 · €0.45</div></div>
+                <div class="stepper"><b>–</b><span>48</span><b>+</b></div></div>
+              <div class="row between" style="margin-top:7px"><span class="chip c-accent"><svg class="ic"><use href="#i-tag"/></svg>−10% vol.</span><span class="mono b sm">€19.44</span></div>
+            </div>
+            <div class="card pad">
+              <div class="row between"><div class="grow"><div class="b sm trunc">Veridian Sparkling 1L</div><div class="xs mut mono">VRD-SPK-100 · €0.89</div></div>
+                <div class="stepper"><b>–</b><span>24</span><b>+</b></div></div>
+              <div class="row between" style="margin-top:7px"><span class="xs mut">no promotion</span><span class="mono b sm">€21.36</span></div>
+            </div>
+            <div class="card pad">
+              <div class="row between"><div class="grow"><div class="b sm trunc">Veridian Citrus 0.33L</div><div class="xs mut mono">VRD-CIT-033 · €0.55</div></div>
+                <div class="stepper"><b>–</b><span>36</span><b>+</b></div></div>
+              <div class="row between" style="margin-top:7px"><span class="chip c-accent"><svg class="ic"><use href="#i-tag"/></svg>BOGO 5+1</span><span class="mono b sm">€16.50</span></div>
+            </div>
+            <div class="banner good" style="margin-top:2px"><svg class="ic"><use href="#i-check"/></svg><span class="grow">Order minimum met (€50)</span></div>
+          </div>
+          <div style="padding:10px 14px 16px;border-top:1px solid var(--border);background:var(--surface)">
+            <div class="row between" style="margin-bottom:9px"><span class="mut sm">3 lines · 108 units · net + VAT</span>
+              <span class="mono bb lg">€57.30</span></div>
+            <button class="btn"><svg class="ic"><use href="#i-check"/></svg>Submit order</button>
+          </div>
+        </div></div>
+        <figcaption>
+          <div class="cap-t"><span class="step-n">4</span> Order capture</div>
+          <div class="cap-d">Built against the outlet's assortment; unit price, promotions, and totals
+            are resolved <b>on-device</b> by the shared pricing engine — identical to the server.</div>
+          <div class="ids"><code>ORD-01</code><code>ORD-02</code><code>ORD-03</code><code>ORD-06</code><code>ORD-07</code></div>
+        </figcaption>
+      </figure>
+
+      <!-- 5 · SYNC -->
+      <figure>
+        <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="statusbar"><span>13:40</span><span class="sb-r">
+            <svg class="ic" style="color:var(--good)"><use href="#i-signal"/></svg><svg class="ic"><use href="#i-batt"/></svg></span></div>
+          <div class="appbar">
+            <div><div class="title">Sync</div><div class="sub">Back online · reconciling</div></div>
+            <div class="av" style="background:var(--good-soft);color:var(--good)"><svg class="ic" style="width:15px;height:15px"><use href="#i-sync"/></svg></div>
+          </div>
+          <div class="body scrollcue">
+            <div class="banner warn"><svg class="ic"><use href="#i-sync"/></svg><span class="grow">Pushing 9 items · uploading 4 photos</span></div>
+            <div class="progress"><i style="width:64%"></i></div>
+
+            <div class="row between xs mut"><span class="bb" style="color:var(--ink)">OUTBOX</span><span>7 done · 1 pending · 1 attention</span></div>
+
+            <div class="card pad row"><div class="avn" style="background:var(--good-soft);color:var(--good)"><svg class="ic" style="width:15px;height:15px"><use href="#i-checkcircle"/></svg></div>
+              <div class="grow"><div class="b sm trunc">Visit · Aurora MiniMarket</div><div class="xs mut mono">mut c1a… · accepted</div></div><span class="chip c-good">Synced</span></div>
+            <div class="card pad row"><div class="avn" style="background:var(--good-soft);color:var(--good)"><svg class="ic" style="width:15px;height:15px"><use href="#i-checkcircle"/></svg></div>
+              <div class="grow"><div class="b sm trunc">Order · Dorobanți €57.30</div><div class="xs mut mono">mut d4f… · accepted</div></div><span class="chip c-good">Synced</span></div>
+            <div class="card pad row"><div class="avn" style="background:var(--warn-soft);color:var(--warn)"><svg class="ic" style="width:15px;height:15px"><use href="#i-sync"/></svg></div>
+              <div class="grow"><div class="b sm trunc">Audit photos · Dorobanți</div><div class="xs mut">2 of 4 uploaded</div></div><span class="chip c-warn">Pending</span></div>
+            <div class="card pad row" style="border-color:color-mix(in srgb,var(--crit) 40%,transparent)">
+              <div class="avn" style="background:var(--crit-soft);color:var(--crit)"><svg class="ic" style="width:15px;height:15px"><use href="#i-alert"/></svg></div>
+              <div class="grow"><div class="b sm trunc">Order · Floreasca</div><div class="xs" style="color:var(--crit)">Rejected · outlet closed</div></div><svg class="ic mut"><use href="#i-chev"/></svg></div>
+          </div>
+          <div style="padding:11px 14px 16px"><button class="btn ghost"><svg class="ic"><use href="#i-sync"/></svg>Sync now</button></div>
+        </div></div>
+        <figcaption>
+          <div class="cap-t"><span class="step-n">5</span> Sync &amp; reconcile</div>
+          <div class="cap-d">On reconnect the outbox pushes idempotently; photos upload out-of-band.
+            Each item shows synced / pending / needs-attention — nothing is ever silently lost.</div>
+          <div class="ids"><code>OFF-04</code><code>OFF-06</code><code>OFF-08</code><code>OFF-09</code></div>
+        </figcaption>
+      </figure>
+
+    </div>
+  </section>
+
+  <!-- ============ BACK OFFICE ============ -->
+  <section class="section">
+    <div class="sec-head">
+      <span class="eyebrow">Back office</span>
+      <h2>Running the operation</h2>
+      <p>Desktop console for supervisors and sales ops — coverage &amp; compliance at a glance, and
+        the master data that drives the field app. Reporting is the read-side of the modules, not a
+        separate system.</p>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div class="browser">
+      <div class="btop"><div class="traffic"><i></i><i></i><i></i></div>
+        <div class="omni"><svg class="ic"><use href="#i-lock"/></svg>app.fieldkit.io/veridian/dashboard</div></div>
+      <div class="console">
+        <nav class="side">
+          <div class="org"><span class="mark"><svg class="ic"><use href="#i-route"/></svg></span>
+            <div><div class="b sm">Veridian</div><div class="xs fnt">Bucharest region</div></div></div>
+          <div class="navi on"><svg class="ic"><use href="#i-chart"/></svg>Dashboard</div>
+          <div class="navi"><svg class="ic"><use href="#i-route"/></svg>Journeys</div>
+          <div class="navi"><svg class="ic"><use href="#i-clip"/></svg>Visits &amp; audits</div>
+          <div class="navi"><svg class="ic"><use href="#i-cart"/></svg>Orders</div>
+          <div class="navgroup">Master data</div>
+          <div class="navi"><svg class="ic"><use href="#i-store"/></svg>Outlets</div>
+          <div class="navi"><svg class="ic"><use href="#i-box"/></svg>Products &amp; pricing</div>
+          <div class="navi"><svg class="ic"><use href="#i-grid"/></svg>Territories</div>
+          <div class="navgroup">Admin</div>
+          <div class="navi"><svg class="ic"><use href="#i-users"/></svg>Users &amp; roles</div>
+        </nav>
+        <div class="main">
+          <div class="page-h"><div><div class="crumb">Veridian / Bucharest North</div><h3>Field performance</h3></div>
+            <span class="pill">This week ▾</span></div>
+
+          <div class="kpis">
+            <div class="kpi"><span class="k-l">Coverage</span><span class="k-v">87%</span>
+              <svg viewBox="0 0 100 26" preserveAspectRatio="none"><polyline points="0,20 20,17 40,18 60,12 80,10 100,7" fill="none" stroke="var(--accent)" stroke-width="2.5"/><circle cx="100" cy="7" r="2.6" fill="var(--accent)"/></svg>
+              <span class="k-f up">▲ 4 pts</span></div>
+            <div class="kpi"><span class="k-l">Strike rate</span><span class="k-v">64%</span>
+              <svg viewBox="0 0 100 26" preserveAspectRatio="none"><polyline points="0,12 20,14 40,11 60,15 80,13 100,16" fill="none" stroke="var(--warn)" stroke-width="2.5"/><circle cx="100" cy="16" r="2.6" fill="var(--warn)"/></svg>
+              <span class="k-f down">▼ 2 pts</span></div>
+            <div class="kpi"><span class="k-l">Perfect store</span><span class="k-v">79</span>
+              <svg viewBox="0 0 100 26" preserveAspectRatio="none"><polyline points="0,18 20,16 40,15 60,13 80,12 100,9" fill="none" stroke="var(--accent)" stroke-width="2.5"/><circle cx="100" cy="9" r="2.6" fill="var(--accent)"/></svg>
+              <span class="k-f up">▲ 3 pts</span></div>
+            <div class="kpi"><span class="k-l">Orders value</span><span class="k-v">€12.4k</span>
+              <svg viewBox="0 0 100 26" preserveAspectRatio="none"><polyline points="0,19 20,15 40,16 60,11 80,8 100,6" fill="none" stroke="var(--good)" stroke-width="2.5"/><circle cx="100" cy="6" r="2.6" fill="var(--good)"/></svg>
+              <span class="k-f up">▲ 11%</span></div>
+          </div>
+
+          <div class="grid2">
+            <div class="panel">
+              <h4>Coverage by territory</h4><div class="ph-sub">planned visits completed · this week</div>
+              <div class="bars">
+                <div class="barrow"><span class="trunc">Bucharest N</span><div class="track"><i style="width:92%"></i></div><span class="mono b" style="text-align:right">92%</span></div>
+                <div class="barrow"><span class="trunc">Bucharest S</span><div class="track"><i style="width:84%"></i></div><span class="mono b" style="text-align:right">84%</span></div>
+                <div class="barrow"><span class="trunc">Ilfov West</span><div class="track"><i class="warn" style="width:68%"></i></div><span class="mono b" style="text-align:right">68%</span></div>
+                <div class="barrow"><span class="trunc">Ploiești</span><div class="track"><i class="crit" style="width:54%"></i></div><span class="mono b" style="text-align:right">54%</span></div>
+              </div>
+            </div>
+            <div class="panel">
+              <h4>Recent field activity</h4><div class="ph-sub">live · via sync</div>
+              <div class="feed">
+                <div class="fitem"><span class="fdot" style="background:var(--good)"></span><div class="grow"><div class="sm b">Order €57.30 · Dorobanți</div><div class="xs mut">Maria I. · 2m ago</div></div></div>
+                <div class="fitem"><span class="fdot" style="background:var(--accent)"></span><div class="grow"><div class="sm b">Audit 82% · Dorobanți</div><div class="xs mut">Maria I. · 2m ago</div></div></div>
+                <div class="fitem"><span class="fdot" style="background:var(--crit)"></span><div class="grow"><div class="sm b">Order rejected · Floreasca</div><div class="xs mut">outlet closed · needs review</div></div></div>
+                <div class="fitem"><span class="fdot" style="background:var(--good)"></span><div class="grow"><div class="sm b">Visit closed · Aurora</div><div class="xs mut">Dan P. · 14m ago</div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption style="margin-top:13px">
+      <div class="cap-t">Supervisor dashboard</div>
+      <div class="cap-d">Coverage, strike rate, perfect-store, and order value — composed from each
+        module's query contracts and integration events.</div>
+      <div class="ids"><code>Reporting &amp; KPIs</code><code>JRN-10</code><code>AUD-09</code></div>
+    </figcaption>
+
+    <!-- OUTLETS -->
+    <div class="browser">
+      <div class="btop"><div class="traffic"><i></i><i></i><i></i></div>
+        <div class="omni"><svg class="ic"><use href="#i-lock"/></svg>app.fieldkit.io/veridian/outlets</div></div>
+      <div class="console">
+        <nav class="side">
+          <div class="org"><span class="mark"><svg class="ic"><use href="#i-route"/></svg></span>
+            <div><div class="b sm">Veridian</div><div class="xs fnt">Bucharest region</div></div></div>
+          <div class="navi"><svg class="ic"><use href="#i-chart"/></svg>Dashboard</div>
+          <div class="navi"><svg class="ic"><use href="#i-route"/></svg>Journeys</div>
+          <div class="navi"><svg class="ic"><use href="#i-clip"/></svg>Visits &amp; audits</div>
+          <div class="navi"><svg class="ic"><use href="#i-cart"/></svg>Orders</div>
+          <div class="navgroup">Master data</div>
+          <div class="navi on"><svg class="ic"><use href="#i-store"/></svg>Outlets</div>
+          <div class="navi"><svg class="ic"><use href="#i-box"/></svg>Products &amp; pricing</div>
+          <div class="navi"><svg class="ic"><use href="#i-grid"/></svg>Territories</div>
+          <div class="navgroup">Admin</div>
+          <div class="navi"><svg class="ic"><use href="#i-users"/></svg>Users &amp; roles</div>
+        </nav>
+        <div class="main">
+          <div class="page-h">
+            <div><div class="crumb">Master data / Outlets</div><h3>Outlets <span class="mut" style="font-weight:500;font-size:14px">· 4,812</span></h3></div>
+            <div class="row" style="gap:8px">
+              <span class="navi" style="padding:7px 11px;color:var(--warn);background:var(--warn-soft);border-radius:8px;font-size:12px"><svg class="ic"><use href="#i-clip"/></svg>3 field proposals</span>
+              <span class="pill on"><svg class="ic" style="width:12px;height:12px;vertical-align:-1px"><use href="#i-plus"/></svg> New</span>
+            </div>
+          </div>
+          <div class="toolbar">
+            <span class="inp grow" style="max-width:260px"><svg class="ic"><use href="#i-search"/></svg>Search outlets…</span>
+            <span class="pill on">Channel: Modern</span>
+            <span class="pill">Territory: Bucharest N</span>
+            <span class="inp"><svg class="ic"><use href="#i-filter"/></svg>Filters</span>
+          </div>
+          <div class="tscroll">
+            <table>
+              <thead><tr><th>Code</th><th>Outlet</th><th>Channel</th><th>Segment</th><th>Territory</th><th>Status</th><th>Frequency</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">OUT-2214</td><td class="b">Select Market Dorobanți</td><td>Modern Trade</td><td>A</td><td>Bucharest N</td><td><span class="chip c-good">Active</span></td><td class="mono">F2 · weekly</td></tr>
+                <tr><td class="mono">OUT-1180</td><td class="b">Aurora MiniMarket</td><td>Traditional</td><td>B</td><td>Bucharest N</td><td><span class="chip c-good">Active</span></td><td class="mono">F1 · weekly</td></tr>
+                <tr><td class="mono">OUT-3055</td><td class="b">Corner Shop Floreasca</td><td>Traditional</td><td>C</td><td>Bucharest N</td><td><span class="chip c-crit">Closed</span></td><td class="mono">—</td></tr>
+                <tr><td class="mono">OUT-2871</td><td class="b">Gara Nord Express</td><td>Impulse</td><td>B</td><td>Bucharest N</td><td><span class="chip c-good">Active</span></td><td class="mono">F4 · monthly</td></tr>
+                <tr><td class="mono">OUT-4102</td><td class="b">Piața 1 Mai Kiosk</td><td>Traditional</td><td>C</td><td>Bucharest N</td><td><span class="chip c-warn">Proposed</span></td><td class="mono">—</td></tr>
+                <tr><td class="mono">OUT-2650</td><td class="b">Verde Deli Herăstrău</td><td>HoReCa</td><td>A</td><td>Bucharest N</td><td><span class="chip c-good">Active</span></td><td class="mono">F2 · weekly</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption style="margin-top:13px">
+      <div class="cap-t">Outlets — master data</div>
+      <div class="cap-d">The trade universe: classified, territory-assigned, lifecycle-managed.
+        Field-originated corrections land in a review queue rather than editing master data directly.</div>
+      <div class="ids"><code>OUT-01</code><code>OUT-03</code><code>OUT-04</code><code>OUT-06</code></div>
+    </figcaption>
+
+    <!-- PRODUCTS & PRICING -->
+    <div class="browser">
+      <div class="btop"><div class="traffic"><i></i><i></i><i></i></div>
+        <div class="omni"><svg class="ic"><use href="#i-lock"/></svg>app.fieldkit.io/veridian/products</div></div>
+      <div class="console">
+        <nav class="side">
+          <div class="org"><span class="mark"><svg class="ic"><use href="#i-route"/></svg></span>
+            <div><div class="b sm">Veridian</div><div class="xs fnt">Bucharest region</div></div></div>
+          <div class="navi"><svg class="ic"><use href="#i-chart"/></svg>Dashboard</div>
+          <div class="navi"><svg class="ic"><use href="#i-route"/></svg>Journeys</div>
+          <div class="navi"><svg class="ic"><use href="#i-clip"/></svg>Visits &amp; audits</div>
+          <div class="navi"><svg class="ic"><use href="#i-cart"/></svg>Orders</div>
+          <div class="navgroup">Master data</div>
+          <div class="navi"><svg class="ic"><use href="#i-store"/></svg>Outlets</div>
+          <div class="navi on"><svg class="ic"><use href="#i-box"/></svg>Products &amp; pricing</div>
+          <div class="navi"><svg class="ic"><use href="#i-grid"/></svg>Territories</div>
+          <div class="navgroup">Admin</div>
+          <div class="navi"><svg class="ic"><use href="#i-users"/></svg>Users &amp; roles</div>
+        </nav>
+        <div class="main">
+          <div class="page-h">
+            <div><div class="crumb">Master data / Products &amp; pricing</div><h3>Products <span class="mut" style="font-weight:500;font-size:14px">· 128 SKUs</span></h3></div>
+            <div class="row" style="gap:8px"><span class="pill on"><svg class="ic" style="width:12px;height:12px;vertical-align:-1px"><use href="#i-money"/></svg> EUR · Modern Trade ▾</span>
+              <span class="pill"><svg class="ic" style="width:12px;height:12px;vertical-align:-1px"><use href="#i-plus"/></svg> New</span></div>
+          </div>
+          <div class="toolbar">
+            <span class="inp grow" style="max-width:240px"><svg class="ic"><use href="#i-search"/></svg>Search SKUs…</span>
+            <span class="pill on">Category: Water</span><span class="pill">Brand: Veridian</span>
+            <span class="inp"><svg class="ic"><use href="#i-filter"/></svg>Filters</span>
+          </div>
+          <div class="tscroll">
+            <table>
+              <thead><tr><th>Code</th><th>Product</th><th>Category</th><th>Pack</th><th>Tax</th><th style="text-align:right">List price</th><th>MSL</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">VRD-STL-050</td><td class="b">Veridian Still 0.5L</td><td>Water</td><td class="mono">24×</td><td class="mono">9%</td><td class="mono" style="text-align:right">€0.45</td><td><span class="chip c-accent">Must-stock</span></td></tr>
+                <tr><td class="mono">VRD-SPK-100</td><td class="b">Veridian Sparkling 1L</td><td>Water</td><td class="mono">12×</td><td class="mono">9%</td><td class="mono" style="text-align:right">€0.89</td><td><span class="chip c-accent">Must-stock</span></td></tr>
+                <tr><td class="mono">VRD-CIT-033</td><td class="b">Veridian Citrus 0.33L</td><td>Soft drinks</td><td class="mono">24×</td><td class="mono">19%</td><td class="mono" style="text-align:right">€0.55</td><td><span class="chip c-accent">Must-stock</span></td></tr>
+                <tr><td class="mono">VRD-CB-025</td><td class="b">Veridian Cold Brew 0.25L</td><td>Coffee</td><td class="mono">12×</td><td class="mono">19%</td><td class="mono" style="text-align:right">€1.20</td><td><span class="chip c-ghost">Optional</span></td></tr>
+                <tr><td class="mono">VRD-ZRO-050</td><td class="b">Veridian Zero 0.5L</td><td>Soft drinks</td><td class="mono">24×</td><td class="mono">19%</td><td class="mono" style="text-align:right">€0.65</td><td><span class="chip c-accent">Must-stock</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="panel" style="margin-top:16px">
+            <div class="row between" style="margin-bottom:11px"><h4 style="margin:0">Active promotions</h4><span class="chip c-ghost">3 live</span></div>
+            <div class="feed">
+              <div class="fitem"><span class="fdot" style="background:var(--accent)"></span><div class="grow row between"><div><span class="b sm">−10% volume</span> <span class="xs mut">· Still 0.5L · 48+ units</span></div><span class="xs mut mono">until 31 Aug</span></div></div>
+              <div class="fitem"><span class="fdot" style="background:var(--accent)"></span><div class="grow row between"><div><span class="b sm">BOGO 5+1</span> <span class="xs mut">· Citrus 0.33L</span></div><span class="xs mut mono">until 15 Aug</span></div></div>
+              <div class="fitem"><span class="fdot" style="background:var(--accent)"></span><div class="grow row between"><div><span class="b sm">−€0.15 fixed</span> <span class="xs mut">· Sparkling 1L · Modern Trade</span></div><span class="xs mut mono">until 31 Aug</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption style="margin-top:13px">
+      <div class="cap-t">Products &amp; pricing — master data</div>
+      <div class="cap-d">Catalog, assortment/MSL, and the price list that drives on-device pricing.
+        Promotions carry type, scope, and validity — resolved deterministically in the field.</div>
+      <div class="ids"><code>PRD-01</code><code>PRD-02</code><code>PRD-03</code><code>PRD-05</code><code>PRD-06</code></div>
+    </figcaption>
+
+    <!-- TERRITORIES -->
+    <div class="browser">
+      <div class="btop"><div class="traffic"><i></i><i></i><i></i></div>
+        <div class="omni"><svg class="ic"><use href="#i-lock"/></svg>app.fieldkit.io/veridian/territories</div></div>
+      <div class="console">
+        <nav class="side">
+          <div class="org"><span class="mark"><svg class="ic"><use href="#i-route"/></svg></span>
+            <div><div class="b sm">Veridian</div><div class="xs fnt">Bucharest region</div></div></div>
+          <div class="navi"><svg class="ic"><use href="#i-chart"/></svg>Dashboard</div>
+          <div class="navi"><svg class="ic"><use href="#i-route"/></svg>Journeys</div>
+          <div class="navi"><svg class="ic"><use href="#i-clip"/></svg>Visits &amp; audits</div>
+          <div class="navi"><svg class="ic"><use href="#i-cart"/></svg>Orders</div>
+          <div class="navgroup">Master data</div>
+          <div class="navi"><svg class="ic"><use href="#i-store"/></svg>Outlets</div>
+          <div class="navi"><svg class="ic"><use href="#i-box"/></svg>Products &amp; pricing</div>
+          <div class="navi on"><svg class="ic"><use href="#i-grid"/></svg>Territories</div>
+          <div class="navgroup">Admin</div>
+          <div class="navi"><svg class="ic"><use href="#i-users"/></svg>Users &amp; roles</div>
+        </nav>
+        <div class="main">
+          <div class="page-h"><div><div class="crumb">Master data / Territories</div><h3>Territories <span class="mut" style="font-weight:500;font-size:14px">· 8</span></h3></div>
+            <span class="pill"><svg class="ic" style="width:12px;height:12px;vertical-align:-1px"><use href="#i-plus"/></svg> New territory</span></div>
+          <div class="grid2" style="margin-top:0">
+            <div class="tscroll" style="align-self:start">
+              <table>
+                <thead><tr><th>Territory</th><th>Assigned rep</th><th style="text-align:right">Outlets</th><th>Coverage</th><th>Status</th></tr></thead>
+                <tbody>
+                  <tr><td class="b">Bucharest N</td><td>Maria Ionescu</td><td class="mono" style="text-align:right">312</td><td class="mono" style="color:var(--good)">92%</td><td><span class="chip c-good">Active</span></td></tr>
+                  <tr><td class="b">Bucharest S</td><td>Dan Pop</td><td class="mono" style="text-align:right">288</td><td class="mono">84%</td><td><span class="chip c-good">Active</span></td></tr>
+                  <tr><td class="b">Ilfov West</td><td>Ana Radu</td><td class="mono" style="text-align:right">205</td><td class="mono" style="color:var(--warn)">68%</td><td><span class="chip c-good">Active</span></td></tr>
+                  <tr><td class="b">Ploiești</td><td class="mut">— unassigned</td><td class="mono" style="text-align:right">176</td><td class="mono" style="color:var(--crit)">54%</td><td><span class="chip c-crit">Cover needed</span></td></tr>
+                  <tr><td class="b">Brașov</td><td>Vlad Ene</td><td class="mono" style="text-align:right">240</td><td class="mono">88%</td><td><span class="chip c-good">Active</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="panel">
+              <div class="row between"><h4 style="margin:0">Bucharest North</h4><span class="chip c-good">Active</span></div>
+              <div class="ph-sub">312 outlets · F-mix weekly</div>
+              <div class="card pad row" style="margin-bottom:12px">
+                <div class="av">MI</div><div class="grow"><div class="b sm">Maria Ionescu</div><div class="xs mut">Field Rep · since 12 Feb</div></div>
+                <span class="pill">Reassign</span>
+              </div>
+              <div class="xs mut b" style="margin-bottom:7px">CHANNEL MIX</div>
+              <div class="bars">
+                <div class="barrow" style="grid-template-columns:88px 1fr 34px"><span>Traditional</span><div class="track"><i style="width:48%"></i></div><span class="mono" style="text-align:right">48%</span></div>
+                <div class="barrow" style="grid-template-columns:88px 1fr 34px"><span>Modern</span><div class="track"><i style="width:40%"></i></div><span class="mono" style="text-align:right">40%</span></div>
+                <div class="barrow" style="grid-template-columns:88px 1fr 34px"><span>HoReCa</span><div class="track"><i style="width:12%"></i></div><span class="mono" style="text-align:right">12%</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption style="margin-top:13px">
+      <div class="cap-t">Territories</div>
+      <div class="cap-d">Carve the market into territories, assign one active rep each. This assignment
+        drives journey generation and defines the rep's offline data scope.</div>
+      <div class="ids"><code>ORG-03</code><code>ORG-04</code><code>ORG-05</code><code>A4</code></div>
+    </figcaption>
+
+    <!-- JOURNEY PLANNING -->
+    <div class="browser">
+      <div class="btop"><div class="traffic"><i></i><i></i><i></i></div>
+        <div class="omni"><svg class="ic"><use href="#i-lock"/></svg>app.fieldkit.io/veridian/journeys/plan</div></div>
+      <div class="console">
+        <nav class="side">
+          <div class="org"><span class="mark"><svg class="ic"><use href="#i-route"/></svg></span>
+            <div><div class="b sm">Veridian</div><div class="xs fnt">Bucharest region</div></div></div>
+          <div class="navi"><svg class="ic"><use href="#i-chart"/></svg>Dashboard</div>
+          <div class="navi on"><svg class="ic"><use href="#i-route"/></svg>Journeys</div>
+          <div class="navi"><svg class="ic"><use href="#i-clip"/></svg>Visits &amp; audits</div>
+          <div class="navi"><svg class="ic"><use href="#i-cart"/></svg>Orders</div>
+          <div class="navgroup">Master data</div>
+          <div class="navi"><svg class="ic"><use href="#i-store"/></svg>Outlets</div>
+          <div class="navi"><svg class="ic"><use href="#i-box"/></svg>Products &amp; pricing</div>
+          <div class="navi"><svg class="ic"><use href="#i-grid"/></svg>Territories</div>
+          <div class="navgroup">Admin</div>
+          <div class="navi"><svg class="ic"><use href="#i-users"/></svg>Users &amp; roles</div>
+        </nav>
+        <div class="main">
+          <div class="page-h"><div><div class="crumb">Field ops / Journey planning</div><h3>Journey plan</h3></div>
+            <div class="row" style="gap:8px"><span class="pill on"><svg class="ic" style="width:12px;height:12px;vertical-align:-1px"><use href="#i-user"/></svg> Maria Ionescu ▾</span>
+              <span class="pill"><svg class="ic" style="width:12px;height:12px;vertical-align:-1px"><use href="#i-sync"/></svg> Generate</span></div>
+          </div>
+          <div class="toolbar">
+            <span class="pill on">Cycle: Weekly</span><span class="pill">Week 31 · 28 Jul – 1 Aug</span>
+            <span class="grow"></span>
+            <span class="chip c-ghost mono">F1 weekly</span><span class="chip c-ghost mono">F2 2×/wk</span><span class="chip c-ghost mono">F4 monthly</span>
+          </div>
+          <div class="tscroll" style="border:none;background:transparent;overflow-x:auto">
+            <div class="week">
+              <div class="daycol"><div class="dh">Mon <span class="mono">5</span></div>
+                <div class="stopchip">Aurora MiniMarket<div class="xs mut mono">F1 · Trad</div></div>
+                <div class="stopchip">Select Dorobanți<div class="xs mut mono">F2 · Modern</div></div>
+                <div class="stopchip">Verde Deli<div class="xs mut mono">F2 · HoReCa</div></div>
+                <div class="xs fnt" style="text-align:center">+2 more</div>
+              </div>
+              <div class="daycol"><div class="dh">Tue <span class="mono">6</span></div>
+                <div class="stopchip">Gara Nord Express<div class="xs mut mono">F4 · Impulse</div></div>
+                <div class="stopchip">Piața Amzei<div class="xs mut mono">F1 · Trad</div></div>
+                <div class="xs fnt" style="text-align:center">+4 more</div>
+              </div>
+              <div class="daycol"><div class="dh">Wed <span class="mono">5</span></div>
+                <div class="stopchip">Select Dorobanți<div class="xs mut mono">F2 · Modern</div></div>
+                <div class="stopchip">Corner Floreasca<div class="xs mut mono">F1 · Trad</div></div>
+                <div class="xs fnt" style="text-align:center">+3 more</div>
+              </div>
+              <div class="daycol"><div class="dh">Thu <span class="mono">6</span></div>
+                <div class="stopchip">Verde Deli<div class="xs mut mono">F2 · HoReCa</div></div>
+                <div class="stopchip">Market Băneasa<div class="xs mut mono">F1 · Modern</div></div>
+                <div class="xs fnt" style="text-align:center">+4 more</div>
+              </div>
+              <div class="daycol"><div class="dh">Fri <span class="mono">3</span></div>
+                <div class="stopchip">Kiosk 1 Mai<div class="xs mut mono">F4 · Trad</div></div>
+                <div class="stopchip">Aurora MiniMarket<div class="xs mut mono">F1 · Trad</div></div>
+                <div class="xs fnt" style="text-align:center">+1 more</div>
+              </div>
+            </div>
+          </div>
+          <div class="row xs mut" style="margin-top:12px;gap:6px"><svg class="ic" style="width:13px;height:13px"><use href="#i-info"/></svg>
+            25 stops scheduled · capacity 6/day · frequency compliance <b style="color:var(--good)">100%</b></div>
+        </div>
+      </div>
+    </div>
+    <figcaption style="margin-top:13px">
+      <div class="cap-t">Journey planning</div>
+      <div class="cap-d">Generate a rep's week from call frequency + territory + working capacity.
+        Not route optimization — rules-based sequencing the rep can adjust in the field.</div>
+      <div class="ids"><code>JRN-01</code><code>JRN-02</code><code>JRN-03</code><code>JRN-04</code></div>
+    </figcaption>
+
+    <!-- USERS & ROLES -->
+    <div class="browser">
+      <div class="btop"><div class="traffic"><i></i><i></i><i></i></div>
+        <div class="omni"><svg class="ic"><use href="#i-lock"/></svg>app.fieldkit.io/veridian/admin/users</div></div>
+      <div class="console">
+        <nav class="side">
+          <div class="org"><span class="mark"><svg class="ic"><use href="#i-route"/></svg></span>
+            <div><div class="b sm">Veridian</div><div class="xs fnt">Bucharest region</div></div></div>
+          <div class="navi"><svg class="ic"><use href="#i-chart"/></svg>Dashboard</div>
+          <div class="navi"><svg class="ic"><use href="#i-route"/></svg>Journeys</div>
+          <div class="navi"><svg class="ic"><use href="#i-clip"/></svg>Visits &amp; audits</div>
+          <div class="navi"><svg class="ic"><use href="#i-cart"/></svg>Orders</div>
+          <div class="navgroup">Master data</div>
+          <div class="navi"><svg class="ic"><use href="#i-store"/></svg>Outlets</div>
+          <div class="navi"><svg class="ic"><use href="#i-box"/></svg>Products &amp; pricing</div>
+          <div class="navi"><svg class="ic"><use href="#i-grid"/></svg>Territories</div>
+          <div class="navgroup">Admin</div>
+          <div class="navi on"><svg class="ic"><use href="#i-users"/></svg>Users &amp; roles</div>
+        </nav>
+        <div class="main">
+          <div class="page-h"><div><div class="crumb">Admin / Users &amp; roles</div><h3>Users <span class="mut" style="font-weight:500;font-size:14px">· 34</span></h3></div>
+            <span class="pill"><svg class="ic" style="width:12px;height:12px;vertical-align:-1px"><use href="#i-plus"/></svg> Invite user</span></div>
+          <div class="grid2" style="margin-top:0">
+            <div class="tscroll" style="align-self:start">
+              <table>
+                <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Device</th></tr></thead>
+                <tbody>
+                  <tr><td class="b">Maria Ionescu</td><td><span class="chip c-info">Field Rep</span></td><td><span class="chip c-good">Active</span></td><td class="mono xs">iPhone 13 <span class="mut">·1</span></td></tr>
+                  <tr><td class="b">Dan Pop</td><td><span class="chip c-info">Field Rep</span></td><td><span class="chip c-good">Active</span></td><td class="mono xs">Pixel 7</td></tr>
+                  <tr><td class="b">Ana Radu</td><td><span class="chip c-ghost">Supervisor</span></td><td><span class="chip c-good">Active</span></td><td class="mut xs">—</td></tr>
+                  <tr><td class="b">Elena Vlad</td><td><span class="chip c-ghost">Sales Ops</span></td><td><span class="chip c-good">Active</span></td><td class="mut xs">—</td></tr>
+                  <tr><td class="b">Victor Toma</td><td><span class="chip c-accent">Tenant Admin</span></td><td><span class="chip c-good">Active</span></td><td class="mut xs">—</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="panel">
+              <div class="row between"><h4 style="margin:0">Role · Field Rep</h4><svg class="ic mut" style="width:16px;height:16px"><use href="#i-shield"/></svg></div>
+              <div class="ph-sub">12 users · permission bundle</div>
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <div class="row between" style="padding:8px 0;border-bottom:1px solid var(--border)"><span class="sm mono">journey:read</span><span class="toggle"></span></div>
+                <div class="row between" style="padding:8px 0;border-bottom:1px solid var(--border)"><span class="sm mono">visit:write</span><span class="toggle"></span></div>
+                <div class="row between" style="padding:8px 0;border-bottom:1px solid var(--border)"><span class="sm mono">order:submit</span><span class="toggle"></span></div>
+                <div class="row between" style="padding:8px 0;border-bottom:1px solid var(--border)"><span class="sm mono">outlet:write</span><span class="toggle off"></span></div>
+                <div class="row between" style="padding:8px 0;border-bottom:1px solid var(--border)"><span class="sm mono">pricing:manage</span><span class="toggle off"></span></div>
+                <div class="row between" style="padding:8px 0"><span class="sm mono">users:admin</span><span class="toggle off"></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption style="margin-top:13px">
+      <div class="cap-t">Users &amp; roles</div>
+      <div class="cap-d">Provision users; roles are permission bundles (modules check permissions, never
+        role names). One active device per field rep. Identities live in Keycloak.</div>
+      <div class="ids"><code>IAM-03</code><code>IAM-04</code><code>IAM-05</code><code>IAM-07</code></div>
+    </figcaption>
+
+    <!-- WORKFLOW / AUDIT BUILDER -->
+    <div class="browser">
+      <div class="btop"><div class="traffic"><i></i><i></i><i></i></div>
+        <div class="omni"><svg class="ic"><use href="#i-lock"/></svg>app.fieldkit.io/veridian/config/visit-workflow</div></div>
+      <div class="console">
+        <nav class="side">
+          <div class="org"><span class="mark"><svg class="ic"><use href="#i-route"/></svg></span>
+            <div><div class="b sm">Veridian</div><div class="xs fnt">Bucharest region</div></div></div>
+          <div class="navi"><svg class="ic"><use href="#i-chart"/></svg>Dashboard</div>
+          <div class="navi"><svg class="ic"><use href="#i-route"/></svg>Journeys</div>
+          <div class="navi on"><svg class="ic"><use href="#i-clip"/></svg>Visits &amp; audits</div>
+          <div class="navi"><svg class="ic"><use href="#i-cart"/></svg>Orders</div>
+          <div class="navgroup">Master data</div>
+          <div class="navi"><svg class="ic"><use href="#i-store"/></svg>Outlets</div>
+          <div class="navi"><svg class="ic"><use href="#i-box"/></svg>Products &amp; pricing</div>
+          <div class="navi"><svg class="ic"><use href="#i-grid"/></svg>Territories</div>
+          <div class="navgroup">Admin</div>
+          <div class="navi"><svg class="ic"><use href="#i-users"/></svg>Users &amp; roles</div>
+        </nav>
+        <div class="main">
+          <div class="page-h"><div><div class="crumb">Configuration / Visit workflow</div>
+            <h3 class="row" style="gap:9px">Visit workflow <span class="chip c-accent">config-driven · Modern Trade</span></h3></div>
+            <span class="pill on">Save changes</span></div>
+          <div class="grid2" style="margin-top:0">
+            <div class="panel">
+              <h4>Visit steps</h4><div class="ph-sub">drag to reorder · toggle to require</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div class="stepitem"><span class="handle">⋮⋮</span><svg class="ic" style="color:var(--accent)"><use href="#i-pin"/></svg><span class="grow b sm">Check-in &amp; geofence</span><span class="xs mut">required</span><span class="toggle"></span></div>
+                <div class="stepitem"><span class="handle">⋮⋮</span><svg class="ic" style="color:var(--accent)"><use href="#i-clip"/></svg><span class="grow b sm">Shelf audit</span><span class="xs mut">required</span><span class="toggle"></span></div>
+                <div class="stepitem"><span class="handle">⋮⋮</span><svg class="ic" style="color:var(--accent)"><use href="#i-cart"/></svg><span class="grow b sm">Take order</span><span class="xs mut">required</span><span class="toggle"></span></div>
+                <div class="stepitem"><span class="handle">⋮⋮</span><svg class="ic mut"><use href="#i-cam"/></svg><span class="grow b sm">Fridge photo</span><span class="xs mut">optional</span><span class="toggle off"></span></div>
+                <div class="stepitem"><span class="handle">⋮⋮</span><svg class="ic mut"><use href="#i-check"/></svg><span class="grow b sm">Signature</span><span class="xs mut">optional</span><span class="toggle off"></span></div>
+                <button class="btn ghost" style="margin-top:2px"><svg class="ic"><use href="#i-plus"/></svg>Add step</button>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:16px">
+              <div class="panel">
+                <h4>Perfect-store weights</h4><div class="ph-sub">must total 100%</div>
+                <div style="display:flex;flex-direction:column;gap:13px">
+                  <div><div class="row between xs mut" style="margin-bottom:5px"><span class="b" style="color:var(--ink)">Availability</span></div>
+                    <div class="slider"><div class="strack"><i style="width:40%"></i><b style="left:40%"></b></div><span class="sval">40%</span></div></div>
+                  <div><div class="row between xs mut" style="margin-bottom:5px"><span class="b" style="color:var(--ink)">Visibility · share of shelf</span></div>
+                    <div class="slider"><div class="strack"><i style="width:35%"></i><b style="left:35%"></b></div><span class="sval">35%</span></div></div>
+                  <div><div class="row between xs mut" style="margin-bottom:5px"><span class="b" style="color:var(--ink)">Price compliance</span></div>
+                    <div class="slider"><div class="strack"><i style="width:25%"></i><b style="left:25%"></b></div><span class="sval">25%</span></div></div>
+                </div>
+              </div>
+              <div class="panel">
+                <div class="row between"><h4 style="margin:0">Survey questions</h4><span class="chip c-ghost">4</span></div>
+                <div class="ph-sub" style="margin-bottom:4px">shown during the shelf audit</div>
+                <div class="qrow"><span class="grow sm b">Secondary display present?</span><span class="qtype">yes/no</span></div>
+                <div class="qrow"><span class="grow sm b">Competitor promotion?</span><span class="qtype">single</span></div>
+                <div class="qrow"><span class="grow sm b">Fridge stock level</span><span class="qtype">number</span></div>
+                <div class="qrow"><span class="grow sm b">Shelf photo</span><span class="qtype">photo</span></div>
+                <button class="btn ghost" style="margin-top:11px"><svg class="ic"><use href="#i-plus"/></svg>Add question</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption style="margin-top:13px">
+      <div class="cap-t">Visit workflow &amp; audit builder <span class="chip c-accent" style="vertical-align:1px">customization</span></div>
+      <div class="cap-d">The "highly customizable" story, made concrete: per-channel visit steps, weighted
+        perfect-store scoring, and survey forms are <b>tenant configuration</b>, not code.</div>
+      <div class="ids"><code>A1</code><code>ADR-0009</code><code>VIS-03</code><code>AUD-04</code><code>AUD-06</code><code>AUD-07</code></div>
+    </figcaption>
+
+    <div class="note"><svg class="ic"><use href="#i-info"/></svg>
+      <span>These are design mockups, not the running app — fictional tenant (“Veridian”) and
+      data. They realize the flows in the functional specs (<code>product/</code>) and the shadcn/ui +
+      Tailwind direction from <code>ADR-0004</code> / decision <code>A7</code>.</span></div>
+  </section>
+
+  <footer class="foot">
+    <span><b>FieldKit</b> — SFA wireframes · field app + back office</span>
+    <span class="mono xs">golden path · 5 field screens · 7 back-office views</span>
+  </footer>
+
+</div>

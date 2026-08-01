@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="FieldKit.AppHost/FieldKit.AppHost.csproj" />
+  <Project Path="FieldKit.Server/FieldKit.Server.csproj" />
+  <Project Path="frontend/frontend.esproj">
+    <Build />
+    <Deploy />
+  </Project>
+</Solution>

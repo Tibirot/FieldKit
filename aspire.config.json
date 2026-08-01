@@ -1,0 +1,5 @@
+{
+  "appHost": {
+    "path": "FieldKit.AppHost/FieldKit.AppHost.csproj"
+  }
+}
