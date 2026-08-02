@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
@@ -15,10 +15,19 @@ import { describe, expect, it } from "vitest";
  * So the removal condition is a test rather than a comment. If Next changes what it declares — for
  * any reason, in either direction — this fails and forces someone to re-check whether the override
  * is still needed.
+ *
+ * Assertions read `package-lock.json`, not `node_modules`: the lockfile is the artifact that proves
+ * *every* copy in the tree is patched (a nested `next/node_modules/postcss@8.4.31` is exactly what
+ * this change removed), and it doesn't depend on install state — `sharp` is an optional dependency
+ * and can legitimately be absent.
  */
 
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 const readJson = (p: string) => JSON.parse(readFileSync(here(p), "utf8"));
+
+const lockfile = readJson("./package-lock.json") as {
+  packages: Record<string, { version?: string; dependencies?: Record<string, string>; optionalDependencies?: Record<string, string> }>;
+};
 
 /** `"8.5.25"` → `[8, 5, 25]`, for comparison without pulling in a semver dependency. */
 function parseVersion(version: string): number[] {
@@ -26,6 +35,11 @@ function parseVersion(version: string): number[] {
 }
 
 function atLeast(actual: string, minimum: string): boolean {
+  // A prerelease sorts below its release (0.35.0-rc.1 < 0.35.0). Unreachable through `^` ranges,
+  // which don't match prereleases, but treat it as failing rather than silently passing.
+  if (actual.includes("-") && parseVersion(actual).join() === parseVersion(minimum).join()) {
+    return false;
+  }
   const a = parseVersion(actual);
   const m = parseVersion(minimum);
   for (let i = 0; i < Math.max(a.length, m.length); i++) {
@@ -33,6 +47,14 @@ function atLeast(actual: string, minimum: string): boolean {
     if (diff !== 0) return diff > 0;
   }
   return true;
+}
+
+/** Every resolved copy of `name` anywhere in the tree, keyed by its lockfile path. */
+function resolvedCopies(name: string): [string, string][] {
+  const pattern = new RegExp(`(?:^|/)node_modules/${name}$`);
+  return Object.entries(lockfile.packages)
+    .filter(([path, entry]) => pattern.test(path) && entry.version)
+    .map(([path, entry]) => [path, entry.version!]);
 }
 
 /**
@@ -52,13 +74,13 @@ const MINIMUM_PATCHED = {
 } as const;
 
 describe("dependency overrides", () => {
-  const next = readJson("./node_modules/next/package.json");
+  const next = lockfile.packages["node_modules/next"];
 
   it.each(Object.entries(NEXT_DECLARATIONS_WHEN_OVERRIDDEN))(
     "next still declares %s the way it did when the override was added",
     (path, expected) => {
-      const [field, name] = path.split(".");
-      const actual = next[field]?.[name];
+      const [field, name] = path.split(".") as ["dependencies" | "optionalDependencies", string];
+      const actual = next?.[field]?.[name];
 
       expect(
         actual,
@@ -71,19 +93,53 @@ describe("dependency overrides", () => {
   );
 
   it.each(Object.entries(MINIMUM_PATCHED))(
-    "%s resolves to a patched version everywhere",
+    "every resolved copy of %s is patched",
     (name, minimum) => {
-      const installed = readJson(`./node_modules/${name}/package.json`).version;
+      const copies = resolvedCopies(name);
+      expect(copies.length, `no ${name} found in the lockfile`).toBeGreaterThan(0);
+
+      const vulnerable = copies
+        .filter(([, version]) => !atLeast(version, minimum))
+        .map(([path, version]) => `${path}@${version}`);
 
       expect(
-        atLeast(installed, minimum),
-        `${name}@${installed} is below the patched ${minimum} — the override is not taking effect.`,
-      ).toBe(true);
+        vulnerable,
+        `below the patched ${minimum} — the override is not reaching every copy.`,
+      ).toEqual([]);
     },
   );
 
   it("has an override for every package the guard covers", () => {
     const overrides = readJson("./package.json").overrides ?? {};
     expect(Object.keys(overrides).sort()).toEqual(Object.keys(MINIMUM_PATCHED).sort());
+  });
+});
+
+/**
+ * `sharp` is the half of this the build cannot check: Next loads it only at runtime for image
+ * optimization, so `next build` never touches it and a green CI proves nothing about the 0.34→0.35
+ * bump. This round-trips a real encode/decode to catch the likely failure — a native/ABI break —
+ * though it can't prove every API Next calls is unchanged.
+ *
+ * Skipped when the optional dependency isn't installed, rather than failing a legitimate tree.
+ */
+const sharpInstalled = existsSync(here("./node_modules/sharp/package.json"));
+
+describe.skipIf(!sharpInstalled)("sharp (overridden to ^0.35.0)", () => {
+  it("loads its native binding and round-trips an image", async () => {
+    const sharp = (await import("sharp")).default;
+
+    const png = await sharp({
+      create: { width: 4, height: 4, channels: 3, background: { r: 255, g: 0, b: 0 } },
+    })
+      .png()
+      .toBuffer();
+
+    const resized = await sharp(png).resize(2, 2).png().toBuffer();
+    const meta = await sharp(resized).metadata();
+
+    expect(meta.width).toBe(2);
+    expect(meta.height).toBe(2);
+    expect(meta.format).toBe("png");
   });
 });

@@ -86,14 +86,22 @@ Per [B8](../product/decisions-and-assumptions.md#b8--privacy--gdpr-posture):
   | GHSA | Sev | Package | Patched | Override |
   |---|---|---|---|---|
   | [GHSA-r28c-9q8g-f849](https://github.com/advisories/GHSA-r28c-9q8g-f849) | high | postcss | 8.5.18 | `^8.5.18` |
-  | [GHSA-6g55-p6wh-862q](https://github.com/advisories/GHSA-6g55-p6wh-862q) | high | postcss | 8.5.12 | ″ |
-  | [GHSA-qx2v-qp2m-jg93](https://github.com/advisories/GHSA-qx2v-qp2m-jg93) | medium | postcss | 8.5.10 | ″ |
+  | [GHSA-6g55-p6wh-862q](https://github.com/advisories/GHSA-6g55-p6wh-862q) | high | postcss | 8.5.12 | `^8.5.18` |
+  | [GHSA-qx2v-qp2m-jg93](https://github.com/advisories/GHSA-qx2v-qp2m-jg93) | moderate | postcss | 8.5.10 | `^8.5.18` |
   | [GHSA-f88m-g3jw-g9cj](https://github.com/advisories/GHSA-f88m-g3jw-g9cj) | high | sharp | 0.35.0 | `^0.35.0` |
 
   An override is a standing deviation from what a maintainer declared, so it is **not** left to rot:
   `frontend/overrides.test.ts` fails the build the moment Next changes either declaration, forcing a
-  re-evaluation rather than trusting anyone to notice. Ranges rather than exact pins are deliberate —
-  a later regeneration picks up further patches without editing this table.
+  re-evaluation rather than trusting anyone to notice, and separately asserts that *every* resolved
+  copy in the lockfile is patched — a nested copy is how these hid in the first place. Ranges rather
+  than exact pins are deliberate: a later regeneration picks up further patches without editing this
+  table.
+
+  **Residual risk, sharp.** `0.34 → 0.35` is a minor bump on a `0.x` line, so semver permits breakage,
+  and Next loads sharp only at runtime for image optimization — `next build` never touches it. The
+  guard round-trips an encode/resize/decode to catch a native or ABI break, which is the likely
+  failure, but cannot prove every API Next calls is unchanged. The app uses no `next/image` today;
+  first real exposure is whenever it does, and that work should re-verify.
 - **Dependabot** covers what a manual pin can't: *security* updates open a PR per advisory, and
   *version* updates ([`.github/dependabot.yml`](../../.github/dependabot.yml)) keep npm, NuGet, and
   GitHub Actions current. Minor/patch are grouped into one PR per ecosystem (weekly for npm and
