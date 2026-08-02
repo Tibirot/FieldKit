@@ -38,9 +38,14 @@ Turn the scaffold into a clean skeleton the rest hangs off.
   `AggregateRoot` raises integration events → written to a per-module `outbox_message` table in the
   same transaction (interceptor) → `OutboxProcessor` claims with `FOR UPDATE SKIP LOCKED` and
   delivers to handlers, idempotently. Verified on real Postgres — *[messaging slice]*
+- [x] **Module hosting** (`IModule` self-registration in `FieldKit.Web`) + the **first real module
+  (`Catalog`)** replacing the sample `WeatherForecast`. The AppHost boots the whole thing on
+  Postgres and `POST/GET /api/products` answers from the module — verified end-to-end with
+  `WebApplicationFactory<Program>` + real Postgres. A temporary `DevTenantContext` stands in until
+  IAM. — *[module-hosting slice]* **← the modular monolith now runs.**
 - [ ] **Per-tenant row-version stamping** (the `IReferenceChangeFeed` primitive) — lands with the sync slices
-- [ ] Module hosting pattern (`IModule` self-registration) + first real module replacing the sample
-  `WeatherForecast`
+- [ ] **Per-module EF migrations** — replace the temporary `SchemaInitializer` (`EnsureCreated`),
+  which is all-or-nothing per database and stops working at the second module
 - [ ] **Migrate the front end Vite → Next.js** (App Router) + **shadcn/ui & design tokens**
   ([ADR-0004](architecture/adr/0004-nextjs-offline-first-frontend.md)); **next-intl** i18n scaffold
   ([ADR-0010](architecture/adr/0010-internationalization.md)); PWA shell; re-wire in the AppHost

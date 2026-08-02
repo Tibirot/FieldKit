@@ -16,6 +16,7 @@ public abstract class AggregateRoot : IHasIntegrationEvents
 {
     private readonly List<IIntegrationEvent> _integrationEvents = [];
 
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public IReadOnlyList<IIntegrationEvent> IntegrationEvents => _integrationEvents.AsReadOnly();
 
     protected void Raise(IIntegrationEvent @event) => _integrationEvents.Add(@event);
