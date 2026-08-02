@@ -122,8 +122,6 @@ Use the [PR template](../../.github/pull_request_template.md). It must contain:
 - **UI** — **before/after screenshots or a short GIF** for any user-facing change (compare against the
   [wireframes](../ux/README.md)).
 - **Risk & rollback** — blast radius; how to revert; migration reversibility; feature-flag state.
-- **Pre-PR agent review** (agent-authored PRs) — which model reviewed, the brief you gave it, its
-  complete unedited output for every round, and your disposition for each finding (§8).
 - **Reviewer notes** — anything non-obvious, and where to start reading.
 
 **Self-review:** before requesting review, the author (agent included) reads its own diff and leaves
@@ -150,60 +148,11 @@ Use the [PR template](../../.github/pull_request_template.md). It must contain:
 - Update the owning spec/ADR/registry in the same PR.
 - Run the full local gate before opening (`build → lint → unit → arch-tests → tenant-isolation →
   integration`); only open the PR if they pass.
-- **Get the diff reviewed by an independent frontier-model agent before opening the PR** (below).
-- Claim no more in the PR body than the diff and that review support.
+- Claim no more in the PR body than the diff supports — every "verified" is a thing you actually ran.
 - Open as **draft**, fill the template, cite spec IDs, self-annotate the diff, then mark ready.
 - Use `gh pr create` (see §9).
 
-**Pre-PR review — an independent agent, before `gh pr create` (required)**
-
-Once the gate is green and the work is committed, hand the diff to a **fresh agent running a
-frontier model** — a current top-tier model, not a small/fast one — and have it review the change
-*before the PR exists*. Self-review catches slips but not a wrong premise, because the same agent
-chose the premise. In Claude Code: the `Agent` tool with `model: "fable"`; pick a different frontier
-model if the authoring agent is already running that one.
-
-- **Give it the diff, this rulebook, and the specs the change cites — not your rationale.** A
-  reviewer handed a justification grades the justification instead of the change.
-- **Brief it adversarially:** defects, unstated assumptions, missing tests, scope creep, wrong facts.
-  "Looks good" is not an outcome — if it reports nothing, say so in the PR and note that a clean
-  first round is weak evidence, so the human should weight their own review accordingly.
-- **Review the right diff:** `git diff <pr-base-branch>...HEAD`. On a stacked PR the base is the
-  parent branch, not `main` — otherwise the review re-covers work already reviewed and merged.
-- **Paste the reviewer's complete, unedited output into the PR** in a collapsed `<details>` block,
-  with your disposition against each finding, and state the brief you gave it. A paraphrase is
-  unverifiable, and quoting a chosen subset verbatim is still cherry-picking; the human must see
-  what was raised, especially what you chose not to act on.
-- **Every finding is fixed or answered.** Silently dropping an inconvenient one is what would make
-  this step theatre.
-- **Verify a finding before acting on it.** A frontier model can be confidently wrong; check the
-  claim where it's checkable. An unverified "fix" is worse than what it replaced.
-- **Fixes that materially change the diff get a follow-up pass.** The final pass covers the full
-  diff, not just the delta, and the PR records **every** round — a later clean round does not
-  retire an earlier round's findings. If you judge fixes immaterial and skip the follow-up, say so
-  in the PR: that call is yours to make and therefore yours to show.
-- **If the output is too large for the PR body,** post it as a PR comment and link it. Truncating
-  is not an option; moving it is.
-- **Pushes to an open PR** that change behavior, tests, or contracts get the same treatment.
-- **Never an approval.** It does not substitute for human review and is never a reason to merge.
-- **Bot-authored PRs are out of scope** — Dependabot and similar automation aren't agents acting
-  under these rules, and CI plus human review are their gate. Don't read an unreviewed Dependabot
-  PR as a violation. The exemption covers the bot's commits, not yours: an agent pushing its own
-  work to a bot's branch is doing agent work and the rules above apply to it.
-
-This applies to **every** agent-authored PR, including small and docs-only ones. That is deliberate
-rather than an oversight: an agent judging its own change "too trivial to review" is exactly the
-judgement this step exists to check, and the cost is one agent call. Scale the review's depth to the
-change, not its existence.
-
-Note what this does and doesn't buy: the findings are checkable against the diff, but that the
-review ran *before* the PR, that the brief wasn't leading, and that the paste is complete are all
-attested by the agent, not proved. The human is trusting that attestation — which is the point of
-requiring the raw material rather than a summary, since a summary hides even what it omits.
-
 **Never**
-- **Skip the pre-PR review** because the change looks small, obvious, or docs-only.
-- **Present a review as clean when findings were dismissed** — list them and the reasoning.
 - **Merge, approve, or dismiss reviews** — that's the human's gate.
 - **Force-push `main` or any shared branch;** commit to `main`; delete branches you don't own.
 - **Bypass hooks or signing** (`--no-verify`, `--no-gpg-sign`) — if a hook fails, fix the cause.
@@ -234,19 +183,13 @@ dotnet build && dotnet test          # unit + arch-tests + integration (Testcont
 # + frontend (from frontend/): npm run lint && npm test && npm run build
 #   dependency change? regenerate the lockfile — docs/engineering/frontend-toolchain.md
 
-# 4. independent review by a frontier-model agent, BEFORE the PR exists (§8)
-#    Claude Code: the Agent tool with model "fable", over `git diff <base>...HEAD`
-#    (<base> is the PR's target branch — the parent branch when stacking, not always main).
-#    Give it the diff + this rulebook + the cited specs — not your rationale.
-#    Fix or answer every finding; verbatim findings + dispositions go in the PR body.
-
-# 5. open a DRAFT PR, template filled, spec IDs cited
+# 4. open a DRAFT PR, template filled, spec IDs cited
 gh pr create --draft \
   --title "feat(visit): geofenced check-in (VIS-01, VIS-02)" \
   --body-file .github/pull_request_template.md   # then edit in the specifics
 
-# 6. self-review the diff, leave inline notes, wait for CI green
-# 7. mark ready
+# 5. self-review the diff, leave inline notes, wait for CI green
+# 6. mark ready
 gh pr ready
 ```
 
@@ -262,7 +205,5 @@ gh pr ready
 - [ ] Spec IDs and delivery-plan week cited; scope (and non-scope) stated.
 - [ ] UI changes have before/after screenshots.
 - [ ] Migration is reversible / expand-contract; risky work behind a flag.
-- [ ] Reviewed by an independent frontier-model agent before the PR was opened, with its verbatim
-      findings and your dispositions in the PR (if agent-authored).
 - [ ] Self-reviewed with inline notes; CI green; opened as draft → marked ready.
 - [ ] No secrets, no unrelated files, no gate weakened to pass.
