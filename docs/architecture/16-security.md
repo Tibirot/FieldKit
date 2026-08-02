@@ -77,6 +77,32 @@ Per [B8](../product/decisions-and-assumptions.md#b8--privacy--gdpr-posture):
   (e.g. `Microsoft.OpenApi` → 2.7.5, `MessagePack` → 2.5.302). Making high-severity audit warnings a
   build error is a considered future gate (weighed against lockout when a framework-transitive CVE
   has no fix yet).
+- **npm transitive CVEs** use `overrides` in [`frontend/package.json`](../../frontend/package.json),
+  the same idea as the NuGet pins above. `next@16.2.12` declares `postcss` as exactly `8.4.31` and
+  `sharp` as `^0.34.5`; **the patched versions are unreachable by resolution**, because an exact pin
+  admits nothing else and a caret on a `0.x` line stops before `0.35.0`. Checked 2026-08:
+  `next@latest` was itself 16.2.12, so there was no upstream release to wait for.
+
+  | GHSA | Sev | Package | Patched | Override |
+  |---|---|---|---|---|
+  | [GHSA-r28c-9q8g-f849](https://github.com/advisories/GHSA-r28c-9q8g-f849) | high | postcss | 8.5.18 | `^8.5.18` |
+  | [GHSA-6g55-p6wh-862q](https://github.com/advisories/GHSA-6g55-p6wh-862q) | high | postcss | 8.5.12 | `^8.5.18` |
+  | [GHSA-qx2v-qp2m-jg93](https://github.com/advisories/GHSA-qx2v-qp2m-jg93) | moderate | postcss | 8.5.10 | `^8.5.18` |
+  | [GHSA-f88m-g3jw-g9cj](https://github.com/advisories/GHSA-f88m-g3jw-g9cj) | high | sharp | 0.35.0 | `^0.35.0` |
+
+  An override is a standing deviation from what a maintainer declared, so it is **not** left to rot:
+  `frontend/overrides.test.ts` fails the build the moment Next changes either declaration, forcing a
+  re-evaluation rather than trusting anyone to notice, and separately asserts that *every* resolved
+  copy in the lockfile is patched — a nested copy is how these hid in the first place. Ranges rather
+  than exact pins are deliberate: a later regeneration picks up further patches without editing this
+  table.
+
+  **Residual risk, sharp.** `0.34 → 0.35` is a minor bump on a `0.x` line, so semver permits breakage,
+  and Next loads sharp only when images are actually processed — which, with no `next/image` in the
+  app, is never during the build or the test run. The
+  guard round-trips an encode/resize/decode to catch a native or ABI break, which is the likely
+  failure, but cannot prove every API Next calls is unchanged. The app uses no `next/image` today;
+  first real exposure is whenever it does, and that work should re-verify.
 - **Dependabot** covers what a manual pin can't: *security* updates open a PR per advisory, and
   *version* updates ([`.github/dependabot.yml`](../../.github/dependabot.yml)) keep npm, NuGet, and
   GitHub Actions current. Minor/patch are grouped into one PR per ecosystem (weekly for npm and

@@ -13,6 +13,11 @@
     "lint": "eslint",
     "test": "vitest run"
   },
+  "comment:overrides": "Transitive CVE fixes (GHSA-r28c-9q8g-f849, GHSA-6g55-p6wh-862q, GHSA-qx2v-qp2m-jg93, GHSA-f88m-g3jw-g9cj). next@16.2.12 declares postcss as exactly 8.4.31 and sharp as ^0.34.5, so the patched versions are unreachable by resolution; checked 2026-08, next@latest was itself 16.2.12. Drop each entry once Next declares a spec that admits a patched version — overrides.test.ts fails when either declaration changes, so this will not rot silently. Rationale: docs/architecture/16-security.md §6.",
+  "overrides": {
+    "postcss": "^8.5.18",
+    "sharp": "^0.35.0"
+  },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
     "@tailwindcss/postcss": "^4.3.3",
