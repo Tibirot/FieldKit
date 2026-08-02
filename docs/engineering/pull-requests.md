@@ -120,8 +120,8 @@ Use the [PR template](../../.github/pull_request_template.md). It must contain:
 - **UI** — **before/after screenshots or a short GIF** for any user-facing change (compare against the
   [wireframes](../ux/README.md)).
 - **Risk & rollback** — blast radius; how to revert; migration reversibility; feature-flag state.
-- **Pre-PR agent review** (agent-authored PRs) — which model reviewed, its verbatim findings, and
-  your disposition for each (§8).
+- **Pre-PR agent review** (agent-authored PRs) — which model reviewed, the brief you gave it, its
+  complete unedited output for every round, and your disposition for each finding (§8).
 - **Reviewer notes** — anything non-obvious, and where to start reading.
 
 **Self-review:** before requesting review, the author (agent included) reads its own diff and leaves
@@ -178,7 +178,10 @@ model if the authoring agent is already running that one.
   claim where it's checkable. An unverified "fix" is worse than what it replaced.
 - **Fixes that materially change the diff get a follow-up pass.** The final pass covers the full
   diff, not just the delta, and the PR records **every** round — a later clean round does not
-  retire an earlier round's findings.
+  retire an earlier round's findings. If you judge fixes immaterial and skip the follow-up, say so
+  in the PR: that call is yours to make and therefore yours to show.
+- **If the output is too large for the PR body,** post it as a PR comment and link it. Truncating
+  is not an option; moving it is.
 - **Pushes to an open PR** that change behavior, tests, or contracts get the same treatment.
 - **Never an approval.** It does not substitute for human review and is never a reason to merge.
 
@@ -187,9 +190,10 @@ rather than an oversight: an agent judging its own change "too trivial to review
 judgement this step exists to check, and the cost is one agent call. Scale the review's depth to the
 change, not its existence.
 
-Note what this does and doesn't buy: the recorded output is checkable, but that the review ran
-*before* the PR — and that the brief wasn't leading — is attested by the agent, not proved. The
-human is trusting that attestation.
+Note what this does and doesn't buy: the findings are checkable against the diff, but that the
+review ran *before* the PR, that the brief wasn't leading, and that the paste is complete are all
+attested by the agent, not proved. The human is trusting that attestation — which is the point of
+requiring the raw material rather than a summary, since a summary hides even what it omits.
 
 **Never**
 - **Skip the pre-PR review** because the change looks small, obvious, or docs-only.
