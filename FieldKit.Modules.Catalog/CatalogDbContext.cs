@@ -8,7 +8,9 @@ namespace FieldKit.Modules.Catalog;
 public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options, ITenantContext tenantContext)
     : ModuleDbContext(options, tenantContext)
 {
-    protected override string Schema => "catalog";
+    public const string SchemaName = "catalog";
+
+    protected override string Schema => SchemaName;
 
     public DbSet<Product> Products => Set<Product>();
 

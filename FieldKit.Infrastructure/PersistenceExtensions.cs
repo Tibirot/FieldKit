@@ -12,7 +12,8 @@ public static class PersistenceExtensions
     /// </summary>
     public static IServiceCollection AddModuleDbContext<TContext>(
         this IServiceCollection services,
-        string connectionString)
+        string connectionString,
+        string schema)
         where TContext : ModuleDbContext
     {
         services.AddScoped<EntityStampingInterceptor>();
@@ -21,7 +22,9 @@ public static class PersistenceExtensions
 
         services.AddDbContext<TContext>((serviceProvider, options) =>
             options
-                .UseNpgsql(connectionString)
+                // Keep each module's migrations history in its own schema, so contexts sharing the
+                // database never collide on __EFMigrationsHistory (schema-per-module, ADR-0005).
+                .UseNpgsql(connectionString, npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", schema))
                 .AddInterceptors(
                     serviceProvider.GetRequiredService<EntityStampingInterceptor>(),
                     serviceProvider.GetRequiredService<ConvertIntegrationEventsToOutboxInterceptor>()));
