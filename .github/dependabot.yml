@@ -9,8 +9,9 @@
 #
 # `cooldown` delays adopting a release by a week. Version automation's own supply-chain risk is
 # pulling a freshly published compromised release within hours of it landing; a week is long enough
-# for a bad release to be yanked, and costs nothing on a weekly cadence. It applies to version
-# updates only — security updates are deliberately never delayed.
+# for a bad release to be yanked. It can push an update out by up to a further week on top of the
+# weekly cadence, which is a trade worth making. It applies to version updates only — security
+# updates are deliberately never delayed.
 #
 # Owning docs: docs/architecture/16-security.md §6 · docs/engineering/frontend-toolchain.md
 version: 2
@@ -63,6 +64,9 @@ updates:
   # ── CI (GitHub Actions) ───────────────────────────────────────────────────
   # A stale action version is a supply-chain surface as much as a stale package. Action majors are
   # the breaking kind (runner and artifact API changes), so they stay ungrouped like the others.
+  # In practice the group is currently inert: the workflow pins actions by major tag (`@v4`), and
+  # Dependabot only raises a PR for those when a new *major* appears — so expect individual PRs
+  # here, not a grouped one. The group starts mattering if actions are ever pinned by SHA.
   - package-ecosystem: github-actions
     directory: /
     schedule:
