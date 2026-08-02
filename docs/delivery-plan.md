@@ -59,7 +59,8 @@ several small PRs.
   (`Catalog`, `POST/GET /api/products`) replacing `WeatherForecast`; end-to-end verified with
   `WebApplicationFactory<Program>` on real Postgres. **The modular monolith runs.**
 - **[✓ migrations slice]** Per-module **EF migrations** (`ModuleMigrator`, per-schema history) replacing `EnsureCreated`.
-- **[✓ W2 start]** Front end **Vite → Next.js** (App Router) scaffolded + AppHost re-wired (`AddJavaScriptApp`, standalone output).
+- **[✓ W2]** Front end **Vite → Next.js** (App Router) + AppHost re-wired (`AddJavaScriptApp`, standalone output).
+- **[✓ W2]** **shadcn/ui + Tailwind v4 + FieldKit design tokens** (teal, light/dark; Button/Card/Badge) — the wireframe toolkit is real.
 - **[next]** Per-tenant **row-version stamping** (the `IReferenceChangeFeed` primitive) — with the sync slices.
 
 **Done when:** `dotnet run --project FieldKit.AppHost` boots the app + Postgres; one module answers

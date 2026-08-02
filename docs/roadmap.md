@@ -50,8 +50,11 @@ Turn the scaffold into a clean skeleton the rest hangs off.
 - [x] **Front end Vite → Next.js** (App Router, TS, ESLint) scaffolded + **re-wired in the AppHost**
   (`AddJavaScriptApp` runs Next as its own app; `output: "standalone"` for containers) — replaces the
   Vite SPA + wwwroot publish ([ADR-0004](architecture/adr/0004-nextjs-offline-first-frontend.md)) — *[this slice]*
-- [ ] **shadcn/ui + design tokens**, **next-intl** i18n scaffold
-  ([ADR-0010](architecture/adr/0010-internationalization.md)), and the **offline PWA shell** — remaining front-end slices
+- [x] **shadcn/ui + Tailwind v4 + FieldKit design tokens** (teal accent, cool-slate neutrals,
+  light/dark; Button/Card/Badge) — the design system from the [wireframes](ux/README.md) is now real
+  ([A7](product/decisions-and-assumptions.md#a7--ui-toolkit-shadcnui--tailwind)) — *[this slice]*
+- [ ] **next-intl** i18n scaffold ([ADR-0010](architecture/adr/0010-internationalization.md)) + the
+  **offline PWA shell** — remaining front-end slices
 - [ ] Add **Keycloak** container to the AppHost ([ADR-0008](architecture/adr/0008-authentication-and-multitenancy.md))
 - [ ] **Architecture-test** project (NetArchTest) enforcing empty-but-real boundaries
 - [ ] **Seed/demo-data** harness (a believable tenant) so every phase is demoable

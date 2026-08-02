@@ -104,7 +104,11 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install
-        run: npm ci
+        # Not `npm ci`: Tailwind v4's native `@tailwindcss/oxide` pulls platform-specific optional
+        # deps (e.g. `@emnapi/*` on Linux) that a Windows-generated lockfile can't fully capture, so
+        # a strict `npm ci` fails cross-platform. `npm install` reconciles the platform deps. The
+        # lockfile is still committed and respected; only the strict-equality check is relaxed.
+        run: npm install --no-audit --no-fund
 
       - name: Lint
         run: npm run lint --if-present
