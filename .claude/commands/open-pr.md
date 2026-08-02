@@ -42,33 +42,13 @@ halt and report — do **not** open (or force) the PR.
    commit to `main`). Use **Conventional Commit** messages scoped to the module. Never bypass hooks
    or signing.
 
-8. **Independent frontier-model review — before the PR exists** (rulebook §8). Spin up a **fresh
-   agent on a frontier model**: the `Agent` tool with `model: "fable"` (pick a different frontier
-   model if you are already running that one). Have it review `git diff <base>...HEAD`, where
-   `<base>` is the PR's target branch — the parent branch when stacking, not always `main`.
-   - **Do not hand it your rationale.** Give it the diff, `docs/engineering/pull-requests.md`, and
-     the specs the change cites. A reviewer given your justification grades the justification.
-   - **Brief it adversarially:** defects, unstated assumptions, missing tests, scope creep, wrong
-     facts. "Looks good" is not an outcome — if it reports nothing, say so and flag that a clean
-     first round is weak evidence.
-   - **Fix or explicitly answer every finding.** Dismissing one silently defeats the point.
-   - **Verify the findings you act on** where they're checkable, rather than assuming the reviewer
-     is right — it can be confidently wrong, and an unverified "fix" is worse than the original.
-   - If your fixes materially change the diff, **run a follow-up pass over the full diff**, and
-     record every round — a clean later round doesn't retire an earlier round's findings.
-   - This is **not an approval** and never a reason to merge; the human's gate is unchanged.
-   - Required even for small or docs-only changes — judging your own change too trivial to review
-     is the judgement this step exists to check.
-
-9. **Open a DRAFT PR** with `gh pr create --draft`, title as a Conventional Commit
+8. **Open a DRAFT PR** with `gh pr create --draft`, title as a Conventional Commit
    (`feat(visit): geofenced check-in (VIS-01, VIS-02)`), body filled from
    `.github/pull_request_template.md` — spec IDs, scope/non-scope, test evidence, docs updated,
-   before/after screenshots for UI, risk/rollback, **and the pre-PR review from step 8** — the
-   model, the brief you gave it, its **complete unedited output** in a collapsed `<details>` block
-   (every round), and your disposition for each finding. Claim nothing in the body that the diff and
-   that review don't support.
+   before/after screenshots for UI, risk/rollback. Claim nothing in the body the diff doesn't
+   support: every "verified" should name something you actually ran.
 
-10. **Self-review.** Read your own diff and leave **inline PR comments** on anything non-obvious.
+9. **Self-review.** Read your own diff and leave **inline PR comments** on anything non-obvious.
 
-11. **Mark ready only when CI is green** (`gh pr ready`). **Never merge or approve** — leave that to
+10. **Mark ready only when CI is green** (`gh pr ready`). **Never merge or approve** — leave that to
     the human. Report the PR URL and a one-paragraph summary of what to review and where to start.

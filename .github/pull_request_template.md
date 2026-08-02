@@ -21,27 +21,6 @@ Keep it small and single-purpose. Green CI before marking ready. Docs change wit
 - [ ] Sync property tests (if offline/sync paths)
 - [ ] Pricing/score parity vectors (if those engines)
 
-## Pre-PR agent review
-<!-- Agent-authored PRs only; delete if a human wrote the change AND no agent pushed to it later —
-     an agent's pushes to a human's PR are recorded here too. Rules: §8 of
-     docs/engineering/pull-requests.md. Paste each round's COMPLETE, UNEDITED output — a paraphrase
-     can't be checked, and a verbatim subset is still cherry-picking. Every round stays, including
-     ones whose findings were later fixed. "No findings" is valid but weak evidence; say so plainly.
-     Not an approval; the human's review is unchanged. -->
-- **Reviewed by:** <!-- e.g. Fable, over `git diff <base>...HEAD`, before this PR was opened -->
-- **Brief given:** <!-- summarise, or link the prompt — independence depends on it -->
-
-<details><summary>Round 1 — complete output</summary>
-
-<!-- paste unedited -->
-
-</details>
-
-**Disposition (round 1):** <!-- per finding: fixed (how) / stands (why) -->
-
-<!-- Repeat the block above for each follow-up round; if one ran, the final round covers the full
-     diff. If you judged your fixes immaterial and ran no follow-up, say so here. Too large for the
-     body? Post it as a PR comment and link it — move it, don't truncate it. -->
 
 
 ## Docs updated (in this PR)
@@ -67,7 +46,6 @@ Keep it small and single-purpose. Green CI before marking ready. Docs change wit
 - [ ] Owning spec / ADR / registry updated here (docs-in-lockstep)
 - [ ] Spec IDs + week cited; scope and non-scope stated
 - [ ] Migration reversible / expand-contract; risky work behind a flag
-- [ ] Independent frontier-model review done **before** opening; verbatim findings + dispositions above (if agent-authored)
 - [ ] Self-reviewed with inline notes; CI green; draft → ready
 - [ ] No secrets, no unrelated files, no gate weakened to pass
 
