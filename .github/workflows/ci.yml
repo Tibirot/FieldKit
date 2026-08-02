@@ -23,7 +23,11 @@ permissions:
 
 env:
   DOTNET_VERSION: "10.0.x"
-  NODE_VERSION: "20"
+  # Pinned to the major the lockfile is generated with. npm's optional-dependency and dedupe
+  # resolution differs between npm majors, so a mismatch here silently rewrites package-lock.json
+  # and breaks `npm ci`. Bump this and regenerate the lockfile together, never separately.
+  # (Node 20 reached end-of-life in April 2026.)
+  NODE_VERSION: "24"
   DOTNET_NOLOGO: "true"
   DOTNET_CLI_TELEMETRY_OPTOUT: "true"
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
@@ -83,9 +87,8 @@ jobs:
           retention-days: 7
 
   # ─────────────────────────────────────────────────────────────
-  # Frontend: lint + build (+ tests / e2e once they exist)
-  # Uses npm today (package-lock.json). If Phase 0 migrates to pnpm, swap the setup + commands.
-  # `--if-present` makes each step a no-op until the script exists, so this stays green.
+  # Frontend: lint + build + unit tests
+  # Uses npm (package-lock.json). `--if-present` makes a step a no-op until the script exists.
   # ─────────────────────────────────────────────────────────────
   frontend:
     name: frontend (lint + build)
@@ -104,11 +107,15 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install
-        # Not `npm ci`: Tailwind v4's native `@tailwindcss/oxide` pulls platform-specific optional
-        # deps (e.g. `@emnapi/*` on Linux) that a Windows-generated lockfile can't fully capture, so
-        # a strict `npm ci` fails cross-platform. `npm install` reconciles the platform deps. The
-        # lockfile is still committed and respected; only the strict-equality check is relaxed.
-        run: npm install --no-audit --no-fund
+        # `npm ci` — strict: it installs exactly the lockfile and fails if package.json and the
+        # lockfile disagree. This is the gate. It previously ran as `npm install`, which silently
+        # *rewrote* the lockfile to whatever the runner resolved, so a broken lockfile could never
+        # fail the build — the check existed but proved nothing.
+        #
+        # If this step fails with "Missing: <pkg> from lock file", the lockfile was regenerated on a
+        # different OS or npm major. Don't relax this step — regenerate the lockfile the way
+        # docs/engineering/frontend-toolchain.md describes and commit that.
+        run: npm ci --no-audit --no-fund
 
       - name: Lint
         run: npm run lint --if-present
