@@ -52,8 +52,10 @@ several small PRs.
   (schema-per-module), the tenant query filter + `EntityStampingInterceptor` (tenant + audit),
   `TenantId` value converter; **PostgreSQL added to the AppHost**; verified on real Postgres
   (Testcontainers) — schema, stamping, and tenant isolation ([ADR-0005](architecture/adr/0005-postgres-schema-per-module.md)).
-- **[next]** In-process bus/dispatcher + **outbox** table + dispatcher (`FOR UPDATE SKIP LOCKED`) +
-  **per-tenant row-version stamping** ([ADR-0006](architecture/adr/0006-in-process-messaging-and-outbox.md)) — land with the messaging/sync slices.
+- **[✓ messaging slice]** Transactional **outbox** + in-process dispatch: `AggregateRoot` events →
+  per-module `outbox_message` (same-tx interceptor) → `OutboxProcessor` claims (`FOR UPDATE SKIP
+  LOCKED`) and delivers idempotently ([ADR-0006](architecture/adr/0006-in-process-messaging-and-outbox.md)); verified on real Postgres.
+- **[next]** Per-tenant **row-version stamping** (the `IReferenceChangeFeed` primitive) — with the sync slices.
 - **[next]** `IModule` self-registration; replace `WeatherForecast` with one real module endpoint.
 
 **Done when:** `dotnet run --project FieldKit.AppHost` boots the app + Postgres; one module answers

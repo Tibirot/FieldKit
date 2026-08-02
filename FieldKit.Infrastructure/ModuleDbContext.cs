@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using FieldKit.BuildingBlocks;
+using FieldKit.Infrastructure.Outbox;
 using FieldKit.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
@@ -38,6 +39,7 @@ public abstract class ModuleDbContext : DbContext
     {
         modelBuilder.HasDefaultSchema(Schema);
         base.OnModelCreating(modelBuilder);
+        modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration()); // each module owns its outbox table
         ApplyTenantQueryFilter(modelBuilder);
     }
 

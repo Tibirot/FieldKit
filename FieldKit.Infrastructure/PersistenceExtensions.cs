@@ -1,3 +1,4 @@
+using FieldKit.Infrastructure.Outbox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -15,11 +16,15 @@ public static class PersistenceExtensions
         where TContext : ModuleDbContext
     {
         services.AddScoped<EntityStampingInterceptor>();
+        services.AddSingleton<ConvertIntegrationEventsToOutboxInterceptor>();
+        services.AddSingleton<OutboxProcessor>();
 
         services.AddDbContext<TContext>((serviceProvider, options) =>
             options
                 .UseNpgsql(connectionString)
-                .AddInterceptors(serviceProvider.GetRequiredService<EntityStampingInterceptor>()));
+                .AddInterceptors(
+                    serviceProvider.GetRequiredService<EntityStampingInterceptor>(),
+                    serviceProvider.GetRequiredService<ConvertIntegrationEventsToOutboxInterceptor>()));
 
         return services;
     }
