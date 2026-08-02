@@ -122,6 +122,13 @@ storage are provided by managed services in prod, containers in dev. → **new [
 > key flows have since been delivered — see [ux/README.md](../ux/README.md) (12 screens +
 > interactive Artifact).
 
+> Note: the light and dark token sets resolve from the **device preference**
+> (`prefers-color-scheme`) in CSS alone — no theme provider, no theme JS. A `.dark` / `.light`
+> class on `<html>` overrides the preference; that arm is wired but unset, so a per-user theme
+> toggle is a later drop-in rather than a token rewrite. **Per-user theme choice is not a decision
+> taken here** — it is unspecified, and is distinct from per-tenant theme tokens (CFG-08), which
+> are. See [ux/README.md](../ux/README.md#design-direction).
+
 ### A8 · Device & sync behavior: one active device, auto background sync
 
 - **One active device per rep** for **pull/bind**. Registering a new device deactivates the

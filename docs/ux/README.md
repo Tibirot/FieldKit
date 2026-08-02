@@ -21,6 +21,15 @@ the build, without pretending to be final visual design.
 - **Palette:** cool slate neutrals + a **teal** brand accent; semantic colors kept *separate* from
   the accent — emerald = synced/good, amber = pending, rose = rejected — because sync state is the
   product's core story and must read at a glance.
+- **Light & dark:** both palettes ship as token sets and resolve from the **device preference**
+  (`prefers-color-scheme`) — pure CSS, so no theme JS and no flash of the wrong theme on a cold
+  offline start. An explicit `.dark` / `.light` class on `<html>` overrides the preference; that arm
+  is wired but nothing sets it today, so **no in-app theme toggle ships** — per-user theme *choice*
+  is unspecified and deferred, and would plug in as a provider that sets the class. Beyond the root,
+  `.dark` on any element re-themes **its whole subtree** (a forced-dark panel), while `.light` is a
+  root override only — arbitrary nesting isn't expressible in a selector, so it isn't offered.
+  (Per-*tenant* theme tokens are a separate concern —
+  [CFG-08](../product/14-configuration.md#6-requirements).)
 - **Two experiences, one app:** the **field app** is mobile-first and offline-first; the **back
   office** is desktop-first ([ADR-0004](../architecture/adr/0004-nextjs-offline-first-frontend.md)).
 - **Type:** UI sans for the interface, monospace for the data layer (SKUs, quantities, prices,
