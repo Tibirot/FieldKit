@@ -15,12 +15,16 @@ to open a PR. Read it before your first contribution. In short:
 - **Gates are non-negotiable:** architecture tests + tenant-isolation tests must pass; the banned
   patterns (`IgnoreQueryFilters`, `DateTime.Now`, raw tenant-bypass) fail CI.
 - **Draft first**, self-review your own diff, mark ready when CI is green. **A human merges.**
+- **Agent-authored PRs get an independent frontier-model review *before* the PR is opened**, with
+  the reviewer's unedited output and your dispositions recorded in the PR.
 
 ## For AI agents
 
 Agents (Claude Code and others) **must** follow [docs/engineering/pull-requests.md §8 (Agent rules)](docs/engineering/pull-requests.md#8-agent-rules-imperative--an-agent-must-follow-these):
 never merge/approve, never force-push `main`, never bypass hooks/signing, never commit secrets, and
 **stop and ask** on auth/tenancy, public-contract, destructive-migration, or secrets/infra changes.
+Agents must also get the diff **reviewed by an independent frontier-model agent before opening the
+PR** and record that review in full — an agent is the worst available judge of its own work.
 [CLAUDE.md](CLAUDE.md) points agents here automatically.
 
 ## Where things live
