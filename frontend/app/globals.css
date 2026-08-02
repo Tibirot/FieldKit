@@ -4,38 +4,51 @@
 
 @custom-variant dark (&:is(.dark *));
 
-html {
-  height: 100%;
-}
-
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
-
-body {
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-@media (prefers-color-scheme: dark) {
+/*
+ * Element-level defaults — and they MUST stay inside `@layer base`.
+ *
+ * Cascade layers outrank specificity: an *unlayered* declaration beats every layered one, no
+ * matter how specific the layered selector is. Tailwind emits its utilities into
+ * `@layer utilities`, so a bare `body { … }` or `* { … }` rule at the top level of this file
+ * silently wins over `p-6`, `m-4`, `flex`, `underline` and friends — with no warning and no
+ * error, just styles that quietly do nothing.
+ *
+ * That is not hypothetical: an unlayered `* { padding: 0; margin: 0 }` here disabled every
+ * spacing utility in the app. `globals.test.ts` now fails the build if a non-custom property is
+ * declared outside a layer. Custom properties (`:root`, `.dark`, `@theme`) are exempt and stay
+ * unlayered — utilities *consume* those, so they can never conflict.
+ *
+ * The `* { box-sizing / padding / margin }` reset that used to live here is gone rather than
+ * moved: Tailwind's preflight already emits exactly those three declarations in `@layer base`.
+ */
+@layer base {
   html {
-    color-scheme: dark;
+    height: 100%;
+  }
+
+  html,
+  body {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  body {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    html {
+      color-scheme: dark;
+    }
   }
 }
 

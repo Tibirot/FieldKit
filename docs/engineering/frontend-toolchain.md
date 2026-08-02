@@ -5,6 +5,7 @@
 
 Short version: **Node 24 / npm 11, and `frontend/package-lock.json` is regenerated on Linux.**
 If CI fails with `Missing: <pkg> from lock file`, jump to [Regenerating the lockfile](#regenerating-the-lockfile).
+Writing global CSS? See [Cascade layers](#cascade-layers-global-css) — the rule there is not optional.
 
 ## Why this page exists
 
@@ -61,6 +62,42 @@ OSes, and the divergence persists. Only generating on Linux does.
    cause 2 — but not cause 1, since its bundled npm major is outside this repo's control. If a
    Dependabot PR fails `npm ci`, that's cause 1: check out its branch, regenerate as below, and
    push. `@dependabot recreate` will not fix it, because the problem isn't a stale branch.
+
+## Cascade layers (global CSS)
+
+**Every ordinary declaration in [`app/globals.css`](../../frontend/app/globals.css) must sit inside
+`@layer base`.** Custom properties (`:root`, `.dark`, `@theme`) are the exception and stay
+unlayered — utilities *consume* tokens, so they cannot conflict.
+
+The reason is a cascade rule that reverses the intuition specificity trains: **unlayered styles beat
+layered ones**, always, no matter how specific the layered selector is. Tailwind v4 emits utilities
+into `@layer utilities`, so a single bare rule in globals.css outranks the entire utility system.
+
+This is not a theoretical hazard — it shipped. The Tailwind v4 slice carried the `create-next-app`
+boilerplate reset unchanged:
+
+```css
+* { box-sizing: border-box; padding: 0; margin: 0; }   /* ← unlayered */
+```
+
+Result: **every padding and margin utility in the app silently did nothing.** `<main class="… p-6">`
+computed to `padding: 0px`; shadcn buttons lost their horizontal padding, so cards rendered
+edge-to-edge on mobile and button labels were clipped flush against the edges. Nothing failed — not
+the build, not the types, not the tests. It looked like a design that had simply never been
+finished, which is why it survived a whole slice.
+
+Two things keep it from coming back:
+
+- `app/globals.test.ts` parses globals.css and fails the build on any non-custom declaration outside
+  a layer.
+- Before adding a reset, check **Tailwind's preflight** — it already emits
+  `box-sizing: border-box; margin: 0; padding: 0; border: 0 solid` on `*, ::before, ::after,
+  ::backdrop` inside `@layer base`. The reset above was pure duplication, which is why it was
+  deleted rather than wrapped.
+
+Verify styling changes in a real browser at **375px and desktop**, in both locales, against the
+[wireframes](../ux/README.md). A computed-style check (`getComputedStyle(el).padding`) catches this
+class of bug in seconds; a screenshot alone can be mistaken for an unfinished design.
 
 ## Regenerating the lockfile
 
