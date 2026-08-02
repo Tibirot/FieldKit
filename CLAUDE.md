@@ -42,3 +42,12 @@ The system is orchestrated by Aspire: `dotnet run --project FieldKit.AppHost`. T
 `dotnet test` (unit + architecture + Testcontainers integration); frontend `pnpm lint && pnpm test`.
 Until [Phase 0](docs/roadmap.md#phase-0--foundation-in-progress) the repo is a scaffold — see the
 [delivery plan](docs/delivery-plan.md) for what exists.
+
+## Working conventions
+
+- **Running the app:** when spinning up the app for manual verification, open the frontend in the
+  built-in browser tool (not an external browser) so the check happens in-session.
+- **New APIs ship `.http` requests:** every new or changed API endpoint gets a request added to the
+  matching `*.http` file (e.g. [FieldKit.Server.http](FieldKit.Server/FieldKit.Server.http)) alongside
+  its automated tests — this is in addition to, not instead of, the test coverage required under
+  [Opening a pull request](#opening-a-pull-request--mandatory).
