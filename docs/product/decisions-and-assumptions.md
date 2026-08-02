@@ -63,7 +63,7 @@ FieldKit is built international from the start:
   everywhere money appears. **No implicit cross-currency arithmetic**; a price list carries
   its currency and everything derived stays in it. Display formatting is locale-aware.
 - **Multi-language UI** — the Next.js app is localized (message catalogs via `next-intl`).
-  Launch languages: **English + one additional** (Romanian or French — TBD, low cost to add).
+  Launch languages: **English + Romanian** (resolved when i18n landed; low cost to add more).
 - **Timezones** — all timestamps stored **UTC**, displayed in the user's timezone; a visit's
   "day" is resolved in the outlet's local timezone.
 - **Localized reference data** (e.g. product names per language) — modeled as translation
@@ -252,10 +252,11 @@ All are now written and **Accepted** — see the [ADR index](../architecture/adr
 
 Small, non-blocking; will resolve as the specs are written:
 
-- Second UI language: **Romanian or French** (A3) — pick when i18n lands.
 - Keycloak realm-per-tenant vs. single-realm (A5) — assumption stands; bounded to ~20 tenants
   (see [ADR-0008](../architecture/adr/0008-authentication-and-multitenancy.md); revisit toward
   single-realm **past ~50 tenants**).
 - Prod backing-service specifics on Azure (A6) — assumption stands; finalize at deploy time.
 
-*(Wireframes, once open here, are now delivered — [ux/README.md](../ux/README.md).)*
+*(Wireframes, once open here, are now delivered — [ux/README.md](../ux/README.md). The second UI
+language, also once open here, resolved to **Romanian** when the i18n scaffold landed — see
+[ADR-0010](../architecture/adr/0010-internationalization.md).)*

@@ -31,8 +31,12 @@ multiple currencies, languages, and timezones. i18n done late is a pervasive, pa
 
 ### Language — message catalogs
 - UI localized via **`next-intl`**: message catalogs + locale-aware number/date/currency
-  formatting. Launch languages **English + one** (RO or FR — TBD).
+  formatting. Launch languages **English + Romanian** (`en`, `ro`).
+- **Locale routing** is an always-present URL prefix (`/en/…`, `/ro/…`), negotiated by a Next
+  proxy (URL → `NEXT_LOCALE` cookie → `Accept-Language` → default). Explicit URLs keep the PWA
+  app-shell cache unambiguous — a cached response can never be for the wrong language.
 - Locale + timezone are **mandatory on the user profile** ([IAM BR-IAM-5](../../product/10-identity-and-access.md#5-business-rules)).
+  Until IAM lands (W3), the request timezone defaults to **UTC**.
 - **Localized reference data** (e.g. product names per language) via translation tables —
   **Could-have**, Phase 4, so core delivery isn't gated on translation content.
 
@@ -49,10 +53,28 @@ multiple currencies, languages, and timezones. i18n done late is a pervasive, pa
 **Positive**
 - Currency and time bugs are structurally prevented (typed `Money`, UTC + `IClock`), not
   patched later.
-- Adding a language is a **content** task (a catalog), not an engineering change.
+- Adding a language is a **content** task (a catalog), not an engineering change — and that claim
+  is *enforced*, not asserted: see the catalog gate below.
 
 **Negative / costs**
 - `Money` discipline everywhere (no raw `decimal` prices) — enforced by review/domain model.
 - Translation content is ongoing upkeep; scoped down via the Could-have on reference-data
   localization.
-- Slightly more front-end plumbing (locale routing/middleware) from the start.
+- Slightly more front-end plumbing (locale routing/proxy) from the start.
+
+## Implementation (front end)
+
+| Path | Role |
+|---|---|
+| `frontend/i18n/routing.ts` | The locale set + prefix strategy — **the only place a language is registered**. |
+| `frontend/i18n/request.ts` | Per-request config: catalog import, `timeZone`. |
+| `frontend/i18n/locale.ts` | Narrows the user-controlled `[locale]` param; unknown locales 404. |
+| `frontend/i18n/navigation.ts` | Locale-aware `Link` / router — use these, never `next/link` directly. |
+| `frontend/proxy.ts` | Locale negotiation + redirect (Next 16's successor to `middleware.ts`). |
+| `frontend/messages/<locale>.json` | The catalogs. |
+| `frontend/global.d.ts` | Types `t()` off the English catalog, so a bad key is a **compile** error. |
+
+**The catalog gate** — `frontend/i18n/catalogs.test.ts` fails the build when catalogs drift: a key
+present in one language only, a blank translation, a renamed ICU placeholder, malformed ICU, or
+plural categories that don't exist in the target language (English has `one`/`other`; Romanian
+also has `few`). This is what makes "adding a language is a content task" true rather than hopeful.
