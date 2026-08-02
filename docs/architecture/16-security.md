@@ -82,9 +82,17 @@ Per [B8](../product/decisions-and-assumptions.md#b8--privacy--gdpr-posture):
   GitHub Actions current. Minor/patch are grouped into one PR per ecosystem (weekly for npm and
   NuGet, monthly for Actions); **majors arrive individually** because they need real attention. A
   7-day `cooldown` applies to version updates only — the risk automation introduces is adopting a
-  freshly published compromised release, and security updates are never delayed. Its PRs pass the
-  same required status checks as any other, and are outside the agent pre-PR review rule
-  ([PR rules §8](../engineering/pull-requests.md#8-agent-rules-imperative--an-agent-must-follow-these)).
+  freshly published compromised release. Its PRs pass the same required status checks as any other.
+- **Held-back majors, and what that costs.** Some updates are blocked in
+  [`dependabot.yml`](../../.github/dependabot.yml) because the surrounding toolchain can't accept
+  them — currently `eslint` majors (no released `eslint-plugin-react` supports ESLint 10) and
+  `typescript` **≥7** (typescript-eslint peers `<6.1.0`; TS 6 is deliberately *not* blocked).
+  `@types/node` majors are held permanently because the types track the runtime, not the registry.
+  Each entry states its removal condition. **The cost is real and worth stating plainly:** `ignore`
+  is consulted for *security* updates too, so an advisory whose only fix ships in a blocked version
+  cannot be raised while the entry stands. In-major security patches still flow and all three are
+  devDependencies, which bounds it — but "security updates are never delayed" holds only for
+  packages with no ignore entry.
 - **Secret scanning + push protection** are enabled on the repository. Push protection is the one
   that matters: `never commit secrets` is otherwise a convention, and the commit that breaks it is
   the one thing here that reverting cannot undo — a published credential must be rotated.
