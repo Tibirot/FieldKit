@@ -52,3 +52,6 @@ Until [Phase 0](docs/roadmap.md#phase-0--foundation-in-progress) the repo is a s
   matching `*.http` file (e.g. [FieldKit.Server.http](FieldKit.Server/FieldKit.Server.http)) alongside
   its automated tests — this is in addition to, not instead of, the test coverage required under
   [Opening a pull request](#opening-a-pull-request--mandatory).
+- **Never commit a `frontend/package-lock.json` diff from a bare `npm install`** — npm resolves
+  differently per OS/version and a local install silently drops entries that CI's `npm ci` needs.
+  Regenerate it per [frontend-toolchain.md](docs/engineering/frontend-toolchain.md) instead.

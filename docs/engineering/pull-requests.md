@@ -177,7 +177,8 @@ git switch -c feat/visit-checkin
 
 # 3. run the local gate (must be green)
 dotnet build && dotnet test          # unit + arch-tests + integration (Testcontainers)
-# + frontend: pnpm lint && pnpm test
+# + frontend (from frontend/): npm run lint && npm test && npm run build
+#   dependency change? regenerate the lockfile — docs/engineering/frontend-toolchain.md
 
 # 4. open a DRAFT PR, template filled, spec IDs cited
 gh pr create --draft --fill \
