@@ -1,6 +1,7 @@
 {
   "App": {
     "name": "FieldKit",
+    "shortName": "FieldKit",
     "description": "Sales Force Automation — field app & back office."
   },
   "Home": {
@@ -26,5 +27,11 @@
     "title": "Page not found",
     "description": "That route doesn't exist — it may have moved, or the link may be out of date.",
     "back": "Back to the start"
+  },
+  "Offline": {
+    "title": "You're offline",
+    "description": "FieldKit couldn't reach the server. Anything you've already captured is stored on this device and syncs as soon as you reconnect.",
+    "retry": "Try again",
+    "hint": "Install FieldKit to your home screen so it keeps working in dead zones."
   }
 }

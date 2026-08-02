@@ -2,17 +2,21 @@
   "name": "fieldkit-frontend",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
+  "comment:type": "Declared so Node parses `.ts`/`.js` here as ES modules instead of sniffing them — without it, `scripts/build-sw.mjs` importing `i18n/routing.ts` warns MODULE_TYPELESS_PACKAGE_JSON on every build. Nothing in this app is CommonJS.",
   "engines": {
     "node": ">=24.0.0",
     "npm": ">=11.0.0"
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && node scripts/build-sw.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run"
   },
+  "comment:build": "`build` chains the service-worker step because Workbox precaches the hashed output of `next build` — it has to read .next/ after Next writes it. scripts/build-sw.mjs explains why this is a post-build step rather than a bundler plugin (short version: @serwist/next and next-pwa are webpack plugins, and Next 16 builds with Turbopack).",
+  "comment:workbox": "Build-time only: esbuild bundles the workbox-* runtime modules into public/sw.js, so none of them reach the app bundle. Keep the workbox-* versions as a matched set — mixing majors across them is unsupported upstream. esbuild is declared explicitly even though vitest already pulls one in: a build step must not depend on another package's transitive resolution.",
   "comment:overrides": "Transitive CVE fixes (GHSA-r28c-9q8g-f849, GHSA-6g55-p6wh-862q, GHSA-qx2v-qp2m-jg93, GHSA-f88m-g3jw-g9cj). next@16.2.12 declares postcss as exactly 8.4.31 and sharp as ^0.34.5, so the patched versions are unreachable by resolution; checked 2026-08, next@latest was itself 16.2.12. Drop each entry once Next declares a spec that admits a patched version — overrides.test.ts fails when either declaration changes, so this will not rot silently. Rationale: docs/architecture/16-security.md §6.",
   "overrides": {
     "postcss": "^8.5.18",
@@ -39,10 +43,18 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
+    "esbuild": "^0.28.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
     "postcss": "^8.5.18",
     "typescript": "^6",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "workbox-build": "^7.4.1",
+    "workbox-cacheable-response": "^7.4.1",
+    "workbox-core": "^7.4.1",
+    "workbox-expiration": "^7.4.1",
+    "workbox-precaching": "^7.4.1",
+    "workbox-routing": "^7.4.1",
+    "workbox-strategies": "^7.4.1"
   }
 }

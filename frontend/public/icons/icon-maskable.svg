@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="FieldKit">
+  <!--
+    Maskable variant — source of truth for icon-maskable-512.png.
+    Regenerate with `node scripts/generate-icons.mjs`.
+
+    Two differences from icon.svg, both required by the maskable contract: the background is
+    full-bleed (Android applies its own shape, so baked-in rounded corners would be clipped twice),
+    and the mark is scaled into the central 80% safe zone so no launcher shape can crop it.
+  -->
+  <rect width="512" height="512" fill="#007B70"/>
+  <g transform="translate(256 256) scale(0.72) translate(-256 -256)">
+    <path fill="#FFFFFF" fill-rule="evenodd" d="
+      M256 108
+      C199.6 108 154 153.6 154 210
+      C154 286.5 256 404 256 404
+      C256 404 358 286.5 358 210
+      C358 153.6 312.4 108 256 108
+      Z
+      M256 252
+      A42 42 0 1 0 256 168
+      A42 42 0 1 0 256 252
+      Z"/>
+  </g>
+</svg>
