@@ -38,21 +38,29 @@ updates:
         update-types:
           - minor
           - patch
-    # Majors held back because something else in the toolchain cannot accept them yet. Each is a
-    # standing deviation with a removal condition — drop the entry when the blocker clears, and let
-    # the bump come through as a normal PR. Minor and patch updates are unaffected.
+    # Held-back updates. Recorded in docs/architecture/16-security.md §6 as standing deviations.
+    #
+    # CAVEAT, because it is easy to assume otherwise: `ignore` is consulted for **security** updates
+    # too. An advisory whose only fix ships in a blocked version cannot be raised while the entry
+    # exists. In-major security patches still flow, and all three are devDependencies, so the
+    # exposure is bounded — but these entries are not free, and each needs a real removal condition.
     ignore:
       # ESLint 10 removed an API that eslint-plugin-react (pulled in by eslint-config-next) still
       # calls: "TypeError: contextOrFilename.getFilename is not a function", which fails `npm run
-      # lint` outright. Revisit when eslint-config-next ships ESLint 10 support.
+      # lint` outright. Nothing released supports it — eslint-plugin-react@7.37.5 peers `^9.7`, and
+      # even eslint-config-next canary still depends on ^7.37. Remove when that changes.
       - dependency-name: eslint
         update-types: ["version-update:semver-major"]
-      # TypeScript 7 is refused by typescript-eslint at load time ("does not support TS 7.0" —
-      # typescript-eslint#10940), which also fails lint. Revisit when that lands.
+      # TypeScript **7+** only, deliberately not all majors: typescript-eslint@8.65 peers
+      # `>=4.8.4 <6.1.0`, so it refuses TS 7 at load time (typescript-eslint#10940) but supports
+      # TS 6 fine. Blocking every major would have quietly stranded us on 5 while 6.0.3 shipped.
+      # Remove when typescript-eslint supports >=7.1.
       - dependency-name: typescript
-        update-types: ["version-update:semver-major"]
-      # @types/node tracks the runtime, not the registry: it must match NODE_VERSION in ci.yml and
-      # `engines` here, or we typecheck against a stdlib we don't run. It moves when Node moves.
+        versions: [">=7"]
+      # @types/node tracks the runtime, not the registry: it follows NODE_VERSION in ci.yml, or we
+      # typecheck against a stdlib we don't run and accept code that fails at runtime. This one has
+      # no removal condition — it is permanent policy. When Node moves, bump this deliberately as
+      # part of that change (frontend-toolchain.md rule 2).
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
 
