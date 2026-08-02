@@ -39,6 +39,7 @@ integration events through the outbox (async). Architecture tests enforce this â
 ## Build / test (once Phase 0 lands)
 
 The system is orchestrated by Aspire: `dotnet run --project FieldKit.AppHost`. Tests:
-`dotnet test` (unit + architecture + Testcontainers integration); frontend `pnpm lint && pnpm test`.
+`dotnet test` (unit + architecture + Testcontainers integration); frontend `npm run lint && npm test`
+(from `frontend/`).
 Until [Phase 0](docs/roadmap.md#phase-0--foundation-in-progress) the repo is a scaffold â€” see the
 [delivery plan](docs/delivery-plan.md) for what exists.

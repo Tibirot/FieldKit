@@ -61,6 +61,8 @@ several small PRs.
 - **[✓ migrations slice]** Per-module **EF migrations** (`ModuleMigrator`, per-schema history) replacing `EnsureCreated`.
 - **[✓ W2]** Front end **Vite → Next.js** (App Router) + AppHost re-wired (`AddJavaScriptApp`, standalone output).
 - **[✓ W2]** **shadcn/ui + Tailwind v4 + FieldKit design tokens** (teal, light/dark; Button/Card/Badge) — the wireframe toolkit is real.
+- **[✓ W2]** **next-intl** scaffold — `en` + `ro`, always-prefixed locale routing, locale switcher,
+  localized 404, catalog-parity test ([ADR-0010](architecture/adr/0010-internationalization.md)).
 - **[next]** Per-tenant **row-version stamping** (the `IReferenceChangeFeed` primitive) — with the sync slices.
 
 **Done when:** `dotnet run --project FieldKit.AppHost` boots the app + Postgres; one module answers
@@ -70,7 +72,7 @@ several small PRs.
 **Goal:** the front-end platform, themed and installable, plus the identity container and CI.
 - Remove Vite; scaffold **Next.js (App Router)** in `/frontend`; re-wire Aspire JS hosting (standalone output) ([ADR-0004](architecture/adr/0004-nextjs-offline-first-frontend.md)).
 - **shadcn/ui + Tailwind + design tokens** (light/dark, teal) — reproduce the [wireframe](ux/README.md) shell.
-- **next-intl** scaffold (EN + one language), locale routing ([ADR-0010](architecture/adr/0010-internationalization.md)).
+- ✓ **next-intl** scaffold (EN + RO), locale routing ([ADR-0010](architecture/adr/0010-internationalization.md)).
 - **PWA baseline**: manifest, Workbox service worker (app-shell cache), installability.
 - Add **Keycloak** container to the AppHost; JWT bearer validation skeleton in the API ([ADR-0008](architecture/adr/0008-authentication-and-multitenancy.md)).
 - **GitHub Actions CI**: build (dotnet + next) → unit tests → arch-tests.

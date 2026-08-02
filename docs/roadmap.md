@@ -53,8 +53,11 @@ Turn the scaffold into a clean skeleton the rest hangs off.
 - [x] **shadcn/ui + Tailwind v4 + FieldKit design tokens** (teal accent, cool-slate neutrals,
   light/dark; Button/Card/Badge) — the design system from the [wireframes](ux/README.md) is now real
   ([A7](product/decisions-and-assumptions.md#a7--ui-toolkit-shadcnui--tailwind)) — *[this slice]*
-- [ ] **next-intl** i18n scaffold ([ADR-0010](architecture/adr/0010-internationalization.md)) + the
-  **offline PWA shell** — remaining front-end slices
+- [x] **next-intl** i18n scaffold ([ADR-0010](architecture/adr/0010-internationalization.md)) —
+  `en` + `ro` catalogs, always-prefixed locale routing (`/en`, `/ro`) via the Next proxy, locale
+  switcher, localized 404, and a **catalog-parity test** (keys, ICU arguments, CLDR plural
+  categories) that fails the build on drift — *[this slice]*
+- [ ] **Offline PWA shell** (manifest + Workbox service worker) — remaining front-end slice
 - [ ] Add **Keycloak** container to the AppHost ([ADR-0008](architecture/adr/0008-authentication-and-multitenancy.md))
 - [ ] **Architecture-test** project (NetArchTest) enforcing empty-but-real boundaries
 - [ ] **Seed/demo-data** harness (a believable tenant) so every phase is demoable
