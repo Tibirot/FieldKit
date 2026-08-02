@@ -1,0 +1,63 @@
+# Dependabot version updates — routine "a newer version exists" bumps.
+#
+# Distinct from Dependabot *security* updates (CVE-driven), which are a repository toggle and need
+# no config. Both are wanted: security updates are the safety net, this is the hygiene.
+#
+# Grouping is the point. Ungrouped, this repo would open ~a dozen PRs a week and they would start
+# being ignored — worse than not running it at all. Minor+patch land as one PR per ecosystem;
+# majors stay separate so they get the attention they deserve.
+#
+# Owning doc: docs/architecture/16-security.md §6 (dependency auditing).
+version: 2
+
+updates:
+  # ── Frontend (npm) ────────────────────────────────────────────────────────
+  # Dependabot resolves on Linux, which is the canonical platform for this lockfile
+  # (docs/engineering/frontend-toolchain.md). Its PRs are therefore *correct* by construction, and
+  # CI's `npm ci` fails loudly on any lockfile it produces that doesn't strictly install.
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    groups:
+      frontend-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  # ── Backend (NuGet) ───────────────────────────────────────────────────────
+  # No central package management here: PackageReference lives in each .csproj, so Dependabot walks
+  # the tree from the root. If the dependency graph shows fewer projects than exist (the .slnx
+  # solution format is new enough that discovery through it is unproven), replace this single entry
+  # with one `directory:` per project folder.
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      dotnet-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  # ── CI (GitHub Actions) ───────────────────────────────────────────────────
+  # Low churn, and a stale action version is a supply-chain surface as much as a stale package.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "ci(deps)"
+    groups:
+      actions:
+        patterns:
+          - "*"

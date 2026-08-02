@@ -77,6 +77,16 @@ Per [B8](../product/decisions-and-assumptions.md#b8--privacy--gdpr-posture):
   (e.g. `Microsoft.OpenApi` → 2.7.5, `MessagePack` → 2.5.302). Making high-severity audit warnings a
   build error is a considered future gate (weighed against lockout when a framework-transitive CVE
   has no fix yet).
+- **Dependabot** covers what a manual pin can't: *security* updates open a PR per advisory, and
+  *version* updates ([`.github/dependabot.yml`](../../.github/dependabot.yml)) keep npm, NuGet, and
+  GitHub Actions current — grouped to one PR per ecosystem per week, because a dozen ignored PRs is
+  not a security control. Its PRs pass the same required checks as any other.
+- **Secret scanning + push protection** are enabled on the repository. Push protection is the one
+  that matters: `never commit secrets` is otherwise a convention, and the commit that breaks it is
+  the one thing here that cannot be undone by reverting — a published credential must be rotated.
+  Bot-authored PRs (Dependabot) are outside the agent pre-PR review rule
+  ([PR rules §8](../engineering/pull-requests.md#8-agent-rules-imperative--an-agent-must-follow-these));
+  CI and human review are their gate.
 
 ## 7. Threat model (STRIDE-lite)
 
