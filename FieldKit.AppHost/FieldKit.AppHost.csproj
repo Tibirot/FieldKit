@@ -16,8 +16,8 @@
     <!-- Security: override the vulnerable MessagePack 2.5.192 pulled transitively by Aspire
          (GHSA-hv8m-jj95-wg3x + others). 2.5.302 is the latest patched 2.5.x (API-compatible). -->
     <PackageReference Include="MessagePack" Version="2.5.302" />
-    <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.2.4" />
-    <PackageReference Include="Aspire.Hosting.PostgreSQL" Version="13.2.4" />
-    <PackageReference Include="Aspire.Hosting.Redis" Version="13.2.4" />
+    <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.4.6" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" Version="13.4.6" />
+    <PackageReference Include="Aspire.Hosting.Redis" Version="13.4.6" />
   </ItemGroup>
 </Project>
