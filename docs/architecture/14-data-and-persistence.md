@@ -85,6 +85,10 @@ Per [ADR-0009](adr/0009-config-driven-customization.md):
 ## 6. Migrations
 
 - **Per-module migrations** (each `DbContext` independently). No cross-module ordering coupling.
+- Each module keeps its **`__EFMigrationsHistory` in its own schema** (`MigrationsHistoryTable(…, schema)`),
+  so contexts sharing the one database never collide — a `ModuleMigrator<TContext>` applies each
+  module's migrations on startup (`MigrateAsync`). A design-time `IDesignTimeDbContextFactory` lets
+  `dotnet ef` build the model without booting the host.
 - Applied at startup in dev (Aspire) and via a migration step in the deploy pipeline
   ([ADR-0011](adr/0011-deployment-azure-container-apps.md)); each schema migrates independently.
 - **Seed/demo data** (a believable tenant: a brand, outlets, products, journeys) is a dedicated

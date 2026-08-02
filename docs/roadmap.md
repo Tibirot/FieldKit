@@ -44,8 +44,9 @@ Turn the scaffold into a clean skeleton the rest hangs off.
   `WebApplicationFactory<Program>` + real Postgres. A temporary `DevTenantContext` stands in until
   IAM. — *[module-hosting slice]* **← the modular monolith now runs.**
 - [ ] **Per-tenant row-version stamping** (the `IReferenceChangeFeed` primitive) — lands with the sync slices
-- [ ] **Per-module EF migrations** — replace the temporary `SchemaInitializer` (`EnsureCreated`),
-  which is all-or-nothing per database and stops working at the second module
+- [x] **Per-module EF migrations** — `ModuleMigrator<TContext>` applies each module's migrations on
+  startup (`MigrateAsync`); each keeps its own `__EFMigrationsHistory` in its own schema, so contexts
+  sharing the database don't collide. Replaces the temporary `EnsureCreated`; verified end-to-end.
 - [ ] **Migrate the front end Vite → Next.js** (App Router) + **shadcn/ui & design tokens**
   ([ADR-0004](architecture/adr/0004-nextjs-offline-first-frontend.md)); **next-intl** i18n scaffold
   ([ADR-0010](architecture/adr/0010-internationalization.md)); PWA shell; re-wire in the AppHost

@@ -29,7 +29,7 @@ public class OutboxIntegrationTests : IAsyncLifetime
         services.AddScoped<ITenantContext>(_ => new FakeTenantContext(_tenant, "maria"));
         services.AddSingleton<EventRecorder>();
         services.AddScoped<IIntegrationEventHandler<WidgetCreated>, WidgetCreatedHandler>();
-        services.AddModuleDbContext<TestDbContext>(_postgres.GetConnectionString());
+        services.AddModuleDbContext<TestDbContext>(_postgres.GetConnectionString(), "test");
         _provider = services.BuildServiceProvider();
 
         using var scope = _provider.CreateScope();

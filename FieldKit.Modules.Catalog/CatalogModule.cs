@@ -20,8 +20,8 @@ public sealed class CatalogModule : IModule
         var connectionString = configuration.GetConnectionString("fieldkitdb")
             ?? throw new InvalidOperationException("Connection string 'fieldkitdb' is not configured.");
 
-        services.AddModuleDbContext<CatalogDbContext>(connectionString);
-        services.AddHostedService<SchemaInitializer<CatalogDbContext>>(); // dev bootstrap (see SchemaInitializer)
+        services.AddModuleDbContext<CatalogDbContext>(connectionString, CatalogDbContext.SchemaName);
+        services.AddHostedService<ModuleMigrator<CatalogDbContext>>(); // applies this module's EF migrations on startup
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
