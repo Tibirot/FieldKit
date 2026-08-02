@@ -82,9 +82,7 @@ Per [B8](../product/decisions-and-assumptions.md#b8--privacy--gdpr-posture):
   GitHub Actions current. Minor/patch are grouped into one PR per ecosystem (weekly for npm and
   NuGet, monthly for Actions); **majors arrive individually** because they need real attention. A
   7-day `cooldown` applies to version updates only — the risk automation introduces is adopting a
-  freshly published compromised release. Its PRs pass the same required status checks as any other,
-  and are outside the agent pre-PR review rule
-  ([PR rules §8](../engineering/pull-requests.md#8-agent-rules-imperative--an-agent-must-follow-these)).
+  freshly published compromised release. Its PRs pass the same required status checks as any other.
 - **Held-back majors, and what that costs.** Some updates are blocked in
   [`dependabot.yml`](../../.github/dependabot.yml) because the surrounding toolchain can't accept
   them — currently `eslint` majors (no released `eslint-plugin-react` supports ESLint 10) and
