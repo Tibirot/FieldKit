@@ -5,8 +5,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FieldKit.Infrastructure.Tests;
 
-/// <summary>A throwaway tenant-owned, auditable entity to exercise the persistence base.</summary>
-public class Widget : ITenantOwned, IAuditable
+/// <summary>A throwaway tenant-owned, auditable aggregate to exercise the persistence + outbox base.</summary>
+public class Widget : AggregateRoot, ITenantOwned, IAuditable
 {
     public Guid Id { get; set; } = Guid.CreateVersion7();
     public string Name { get; set; } = string.Empty;
@@ -16,6 +16,28 @@ public class Widget : ITenantOwned, IAuditable
     public string? CreatedBy { get; set; }
     public DateTimeOffset? ModifiedAtUtc { get; set; }
     public string? ModifiedBy { get; set; }
+
+    /// <summary>Raises the integration event that should reach the outbox on save.</summary>
+    public void MarkCreated(DateTimeOffset at) =>
+        Raise(new WidgetCreated(Guid.CreateVersion7(), at, Id, Name));
+}
+
+public sealed record WidgetCreated(Guid Id, DateTimeOffset OccurredOn, Guid WidgetId, string Name)
+    : IIntegrationEvent;
+
+/// <summary>Records which events were delivered, so a test can assert exactly-once effect.</summary>
+public sealed class EventRecorder
+{
+    public List<Guid> Handled { get; } = [];
+}
+
+public sealed class WidgetCreatedHandler(EventRecorder recorder) : IIntegrationEventHandler<WidgetCreated>
+{
+    public Task HandleAsync(WidgetCreated @event, CancellationToken cancellationToken = default)
+    {
+        recorder.Handled.Add(@event.WidgetId);
+        return Task.CompletedTask;
+    }
 }
 
 /// <summary>A minimal module context in schema "test" — stands in for a real module's context.</summary>

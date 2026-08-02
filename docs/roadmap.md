@@ -34,8 +34,11 @@ Turn the scaffold into a clean skeleton the rest hangs off.
 - [x] Add **PostgreSQL** to the AppHost + **`Infrastructure`**: EF Core base `ModuleDbContext`
   (**schema-per-module**, ADR-0005), the tenant query filter + stamping interceptors, verified on
   real Postgres (Testcontainers) — *[this slice]*
-- [ ] Remaining building blocks: in-process **bus + transactional outbox** (+ `SKIP LOCKED`) and
-  **per-tenant row-version stamping** ([ADR-0006](architecture/adr/0006-in-process-messaging-and-outbox.md)) — land with the messaging/sync slices
+- [x] **Transactional outbox + in-process dispatch** ([ADR-0006](architecture/adr/0006-in-process-messaging-and-outbox.md)):
+  `AggregateRoot` raises integration events → written to a per-module `outbox_message` table in the
+  same transaction (interceptor) → `OutboxProcessor` claims with `FOR UPDATE SKIP LOCKED` and
+  delivers to handlers, idempotently. Verified on real Postgres — *[messaging slice]*
+- [ ] **Per-tenant row-version stamping** (the `IReferenceChangeFeed` primitive) — lands with the sync slices
 - [ ] Module hosting pattern (`IModule` self-registration) + first real module replacing the sample
   `WeatherForecast`
 - [ ] **Migrate the front end Vite → Next.js** (App Router) + **shadcn/ui & design tokens**
