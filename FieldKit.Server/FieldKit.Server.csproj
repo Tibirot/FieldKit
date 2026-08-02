@@ -21,4 +21,10 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FieldKit.Web\FieldKit.Web.csproj" />
+    <ProjectReference Include="..\FieldKit.Modules.Catalog\FieldKit.Modules.Catalog.csproj" />
+    <ProjectReference Include="..\FieldKit.Infrastructure\FieldKit.Infrastructure.csproj" />
+  </ItemGroup>
 </Project>

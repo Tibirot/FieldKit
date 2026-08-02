@@ -89,10 +89,15 @@ and decision records:
 
 ```
 FieldKit/
-├─ FieldKit.AppHost/     # .NET Aspire orchestration (composition root)
-├─ FieldKit.Server/      # the modular monolith (ASP.NET Core)
-├─ frontend/             # Next.js field app + back office  (migrating from Vite → Next.js)
-├─ docs/                 # functional + technical documentation
+├─ FieldKit.AppHost/         # .NET Aspire orchestration (composition root)
+├─ FieldKit.Server/          # the host — composes modules, no domain logic
+├─ FieldKit.Web/             # module-hosting abstraction (IModule)
+├─ FieldKit.SharedKernel/    # value objects (Money, GeoPoint, IClock, Result, TenantId)
+├─ FieldKit.BuildingBlocks/  # pure abstractions (messaging, tenancy, AggregateRoot)
+├─ FieldKit.Infrastructure/  # EF base (schema-per-module), interceptors, outbox
+├─ FieldKit.Modules.Catalog/ # the first domain module
+├─ frontend/                 # field app + back office  (migrating from Vite → Next.js)
+├─ docs/                     # functional + technical documentation
 └─ FieldKit.slnx
 ```
 
@@ -111,9 +116,12 @@ and live traces. *(Prerequisites and the current run state are tracked in the
 
 ## Status
 
-🚧 **Early construction.** The Aspire solution (AppHost + Server + Redis) is scaffolded; the
-documentation backbone is in place and the domain build proceeds in phases. See the
-[roadmap](docs/roadmap.md) for the current phase.
+🚧 **Phase 0 — foundation nearly complete.** The modular monolith **runs**: Aspire boots the Server
+on PostgreSQL, and the first module (`Catalog`) answers `POST`/`GET /api/products` end-to-end, with
+schema-per-module isolation, a transactional outbox, and architecture tests enforcing the
+boundaries — all verified against real Postgres in CI. Remaining Phase 0: per-module EF migrations,
+and the Vite → Next.js front-end migration. See the [roadmap](docs/roadmap.md) and
+[delivery plan](docs/delivery-plan.md).
 
 ## About
 

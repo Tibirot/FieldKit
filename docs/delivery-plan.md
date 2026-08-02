@@ -55,8 +55,11 @@ several small PRs.
 - **[✓ messaging slice]** Transactional **outbox** + in-process dispatch: `AggregateRoot` events →
   per-module `outbox_message` (same-tx interceptor) → `OutboxProcessor` claims (`FOR UPDATE SKIP
   LOCKED`) and delivers idempotently ([ADR-0006](architecture/adr/0006-in-process-messaging-and-outbox.md)); verified on real Postgres.
+- **[✓ module-hosting slice]** `IModule` self-registration (`FieldKit.Web`) + first real module
+  (`Catalog`, `POST/GET /api/products`) replacing `WeatherForecast`; end-to-end verified with
+  `WebApplicationFactory<Program>` on real Postgres. **The modular monolith runs.**
 - **[next]** Per-tenant **row-version stamping** (the `IReferenceChangeFeed` primitive) — with the sync slices.
-- **[next]** `IModule` self-registration; replace `WeatherForecast` with one real module endpoint.
+- **[next]** Per-module **EF migrations** (replace the temporary `SchemaInitializer`/`EnsureCreated`).
 
 **Done when:** `dotnet run --project FieldKit.AppHost` boots the app + Postgres; one module answers
 `/api/…`; arch-tests pass. *(Bus/outbox/row-version and the first module are the remaining W1 slices.)*

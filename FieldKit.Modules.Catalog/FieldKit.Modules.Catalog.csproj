@@ -3,12 +3,8 @@
   <ItemGroup>
     <ProjectReference Include="..\FieldKit.SharedKernel\FieldKit.SharedKernel.csproj" />
     <ProjectReference Include="..\FieldKit.BuildingBlocks\FieldKit.BuildingBlocks.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.10" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.10" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <ProjectReference Include="..\FieldKit.Infrastructure\FieldKit.Infrastructure.csproj" />
+    <ProjectReference Include="..\FieldKit.Web\FieldKit.Web.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -16,5 +12,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
 
 </Project>
