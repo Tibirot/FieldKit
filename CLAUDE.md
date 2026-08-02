@@ -24,9 +24,10 @@ to the letter. Non-negotiables:
 - **Cite spec IDs** (`VIS-01`, `ORD-12`, …) and the delivery-plan week.
 - Keep the **architecture-test** and **tenant-isolation** gates green; never add `IgnoreQueryFilters`,
   `DateTime.Now`, or a raw tenant-bypass.
-- **Before opening the PR, have an independent frontier-model agent review the diff** (Fable, via
-  the `Agent` tool). Give it the diff and the specs — not your rationale. Fix or explicitly answer
-  every finding, and record the outcome in the PR. It is a check, never an approval.
+- **Before opening the PR, have an independent frontier-model agent review the diff** (the `Agent`
+  tool with `model: "fable"`). Give it the diff, the rulebook, and the cited specs — not your
+  rationale. Fix or explicitly answer every finding, and put its **verbatim** findings plus your
+  dispositions in the PR. It is a check, never an approval.
 - **Draft first**, self-review your diff with inline notes, mark ready only when CI is green.
 
 **Never** merge/approve PRs, force-push `main`, bypass hooks/signing, or commit secrets. **Stop and

@@ -120,6 +120,8 @@ Use the [PR template](../../.github/pull_request_template.md). It must contain:
 - **UI** — **before/after screenshots or a short GIF** for any user-facing change (compare against the
   [wireframes](../ux/README.md)).
 - **Risk & rollback** — blast radius; how to revert; migration reversibility; feature-flag state.
+- **Pre-PR agent review** (agent-authored PRs) — which model reviewed, its verbatim findings, and
+  your disposition for each (§8).
 - **Reviewer notes** — anything non-obvious, and where to start reading.
 
 **Self-review:** before requesting review, the author (agent included) reads its own diff and leaves
@@ -147,32 +149,40 @@ Use the [PR template](../../.github/pull_request_template.md). It must contain:
 - Run the full local gate before opening (`build → lint → unit → arch-tests → tenant-isolation →
   integration`); only open the PR if they pass.
 - **Get the diff reviewed by an independent frontier-model agent before opening the PR** (below).
+- Claim no more in the PR body than the diff and that review support.
 - Open as **draft**, fill the template, cite spec IDs, self-annotate the diff, then mark ready.
 - Use `gh pr create` (see §9).
 
-**Pre-PR review — an independent frontier-model agent (required)**
+**Pre-PR review — an independent agent, before `gh pr create` (required)**
 
-Once the gate is green and the work is committed, hand the diff to a **separate frontier-model
-agent** (Fable, or another frontier model) and have it review the change *before* `gh pr create`.
+Once the gate is green and the work is committed, hand the diff to a **fresh agent running a
+frontier model** — a current top-tier model, not a small/fast one — and have it review the change
+*before the PR exists*. Self-review catches slips but not a wrong premise, because the same agent
+chose the premise. In Claude Code: the `Agent` tool with `model: "fable"`; pick a different frontier
+model if the authoring agent is already running that one.
 
-An authoring agent is the worst available judge of its own work: it defends decisions it already
-made, and it cannot see the assumptions it started from. A second model with no stake in those
-decisions catches a different class of problem than self-review does — which is why this is a
-distinct step and not a louder version of "read your own diff".
+- **Give it the diff, this rulebook, and the specs the change cites — not your rationale.** A
+  reviewer handed a justification grades the justification instead of the change.
+- **Brief it adversarially:** defects, unstated assumptions, missing tests, scope creep, wrong facts.
+  "Looks good" is not an outcome — if it reports nothing, say so in the PR and note that a clean
+  first round is weak evidence, so the human should weight their own review accordingly.
+- **Review the right diff:** `git diff <pr-base-branch>...HEAD`. On a stacked PR the base is the
+  parent branch, not `main` — otherwise the review re-covers work already reviewed and merged.
+- **Paste the reviewer's verbatim findings into the PR** in a collapsed `<details>` block, with your
+  disposition against each. A paraphrase is unverifiable; the human must be able to see what was
+  raised, especially what you chose not to act on.
+- **Every finding is fixed or answered.** Silently dropping an inconvenient one is what would make
+  this step theatre.
+- **Fixes that materially change the diff get a follow-up pass** over the delta; the PR records the
+  final round.
+- **Pushes to an open PR** that change behavior, tests, or contracts get the same treatment.
+  Typo-level fixups don't.
+- **Never an approval.** It does not substitute for human review and is never a reason to merge.
 
-What makes it worth doing rather than theatre:
-
-- **Independent by construction.** Give the reviewer the diff, this rulebook, and the specs the
-  change cites — **not** your reasoning for why it's correct. A reviewer handed a justification
-  grades the justification instead of the change.
-- **Brief it adversarially.** Ask it to find defects, unstated assumptions, missing tests, scope
-  creep, and claims in the PR body the diff doesn't support. "Looks good" is not an outcome; if it
-  finds nothing, say so explicitly and treat that as a weak signal, not a pass.
-- **Every finding gets answered.** Fix it, or state in the PR why it stands. Silently dropping an
-  inconvenient finding is the one failure mode that makes this whole step worthless.
-- **Record it in the PR** — which model reviewed, and what came of each finding.
-- **It is not an approval.** It does not substitute for human review and must never be cited as a
-  reason to merge. The human's gate is unchanged.
+This applies to **every** agent-authored PR, including small and docs-only ones. That is deliberate
+rather than an oversight: an agent judging its own change "too trivial to review" is exactly the
+judgement this step exists to check, and the cost is one agent call. Scale the review's depth to the
+change, not its existence.
 
 **Never**
 - **Skip the pre-PR review** because the change looks small, obvious, or docs-only.
@@ -208,12 +218,13 @@ dotnet build && dotnet test          # unit + arch-tests + integration (Testcont
 #   dependency change? regenerate the lockfile — docs/engineering/frontend-toolchain.md
 
 # 4. independent review by a frontier-model agent, BEFORE the PR exists (§8)
-#    Claude Code: the Agent tool with model "fable", over `git diff main...HEAD`.
+#    Claude Code: the Agent tool with model "fable", over `git diff <base>...HEAD`
+#    (<base> is the PR's target branch — the parent branch when stacking, not always main).
 #    Give it the diff + this rulebook + the cited specs — not your rationale.
-#    Fix or explicitly answer every finding; both outcomes go in the PR body.
+#    Fix or answer every finding; verbatim findings + dispositions go in the PR body.
 
 # 5. open a DRAFT PR, template filled, spec IDs cited
-gh pr create --draft --fill \
+gh pr create --draft \
   --title "feat(visit): geofenced check-in (VIS-01, VIS-02)" \
   --body-file .github/pull_request_template.md   # then edit in the specifics
 
@@ -234,7 +245,7 @@ gh pr ready
 - [ ] Spec IDs and delivery-plan week cited; scope (and non-scope) stated.
 - [ ] UI changes have before/after screenshots.
 - [ ] Migration is reversible / expand-contract; risky work behind a flag.
-- [ ] **Agent-authored:** reviewed by an independent frontier-model agent before the PR was opened;
-      every finding fixed or answered in the PR.
+- [ ] Reviewed by an independent frontier-model agent before the PR was opened, with its verbatim
+      findings and your dispositions in the PR (if agent-authored).
 - [ ] Self-reviewed with inline notes; CI green; opened as draft → marked ready.
 - [ ] No secrets, no unrelated files, no gate weakened to pass.

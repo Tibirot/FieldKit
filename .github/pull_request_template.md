@@ -21,12 +21,19 @@ Keep it small and single-purpose. Green CI before marking ready. Docs change wit
 - [ ] Sync property tests (if offline/sync paths)
 - [ ] Pricing/score parity vectors (if those engines)
 
-## Pre-PR agent review (agent-authored PRs)
-<!-- Which frontier model reviewed the diff before this PR was opened, and what came of each
-     finding — fixed, or why it stands. "No findings" is a valid but weak outcome; say so plainly.
+## Pre-PR agent review
+<!-- Agent-authored PRs only; delete this section if a human wrote the change. Rules: §8 of
+     docs/engineering/pull-requests.md. Paste the reviewer's VERBATIM findings — a paraphrase can't
+     be checked. "No findings" is valid but weak evidence; say so plainly.
      Not an approval; the human's review is unchanged. -->
-- **Reviewed by:**
-- **Findings & disposition:**
+- **Reviewed by:** <!-- e.g. Fable, over `git diff <base>...HEAD`, before this PR existed -->
+- **Disposition:** <!-- per finding: fixed (how) / stands (why) -->
+
+<details><summary>Verbatim findings</summary>
+
+<!-- paste unedited -->
+
+</details>
 
 ## Docs updated (in this PR)
 <!-- Docs move with code. List the spec / ADR / module-registry entries you changed, or state why none apply. -->
@@ -51,7 +58,7 @@ Keep it small and single-purpose. Green CI before marking ready. Docs change wit
 - [ ] Owning spec / ADR / registry updated here (docs-in-lockstep)
 - [ ] Spec IDs + week cited; scope and non-scope stated
 - [ ] Migration reversible / expand-contract; risky work behind a flag
-- [ ] Agent-authored: independent frontier-model review done **before** opening; findings fixed or answered
+- [ ] Independent frontier-model review done **before** opening; verbatim findings + dispositions above (if agent-authored)
 - [ ] Self-reviewed with inline notes; CI green; draft → ready
 - [ ] No secrets, no unrelated files, no gate weakened to pass
 
