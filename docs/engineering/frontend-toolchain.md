@@ -33,6 +33,12 @@ OSes, and the divergence persists. Only generating on Linux does.
 > rejected: it would change the version **Next itself** runs against to work around a hoisting
 > quirk. `@swc/helpers` is a runtime helper library — a silent mismatch there is a worse failure
 > than a loud lockfile one.
+>
+> This repo *does* use `overrides` elsewhere, and the distinction is the point: overriding to fix a
+> **CVE with no upstream release** buys a known security fix for a known compatibility risk, and is
+> recorded, dated, and test-guarded ([security §6](../architecture/16-security.md#6-application-security-baseline)).
+> Overriding for **convenience** — to avoid regenerating a file — trades a loud failure for a silent
+> one and buys nothing. Reach for it in the first case only.
 
 ## The rules
 
