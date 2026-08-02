@@ -1,7 +1,14 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { RetryButton } from "@/components/retry-button";
-import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { resolveLocale } from "@/i18n/locale";
 
 /**
@@ -25,9 +32,11 @@ export default async function Offline({ params }: { params: Promise<{ locale: st
           <CardTitle className="text-2xl">{t("title")}</CardTitle>
           <CardDescription>{t("description")}</CardDescription>
         </CardHeader>
-        <CardFooter className="flex-col gap-3">
-          <RetryButton label={t("retry")} />
+        <CardContent>
           <p className="text-xs text-muted-foreground">{t("hint")}</p>
+        </CardContent>
+        <CardFooter className="justify-center">
+          <RetryButton label={t("retry")} />
         </CardFooter>
       </Card>
     </main>

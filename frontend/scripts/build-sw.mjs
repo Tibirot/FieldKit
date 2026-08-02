@@ -34,13 +34,11 @@ const frontendDir = fileURLToPath(new URL("..", import.meta.url));
  * They are versioned by the Next build id: a new deploy changes the revision, Workbox refetches,
  * and the offline shell can never be left pointing at chunks that no longer exist.
  *
- * **The default locale must come first** — `sw/index.js` uses the first entry as the fallback for
- * paths with no locale prefix, which offline it cannot negotiate.
+ * Order carries no meaning: the worker looks entries up by locale and is told the default locale
+ * separately, so nothing here depends on how `getManifest` happens to arrange the result.
  */
-export function appShellEntries(locales, defaultLocale, buildId) {
-  const ordered = [defaultLocale, ...locales.filter((locale) => locale !== defaultLocale)];
-
-  return ordered.map((locale) => ({ url: `/${locale}/offline`, revision: buildId }));
+export function appShellEntries(locales, buildId) {
+  return locales.map((locale) => ({ url: `/${locale}/offline`, revision: buildId }));
 }
 
 async function main() {
@@ -61,7 +59,7 @@ async function main() {
     modifyURLPrefix: { "static/": "/_next/static/" },
     // Next content-hashes its build output, so the URL already is the version.
     dontCacheBustURLsMatching: /static\//,
-    additionalManifestEntries: appShellEntries(routing.locales, routing.defaultLocale, buildId),
+    additionalManifestEntries: appShellEntries(routing.locales, buildId),
     maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
   });
 
@@ -81,6 +79,9 @@ async function main() {
     minify: true,
     define: {
       "self.__WB_MANIFEST": JSON.stringify(manifestEntries),
+      // Told explicitly rather than inferred from manifest order: the worker needs a locale for
+      // unprefixed paths, and `getManifest` makes no ordering guarantee to rely on.
+      "self.__FIELDKIT_DEFAULT_LOCALE__": JSON.stringify(routing.defaultLocale),
       // Workbox guards its debug logging on this. A service worker has no `process`, so leaving it
       // unsubstituted would throw on evaluation rather than merely log too much.
       "process.env.NODE_ENV": JSON.stringify("production"),

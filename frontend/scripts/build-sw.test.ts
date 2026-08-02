@@ -14,16 +14,12 @@ const OFFLINE_URL = /^\/[^/]+\/offline$/;
 const BUILD_ID = "test-build-id";
 
 describe("app-shell precache entries", () => {
-  const entries = appShellEntries(routing.locales, routing.defaultLocale, BUILD_ID);
+  const entries = appShellEntries(routing.locales, BUILD_ID);
 
   it("precaches an offline fallback for every locale the app routes", () => {
     expect(entries.map((entry) => entry.url).sort()).toEqual(
       routing.locales.map((locale) => `/${locale}/offline`).sort(),
     );
-  });
-
-  it("puts the default locale first — the worker uses it for unprefixed paths", () => {
-    expect(entries[0].url).toBe(`/${routing.defaultLocale}/offline`);
   });
 
   it("emits URLs in the shape the worker matches on", () => {
@@ -32,14 +28,17 @@ describe("app-shell precache entries", () => {
     }
   });
 
+  it("covers the default locale, which the worker uses for unprefixed paths", () => {
+    expect(entries.map((entry) => entry.url)).toContain(`/${routing.defaultLocale}/offline`);
+  });
+
   it("versions every entry by the build id, so a deploy invalidates the shell", () => {
     expect(entries.every((entry) => entry.revision === BUILD_ID)).toBe(true);
   });
 
-  it("is stable regardless of the order locales are configured in", () => {
-    const reversed = appShellEntries([...routing.locales].reverse(), routing.defaultLocale, BUILD_ID);
+  it("depends on no ordering — the worker looks entries up by locale", () => {
+    const reversed = appShellEntries([...routing.locales].reverse(), BUILD_ID);
 
-    expect(reversed[0].url).toBe(`/${routing.defaultLocale}/offline`);
     expect(new Set(reversed.map((entry) => entry.url))).toEqual(
       new Set(entries.map((entry) => entry.url)),
     );

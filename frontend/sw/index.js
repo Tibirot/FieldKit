@@ -17,8 +17,9 @@ import { cleanupOutdatedCaches, matchPrecache, precacheAndRoute } from "workbox-
 import { NavigationRoute, registerRoute } from "workbox-routing";
 import { CacheFirst, NetworkFirst, NetworkOnly, StaleWhileRevalidate } from "workbox-strategies";
 
-/** Replaced at build time by `injectManifest` with the real precache manifest. */
+/** Both are substituted at build time by `scripts/build-sw.mjs` (esbuild `define`). */
 const PRECACHE_MANIFEST = self.__WB_MANIFEST;
+const DEFAULT_LOCALE = self.__FIELDKIT_DEFAULT_LOCALE__;
 
 const PAGE_CACHE = "fieldkit-pages";
 const ASSET_CACHE = "fieldkit-assets";
@@ -28,16 +29,13 @@ const IMAGE_CACHE = "fieldkit-images";
  * The offline fallback pages, keyed by locale, discovered from the precache manifest rather than
  * from a hard-coded list — the build script decides which locales ship, and this reads back its
  * decision. Adding a language stays a content task (ADR-0010); nothing here changes.
- *
- * `scripts/build-sw.mjs` guarantees the default locale is emitted first, which is what makes
- * `defaultOffline` correct for paths that carry no locale prefix at all.
  */
 const offlineByLocale = new Map(
   PRECACHE_MANIFEST.map((entry) => (typeof entry === "string" ? entry : entry.url))
     .filter((url) => /^\/[^/]+\/offline$/.test(url))
     .map((url) => [url.split("/")[1], url]),
 );
-const defaultOffline = offlineByLocale.values().next().value;
+const defaultOffline = offlineByLocale.get(DEFAULT_LOCALE);
 
 precacheAndRoute(PRECACHE_MANIFEST);
 
@@ -47,7 +45,8 @@ cleanupOutdatedCaches();
 /**
  * Serve the offline shell for the locale the rep was heading to, so a Romanian user offline does
  * not land on an English page. Unprefixed paths (`/`) cannot be resolved — offline there is no
- * server to run the locale negotiator in `proxy.ts` — so they get the default locale.
+ * server to run the locale negotiator in `proxy.ts` — so they get the default locale, which the
+ * build substitutes in rather than this inferring it from manifest ordering.
  */
 async function offlineFallback(url) {
   if (!defaultOffline) {
