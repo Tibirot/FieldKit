@@ -79,14 +79,15 @@ Per [B8](../product/decisions-and-assumptions.md#b8--privacy--gdpr-posture):
   has no fix yet).
 - **Dependabot** covers what a manual pin can't: *security* updates open a PR per advisory, and
   *version* updates ([`.github/dependabot.yml`](../../.github/dependabot.yml)) keep npm, NuGet, and
-  GitHub Actions current — grouped to one PR per ecosystem per week, because a dozen ignored PRs is
-  not a security control. Its PRs pass the same required checks as any other.
+  GitHub Actions current. Minor/patch are grouped into one PR per ecosystem (weekly for npm and
+  NuGet, monthly for Actions); **majors arrive individually** because they need real attention. A
+  7-day `cooldown` applies to version updates only — the risk automation introduces is adopting a
+  freshly published compromised release, and security updates are never delayed. Its PRs pass the
+  same required status checks as any other, and are outside the agent pre-PR review rule
+  ([PR rules §8](../engineering/pull-requests.md#8-agent-rules-imperative--an-agent-must-follow-these)).
 - **Secret scanning + push protection** are enabled on the repository. Push protection is the one
   that matters: `never commit secrets` is otherwise a convention, and the commit that breaks it is
-  the one thing here that cannot be undone by reverting — a published credential must be rotated.
-  Bot-authored PRs (Dependabot) are outside the agent pre-PR review rule
-  ([PR rules §8](../engineering/pull-requests.md#8-agent-rules-imperative--an-agent-must-follow-these));
-  CI and human review are their gate.
+  the one thing here that reverting cannot undo — a published credential must be rotated.
 
 ## 7. Threat model (STRIDE-lite)
 

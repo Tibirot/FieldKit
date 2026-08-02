@@ -100,7 +100,8 @@ Every PR answers *"what does this implement and where is that written down?"*
 - **Branch name:** `type/short-slug` — `feat/visit-checkin`, `fix/order-reprice-flag`,
   `docs/adr-0012-…`, `chore/ci-arch-tests`, `refactor/pricing-engine`.
 - **Conventional Commits** for messages and PR title: `feat(visit): geofenced check-in (VIS-01)`.
-  Types: `feat` `fix` `docs` `refactor` `test` `chore` `perf` `build` `ci`. Scope = module.
+  Types: `feat` `fix` `docs` `refactor` `test` `chore` `perf` `build` `ci`. Scope = module, or the
+  non-module area a change belongs to when no module owns it (`deps`, `ci`, `frontend`).
 - **Small, logical commits.** Don't squash locally into one opaque blob; let the reviewer read the
   steps. (Final squash-on-merge is the human's choice.)
 - **Rebase on `main`, don't merge `main` in,** to keep history linear (unless the team decides
@@ -184,6 +185,9 @@ model if the authoring agent is already running that one.
   is not an option; moving it is.
 - **Pushes to an open PR** that change behavior, tests, or contracts get the same treatment.
 - **Never an approval.** It does not substitute for human review and is never a reason to merge.
+- **Bot-authored PRs are out of scope** — Dependabot and similar automation aren't agents acting
+  under these rules, and CI plus human review are their gate. Don't read an unreviewed Dependabot
+  PR as a violation.
 
 This applies to **every** agent-authored PR, including small and docs-only ones. That is deliberate
 rather than an oversight: an agent judging its own change "too trivial to review" is exactly the

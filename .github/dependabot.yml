@@ -3,24 +3,32 @@
 # Distinct from Dependabot *security* updates (CVE-driven), which are a repository toggle and need
 # no config. Both are wanted: security updates are the safety net, this is the hygiene.
 #
-# Grouping is the point. Ungrouped, this repo would open ~a dozen PRs a week and they would start
-# being ignored — worse than not running it at all. Minor+patch land as one PR per ecosystem;
-# majors stay separate so they get the attention they deserve.
+# Grouping is the point. Ungrouped, each outdated dependency opens its own PR (this repo carries
+# ~22 npm dependencies and ~45 PackageReferences), and a queue nobody reads is not a control.
+# Minor+patch land as one PR per ecosystem; majors arrive individually so they get real attention.
 #
-# Owning doc: docs/architecture/16-security.md §6 (dependency auditing).
+# `cooldown` delays adopting a release by a week. Version automation's own supply-chain risk is
+# pulling a freshly published compromised release within hours of it landing; a week is long enough
+# for a bad release to be yanked, and costs nothing on a weekly cadence. It applies to version
+# updates only — security updates are deliberately never delayed.
+#
+# Owning docs: docs/architecture/16-security.md §6 · docs/engineering/frontend-toolchain.md
 version: 2
 
 updates:
   # ── Frontend (npm) ────────────────────────────────────────────────────────
-  # Dependabot resolves on Linux, which is the canonical platform for this lockfile
-  # (docs/engineering/frontend-toolchain.md). Its PRs are therefore *correct* by construction, and
-  # CI's `npm ci` fails loudly on any lockfile it produces that doesn't strictly install.
+  # Dependabot resolves on Linux, which removes the OS-divergence cause of lockfile drift
+  # (frontend-toolchain.md cause 2). It does *not* remove cause 1: the npm major version, which
+  # Dependabot controls and this repo doesn't. `npm ci` gates that rather than preventing it — if a
+  # Dependabot PR fails install, check out its branch, regenerate the lockfile per
+  # frontend-toolchain.md, and push. `@dependabot recreate` will not fix it.
   - package-ecosystem: npm
     directory: /frontend
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore(deps)"
       prefix-development: "chore(deps-dev)"
@@ -31,16 +39,19 @@ updates:
           - patch
 
   # ── Backend (NuGet) ───────────────────────────────────────────────────────
-  # No central package management here: PackageReference lives in each .csproj, so Dependabot walks
-  # the tree from the root. If the dependency graph shows fewer projects than exist (the .slnx
-  # solution format is new enough that discovery through it is unproven), replace this single entry
-  # with one `directory:` per project folder.
+  # No central package management: PackageReference lives in each .csproj, so Dependabot walks the
+  # tree from the root. Verify on the first run (Insights → Dependency graph → Dependabot → job
+  # logs) that all 11 projects are discovered — `FieldKit.slnx` is the new XML solution format and
+  # discovery through it is unproven, and the solution also references `frontend/frontend.esproj`,
+  # which the NuGet updater has no business parsing. If projects are missing, switch to the plural
+  # key, which supports globs: `directories: ["/FieldKit.*"]`.
   - package-ecosystem: nuget
     directory: /
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore(deps)"
     groups:
@@ -50,14 +61,18 @@ updates:
           - patch
 
   # ── CI (GitHub Actions) ───────────────────────────────────────────────────
-  # Low churn, and a stale action version is a supply-chain surface as much as a stale package.
+  # A stale action version is a supply-chain surface as much as a stale package. Action majors are
+  # the breaking kind (runner and artifact API changes), so they stay ungrouped like the others.
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "ci(deps)"
     groups:
-      actions:
-        patterns:
-          - "*"
+      actions-minor-patch:
+        update-types:
+          - minor
+          - patch
