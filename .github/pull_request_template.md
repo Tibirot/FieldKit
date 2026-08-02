@@ -23,17 +23,23 @@ Keep it small and single-purpose. Green CI before marking ready. Docs change wit
 
 ## Pre-PR agent review
 <!-- Agent-authored PRs only; delete this section if a human wrote the change. Rules: §8 of
-     docs/engineering/pull-requests.md. Paste the reviewer's VERBATIM findings — a paraphrase can't
-     be checked. "No findings" is valid but weak evidence; say so plainly.
+     docs/engineering/pull-requests.md. Paste each round's COMPLETE, UNEDITED output — a paraphrase
+     can't be checked, and a verbatim subset is still cherry-picking. Every round stays, including
+     ones whose findings were later fixed. "No findings" is valid but weak evidence; say so plainly.
      Not an approval; the human's review is unchanged. -->
-- **Reviewed by:** <!-- e.g. Fable, over `git diff <base>...HEAD`, before this PR existed -->
-- **Disposition:** <!-- per finding: fixed (how) / stands (why) -->
+- **Reviewed by:** <!-- e.g. Fable, over `git diff main...HEAD`, before this PR was opened -->
+- **Brief given:** <!-- summarise, or link the prompt — independence depends on it -->
 
-<details><summary>Verbatim findings</summary>
+<details><summary>Round 1 — complete output</summary>
 
 <!-- paste unedited -->
 
 </details>
+
+**Disposition (round 1):** <!-- per finding: fixed (how) / stands (why) -->
+
+<!-- Repeat the block above for each follow-up round. The final round covers the full diff. -->
+
 
 ## Docs updated (in this PR)
 <!-- Docs move with code. List the spec / ADR / module-registry entries you changed, or state why none apply. -->

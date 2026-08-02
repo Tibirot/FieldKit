@@ -9,7 +9,8 @@ Work through these steps and do not skip the gates. If any gate fails or a STOP 
 halt and report — do **not** open (or force) the PR.
 
 1. **Confirm scope & size.**
-   - Determine what changed (`git status`, `git diff --stat` vs `main`). Confirm the change is
+   - Determine what changed (`git status`, `git diff --stat` vs the PR's base branch — the parent
+     branch when stacking, not always `main`). Confirm the change is
      **one purpose**. If it mixes a feature + refactor, or spans many modules, **propose a split
      into stacked PRs** and stop.
    - Check the size against the **~≤400 hand-written diff line** budget (exclude generated
@@ -53,7 +54,8 @@ halt and report — do **not** open (or force) the PR.
    - **Fix or explicitly answer every finding.** Dismissing one silently defeats the point.
    - **Verify the findings you act on** where they're checkable, rather than assuming the reviewer
      is right — it can be confidently wrong, and an unverified "fix" is worse than the original.
-   - If your fixes materially change the diff, **run a follow-up pass** over the delta.
+   - If your fixes materially change the diff, **run a follow-up pass over the full diff**, and
+     record every round — a clean later round doesn't retire an earlier round's findings.
    - This is **not an approval** and never a reason to merge; the human's gate is unchanged.
    - Required even for small or docs-only changes — judging your own change too trivial to review
      is the judgement this step exists to check.
@@ -62,8 +64,9 @@ halt and report — do **not** open (or force) the PR.
    (`feat(visit): geofenced check-in (VIS-01, VIS-02)`), body filled from
    `.github/pull_request_template.md` — spec IDs, scope/non-scope, test evidence, docs updated,
    before/after screenshots for UI, risk/rollback, **and the pre-PR review from step 8** — the
-   model, its **verbatim findings** in a collapsed `<details>` block, and your disposition for each.
-   Claim nothing in the body that the diff and that review don't support.
+   model, the brief you gave it, its **complete unedited output** in a collapsed `<details>` block
+   (every round), and your disposition for each finding. Claim nothing in the body that the diff and
+   that review don't support.
 
 10. **Self-review.** Read your own diff and leave **inline PR comments** on anything non-obvious.
 

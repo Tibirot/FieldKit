@@ -168,21 +168,28 @@ model if the authoring agent is already running that one.
   first round is weak evidence, so the human should weight their own review accordingly.
 - **Review the right diff:** `git diff <pr-base-branch>...HEAD`. On a stacked PR the base is the
   parent branch, not `main` — otherwise the review re-covers work already reviewed and merged.
-- **Paste the reviewer's verbatim findings into the PR** in a collapsed `<details>` block, with your
-  disposition against each. A paraphrase is unverifiable; the human must be able to see what was
-  raised, especially what you chose not to act on.
+- **Paste the reviewer's complete, unedited output into the PR** in a collapsed `<details>` block,
+  with your disposition against each finding, and state the brief you gave it. A paraphrase is
+  unverifiable, and quoting a chosen subset verbatim is still cherry-picking; the human must see
+  what was raised, especially what you chose not to act on.
 - **Every finding is fixed or answered.** Silently dropping an inconvenient one is what would make
   this step theatre.
-- **Fixes that materially change the diff get a follow-up pass** over the delta; the PR records the
-  final round.
+- **Verify a finding before acting on it.** A frontier model can be confidently wrong; check the
+  claim where it's checkable. An unverified "fix" is worse than what it replaced.
+- **Fixes that materially change the diff get a follow-up pass.** The final pass covers the full
+  diff, not just the delta, and the PR records **every** round — a later clean round does not
+  retire an earlier round's findings.
 - **Pushes to an open PR** that change behavior, tests, or contracts get the same treatment.
-  Typo-level fixups don't.
 - **Never an approval.** It does not substitute for human review and is never a reason to merge.
 
 This applies to **every** agent-authored PR, including small and docs-only ones. That is deliberate
 rather than an oversight: an agent judging its own change "too trivial to review" is exactly the
 judgement this step exists to check, and the cost is one agent call. Scale the review's depth to the
 change, not its existence.
+
+Note what this does and doesn't buy: the recorded output is checkable, but that the review ran
+*before* the PR — and that the brief wasn't leading — is attested by the agent, not proved. The
+human is trusting that attestation.
 
 **Never**
 - **Skip the pre-PR review** because the change looks small, obvious, or docs-only.

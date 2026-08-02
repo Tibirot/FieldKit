@@ -25,9 +25,10 @@ to the letter. Non-negotiables:
 - Keep the **architecture-test** and **tenant-isolation** gates green; never add `IgnoreQueryFilters`,
   `DateTime.Now`, or a raw tenant-bypass.
 - **Before opening the PR, have an independent frontier-model agent review the diff** (the `Agent`
-  tool with `model: "fable"`). Give it the diff, the rulebook, and the cited specs — not your
-  rationale. Fix or explicitly answer every finding, and put its **verbatim** findings plus your
-  dispositions in the PR. It is a check, never an approval.
+  tool with `model: "fable"` — or another frontier model if that's already the one you're running).
+  Give it the diff, the rulebook, and the cited specs — not your rationale. Verify, then fix or
+  explicitly answer every finding, and put its **complete, unedited** output plus your dispositions
+  in the PR. It is a check, never an approval.
 - **Draft first**, self-review your diff with inline notes, mark ready only when CI is green.
 
 **Never** merge/approve PRs, force-push `main`, bypass hooks/signing, or commit secrets. **Stop and
