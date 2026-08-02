@@ -60,7 +60,8 @@ docs/
 │     └─ 0011-deployment-azure-container-apps.md
 │
 ├─ engineering/                  ← how we work
-│  └─ pull-requests.md           ← PR rules for humans & agents (small · tested · docs-in-lockstep)
+│  ├─ pull-requests.md           ← PR rules for humans & agents (small · tested · docs-in-lockstep)
+│  └─ frontend-toolchain.md      ← Node/npm pinning + why the lockfile is generated on Linux
 │
 ├─ ux/                           ← wireframes & design direction
 │  ├─ README.md                  ← screen inventory + spec traceability + Artifact link
