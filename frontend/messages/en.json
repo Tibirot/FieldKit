@@ -1,0 +1,30 @@
+{
+  "App": {
+    "name": "FieldKit",
+    "description": "Sales Force Automation — field app & back office."
+  },
+  "Home": {
+    "eyebrow": "Sales Force Automation",
+    "title": "FieldKit",
+    "description": "The field app & back office. The design system is live — shadcn/ui, Tailwind, and the FieldKit tokens (teal accent, light & dark).",
+    "primaryCta": "Get started",
+    "secondaryCta": "View the docs"
+  },
+  "Localization": {
+    "title": "Localized, not just translated",
+    "description": "{count, plural, one {# language} other {# languages}} shipped. Money, quantities and timestamps all render through the active locale.",
+    "priceLabel": "List price",
+    "quantityLabel": "Cases sold",
+    "syncedLabel": "Last synced",
+    "timeZoneNote": "Stored in UTC, displayed in the user's timezone (ADR-0010)."
+  },
+  "LocaleSwitcher": {
+    "label": "Change language",
+    "locale": "{locale, select, en {English} ro {Română} other {Unknown}}"
+  },
+  "NotFound": {
+    "title": "Page not found",
+    "description": "That route doesn't exist — it may have moved, or the link may be out of date.",
+    "back": "Back to the start"
+  }
+}

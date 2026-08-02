@@ -1,0 +1,30 @@
+{
+  "App": {
+    "name": "FieldKit",
+    "description": "Automatizarea forței de vânzări — aplicația de teren și back office-ul."
+  },
+  "Home": {
+    "eyebrow": "Automatizarea forței de vânzări",
+    "title": "FieldKit",
+    "description": "Aplicația de teren și back office-ul. Sistemul de design este activ — shadcn/ui, Tailwind și token-urile FieldKit (accent teal, temă deschisă și întunecată).",
+    "primaryCta": "Începe",
+    "secondaryCta": "Vezi documentația"
+  },
+  "Localization": {
+    "title": "Localizat, nu doar tradus",
+    "description": "{count, plural, one {# limbă} few {# limbi} other {# de limbi}} disponibile. Sumele, cantitățile și marcajele de timp se afișează conform limbii active.",
+    "priceLabel": "Preț de listă",
+    "quantityLabel": "Bax-uri vândute",
+    "syncedLabel": "Ultima sincronizare",
+    "timeZoneNote": "Stocat în UTC, afișat în fusul orar al utilizatorului (ADR-0010)."
+  },
+  "LocaleSwitcher": {
+    "label": "Schimbă limba",
+    "locale": "{locale, select, en {English} ro {Română} other {Necunoscut}}"
+  },
+  "NotFound": {
+    "title": "Pagina nu a fost găsită",
+    "description": "Această rută nu există — este posibil să fi fost mutată sau linkul să fie învechit.",
+    "back": "Înapoi la început"
+  }
+}
