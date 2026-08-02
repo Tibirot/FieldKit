@@ -33,6 +33,12 @@ OSes, and the divergence persists. Only generating on Linux does.
 > rejected: it would change the version **Next itself** runs against to work around a hoisting
 > quirk. `@swc/helpers` is a runtime helper library — a silent mismatch there is a worse failure
 > than a loud lockfile one.
+>
+> This repo *does* use `overrides` elsewhere, and the distinction is the point: overriding to fix a
+> **CVE with no upstream release** buys a known security fix for a known compatibility risk, and is
+> recorded, dated, and test-guarded ([security §6](../architecture/16-security.md#6-application-security-baseline)).
+> Overriding for **convenience** — to avoid regenerating a file — trades a loud failure for a silent
+> one and buys nothing. Reach for it in the first case only.
 
 ## The rules
 
@@ -47,9 +53,10 @@ OSes, and the divergence persists. Only generating on Linux does.
    accepts code that compiles and then crashes. Its major is held back in
    [dependabot.yml](../../.github/dependabot.yml) for that reason, permanently: it moves when Node
    moves, as part of that change.
-3. **Locally, `npm install` is fine** — your `node_modules` will be correct and the app will build.
-   Just **don't commit the resulting `package-lock.json` diff** unless you regenerated it as below.
-   On Windows it will quietly drop the nested `@swc/helpers` entry.
+3. **Locally, prefer `npm ci`.** It installs exactly the lockfile and — verified on Windows —
+   **does not rewrite it**, so it sidesteps this whole problem. `npm install` is fine too when you
+   need to add a dependency; just **don't commit the resulting `package-lock.json` diff** unless you
+   regenerated it as below, because on Windows it quietly drops the nested `@swc/helpers` entry.
 4. **Dependabot is the one sanctioned exception** to rule 3. It resolves on Linux, which removes
    cause 2 — but not cause 1, since its bundled npm major is outside this repo's control. If a
    Dependabot PR fails `npm ci`, that's cause 1: check out its branch, regenerate as below, and
