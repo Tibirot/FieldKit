@@ -1,0 +1,10 @@
+# Search-only excludes (ripgrep / file-search). NOT a .gitignore — nothing here
+# affects what gets committed; see .gitignore for that.
+#
+# Deliberately narrow: bin/ and obj/ are NOT listed, because source-generated
+# code under obj/ is occasionally worth grepping in a .NET repo.
+#
+# To search these anyway when chasing a dependency bug: rg --no-ignore <pattern>
+
+node_modules/
+.claude/worktrees/
