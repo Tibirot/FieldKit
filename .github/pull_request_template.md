@@ -21,6 +21,13 @@ Keep it small and single-purpose. Green CI before marking ready. Docs change wit
 - [ ] Sync property tests (if offline/sync paths)
 - [ ] Pricing/score parity vectors (if those engines)
 
+## Pre-PR agent review (agent-authored PRs)
+<!-- Which frontier model reviewed the diff before this PR was opened, and what came of each
+     finding — fixed, or why it stands. "No findings" is a valid but weak outcome; say so plainly.
+     Not an approval; the human's review is unchanged. -->
+- **Reviewed by:**
+- **Findings & disposition:**
+
 ## Docs updated (in this PR)
 <!-- Docs move with code. List the spec / ADR / module-registry entries you changed, or state why none apply. -->
 
@@ -44,6 +51,7 @@ Keep it small and single-purpose. Green CI before marking ready. Docs change wit
 - [ ] Owning spec / ADR / registry updated here (docs-in-lockstep)
 - [ ] Spec IDs + week cited; scope and non-scope stated
 - [ ] Migration reversible / expand-contract; risky work behind a flag
+- [ ] Agent-authored: independent frontier-model review done **before** opening; findings fixed or answered
 - [ ] Self-reviewed with inline notes; CI green; draft → ready
 - [ ] No secrets, no unrelated files, no gate weakened to pass
 

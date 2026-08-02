@@ -146,10 +146,37 @@ Use the [PR template](../../.github/pull_request_template.md). It must contain:
 - Update the owning spec/ADR/registry in the same PR.
 - Run the full local gate before opening (`build → lint → unit → arch-tests → tenant-isolation →
   integration`); only open the PR if they pass.
+- **Get the diff reviewed by an independent frontier-model agent before opening the PR** (below).
 - Open as **draft**, fill the template, cite spec IDs, self-annotate the diff, then mark ready.
 - Use `gh pr create` (see §9).
 
+**Pre-PR review — an independent frontier-model agent (required)**
+
+Once the gate is green and the work is committed, hand the diff to a **separate frontier-model
+agent** (Fable, or another frontier model) and have it review the change *before* `gh pr create`.
+
+An authoring agent is the worst available judge of its own work: it defends decisions it already
+made, and it cannot see the assumptions it started from. A second model with no stake in those
+decisions catches a different class of problem than self-review does — which is why this is a
+distinct step and not a louder version of "read your own diff".
+
+What makes it worth doing rather than theatre:
+
+- **Independent by construction.** Give the reviewer the diff, this rulebook, and the specs the
+  change cites — **not** your reasoning for why it's correct. A reviewer handed a justification
+  grades the justification instead of the change.
+- **Brief it adversarially.** Ask it to find defects, unstated assumptions, missing tests, scope
+  creep, and claims in the PR body the diff doesn't support. "Looks good" is not an outcome; if it
+  finds nothing, say so explicitly and treat that as a weak signal, not a pass.
+- **Every finding gets answered.** Fix it, or state in the PR why it stands. Silently dropping an
+  inconvenient finding is the one failure mode that makes this whole step worthless.
+- **Record it in the PR** — which model reviewed, and what came of each finding.
+- **It is not an approval.** It does not substitute for human review and must never be cited as a
+  reason to merge. The human's gate is unchanged.
+
 **Never**
+- **Skip the pre-PR review** because the change looks small, obvious, or docs-only.
+- **Present a review as clean when findings were dismissed** — list them and the reasoning.
 - **Merge, approve, or dismiss reviews** — that's the human's gate.
 - **Force-push `main` or any shared branch;** commit to `main`; delete branches you don't own.
 - **Bypass hooks or signing** (`--no-verify`, `--no-gpg-sign`) — if a hook fails, fix the cause.
@@ -180,13 +207,18 @@ dotnet build && dotnet test          # unit + arch-tests + integration (Testcont
 # + frontend (from frontend/): npm run lint && npm test && npm run build
 #   dependency change? regenerate the lockfile — docs/engineering/frontend-toolchain.md
 
-# 4. open a DRAFT PR, template filled, spec IDs cited
+# 4. independent review by a frontier-model agent, BEFORE the PR exists (§8)
+#    Claude Code: the Agent tool with model "fable", over `git diff main...HEAD`.
+#    Give it the diff + this rulebook + the cited specs — not your rationale.
+#    Fix or explicitly answer every finding; both outcomes go in the PR body.
+
+# 5. open a DRAFT PR, template filled, spec IDs cited
 gh pr create --draft --fill \
   --title "feat(visit): geofenced check-in (VIS-01, VIS-02)" \
   --body-file .github/pull_request_template.md   # then edit in the specifics
 
-# 5. self-review the diff, leave inline notes, wait for CI green
-# 6. mark ready
+# 6. self-review the diff, leave inline notes, wait for CI green
+# 7. mark ready
 gh pr ready
 ```
 
@@ -202,5 +234,7 @@ gh pr ready
 - [ ] Spec IDs and delivery-plan week cited; scope (and non-scope) stated.
 - [ ] UI changes have before/after screenshots.
 - [ ] Migration is reversible / expand-contract; risky work behind a flag.
+- [ ] **Agent-authored:** reviewed by an independent frontier-model agent before the PR was opened;
+      every finding fixed or answered in the PR.
 - [ ] Self-reviewed with inline notes; CI green; opened as draft → marked ready.
 - [ ] No secrets, no unrelated files, no gate weakened to pass.

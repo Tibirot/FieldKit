@@ -41,12 +41,24 @@ halt and report — do **not** open (or force) the PR.
    commit to `main`). Use **Conventional Commit** messages scoped to the module. Never bypass hooks
    or signing.
 
-8. **Open a DRAFT PR** with `gh pr create --draft`, title as a Conventional Commit
+8. **Independent frontier-model review — before the PR exists.** Spin up a **separate agent on a
+   frontier model** (the `Agent` tool with `model: "fable"`) and have it review `git diff main...HEAD`.
+   - **Do not hand it your rationale.** Give it the diff, `docs/engineering/pull-requests.md`, and
+     the specs the change cites. A reviewer given your justification grades the justification.
+   - **Brief it adversarially:** find defects, unstated assumptions, missing tests, scope creep, and
+     any claim you intend to make in the PR body that the diff doesn't support. "Looks good" is not
+     an outcome.
+   - **Fix or explicitly answer every finding.** Dismissing one silently defeats the point; if you
+     disagree, say so and why — in the PR body.
+   - This is **not an approval** and never a reason to merge; the human's gate is unchanged.
+
+9. **Open a DRAFT PR** with `gh pr create --draft`, title as a Conventional Commit
    (`feat(visit): geofenced check-in (VIS-01, VIS-02)`), body filled from
    `.github/pull_request_template.md` — spec IDs, scope/non-scope, test evidence, docs updated,
-   before/after screenshots for UI, risk/rollback.
+   before/after screenshots for UI, risk/rollback, **and the pre-PR review outcome from step 8**
+   (which model, what it found, what you did about each finding).
 
-9. **Self-review.** Read your own diff and leave **inline PR comments** on anything non-obvious.
+10. **Self-review.** Read your own diff and leave **inline PR comments** on anything non-obvious.
 
-10. **Mark ready only when CI is green** (`gh pr ready`). **Never merge or approve** — leave that to
+11. **Mark ready only when CI is green** (`gh pr ready`). **Never merge or approve** — leave that to
     the human. Report the PR URL and a one-paragraph summary of what to review and where to start.
