@@ -46,6 +46,10 @@ OSes, and the divergence persists. Only generating on Linux does.
 3. **Locally, `npm install` is fine** — your `node_modules` will be correct and the app will build.
    Just **don't commit the resulting `package-lock.json` diff** unless you regenerated it as below.
    On Windows it will quietly drop the nested `@swc/helpers` entry.
+4. **Dependabot is the one sanctioned exception** to rule 3. It resolves on Linux, which removes
+   cause 2 — but not cause 1, since its bundled npm major is outside this repo's control. If a
+   Dependabot PR fails `npm ci`, that's cause 1: check out its branch, regenerate as below, and
+   push. `@dependabot recreate` will not fix it, because the problem isn't a stale branch.
 
 ## Regenerating the lockfile
 

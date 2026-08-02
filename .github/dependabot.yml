@@ -1,0 +1,82 @@
+# Dependabot version updates — routine "a newer version exists" bumps.
+#
+# Distinct from Dependabot *security* updates (CVE-driven), which are a repository toggle and need
+# no config. Both are wanted: security updates are the safety net, this is the hygiene.
+#
+# Grouping is the point. Ungrouped, each outdated dependency opens its own PR (this repo carries
+# ~22 npm dependencies and ~45 PackageReferences), and a queue nobody reads is not a control.
+# Minor+patch land as one PR per ecosystem; majors arrive individually so they get real attention.
+#
+# `cooldown` delays adopting a release by a week. Version automation's own supply-chain risk is
+# pulling a freshly published compromised release within hours of it landing; a week is long enough
+# for a bad release to be yanked. It can push an update out by up to a further week on top of the
+# weekly cadence, which is a trade worth making. It applies to version updates only — security
+# updates are deliberately never delayed.
+#
+# Owning docs: docs/architecture/16-security.md §6 · docs/engineering/frontend-toolchain.md
+version: 2
+
+updates:
+  # ── Frontend (npm) ────────────────────────────────────────────────────────
+  # Dependabot resolves on Linux, which removes the OS-divergence cause of lockfile drift
+  # (frontend-toolchain.md cause 2). It does *not* remove cause 1: the npm major version, which
+  # Dependabot controls and this repo doesn't. `npm ci` gates that rather than preventing it — if a
+  # Dependabot PR fails install, check out its branch, regenerate the lockfile per
+  # frontend-toolchain.md, and push. `@dependabot recreate` will not fix it.
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    groups:
+      frontend-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  # ── Backend (NuGet) ───────────────────────────────────────────────────────
+  # No central package management: PackageReference lives in each .csproj, so Dependabot walks the
+  # tree from the root. Verify on the first run (Insights → Dependency graph → Dependabot → job
+  # logs) that all 11 projects are discovered — `FieldKit.slnx` is the new XML solution format and
+  # discovery through it is unproven, and the solution also references `frontend/frontend.esproj`,
+  # which the NuGet updater has no business parsing. If projects are missing, switch to the plural
+  # key, which supports globs: `directories: ["/FieldKit.*"]`.
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      dotnet-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  # ── CI (GitHub Actions) ───────────────────────────────────────────────────
+  # A stale action version is a supply-chain surface as much as a stale package. Action majors are
+  # the breaking kind (runner and artifact API changes), so they stay ungrouped like the others.
+  # In practice the group is currently inert: the workflow pins actions by major tag (`@v4`), and
+  # Dependabot only raises a PR for those when a new *major* appears — so expect individual PRs
+  # here, not a grouped one. The group starts mattering if actions are ever pinned by SHA.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "ci(deps)"
+    groups:
+      actions-minor-patch:
+        update-types:
+          - minor
+          - patch
