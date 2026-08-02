@@ -63,6 +63,9 @@ several small PRs.
 - **[✓ W2]** **shadcn/ui + Tailwind v4 + FieldKit design tokens** (teal, light/dark; Button/Card/Badge) — the wireframe toolkit is real.
 - **[✓ W2]** **next-intl** scaffold — `en` + `ro`, always-prefixed locale routing, locale switcher,
   localized 404, catalog-parity test ([ADR-0010](architecture/adr/0010-internationalization.md)).
+- **[✓ W2]** **PWA baseline** (`OFF-10`) — per-locale manifest, icons, and a Workbox app-shell
+  service worker with per-locale offline fallback; built post-`next build` to keep Turbopack
+  ([ADR-0004](architecture/adr/0004-nextjs-offline-first-frontend.md#building-the-service-worker-phase-0)).
 - **[next]** Per-tenant **row-version stamping** (the `IReferenceChangeFeed` primitive) — with the sync slices.
 
 **Done when:** `dotnet run --project FieldKit.AppHost` boots the app + Postgres; one module answers
@@ -73,7 +76,8 @@ several small PRs.
 - Remove Vite; scaffold **Next.js (App Router)** in `/frontend`; re-wire Aspire JS hosting (standalone output) ([ADR-0004](architecture/adr/0004-nextjs-offline-first-frontend.md)).
 - **shadcn/ui + Tailwind + design tokens** (light/dark, teal) — reproduce the [wireframe](ux/README.md) shell.
 - ✓ **next-intl** scaffold (EN + RO), locale routing ([ADR-0010](architecture/adr/0010-internationalization.md)).
-- **PWA baseline**: manifest, Workbox service worker (app-shell cache), installability.
+- ✓ **PWA baseline**: per-locale manifest, Workbox service worker (app-shell cache + offline
+  fallback), installability.
 - Add **Keycloak** container to the AppHost; JWT bearer validation skeleton in the API ([ADR-0008](architecture/adr/0008-authentication-and-multitenancy.md)).
 - **GitHub Actions CI**: build (dotnet + next) → unit tests → arch-tests.
 

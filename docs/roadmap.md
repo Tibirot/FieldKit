@@ -57,7 +57,14 @@ Turn the scaffold into a clean skeleton the rest hangs off.
   `en` + `ro` catalogs, always-prefixed locale routing (`/en`, `/ro`) via the Next proxy, locale
   switcher, localized 404, and a **catalog-parity test** (keys, ICU arguments, CLDR plural
   categories) that fails the build on drift — *[this slice]*
-- [ ] **Offline PWA shell** (manifest + Workbox service worker) — remaining front-end slice
+- [x] **Offline PWA shell** — installable and offline-bootable (`OFF-10`): a **per-locale web-app
+  manifest**, app icons (incl. maskable), and a **Workbox service worker** built by a post-`next build`
+  step rather than a webpack plugin, so the app keeps Turbopack builds
+  ([ADR-0004](architecture/adr/0004-nextjs-offline-first-frontend.md#building-the-service-worker-phase-0)).
+  Precaches the hashed build output plus one **offline shell per locale**; navigations are
+  network-first and fall back to the shell **in the right language**. Requests persistent storage
+  ([offline behavior §2](product/30-offline-behavior.md)). The API is never cached — offline *data*
+  is the Phase-2 sync engine's job. — *[this slice]*
 - [ ] Add **Keycloak** container to the AppHost ([ADR-0008](architecture/adr/0008-authentication-and-multitenancy.md))
 - [ ] **Architecture-test** project (NetArchTest) enforcing empty-but-real boundaries
 - [ ] **Seed/demo-data** harness (a believable tenant) so every phase is demoable

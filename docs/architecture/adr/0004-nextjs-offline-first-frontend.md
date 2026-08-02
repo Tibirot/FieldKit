@@ -34,6 +34,13 @@ Adopt **Next.js (App Router) + React 19 + TypeScript** as the single front-end a
 - **PWA:** installable, with a **service worker** (Workbox) caching the app shell for offline
   boot, and **IndexedDB (Dexie)** as the durable local store. **TanStack Query** manages
   server-state where online.
+  - The worker is **built by a post-`next build` step** (`frontend/scripts/build-sw.mjs`), not by a
+    bundler plugin — see [Building the service worker](#building-the-service-worker-phase-0).
+  - **One manifest per locale** (`/{locale}/manifest.webmanifest`), because a manifest carries
+    user-visible text and a launch URL, neither of which can be locale-neutral under the
+    always-prefixed routing of [ADR-0010](0010-internationalization.md). Identity (`id`) and
+    `scope` stay shared, so a second install re-points the first rather than adding a duplicate
+    home-screen icon, and the locale switcher doesn't eject the installed app to a browser tab.
 - **i18n:** `next-intl` for multi-language UI + locale-aware formatting; timezone-correct display
   ([A3](../../product/decisions-and-assumptions.md#a3--internationalization-full-multi-currency--multi-language-ui)).
 - **Deployment:** runs as a container (standalone output) on ACA
@@ -49,6 +56,32 @@ Adopt **Next.js (App Router) + React 19 + TypeScript** as the single front-end a
 | **Next.js App Router, offline-first (client store in the field, RSC in back office)** | **Chosen** | Gets modern Next.js where it helps and a robust client/offline model where it's required. |
 | Separate SPA (field) + Next.js (back office) | Rejected | Two codebases/design systems; more to build and keep consistent. |
 
+## Building the service worker *(Phase 0)*
+
+The obvious way to get a Workbox service worker into a Next app is [`@serwist/next`](https://github.com/serwist/serwist)
+(the maintained successor to `next-pwa`). Both are **webpack plugins**, and Next 16 builds with
+**Turbopack** by default — so adopting either means pinning the project to `next build --webpack`
+indefinitely, on the bundler Next is steadily moving away from. Serwist's Turbopack support has been
+open and unstarted since January 2024.
+
+That is a large, permanent cost for a file that has nothing to do with bundling the app, so FieldKit
+drives Workbox directly instead:
+
+1. `workbox-build`'s `getManifest()` computes the precache manifest from the hashed `.next/static`
+   output, plus one **offline shell page per locale** versioned by the Next build id.
+2. **esbuild** bundles `frontend/sw/index.js` — with its `workbox-*` imports — into a classic
+   worker at `public/sw.js`, substituting the manifest in via `define`.
+
+`injectManifest()` is the usual one-call alternative and does *not* work here: it substitutes the
+manifest but leaves the bare `import` statements in place, which a classic service worker cannot
+evaluate. The cost of this approach is one build script; the benefit is that the choice of app
+bundler and the choice of service-worker tooling stop being coupled at all.
+
+**Scope of the worker:** the app *shell* only — HTML, JS, CSS, fonts. It deliberately never caches
+API responses. Offline **data** is IndexedDB plus the [sync engine](../12-offline-sync-engine.md)
+([ADR-0007](0007-offline-sync-strategy.md)); an HTTP cache sitting alongside it would be a second
+source of truth with none of the sync engine's conflict rules.
+
 ## Consequences
 
 **Positive**
@@ -63,6 +96,15 @@ Adopt **Next.js (App Router) + React 19 + TypeScript** as the single front-end a
 - Migrating the scaffold Vite→Next.js is real Phase-0 work (re-wire the Aspire JS hosting, PWA
   setup, standalone output).
 - Service-worker + IndexedDB add front-end complexity — inherent to the offline requirement.
+- **The service worker only exists in a production build.** `public/sw.js` is a build artifact, so
+  `next dev` has no PWA at all; verifying it means `npm run build && npm start` (the `frontend-prod`
+  launch configuration). This is deliberate — a service worker over a dev server caches stale
+  modules and produces bewildering HMR failures — but it does mean PWA regressions can only be
+  caught after a build, not during development.
+- **`output: "standalone"` does not copy `public/`.** The container image must copy it explicitly
+  or the manifest, icons and service worker 404 in a deployed environment while working perfectly
+  in `npm start`. To be verified against the Aspire-generated Dockerfile when
+  [ADR-0011](0011-deployment-azure-container-apps.md) deployment lands.
 
 **Follow-up:** Phase 0 migration ([roadmap](../../roadmap.md)); document the front-end module
 structure and the client-store contract with the [sync engine](../12-offline-sync-engine.md).
