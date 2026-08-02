@@ -66,8 +66,16 @@ OSes, and the divergence persists. Only generating on Linux does.
 ## Cascade layers (global CSS)
 
 **Every ordinary declaration in [`app/globals.css`](../../frontend/app/globals.css) must sit inside
-`@layer base`.** Custom properties (`:root`, `.dark`, `@theme`) are the exception and stay
-unlayered — utilities *consume* tokens, so they cannot conflict.
+`@layer base`,** with two exceptions:
+
+- **Custom properties** (`:root`, `:root, .dark`, `@theme`) stay unlayered — utilities *consume*
+  tokens, so they cannot conflict.
+- **The theme blocks**, including the one ordinary property they carry, `color-scheme`. The palette
+  cascade depends on `:root` and `:root, .dark` landing at equal specificity so **source order**
+  picks the winner; layering them would break that, and `color-scheme` has to travel with the
+  palette it describes or native controls fall out of step with the page. The exemption is scoped to
+  those selectors exactly — `globals.test.ts` asserts both that it applies to them and that it
+  applies to nothing else.
 
 The reason is a cascade rule that reverses the intuition specificity trains: **unlayered styles beat
 layered ones**, always, no matter how specific the layered selector is. Tailwind v4 emits utilities

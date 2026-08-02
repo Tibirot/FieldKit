@@ -2,7 +2,40 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+/*
+ * Tailwind's source scan reads every non-ignored file in the project, tests included — and tests
+ * live beside their subject here. Without this, a utility name written inside a test would ship as
+ * real CSS. The glob is relative to this file, so `../` covers the whole of `frontend/`, not just
+ * `app/`. `globals.test.ts` asserts that this still holds.
+ */
+@source not "../**/*.{test,spec}.{ts,tsx}";
+
+/*
+ * Theme resolution (A7's light/dark tokens, delivery-plan W2). The OS/browser preference decides;
+ * an explicit `.dark` / `.light` class on <html> overrides it. Nothing sets that class today — the
+ * media query is what actually switches the theme, so no JS and no flash-of-wrong-theme — but the
+ * class arm is kept so a per-user theme toggle can later be a provider drop-in rather than a
+ * rewrite of every token and `dark:` utility.
+ *
+ * Scoping contract: `.dark` re-themes its whole subtree (the shadcn pattern for a forced-dark
+ * panel) — the token block below is anchored on `:root, .dark` so tokens and `dark:` utilities
+ * agree about what a wrapper means. `.light` is a document-root override only: it opts <html> out
+ * of the device preference. The exclusion below is therefore `:root.light`, not a bare `.light` —
+ * a bare one would switch `dark:` utilities off around a mid-page `.light` wrapper while the
+ * tokens there stayed dark, which is the half-themed state this whole contract exists to avoid.
+ * Arbitrary nesting is not expressible in a selector, so it is not offered: a `.light` wrapper
+ * inside a `.dark` subtree does not invert it back.
+ */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:not(:root.light, :root.light *)) {
+      @slot;
+    }
+  }
+  &:where(.dark, .dark *) {
+    @slot;
+  }
+}
 
 /*
  * Element-level defaults — and they MUST stay inside `@layer base`.
@@ -14,9 +47,15 @@
  * error, just styles that quietly do nothing.
  *
  * That is not hypothetical: an unlayered `* { padding: 0; margin: 0 }` here disabled every
- * spacing utility in the app. `globals.test.ts` now fails the build if a non-custom property is
- * declared outside a layer. Custom properties (`:root`, `.dark`, `@theme`) are exempt and stay
- * unlayered — utilities *consume* those, so they can never conflict.
+ * spacing utility in the app. `globals.test.ts` fails the build if a non-custom property is
+ * declared outside a layer.
+ *
+ * The **theme blocks below are the one exemption**, and it is deliberate rather than a loophole:
+ * the palette cascade depends on `:root` and `:root, .dark` landing at equal specificity so source
+ * order picks the winner. Layering them would break that, and `color-scheme` has to travel with
+ * the palette it describes or native controls fall out of step with the page. The exemption is
+ * scoped to theme blocks specifically — `globals.test.ts` still rejects an ordinary declaration
+ * anywhere else outside a layer.
  *
  * The `* { box-sizing / padding / margin }` reset that used to live here is gone rather than
  * moved: Tailwind's preflight already emits exactly those three declarations in `@layer base`.
@@ -43,12 +82,6 @@
   a {
     color: inherit;
     text-decoration: none;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    html {
-      color-scheme: dark;
-    }
   }
 }
 
@@ -95,8 +128,14 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* FieldKit brand: teal accent, cool-biased slate neutrals (see docs/ux + A7). */
+/*
+ * FieldKit brand: teal accent, cool-biased slate neutrals (see docs/ux + A7).
+ *
+ * The light palette is declared unconditionally, so it is the floor every other arm overrides —
+ * gating it behind `prefers-color-scheme: light` would leave a `.light` root with no tokens at all.
+ */
 :root {
+  color-scheme: light;
   --background: oklch(1 0 0);
   --foreground: oklch(0.16 0.012 235);
   --card: oklch(1 0 0);
@@ -131,38 +170,47 @@
   --sidebar-ring: oklch(0.52 0.1 185);
 }
 
-.dark {
-  --background: oklch(0.16 0.015 240);
-  --foreground: oklch(0.96 0.005 220);
-  --card: oklch(0.2 0.017 240);
-  --card-foreground: oklch(0.96 0.005 220);
-  --popover: oklch(0.2 0.017 240);
-  --popover-foreground: oklch(0.96 0.005 220);
-  --primary: oklch(0.72 0.12 185);
-  --primary-foreground: oklch(0.18 0.02 235);
-  --secondary: oklch(0.27 0.02 240);
-  --secondary-foreground: oklch(0.96 0.005 220);
-  --muted: oklch(0.27 0.02 240);
-  --muted-foreground: oklch(0.7 0.02 225);
-  --accent: oklch(0.3 0.045 185);
-  --accent-foreground: oklch(0.92 0.03 185);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 16%);
-  --ring: oklch(0.72 0.12 185);
-  --chart-1: oklch(0.72 0.12 185);
-  --chart-2: oklch(0.75 0.15 75);
-  --chart-3: oklch(0.68 0.13 155);
-  --chart-4: oklch(0.7 0.19 20);
-  --chart-5: oklch(0.62 0.05 240);
-  --sidebar: oklch(0.2 0.017 240);
-  --sidebar-foreground: oklch(0.96 0.005 220);
-  --sidebar-primary: oklch(0.72 0.12 185);
-  --sidebar-primary-foreground: oklch(0.18 0.02 235);
-  --sidebar-accent: oklch(0.3 0.045 185);
-  --sidebar-accent-foreground: oklch(0.92 0.03 185);
-  --sidebar-border: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.72 0.12 185);
+/*
+ * The dark palette, written once and applied through the `dark` variant above — Tailwind expands
+ * this into both arms (media query and `.dark` class), so the two can never drift apart. `--radius`
+ * is deliberately absent: it is theme-independent and inherited from `:root`. Must stay *after* the
+ * light block: both land at the same specificity, so source order is what makes dark win.
+ */
+:root, .dark {
+  @variant dark {
+    color-scheme: dark;
+    --background: oklch(0.16 0.015 240);
+    --foreground: oklch(0.96 0.005 220);
+    --card: oklch(0.2 0.017 240);
+    --card-foreground: oklch(0.96 0.005 220);
+    --popover: oklch(0.2 0.017 240);
+    --popover-foreground: oklch(0.96 0.005 220);
+    --primary: oklch(0.72 0.12 185);
+    --primary-foreground: oklch(0.18 0.02 235);
+    --secondary: oklch(0.27 0.02 240);
+    --secondary-foreground: oklch(0.96 0.005 220);
+    --muted: oklch(0.27 0.02 240);
+    --muted-foreground: oklch(0.7 0.02 225);
+    --accent: oklch(0.3 0.045 185);
+    --accent-foreground: oklch(0.92 0.03 185);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 12%);
+    --input: oklch(1 0 0 / 16%);
+    --ring: oklch(0.72 0.12 185);
+    --chart-1: oklch(0.72 0.12 185);
+    --chart-2: oklch(0.75 0.15 75);
+    --chart-3: oklch(0.68 0.13 155);
+    --chart-4: oklch(0.7 0.19 20);
+    --chart-5: oklch(0.62 0.05 240);
+    --sidebar: oklch(0.2 0.017 240);
+    --sidebar-foreground: oklch(0.96 0.005 220);
+    --sidebar-primary: oklch(0.72 0.12 185);
+    --sidebar-primary-foreground: oklch(0.18 0.02 235);
+    --sidebar-accent: oklch(0.3 0.045 185);
+    --sidebar-accent-foreground: oklch(0.92 0.03 185);
+    --sidebar-border: oklch(1 0 0 / 12%);
+    --sidebar-ring: oklch(0.72 0.12 185);
+  }
 }
 
 @layer base {
