@@ -40,9 +40,13 @@ OSes, and the divergence persists. Only generating on Linux does.
    runner resolves, which means a broken lockfile can never fail the build. `npm ci` installs
    exactly the lockfile and fails loudly on any disagreement. **Do not relax this step to make a
    red build green** — that reintroduces the trap this page documents.
-2. **`NODE_VERSION` in [ci.yml](../../.github/workflows/ci.yml) and `engines` in
-   [package.json](../../frontend/package.json) move together**, and the lockfile is regenerated in
-   the same change. Never bump one alone.
+2. **`NODE_VERSION` in [ci.yml](../../.github/workflows/ci.yml), `engines` in
+   [package.json](../../frontend/package.json), and `@types/node` move together**, and the lockfile
+   is regenerated in the same change. Never bump one alone. `@types/node` in particular **tracks the
+   runtime, not the registry** — typechecking against a newer stdlib than the Node you actually run
+   accepts code that compiles and then crashes. Its major is held back in
+   [dependabot.yml](../../.github/dependabot.yml) for that reason, permanently: it moves when Node
+   moves, as part of that change.
 3. **Locally, `npm install` is fine** — your `node_modules` will be correct and the app will build.
    Just **don't commit the resulting `package-lock.json` diff** unless you regenerated it as below.
    On Windows it will quietly drop the nested `@swc/helpers` entry.
