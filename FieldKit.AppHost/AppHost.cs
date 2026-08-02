@@ -18,10 +18,12 @@ var server = builder.AddProject<Projects.FieldKit_Server>("server")
     .WithHttpHealthCheck("/health")
     .WithExternalHttpEndpoints();
 
-var webfrontend = builder.AddViteApp("webfrontend", "../frontend")
+// The Next.js app runs as its own process (Aspire assigns the port via PORT + generates a
+// Dockerfile on publish), calling the API through service discovery. It is a standalone app, not
+// static files served by the Server (ADR-0004).
+builder.AddJavaScriptApp("webfrontend", "../frontend", "dev")
     .WithReference(server)
-    .WaitFor(server);
-
-server.PublishWithContainerFiles(webfrontend, "wwwroot");
+    .WaitFor(server)
+    .WithExternalHttpEndpoints();
 
 builder.Build().Run();

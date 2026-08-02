@@ -58,8 +58,9 @@ several small PRs.
 - **[✓ module-hosting slice]** `IModule` self-registration (`FieldKit.Web`) + first real module
   (`Catalog`, `POST/GET /api/products`) replacing `WeatherForecast`; end-to-end verified with
   `WebApplicationFactory<Program>` on real Postgres. **The modular monolith runs.**
+- **[✓ migrations slice]** Per-module **EF migrations** (`ModuleMigrator`, per-schema history) replacing `EnsureCreated`.
+- **[✓ W2 start]** Front end **Vite → Next.js** (App Router) scaffolded + AppHost re-wired (`AddJavaScriptApp`, standalone output).
 - **[next]** Per-tenant **row-version stamping** (the `IReferenceChangeFeed` primitive) — with the sync slices.
-- **[next]** Per-module **EF migrations** (replace the temporary `SchemaInitializer`/`EnsureCreated`).
 
 **Done when:** `dotnet run --project FieldKit.AppHost` boots the app + Postgres; one module answers
 `/api/…`; arch-tests pass. *(Bus/outbox/row-version and the first module are the remaining W1 slices.)*

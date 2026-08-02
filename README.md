@@ -96,7 +96,7 @@ FieldKit/
 ├─ FieldKit.BuildingBlocks/  # pure abstractions (messaging, tenancy, AggregateRoot)
 ├─ FieldKit.Infrastructure/  # EF base (schema-per-module), interceptors, outbox
 ├─ FieldKit.Modules.Catalog/ # the first domain module
-├─ frontend/                 # field app + back office  (migrating from Vite → Next.js)
+├─ frontend/                 # Next.js field app + back office
 ├─ docs/                     # functional + technical documentation
 └─ FieldKit.slnx
 ```
