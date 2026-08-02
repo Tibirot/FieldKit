@@ -98,7 +98,8 @@ Per [B8](../product/decisions-and-assumptions.md#b8--privacy--gdpr-posture):
   table.
 
   **Residual risk, sharp.** `0.34 → 0.35` is a minor bump on a `0.x` line, so semver permits breakage,
-  and Next loads sharp only at runtime for image optimization — `next build` never touches it. The
+  and Next loads sharp only when images are actually processed — which, with no `next/image` in the
+  app, is never during the build or the test run. The
   guard round-trips an encode/resize/decode to catch a native or ABI break, which is the likely
   failure, but cannot prove every API Next calls is unchanged. The app uses no `next/image` today;
   first real exposure is whenever it does, and that work should re-verify.

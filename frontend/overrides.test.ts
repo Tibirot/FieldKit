@@ -121,9 +121,20 @@ describe("dependency overrides", () => {
  * bump. This round-trips a real encode/decode to catch the likely failure — a native/ABI break —
  * though it can't prove every API Next calls is unchanged.
  *
- * Skipped when the optional dependency isn't installed, rather than failing a legitimate tree.
+ * Skipped when the optional dependency isn't installed, rather than failing a legitimate local tree
+ * — but never in CI. A skip there would mean the one check that exercises sharp silently switched
+ * itself off (an `--omit=optional` added to speed up the install would do it) and left a green build
+ * behind. The lockfile assertion above doesn't cover this: it proves sharp is *recorded*, not that
+ * it *runs*.
  */
 const sharpInstalled = existsSync(here("./node_modules/sharp/package.json"));
+
+if (!sharpInstalled && process.env.CI) {
+  throw new Error(
+    "sharp is not installed, so the override smoke test cannot run. In CI that is a failure, not a " +
+      "skip — did the install step start omitting optional dependencies?",
+  );
+}
 
 describe.skipIf(!sharpInstalled)("sharp (overridden to ^0.35.0)", () => {
   it("loads its native binding and round-trips an image", async () => {
