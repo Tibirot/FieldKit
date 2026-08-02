@@ -1,6 +1,7 @@
 {
   "App": {
     "name": "FieldKit",
+    "shortName": "FieldKit",
     "description": "Automatizarea forței de vânzări — aplicația de teren și back office-ul."
   },
   "Home": {
@@ -26,5 +27,11 @@
     "title": "Pagina nu a fost găsită",
     "description": "Această rută nu există — este posibil să fi fost mutată sau linkul să fie învechit.",
     "back": "Înapoi la început"
+  },
+  "Offline": {
+    "title": "Ești offline",
+    "description": "FieldKit nu a putut contacta serverul. Tot ce ai înregistrat deja este stocat pe acest dispozitiv și se sincronizează imediat ce revii online.",
+    "retry": "Încearcă din nou",
+    "hint": "Instalează FieldKit pe ecranul principal ca să funcționeze și în zonele fără semnal."
   }
 }

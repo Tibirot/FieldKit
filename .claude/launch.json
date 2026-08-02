@@ -7,6 +7,14 @@
       "runtimeArgs": ["run", "dev"],
       "cwd": "frontend",
       "port": 3000
+    },
+    {
+      "//": "Production server. The PWA only exists here: public/sw.js is written by `npm run build`, and the registrar in components/service-worker-registrar.tsx is a no-op outside NODE_ENV=production. Run `npm run build` in frontend/ first.",
+      "name": "frontend-prod",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start", "--", "-p", "3001"],
+      "cwd": "frontend",
+      "port": 3001
     }
   ]
 }

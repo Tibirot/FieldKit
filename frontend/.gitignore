@@ -17,6 +17,11 @@
 /.next/
 /out/
 
+# service worker — a build artifact of `scripts/build-sw.mjs`, regenerated from sw/index.js and the
+# hashed .next output. Committing it would pin a precache manifest to one machine's build.
+/public/sw.js
+/public/sw.js.map
+
 # production
 /build
 
