@@ -47,9 +47,11 @@ Turn the scaffold into a clean skeleton the rest hangs off.
 - [x] **Per-module EF migrations** — `ModuleMigrator<TContext>` applies each module's migrations on
   startup (`MigrateAsync`); each keeps its own `__EFMigrationsHistory` in its own schema, so contexts
   sharing the database don't collide. Replaces the temporary `EnsureCreated`; verified end-to-end.
-- [ ] **Migrate the front end Vite → Next.js** (App Router) + **shadcn/ui & design tokens**
-  ([ADR-0004](architecture/adr/0004-nextjs-offline-first-frontend.md)); **next-intl** i18n scaffold
-  ([ADR-0010](architecture/adr/0010-internationalization.md)); PWA shell; re-wire in the AppHost
+- [x] **Front end Vite → Next.js** (App Router, TS, ESLint) scaffolded + **re-wired in the AppHost**
+  (`AddJavaScriptApp` runs Next as its own app; `output: "standalone"` for containers) — replaces the
+  Vite SPA + wwwroot publish ([ADR-0004](architecture/adr/0004-nextjs-offline-first-frontend.md)) — *[this slice]*
+- [ ] **shadcn/ui + design tokens**, **next-intl** i18n scaffold
+  ([ADR-0010](architecture/adr/0010-internationalization.md)), and the **offline PWA shell** — remaining front-end slices
 - [ ] Add **Keycloak** container to the AppHost ([ADR-0008](architecture/adr/0008-authentication-and-multitenancy.md))
 - [ ] **Architecture-test** project (NetArchTest) enforcing empty-but-real boundaries
 - [ ] **Seed/demo-data** harness (a believable tenant) so every phase is demoable
