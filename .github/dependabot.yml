@@ -38,6 +38,23 @@ updates:
         update-types:
           - minor
           - patch
+    # Majors held back because something else in the toolchain cannot accept them yet. Each is a
+    # standing deviation with a removal condition — drop the entry when the blocker clears, and let
+    # the bump come through as a normal PR. Minor and patch updates are unaffected.
+    ignore:
+      # ESLint 10 removed an API that eslint-plugin-react (pulled in by eslint-config-next) still
+      # calls: "TypeError: contextOrFilename.getFilename is not a function", which fails `npm run
+      # lint` outright. Revisit when eslint-config-next ships ESLint 10 support.
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
+      # TypeScript 7 is refused by typescript-eslint at load time ("does not support TS 7.0" —
+      # typescript-eslint#10940), which also fails lint. Revisit when that lands.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      # @types/node tracks the runtime, not the registry: it must match NODE_VERSION in ci.yml and
+      # `engines` here, or we typecheck against a stdlib we don't run. It moves when Node moves.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   # ── Backend (NuGet) ───────────────────────────────────────────────────────
   # No central package management: PackageReference lives in each .csproj, so Dependabot walks the
