@@ -76,7 +76,13 @@ Per [B8](../product/decisions-and-assumptions.md#b8--privacy--gdpr-posture):
   advisories; known transitive CVEs are pinned to patched versions with a comment citing the GHSA
   (e.g. `Microsoft.OpenApi` → 2.7.5, `MessagePack` → 2.5.302). Making high-severity audit warnings a
   build error is a considered future gate (weighed against lockout when a framework-transitive CVE
-  has no fix yet).
+  has no fix yet). The npm side of the same problem uses `overrides` in
+  [`frontend/package.json`](../../frontend/package.json): `next@16.2.12` pins `postcss` to exactly
+  `8.4.31` and `sharp` to `^0.34.5`, so a dependency it ships vulnerable cannot be reached by
+  resolution alone — and `next@latest` **is** 16.2.12, so there is no upstream release to wait for.
+  Each override carries the reason it exists and the condition for removing it (Next shipping a
+  patched pin); an override is a standing deviation from what a maintainer declared, so it is
+  reviewed and dated, not left to rot.
 - **Dependabot** covers what a manual pin can't: *security* updates open a PR per advisory, and
   *version* updates ([`.github/dependabot.yml`](../../.github/dependabot.yml)) keep npm, NuGet, and
   GitHub Actions current. Minor/patch are grouped into one PR per ecosystem (weekly for npm and
