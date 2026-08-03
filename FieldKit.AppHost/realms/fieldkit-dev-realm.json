@@ -39,6 +39,14 @@
       {
         "name": "orgunit:write",
         "description": "Create, rename, move and delete org units (Organization module)."
+      },
+      {
+        "name": "position:read",
+        "description": "View who occupies which part of the sales hierarchy (Organization module)."
+      },
+      {
+        "name": "position:write",
+        "description": "Assign people to org units and change their titles (Organization module). Separate from orgunit:write because redrawing the organization and staffing it are different jobs."
       }
     ]
   },
@@ -131,7 +139,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["product:read", "role:read", "orgunit:read"]
+      "realmRoles": ["product:read", "role:read", "orgunit:read", "position:read"]
     },
     {
       "username": "admin",
@@ -147,7 +155,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["role:read", "role:write", "user:read", "user:write", "orgunit:read", "orgunit:write"]
+      "realmRoles": ["role:read", "role:write", "user:read", "user:write", "orgunit:read", "orgunit:write", "position:read", "position:write"]
     }
   ]
 }

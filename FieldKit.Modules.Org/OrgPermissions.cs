@@ -13,4 +13,15 @@ public static class OrgPermissions
 {
     public const string OrgUnitRead = "orgunit:read";
     public const string OrgUnitWrite = "orgunit:write";
+
+    /// <summary>
+    /// Positions are their own capability, separate from the units they hang on.
+    /// </summary>
+    /// <remarks>
+    /// Redrawing the sales organization and deciding who staffs it are different jobs, usually done
+    /// by different people — org design against sales ops. Folding them together would mean anyone
+    /// who can move a team can also decide who runs it.
+    /// </remarks>
+    public const string PositionRead = "position:read";
+    public const string PositionWrite = "position:write";
 }

@@ -27,6 +27,14 @@
       {
         "name": "orgunit:write",
         "description": "Edit the sales hierarchy. Held by the second tenant so that reaching for another tenant's unit is refused by the query filter (404) rather than by the permission check (403) — otherwise the isolation test passes without isolation."
+      },
+      {
+        "name": "position:read",
+        "description": "View positions. Held so per-tenant org staffing can be asked about rather than assumed (ORG-02)."
+      },
+      {
+        "name": "position:write",
+        "description": "Edit positions. Held for the same reason as orgunit:write — a cross-tenant attempt must be refused by the query filter, not by the permission check."
       }
     ]
   },
@@ -152,7 +160,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["product:read", "product:write", "role:read", "orgunit:read", "orgunit:write"]
+      "realmRoles": ["product:read", "product:write", "role:read", "orgunit:read", "orgunit:write", "position:read", "position:write"]
     }
   ]
 }

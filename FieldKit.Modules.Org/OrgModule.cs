@@ -22,6 +22,8 @@ public sealed class OrgModule : IModule
     [
         new(OrgPermissions.OrgUnitRead, "View the sales hierarchy."),
         new(OrgPermissions.OrgUnitWrite, "Create, rename, move and delete org units."),
+        new(OrgPermissions.PositionRead, "View who occupies which part of the sales hierarchy."),
+        new(OrgPermissions.PositionWrite, "Assign people to org units and change their titles."),
     ];
 
     public void AddModule(IServiceCollection services, IConfiguration configuration)
@@ -33,5 +35,9 @@ public sealed class OrgModule : IModule
         services.AddHostedService<ModuleMigrator<OrgDbContext>>();
     }
 
-    public void MapEndpoints(IEndpointRouteBuilder endpoints) => endpoints.MapOrgUnitEndpoints();
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapOrgUnitEndpoints();
+        endpoints.MapPositionEndpoints();
+    }
 }

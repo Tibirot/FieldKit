@@ -122,6 +122,9 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
   ✓ **Org units** (`ORG-01`) — configurable-depth hierarchy, sibling-unique names, moves refused when
   they would put a unit inside its own branch. The module's public contracts land with the slices
   that give them a consumer.
+  ✓ **Positions + management line** (`ORG-02`) — users attached to units through IAM's
+  `IUserDirectory`; the line derived upward for roll-up and the visibility scope downward for
+  BR-ORG-4. Current state, not history: `ORG-08` is Phase 2, and a visit keeps its author regardless.
 - Outlets: `Outlet` with channel/segment/geo/contacts, lifecycle; `IOutletCatalog`/`IOutletClassification`; events ([Outlets spec](product/12-outlets-master-data.md)) — `OUT-01…04`.
 - **Configuration module (10th):** field-definition catalog + `IFieldDefinitionCatalog` + JSONB values + server validation, wired into Outlets first ([ADR-0009](architecture/adr/0009-config-driven-customization.md)). (Workflow/survey/weight definitions land in W10.)
 - Bulk-import / seed outlets.

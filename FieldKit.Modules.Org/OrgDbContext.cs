@@ -14,6 +14,8 @@ public sealed class OrgDbContext(DbContextOptions<OrgDbContext> options, ITenant
 
     public DbSet<OrgUnit> OrgUnits => Set<OrgUnit>();
 
+    public DbSet<Position> Positions => Set<Position>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -44,6 +46,33 @@ public sealed class OrgDbContext(DbContextOptions<OrgDbContext> options, ITenant
             // The tree endpoint reads every unit for a tenant, and the delete path asks whether a
             // unit has children. Both are parent lookups.
             unit.HasIndex(u => new { u.TenantId, u.ParentId });
+        });
+
+        modelBuilder.Entity<Position>(position =>
+        {
+            position.ToTable("position");
+            position.HasKey(p => p.Id);
+            position.Property(p => p.UserId).HasMaxLength(64).IsRequired();   // Keycloak `sub`
+            position.Property(p => p.Title).HasMaxLength(100).IsRequired();
+
+            // One position per user per unit. Holding two places in the same unit says nothing the
+            // title cannot, and it would double every unit in that user's scope.
+            //
+            // Across units is deliberately allowed: covering two areas is an ordinary arrangement,
+            // and the scope calculation is a set union precisely so it stays correct when it happens.
+            position.HasIndex(p => new { p.TenantId, p.UserId, p.OrgUnitId }).IsUnique();
+
+            // Restricted, like the unit's own parent link. The endpoint checks first and refuses
+            // with "N people still hold positions here" — this is what makes that a guarantee rather
+            // than a convention: a path that forgets to check gets a constraint violation instead of
+            // an orphaned position pointing at a unit that no longer exists.
+            position.HasOne<OrgUnit>()
+                .WithMany()
+                .HasForeignKey(p => p.OrgUnitId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // "Who is in this unit", which the delete check and the unit screen both ask.
+            position.HasIndex(p => new { p.TenantId, p.OrgUnitId });
         });
     }
 }
