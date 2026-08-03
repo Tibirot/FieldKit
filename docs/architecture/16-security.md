@@ -27,8 +27,10 @@ geolocation**. This doc states the model and a lightweight threat model.
   make isolation automatic ([data & persistence](14-data-and-persistence.md)).
 - **Tenant is taken only from the token** — never from client body/route. A crafted `tenantId`
   cannot cross tenants.
-- **Bypass is banned:** `IgnoreQueryFilters()` and filter-evading raw SQL fail an
-  [architecture test](17-testing-strategy.md) — isolation can't be silently switched off.
+- **Bypass is banned at compile time:** `IgnoreQueryFilters()` and `ExecuteSqlRaw` are banned symbols
+  in every production project (AT-9, [module boundaries §5](10-module-boundaries.md#5-enforcement--architecture-tests)),
+  so isolation cannot be switched off — the build fails on the developer's machine rather than in
+  review. Test projects are exempt: proving the filter works requires looking past it.
 - Defence in depth: per-module DB roles scoped to their schema ([ADR-0005](adr/0005-postgres-schema-per-module.md)).
 
 ## 4. Data protection & privacy (GDPR)

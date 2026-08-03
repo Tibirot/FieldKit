@@ -4,23 +4,13 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <!-- Enforce the IClock-only rule (AT-7) as a build error, not just a warning. -->
-    <WarningsAsErrors>$(WarningsAsErrors);RS0030</WarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\FieldKit.SharedKernel\FieldKit.SharedKernel.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
-
-  <ItemGroup>
-    <AdditionalFiles Include="..\BannedSymbols.txt" />
-  </ItemGroup>
+  <!-- The banned-API analyzer, its symbol lists and the RS0030-as-error escalation now come from
+       Directory.Build.props, so every project gets them rather than just this one. -->
 
 </Project>

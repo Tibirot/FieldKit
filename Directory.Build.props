@@ -1,0 +1,52 @@
+<Project>
+
+  <!--
+    Solution-wide analyzer policy.
+
+    The banned-API analyzer was previously referenced by SharedKernel and BuildingBlocks only, so
+    AT-7 ("no static time; IClock only") was enforced in the two projects least likely to break it
+    and nowhere else. A `DateTime.Now` in FieldKit.Server, FieldKit.Infrastructure or any module
+    compiled clean — while CLAUDE.md and the roadmap both described the rule as enforced at compile
+    time. This file makes that true.
+
+    Applying it here rather than per-project also means a new module is covered the moment it is
+    created, instead of depending on whoever scaffolds it remembering.
+  -->
+
+  <!--
+    C# projects only. This file also reaches frontend/frontend.esproj — the Aspire JavaScript
+    project — which has no compiler to analyze and fails outright if handed a .NET analyzer package.
+  -->
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.csproj'">
+    <!--
+      RS0030 is a warning by default. A warning is a suggestion, and these rules are not suggestions:
+      one of them is the tenant-isolation bypass. Escalating to an error is what makes them gates.
+    -->
+    <WarningsAsErrors>$(WarningsAsErrors);RS0030</WarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectExtension)' == '.csproj'">
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectExtension)' == '.csproj'">
+    <!-- Time (AT-7). Applies everywhere, tests included — a test that reads the wall clock is a
+         flaky test waiting to happen, so there is no reason to exempt them. -->
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectExtension)' == '.csproj' AND !$(MSBuildProjectName.EndsWith('.Tests'))">
+    <!--
+      Tenant-isolation bypasses (ADR-0008). Production code only.
+
+      Test projects are exempt deliberately: proving isolation *works* means being able to look at
+      the data as the database sees it, without the filter in the way. A tenant-isolation test that
+      could only query through the filter would be asserting the filter against itself.
+    -->
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.Isolation.txt" />
+  </ItemGroup>
+
+</Project>
