@@ -97,6 +97,12 @@ public sealed class ServerFixture : IAsyncLifetime
         AdminAccessToken = await RequestAccessTokenAsync(_keycloak.GetBaseAddress(), AdminUsername);
     }
 
+    /// <summary>
+    /// The running host's services, for assertions HTTP cannot make — notably whether an integration
+    /// event actually reached the outbox, which is invisible from the API surface.
+    /// </summary>
+    public IServiceProvider Services => _factory.Services;
+
     /// <summary>A client presenting a bearer token — <c>rep</c>'s unless another is given.</summary>
     public HttpClient CreateAuthenticatedClient(string? token = null)
     {
