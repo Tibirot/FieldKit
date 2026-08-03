@@ -106,6 +106,18 @@ internal static class OrgUnitEndpoints
                 });
             }
 
+            // Same reasoning one level down: deleting the unit someone occupies would silently
+            // remove them from the org chart. The foreign key would refuse this anyway — this is
+            // what turns that into an answer an admin can act on.
+            var staffed = await db.Positions.CountAsync(position => position.OrgUnitId == id, ct);
+            if (staffed > 0)
+            {
+                return Results.Conflict(new
+                {
+                    error = $"{staffed} person(s) still hold positions in '{unit.Name}'. Move them first.",
+                });
+            }
+
             db.OrgUnits.Remove(unit);
             await db.SaveChangesAsync(ct);
 

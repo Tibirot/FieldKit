@@ -13,6 +13,13 @@
     <ProjectReference Include="..\FieldKit.BuildingBlocks\FieldKit.BuildingBlocks.csproj" />
     <ProjectReference Include="..\FieldKit.Infrastructure\FieldKit.Infrastructure.csproj" />
     <ProjectReference Include="..\FieldKit.Web\FieldKit.Web.csproj" />
+    <!--
+      IAM's *contracts*, never its implementation (AT-1). A position names a user, so this module has
+      to be able to ask whether that user exists — and asking through IUserDirectory rather than
+      reading `iam.user` is what makes schema-per-module (ADR-0005) hold when a feature spans two
+      modules. The architecture test checks the reference itself, not the intent.
+    -->
+    <ProjectReference Include="..\FieldKit.Modules.Iam.Contracts\FieldKit.Modules.Iam.Contracts.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -297,6 +297,84 @@ Authorization: Bearer {{viewerToken.response.body.access_token}}
   "parentId": null
 }
 
+### ─── Organization · positions and the management line (ORG-02) ──────────────────────────────────
+
+### Who is in the hierarchy. Optional `?orgUnitId=` narrows to one unit. Requires `position:read`.
+GET {{Server_HostAddress}}/api/org/positions
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Put someone in the tree. The user is resolved through IAM's IUserDirectory contract, so this
+### 400s for a subject id this tenant does not have. `title` is a label — never an authorization
+### input (BR-IAM-2); what the person may do comes from their token.
+# @name position
+POST {{Server_HostAddress}}/api/org/positions
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "userId": "{{newUser.request.body.$.subjectId}}",
+  "orgUnitId": "{{region.response.body.id}}",
+  "title": "Supervisor"
+}
+
+### The same user in the same unit twice — expect 409. Across *different* units is allowed:
+### covering two areas is an ordinary arrangement.
+POST {{Server_HostAddress}}/api/org/positions
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "userId": "{{newUser.request.body.$.subjectId}}",
+  "orgUnitId": "{{region.response.body.id}}",
+  "title": "Supervisor again"
+}
+
+### Retitle. Moving someone is deliberately *not* possible here — it changes who they report
+### through and what they see, so it is a delete and a create, and the audit trail shows both.
+PUT {{Server_HostAddress}}/api/org/positions/{{position.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "userId": "{{newUser.request.body.$.subjectId}}",
+  "orgUnitId": "{{region.response.body.id}}",
+  "title": "Senior Supervisor"
+}
+
+### Move by editing — expect 400 naming the delete-and-create path.
+PUT {{Server_HostAddress}}/api/org/positions/{{position.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "userId": "{{newUser.request.body.$.subjectId}}",
+  "orgUnitId": "{{country.response.body.id}}",
+  "title": "Senior Supervisor"
+}
+
+### What the hierarchy means for one person. `managementLine` runs *up* (who they report through,
+### for roll-up reporting); `visibleUnitIds` runs *down* (BR-ORG-4's visibility scope). Returned as
+### data — enforcing it is ORG-09.
+GET {{Server_HostAddress}}/api/org/users/{{newUser.request.body.$.subjectId}}/scope
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Delete the unit someone occupies — expect 409, not a silent removal from the org chart.
+DELETE {{Server_HostAddress}}/api/org/units/{{region.response.body.id}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Staffing as `viewer`, who holds position:read and not position:write — 403.
+POST {{Server_HostAddress}}/api/org/positions
+Content-Type: application/json
+Authorization: Bearer {{viewerToken.response.body.access_token}}
+
+{
+  "userId": "{{newUser.request.body.$.subjectId}}",
+  "orgUnitId": "{{region.response.body.id}}",
+  "title": "Should be forbidden"
+}
+
 ### ─── Multi-issuer (ADR-0008) ────────────────────────────────────────────────────────────────────
 
 ### A token from the SECOND tenant's realm. Different issuer, different signing keys, same API.

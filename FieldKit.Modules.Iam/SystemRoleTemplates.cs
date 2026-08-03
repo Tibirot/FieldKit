@@ -54,11 +54,13 @@ public static class SystemRoleTemplates
     [
         new("Field Rep", ["product:read"]),
 
-        // Reads the hierarchy because a supervisor's job is defined by their branch of it; cannot
-        // redraw it, which is a back-office act.
-        new("Supervisor", ["product:read", "orgunit:read", IamPermissions.UserRead]),
+        // Reads the hierarchy because a supervisor's job is defined by their branch of it, and reads
+        // positions because that is who is in it. Cannot redraw either — both are back-office acts.
+        new("Supervisor", ["product:read", "orgunit:read", "position:read", IamPermissions.UserRead]),
 
-        new("Sales Ops", ["product:read", "product:write", "orgunit:read"]),
+        // Staffs the organization without redrawing it: sales ops decides who covers what, org
+        // design decides what there is to cover.
+        new("Sales Ops", ["product:read", "product:write", "orgunit:read", "position:read", "position:write"]),
 
         // No product permissions, on purpose. An admin who can grant capabilities does not thereby
         // hold them — that is what makes this a permission model rather than a tier list.
@@ -66,6 +68,8 @@ public static class SystemRoleTemplates
         [
             "orgunit:read",
             "orgunit:write",
+            "position:read",
+            "position:write",
             IamPermissions.RoleRead,
             IamPermissions.RoleWrite,
             IamPermissions.UserRead,

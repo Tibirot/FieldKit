@@ -34,6 +34,20 @@ territory, a territory is served by a rep, a rep reports up a management chain.
 1. Admin builds the tree of org units and assigns users (supervisors/reps) to positions.
 2. The management line is derived (used for roll-up reporting and visibility scoping).
 
+Two shapes of that derivation, from the same tree and answering different questions:
+
+- **Management line** — the units *above* someone, nearest first. Who they report up through.
+- **Visibility scope** — their units and everything *below*. What BR-ORG-4 describes.
+
+A **position's title is a label, never a capability.** It is free text an admin types: it can read
+"Supervisor" for someone holding no supervisory permission, and anyone with `position:write` can
+change it. What a user may do comes from their token and nowhere else (BR-IAM-2) — the moment
+something branches on the title, the permission model has a second, editable, unenforced copy.
+
+Positions are **current state, not history**. A row means "is attached now". `ORG-08` (reassignment
+with history) is Phase 2, and BR-ORG-5 does not depend on this either way: a visit or an order
+records the user who made it, so its attribution survives any change to the org chart.
+
 ### F2 · Define territories
 1. Admin creates a territory and assigns outlets to it (directly, or by geo/postal/segment
    rule that materializes membership).
