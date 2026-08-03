@@ -462,8 +462,9 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
   "status": "Inactive"
 }
 
-### Closing is permanent (OUT-04) — it is what makes Closed mean more than a long-lived Inactive,
-### and what BR-OUT-4's "excluded from new journeys, keeps its history" rests on.
+### Closing without a reason — expect 400. Closing is irreversible and removes the outlet from every
+### future journey, so "why" is the question an auditor will ask, and the person who can answer it is
+### the one doing it now. A routine Active↔Inactive toggle does not need one.
 POST {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}/status
 Content-Type: application/json
 Authorization: Bearer {{adminToken.response.body.access_token}}
@@ -471,6 +472,24 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
 {
   "status": "Closed"
 }
+
+### Closing is permanent (OUT-04) — it is what makes Closed mean more than a long-lived Inactive,
+### and what BR-OUT-4's "excluded from new journeys, keeps its history" rests on.
+POST {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}/status
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "status": "Closed",
+  "reason": "Lease ended; site redeveloped"
+}
+
+### The audit trail: every transition, newest first, starting with the outlet's creation (`from` is
+### null). Append-only — there is deliberately no endpoint to add, edit or remove an entry, because
+### an audit log with a write path is one that can be arranged after the fact.
+GET {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}/status-history
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
 
 ### Reopening a closed outlet — expect 409 naming the new-outlet path.
 POST {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}/status

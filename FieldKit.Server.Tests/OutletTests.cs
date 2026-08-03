@@ -129,6 +129,80 @@ public class OutletTests(ServerFixture fixture)
     }
 
     [Fact]
+    public async Task Every_transition_is_recorded_and_the_trail_starts_at_creation()
+    {
+        // Neither Inactive nor Closed deletes anything — but before this table the *evidence* of a
+        // transition was lost anyway: the outlet's audit stamps are overwritten by the next ordinary
+        // edit, so an outlet closed in March and renamed in April read as though nobody had ever
+        // closed it. This is what makes BR-OUT-4's "retains history" literally true.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var channel = await ChannelAsync(client);
+        var outlet = await OutletAsync(client, channel.Id);
+
+        await client.PostAsJsonAsync(
+            $"/api/outlets/{outlet.Id}/status", new OutletStatusRequest(OutletStatus.Inactive, "Refurbishment"));
+        await client.PostAsJsonAsync(
+            $"/api/outlets/{outlet.Id}/status", new OutletStatusRequest(OutletStatus.Active));
+        await client.PostAsJsonAsync(
+            $"/api/outlets/{outlet.Id}/status", new OutletStatusRequest(OutletStatus.Closed, "Lease ended"));
+
+        // …then an ordinary edit, which is what used to destroy the record of the closure.
+        await client.PutAsJsonAsync(
+            $"/api/outlets/{outlet.Id}", new UpdateOutletRequest("Renamed after closing", channel.Id, null, null));
+
+        var history = await client.GetFromJsonAsync<List<OutletStatusChangeResponse>>(
+            $"/api/outlets/{outlet.Id}/status-history");
+
+        // The whole sequence, newest first, rather than spot checks: asserting each transition's
+        // `from` is what catches a trail that records where an outlet went but not where it came
+        // from — which reads fine one row at a time and is useless to reconstruct from.
+        //
+        // The oldest entry has a null `from`, so "no history" can never be mistaken for "the
+        // history was lost".
+        Assert.Equal(
+            [
+                (OutletStatus.Active, OutletStatus.Closed),
+                (OutletStatus.Inactive, OutletStatus.Active),
+                (OutletStatus.Active, OutletStatus.Inactive),
+                (null, OutletStatus.Active),
+            ],
+            history!.Select(change => (change.From, change.To)));
+
+        Assert.Equal("Lease ended", history[0].Reason);
+        Assert.False(string.IsNullOrWhiteSpace(history[0].ChangedBy));
+
+        // The reason from the *first* deactivation survives the later ones — the point of a trail
+        // rather than a pair of columns holding only the latest.
+        Assert.Contains(history, change => change.Reason == "Refurbishment");
+    }
+
+    [Fact]
+    public async Task Closing_requires_a_reason_and_a_no_op_records_nothing()
+    {
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var channel = await ChannelAsync(client);
+        var outlet = await OutletAsync(client, channel.Id);
+
+        // Irreversible, and removes the outlet from every future journey — so "why" is the question
+        // an auditor will ask, and the person who can answer it is the one doing it now.
+        var unexplained = await client.PostAsJsonAsync(
+            $"/api/outlets/{outlet.Id}/status", new OutletStatusRequest(OutletStatus.Closed));
+        Assert.Equal(HttpStatusCode.BadRequest, unexplained.StatusCode);
+
+        // A no-op is accepted but leaves no entry: a trail full of rows where nothing happened is
+        // harder to read than one without them.
+        await client.PostAsJsonAsync(
+            $"/api/outlets/{outlet.Id}/status", new OutletStatusRequest(OutletStatus.Active));
+
+        var history = await client.GetFromJsonAsync<List<OutletStatusChangeResponse>>(
+            $"/api/outlets/{outlet.Id}/status-history");
+
+        Assert.Single(history!); // creation only
+    }
+
+    [Fact]
     public async Task Closing_an_outlet_is_permanent()
     {
         // What makes Closed mean anything beyond Inactive. A status that can be walked back is just
@@ -142,7 +216,8 @@ public class OutletTests(ServerFixture fixture)
         Assert.Equal(
             HttpStatusCode.OK,
             (await client.PostAsJsonAsync(
-                $"/api/outlets/{outlet.Id}/status", new OutletStatusRequest(OutletStatus.Closed))).StatusCode);
+                $"/api/outlets/{outlet.Id}/status",
+                new OutletStatusRequest(OutletStatus.Closed, "Permanently shut"))).StatusCode);
 
         foreach (var attempt in new[] { OutletStatus.Active, OutletStatus.Inactive })
         {
@@ -182,7 +257,7 @@ public class OutletTests(ServerFixture fixture)
         var elsewhere = await OutletAsync(client, other.Id);
 
         await client.PostAsJsonAsync(
-            $"/api/outlets/{shut.Id}/status", new OutletStatusRequest(OutletStatus.Closed));
+            $"/api/outlets/{shut.Id}/status", new OutletStatusRequest(OutletStatus.Closed, "Lease ended"));
 
         var byChannel = await client.GetFromJsonAsync<List<OutletResponse>>(
             $"/api/outlets?channelId={mine.Id}");

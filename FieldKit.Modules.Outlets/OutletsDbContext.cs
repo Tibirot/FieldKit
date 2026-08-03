@@ -16,6 +16,9 @@ public sealed class OutletsDbContext(DbContextOptions<OutletsDbContext> options,
 
     public DbSet<Outlet> Outlets => Set<Outlet>();
 
+    /// <summary>Append-only. Nothing in this module updates or removes one — see the entity.</summary>
+    public DbSet<OutletStatusChange> OutletStatusChanges => Set<OutletStatusChange>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -57,6 +60,28 @@ public sealed class OutletsDbContext(DbContextOptions<OutletsDbContext> options,
             // The two queries the outlet list actually makes: filter by channel, filter by status.
             outlet.HasIndex(o => new { o.TenantId, o.ChannelId });
             outlet.HasIndex(o => new { o.TenantId, o.Status });
+        });
+
+        modelBuilder.Entity<OutletStatusChange>(change =>
+        {
+            change.ToTable("outlet_status_change");
+            change.HasKey(c => c.Id);
+            change.Property(c => c.From).HasConversion<string>().HasMaxLength(20);
+            change.Property(c => c.To).HasConversion<string>().HasMaxLength(20).IsRequired();
+            change.Property(c => c.Reason).HasMaxLength(500);
+
+            // Cascade, uniquely in this module — and only because the parent cannot be deleted.
+            // Outlets are never removed (that is what Closed is for), so this exists to stop an
+            // administrative purge leaving orphaned audit rows pointing at nothing. If outlet
+            // deletion is ever added, this needs revisiting before that ships: an audit trail that
+            // disappears with its subject is not an audit trail.
+            change.HasOne<Outlet>()
+                .WithMany()
+                .HasForeignKey(c => c.OutletId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // The one query this table serves: one outlet's history, newest first.
+            change.HasIndex(c => new { c.TenantId, c.OutletId, c.CreatedAtUtc });
         });
     }
 }

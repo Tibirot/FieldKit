@@ -71,6 +71,18 @@ Status changes go through their own endpoint rather than the edit form. "This st
 different decision from "the name was spelled wrong", and merging them lets a careless update close
 an outlet as a side effect of fixing a typo.
 
+**Every transition is recorded, append-only.** Neither `Inactive` nor `Closed` deletes anything — but
+the outlet's own audit stamps are overwritten by the next ordinary edit, so without a trail an outlet
+closed in March and renamed in April reads as though nobody ever closed it. The trail holds
+`from → to`, the reason, when, and who; it starts with the outlet's creation (`from` is null), so
+"no history" can never be mistaken for "the history was lost". There is no API to write, edit or
+delete an entry — an audit log with a write path is one that can be arranged after the fact.
+
+**A reason is required to close, and optional otherwise.** Closing is irreversible and removes the
+outlet from every future journey, so *why* is the question an auditor will ask about it, and the
+person who knows the answer is the one doing it. Demanding a reason for a routine
+`Active`↔`Inactive` toggle would buy a column full of ".".
+
 ## 5. Business rules
 
 - **BR-OUT-1** Every outlet has a **channel** and a **primary territory**.

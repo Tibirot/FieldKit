@@ -128,9 +128,11 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
 - Outlets: `Outlet` with channel/segment/geo/contacts, lifecycle; `IOutletCatalog`/`IOutletClassification`; events ([Outlets spec](product/12-outlets-master-data.md)) — `OUT-01…04`.
   ✓ **Classification + lifecycle** — channels as tenant-owned reference data, outlets carrying
   code/name/channel/segment/banner, and the Active → Inactive → Closed lifecycle with `Closed`
-  terminal (`OUT-04`). Address, geo, IANA timezone and contacts are the next slice: BR-OUT-2 and the
-  PII handling under [B8](product/decisions-and-assumptions.md#b8--privacy--gdpr-posture) are rules
-  of their own, not extra fields.
+  terminal (`OUT-04`). Every transition is recorded append-only with a reason, so BR-OUT-4's
+  "retains history" holds even after later edits overwrite the outlet's own audit stamps. Address,
+  geo, IANA timezone and contacts are the next slice: BR-OUT-2 and the PII handling under
+  [B8](product/decisions-and-assumptions.md#b8--privacy--gdpr-posture) are rules of their own, not
+  extra fields.
 - **Configuration module (10th):** field-definition catalog + `IFieldDefinitionCatalog` + JSONB values + server validation, wired into Outlets first ([ADR-0009](architecture/adr/0009-config-driven-customization.md)). (Workflow/survey/weight definitions land in W10.)
 - Bulk-import / seed outlets.
 
