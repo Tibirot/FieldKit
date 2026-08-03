@@ -83,10 +83,23 @@ including under a crafted/hostile request.
 The decision above is accepted in full; this records how much of it currently exists, because the
 gap is security-relevant and easy to misread as "auth is done".
 
-**Landed.** Keycloak runs as an Aspire container with the dev tenant realm imported from source, and
-the API validates the JWT bearer — signature, issuer, audience and lifetime — against that realm.
-The token carries `tenant`, `sub` and a flattened `permissions` claim, verified end to end against a
-real Keycloak in the integration tests.
+**Landed.** Keycloak runs as an Aspire container with the dev tenant realms imported from source, and
+the API validates the JWT bearer — signature, issuer, audience and lifetime — against **whichever
+realm minted it**. The token carries `tenant`, `sub` and a flattened `permissions` claim, verified
+end to end against a real Keycloak in the integration tests.
+
+**Multi-issuer validation** (finding S6) is wired: issuer and signing keys are resolved per request
+from a registry backed by the tenant table, with per-realm JWKS caching. Three properties follow, and
+each has a test that can fail because a second realm now exists:
+
+- **The tenant table is the trust list.** A realm no tenant row claims yields no issuer and no signing
+  keys, so someone who can create a realm on the identity provider cannot thereby create a tenant.
+- **A token's `tenant` claim must match the tenant that owns its issuer.** Issuer validation proves a
+  token came from a realm we trust and says nothing about who it claims to be; without this
+  comparison a trusted realm could mint tokens for *any* tenant and the query filter would honour
+  them. The second dev realm carries a client that does exactly that, so the check is exercised
+  against a real signature rather than a mangled one.
+- **A suspended tenant loses access at validation**, not at first query.
 
 `ITenantContext` is **derived from the token** (`IAM-02`): the tenant comes from the `tenant` claim
 and nowhere else — not a header, not a route value, not the body. Business endpoints require a
@@ -105,11 +118,10 @@ Three properties are worth stating because each closes a specific hole:
 
 **Not yet, and deliberately so:**
 
-- **Single issuer.** Realm-per-tenant means per-tenant issuers and JWKS endpoints (finding S6 above),
-  so the finished system resolves the issuer per request against a registry of tenant realms. That
-  registry needs a source of tenants, which IAM owns and has not delivered — building it now would
-  mean inventing a tenant list to drive it. The API validates the one realm that exists.
-- **No realm provisioning** (`IAM-10`). The dev realm is hand-written.
+- **No realm provisioning** (`IAM-10`). The dev realms are hand-written, and the tenant rows that make
+  them trusted issuers come from configuration (`Iam:SeedTenants`) rather than from provisioning. A
+  seeded id that disagrees with its realm's hardcoded `tenant` claim produces tokens that
+  authenticate and are then refused — the binding above working, for the wrong reason.
 - **No account provisioning.** IAM owns the FieldKit *profile*; creating the matching Keycloak
   account (spec F2) and the tenant realm (`IAM-10`) is Phase 2. Doing it now would put Keycloak
   admin credentials into the request path — a blast radius that deserves its own decision rather

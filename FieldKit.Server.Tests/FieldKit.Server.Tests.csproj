@@ -23,7 +23,9 @@
       pass. That is the point: if someone drops the audience mapper or renames a permission role,
       these tests fail instead of quietly testing a fiction.
     -->
-    <Content Include="..\FieldKit.AppHost\realms\fieldkit-dev-realm.json" Link="realms\fieldkit-dev-realm.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- By wildcard: a realm added for the AppHost is one the tests should exercise, and remembering
+         to list it here is exactly the step that gets skipped. -->
+    <Content Include="..\FieldKit.AppHost\realms\*.json" Link="realms\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

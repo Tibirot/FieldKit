@@ -1,10 +1,15 @@
 @Server_HostAddress = http://localhost:5476
 
 # Keycloak, as the AppHost exposes it. The port is assigned per run — take it from the Aspire
-# dashboard's `keycloak` resource. The realm and client are defined in
-# FieldKit.AppHost/realms/fieldkit-dev-realm.json.
+# dashboard's `keycloak` resource, NOT from `docker ps`: those are different ports, because Aspire
+# fronts the container with a proxy. Keycloak derives a token's `iss` from the address it was called
+# on, so a token minted against the published container port carries an issuer the API has never
+# heard of and comes back 401. The realms and clients are in FieldKit.AppHost/realms/.
 @Keycloak_HostAddress = https://localhost:8443
 @Realm = fieldkit-dev
+
+# The second tenant's realm — a different issuer and a different JWKS, validated by the same API.
+@RealmB = fieldkit-dev-b
 
 ### Get an access token for the dev realm's fixture user.
 ### Direct access grant — a convenience for tooling. The browser uses authorization-code + PKCE, and
@@ -187,5 +192,54 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
 ### Delete a role. Refused for a system template, or while users still hold it.
 DELETE {{Server_HostAddress}}/api/iam/roles/{{newRole.response.body.id}}
 Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### ─── Multi-issuer (ADR-0008) ────────────────────────────────────────────────────────────────────
+
+### A token from the SECOND tenant's realm. Different issuer, different signing keys, same API.
+# @name tenantBToken
+POST {{Keycloak_HostAddress}}/realms/{{RealmB}}/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=password&client_id=fieldkit-web&username=rep-b&password=dev-only-not-a-secret
+
+### Expect 200 with tenant `…0002`. The realm the token came from is what decides that — nothing in
+### the request can influence it.
+GET {{Server_HostAddress}}/api/auth/whoami
+Accept: application/json
+Authorization: Bearer {{tenantBToken.response.body.access_token}}
+
+### Products as tenant B. Expect NOT to see anything created above with `rep`'s token, and to see
+### only what B created — the same query filter, driven by a genuinely different issuer.
+GET {{Server_HostAddress}}/api/products
+Accept: application/json
+Authorization: Bearer {{tenantBToken.response.body.access_token}}
+
+### A token from realm B's `fieldkit-impostor` client, whose hardcoded `tenant` claim names the
+### FIRST tenant. Properly signed by a trusted issuer, asserting a tenant that issuer does not own.
+# @name impostorToken
+POST {{Keycloak_HostAddress}}/realms/{{RealmB}}/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=password&client_id=fieldkit-impostor&username=rep-b&password=dev-only-not-a-secret
+
+### Expect 401. The token's `tenant` claim must match the tenant that owns its issuer; without that
+### comparison this request would return tenant A's data to tenant B's realm.
+GET {{Server_HostAddress}}/api/auth/whoami
+Accept: application/json
+Authorization: Bearer {{impostorToken.response.body.access_token}}
+
+### A real, correctly-signed token from Keycloak's own `master` realm — which no tenant row claims.
+### Expect 401: the tenant table is the trust list, so realm-creation rights are not tenant-creation
+### rights. (Uses the Aspire-generated admin credentials from user-secrets.)
+# @name untrustedRealmToken
+POST {{Keycloak_HostAddress}}/realms/master/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=password&client_id=admin-cli&username={{$dotenv KEYCLOAK_ADMIN}}&password={{$dotenv KEYCLOAK_ADMIN_PASSWORD}}
+
+###
+GET {{Server_HostAddress}}/api/auth/whoami
+Accept: application/json
+Authorization: Bearer {{untrustedRealmToken.response.body.access_token}}
 
 ###

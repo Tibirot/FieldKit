@@ -27,7 +27,26 @@ namespace FieldKit.Server.Tests;
 public sealed class ServerFixture : IAsyncLifetime
 {
     private const string Realm = "fieldkit-dev";
+
+    /// <summary>A second tenant in its own realm — a different issuer and a different JWKS.</summary>
+    private const string RealmB = "fieldkit-dev-b";
+
     private const string ClientId = "fieldkit-web";
+
+    /// <summary>The client in realm B that hardcodes tenant <b>A</b>'s id — see the realm file.</summary>
+    private const string ImpostorClientId = "fieldkit-impostor";
+
+    /// <summary>
+    /// Keycloak's own realm. Always present, never a FieldKit tenant — which makes it the honest
+    /// source of a genuinely-signed token from an issuer the registry does not trust.
+    /// </summary>
+    private const string UntrustedRealm = "master";
+
+    // Keycloak's bootstrap admin, set explicitly rather than relying on the container defaults —
+    // the container exposes no getter for them, so a default change would silently break the
+    // untrusted-issuer test. Local container, torn down with the test run.
+    private const string AdminRealmUsername = "admin";
+    private const string AdminRealmPassword = "admin";
 
     /// <summary>Holds both catalog permissions.</summary>
     private const string RepUsername = "rep";
@@ -49,8 +68,16 @@ public sealed class ServerFixture : IAsyncLifetime
     // Pinned to the image Aspire.Hosting.Keycloak runs, so the tests exercise the same Keycloak the
     // AppHost does. If that package moves to a new major, this should move with it — a test passing
     // against a different Keycloak than the app runs is worth less than it looks.
+    // Two realms, because multi-issuer validation cannot be proved with one: a single realm passes
+    // whether the issuer is resolved per request or hard-coded. `WithRealm` maps a file into
+    // /opt/keycloak/data/import/ and Keycloak imports the whole directory, so the second rides
+    // alongside as a plain resource mapping.
     private readonly KeycloakContainer _keycloak = new KeycloakBuilder("quay.io/keycloak/keycloak:26.6")
+        .WithUsername(AdminRealmUsername)
+        .WithPassword(AdminRealmPassword)
         .WithRealm("realms/fieldkit-dev-realm.json")
+        .WithResourceMapping(
+            new FileInfo("realms/fieldkit-dev-b-realm.json"), "/opt/keycloak/data/import/")
         .Build();
 
     private WebApplicationFactory<Program> _factory = null!;
@@ -66,6 +93,21 @@ public sealed class ServerFixture : IAsyncLifetime
 
     /// <summary>Access token for <c>admin</c> — role and user permissions, no product permissions.</summary>
     public string AdminAccessToken { get; private set; } = null!;
+
+    /// <summary>
+    /// Access token from the <b>second tenant's realm</b> — a different issuer, a different JWKS, and
+    /// a different <c>tenant</c> claim. Nothing about it can be validated by the first realm's keys.
+    /// </summary>
+    public string TenantBAccessToken { get; private set; } = null!;
+
+    /// <summary>
+    /// A real, correctly-signed token from realm B whose <c>tenant</c> claim names tenant <b>A</b>.
+    /// Everything about it validates except the one thing that matters.
+    /// </summary>
+    public string ImpostorAccessToken { get; private set; } = null!;
+
+    /// <summary>A real, correctly-signed token from a realm no tenant claims.</summary>
+    public string UntrustedRealmAccessToken { get; private set; } = null!;
 
     public async Task InitializeAsync()
     {
@@ -95,6 +137,15 @@ public sealed class ServerFixture : IAsyncLifetime
         AccessToken = await RequestAccessTokenAsync(_keycloak.GetBaseAddress(), RepUsername);
         ReadOnlyAccessToken = await RequestAccessTokenAsync(_keycloak.GetBaseAddress(), ViewerUsername);
         AdminAccessToken = await RequestAccessTokenAsync(_keycloak.GetBaseAddress(), AdminUsername);
+        TenantBAccessToken = await RequestAccessTokenAsync(_keycloak.GetBaseAddress(), "rep-b", RealmB);
+        ImpostorAccessToken = await RequestAccessTokenAsync(
+            _keycloak.GetBaseAddress(), "rep-b", RealmB, ImpostorClientId);
+        UntrustedRealmAccessToken = await RequestAccessTokenAsync(
+            _keycloak.GetBaseAddress(),
+            AdminRealmUsername,
+            UntrustedRealm,
+            clientId: "admin-cli",
+            password: AdminRealmPassword);
     }
 
     /// <summary>
@@ -115,18 +166,23 @@ public sealed class ServerFixture : IAsyncLifetime
     /// Mints a token the way a browser never would — the realm's direct-access grant exists so tests
     /// and scripts can get one without driving an OIDC redirect. Real tenant realms disable it.
     /// </summary>
-    private static async Task<string> RequestAccessTokenAsync(string baseAddress, string username)
+    private static async Task<string> RequestAccessTokenAsync(
+        string baseAddress,
+        string username,
+        string realm = Realm,
+        string clientId = ClientId,
+        string password = Password)
     {
         using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
 
         var response = await http.PostAsync(
-            $"realms/{Realm}/protocol/openid-connect/token",
+            $"realms/{realm}/protocol/openid-connect/token",
             new FormUrlEncodedContent(new Dictionary<string, string>
             {
                 ["grant_type"] = "password",
-                ["client_id"] = ClientId,
+                ["client_id"] = clientId,
                 ["username"] = username,
-                ["password"] = Password,
+                ["password"] = password,
             }));
 
         response.EnsureSuccessStatusCode();

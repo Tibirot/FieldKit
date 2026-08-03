@@ -1,7 +1,39 @@
-# Keycloak dev realm
+# Keycloak dev realms
 
-`fieldkit-dev-realm.json` is imported into the Aspire-orchestrated Keycloak container on every
-start. JSON has no comments, so the reasoning lives here.
+Every `*-realm.json` here is imported into the Aspire-orchestrated Keycloak container on every start,
+and the Server tests import the same files. JSON has no comments, so the reasoning lives here.
+
+| Realm | Tenant id | Exists to prove |
+|---|---|---|
+| `fieldkit-dev` | `…0001` | the ordinary path: authentication, permissions, 401 vs 403 |
+| `fieldkit-dev-b` | `…0002` | **multi-issuer validation** — a second issuer, a second JWKS, a second tenant |
+
+## Why there are two realms
+
+With one realm every assertion about issuer resolution passes whether the issuer is resolved per
+request or hard-coded, which is exactly why that gap survived as long as it did. Two realms make the
+difference observable: each token validates against its own realm's keys, each resolves to its own
+tenant, and "tenant isolation" becomes a claim provable over HTTP with two real tokens rather than
+one asserted at the `DbContext` with two fabricated tenant contexts.
+
+A realm is only trusted if a **tenant row claims it** — the tenant table is the trust list. Those rows
+come from `Iam:SeedTenants` in configuration until provisioning lands (`IAM-10`), and each seeded id
+**must match the hardcoded `tenant` claim in the matching realm file**. They are two halves of one
+fact: the realm asserts which tenant its tokens belong to, and the row is what makes the API agree.
+
+## The impostor client, which exists to be refused
+
+`fieldkit-dev-b` carries a second client, `fieldkit-impostor`, identical to `fieldkit-web` except
+that its hardcoded `tenant` claim names the **first** tenant. Its tokens are properly signed by a
+trusted issuer and assert a tenant that issuer does not own.
+
+It is there because the check standing between that token and a complete view of the other tenant's
+data — the token's `tenant` claim must match the tenant that owns its issuer — otherwise has no test
+that can fail. Editing a real token's payload does not work: the signature breaks first and the
+request is refused for the wrong reason, so the test would pass with the check deleted.
+
+Never enable a client like this in a real realm. It is safe here only because this realm is a dev
+fixture and the API rejects what it mints.
 
 ## Why a realm is committed at all
 
@@ -56,7 +88,7 @@ Postgres keeps its volume because the data there is *not* reproducible from sour
 
 ## Claims the token carries
 
-Three protocol mappers on the `fieldkit-web` client, each load-bearing for the API:
+Three protocol mappers on each realm's `fieldkit-web` client, each load-bearing for the API:
 
 | Claim | Mapper | Why |
 |---|---|---|
