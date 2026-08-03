@@ -92,6 +92,22 @@
         }
       ],
       "realmRoles": ["product:read", "product:write"]
+    },
+    {
+      "username": "viewer",
+      "email": "viewer@fieldkit.local",
+      "firstName": "Dev",
+      "lastName": "Viewer",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "dev-only-not-a-secret",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["product:read"]
     }
   ]
 }

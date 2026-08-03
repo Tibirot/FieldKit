@@ -28,9 +28,14 @@ public sealed class ServerFixture : IAsyncLifetime
 {
     private const string Realm = "fieldkit-dev";
     private const string ClientId = "fieldkit-web";
-    private const string Username = "rep";
 
-    // Matches the fixture user in the imported realm. Not a secret — see realms/README.md.
+    /// <summary>Holds both catalog permissions.</summary>
+    private const string RepUsername = "rep";
+
+    /// <summary>Holds <c>product:read</c> only — the difference is what proves 403 is real.</summary>
+    private const string ViewerUsername = "viewer";
+
+    // Matches the fixture users in the imported realm. Not a secret — see realms/README.md.
     private const string Password = "dev-only-not-a-secret";
 
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:16-alpine").Build();
@@ -47,8 +52,11 @@ public sealed class ServerFixture : IAsyncLifetime
     /// <summary>An unauthenticated client — every request is anonymous.</summary>
     public HttpClient Client { get; private set; } = null!;
 
-    /// <summary>The raw access token for the realm's fixture user.</summary>
+    /// <summary>Access token for <c>rep</c> — both catalog permissions.</summary>
     public string AccessToken { get; private set; } = null!;
+
+    /// <summary>Access token for <c>viewer</c> — <c>product:read</c> but not <c>product:write</c>.</summary>
+    public string ReadOnlyAccessToken { get; private set; } = null!;
 
     public async Task InitializeAsync()
     {
@@ -75,14 +83,15 @@ public sealed class ServerFixture : IAsyncLifetime
             .WithWebHostBuilder(builder => builder.UseEnvironment(Environments.Development));
 
         Client = _factory.CreateClient();
-        AccessToken = await RequestAccessTokenAsync(_keycloak.GetBaseAddress());
+        AccessToken = await RequestAccessTokenAsync(_keycloak.GetBaseAddress(), RepUsername);
+        ReadOnlyAccessToken = await RequestAccessTokenAsync(_keycloak.GetBaseAddress(), ViewerUsername);
     }
 
-    /// <summary>A client that presents the fixture user's bearer token on every request.</summary>
-    public HttpClient CreateAuthenticatedClient()
+    /// <summary>A client presenting a bearer token — <c>rep</c>'s unless another is given.</summary>
+    public HttpClient CreateAuthenticatedClient(string? token = null)
     {
         var client = _factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", AccessToken);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token ?? AccessToken);
         return client;
     }
 
@@ -90,7 +99,7 @@ public sealed class ServerFixture : IAsyncLifetime
     /// Mints a token the way a browser never would — the realm's direct-access grant exists so tests
     /// and scripts can get one without driving an OIDC redirect. Real tenant realms disable it.
     /// </summary>
-    private static async Task<string> RequestAccessTokenAsync(string baseAddress)
+    private static async Task<string> RequestAccessTokenAsync(string baseAddress, string username)
     {
         using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
 
@@ -100,7 +109,7 @@ public sealed class ServerFixture : IAsyncLifetime
             {
                 ["grant_type"] = "password",
                 ["client_id"] = ClientId,
-                ["username"] = Username,
+                ["username"] = username,
                 ["password"] = Password,
             }));
 

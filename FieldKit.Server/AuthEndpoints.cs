@@ -13,24 +13,23 @@ public sealed record WhoAmIResponse(string? Subject, string? Tenant, IReadOnlyLi
 public static class AuthEndpoints
 {
     /// <summary>
-    /// Maps <c>GET /api/auth/whoami</c> — the one endpoint that currently requires a valid token.
+    /// Maps <c>GET /api/auth/whoami</c> — what the API made of the caller's token.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// It exists so authentication is *demonstrable* rather than merely configured: it returns 401
-    /// without a bearer token and echoes the claims with one, which is what the integration tests
-    /// assert against a real Keycloak.
+    /// It exists so authentication is *demonstrable* rather than merely configured: 401 without a
+    /// bearer token, the claims echoed with one. The integration tests assert exactly that against a
+    /// real Keycloak.
     /// </para>
     /// <para>
-    /// It reads <see cref="ClaimsPrincipal"/> directly and deliberately **not**
-    /// <c>ITenantContext</c> — that still resolves to the temporary <c>DevTenantContext</c>, and
-    /// wiring the token into it is the next slice. Reading claims here keeps the two changes
-    /// separable: this proves the token is *validated*, the next proves it is *authoritative*.
+    /// It reads <see cref="ClaimsPrincipal"/> directly rather than <c>ITenantContext</c>, and that
+    /// stays deliberate now the two agree: this endpoint reports what *the token* said, so it can
+    /// still tell you something useful when the tenant context is the thing misbehaving. Everywhere
+    /// else — anything touching tenant-owned data — goes through <c>ITenantContext</c>.
     /// </para>
     /// <para>
-    /// <c>/api/products</c> stays anonymous for the same reason. Protecting it before the tenant
-    /// context is token-derived would mean requests carrying a real tenant claim still writing rows
-    /// stamped with the dev tenant — authenticated and wrong, which is worse than open.
+    /// It requires only a valid token, not a permission: every authenticated caller may ask who they
+    /// are. Business endpoints require a <c>resource:action</c> permission instead.
     /// </para>
     /// </remarks>
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder endpoints)

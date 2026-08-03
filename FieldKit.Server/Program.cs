@@ -13,14 +13,14 @@ builder.AddRedisClientBuilder("cache").WithOutputCache();
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 
-// Validate the Keycloak-issued JWT (ADR-0008). Nothing requires it yet except /api/auth/whoami —
-// the tenant context is still DevTenantContext until the next slice.
+// Validate the Keycloak-issued JWT (ADR-0008) and reject one without a usable tenant claim, so
+// every authenticated request is attributable before it reaches an endpoint.
 builder.AddKeycloakAuthentication();
 
-// Cross-cutting: the clock and the (temporary) dev tenant context (ADR-0008 replaces this in Phase 1).
+// Cross-cutting: the clock and the tenant context, now derived from the validated token (ADR-0008).
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<ITenantContext, DevTenantContext>();
+builder.Services.AddScoped<ITenantContext, KeycloakTenantContext>();
 
 // The modular monolith: the host composes modules; it does not know how they work (module boundaries §1).
 IReadOnlyList<IModule> modules = [new CatalogModule()];

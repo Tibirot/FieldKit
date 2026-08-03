@@ -13,9 +13,19 @@ reproducible, not demoable, and not reviewable. Committing the realm makes the d
 Realm **provisioning** for real tenants is automated through the Keycloak admin API when IAM lands
 (`IAM-10`, Phase 2). This file is only the dev tenant.
 
-## The credential in this file is not a secret
+## Two users, because one cannot prove authorization works
 
-`rep` / `dev-only-not-a-secret` is a fixture for a container that listens on localhost with
+| User | Realm roles | Exists to prove |
+|---|---|---|
+| `rep` | `product:read`, `product:write` | the permitted path succeeds |
+| `viewer` | `product:read` | a missing permission is **403**, not 401 — and that the 403 is caused by the permission check rather than by anything incidental |
+
+A single all-powerful user makes an authorization test vacuous: everything passes whether or not the
+check is wired up. The difference between these two is the assertion.
+
+## The credentials in this file are not secrets
+
+`dev-only-not-a-secret` is a fixture password for a container that listens on localhost with
 `sslRequired: none`. It guards nothing and is deliberately named so it cannot be mistaken for a real
 credential or copied into an environment where it would matter.
 

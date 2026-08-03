@@ -76,6 +76,33 @@ public class PersistenceIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_crafted_id_from_another_tenant_yields_not_found_never_data()
+    {
+        // The listing test above proves B's *queries* are scoped. This proves the stronger property
+        // the threat model actually needs: knowing A's primary key does not help. An id is not a
+        // secret — it travels in URLs, logs and exports — so "B cannot enumerate A" is worth little
+        // if "B can fetch A's row by id" holds.
+        Guid craftedId;
+        await using (var a = NewContext(_tenantA))
+        {
+            var widget = new Widget { Name = "A-only" };
+            a.Widgets.Add(widget);
+            await a.SaveChangesAsync();
+            craftedId = widget.Id;
+        }
+
+        await using var tenantB = NewContext(_tenantB);
+
+        // Not an exception, not an empty-but-present row: the row is simply not there for B.
+        Assert.Null(await tenantB.Widgets.SingleOrDefaultAsync(w => w.Id == craftedId));
+        Assert.False(await tenantB.Widgets.AnyAsync(w => w.Id == craftedId));
+
+        // And the row does exist — otherwise the assertions above would pass against nothing.
+        await using var tenantA = NewContext(_tenantA);
+        Assert.NotNull(await tenantA.Widgets.SingleOrDefaultAsync(w => w.Id == craftedId));
+    }
+
+    [Fact]
     public async Task Table_lives_in_the_modules_own_schema()
     {
         await using var ctx = NewContext(_tenantA);
