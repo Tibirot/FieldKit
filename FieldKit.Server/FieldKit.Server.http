@@ -1,6 +1,41 @@
 @Server_HostAddress = http://localhost:5476
 
-GET {{Server_HostAddress}}/api/weatherforecast/
+# Keycloak, as the AppHost exposes it. The port is assigned per run — take it from the Aspire
+# dashboard's `keycloak` resource. The realm and client are defined in
+# FieldKit.AppHost/realms/fieldkit-dev-realm.json.
+@Keycloak_HostAddress = https://localhost:8443
+@Realm = fieldkit-dev
+
+### Catalog — list products. Anonymous today: the tenant context is still DevTenantContext, so
+### requiring a token here would authenticate the caller and still stamp rows with the dev tenant.
+GET {{Server_HostAddress}}/api/products
+Accept: application/json
+
+### Catalog — create a product.
+POST {{Server_HostAddress}}/api/products
+Content-Type: application/json
+
+{
+  "sku": "VRD-STL-050",
+  "name": "Veridian Still 0.5L"
+}
+
+### Get an access token for the dev realm's fixture user.
+### Direct access grant — a convenience for tooling. The browser uses authorization-code + PKCE, and
+### real tenant realms turn this flow off (ADR-0008).
+# @name token
+POST {{Keycloak_HostAddress}}/realms/{{Realm}}/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=password&client_id=fieldkit-web&username=rep&password=dev-only-not-a-secret
+
+### Who does the API think I am? Requires a valid bearer token; 401 without one.
+GET {{Server_HostAddress}}/api/auth/whoami
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### The same endpoint with no token — expect 401 and a WWW-Authenticate challenge.
+GET {{Server_HostAddress}}/api/auth/whoami
 Accept: application/json
 
 ###
