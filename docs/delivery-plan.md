@@ -119,6 +119,9 @@ token-derived and business endpoints are permission-checked, which is the substa
 week absorbed the new **Configuration module** (finding S5) on top of Organization + Outlets; budget
 ~1.5 weeks.
 - Organization: `OrgUnit`, `Territory`, rep assignment; `ITerritoryDirectory`/`IRepScope`; `RepAssignmentChanged` ([Org spec](product/11-organization-and-territory.md)) — `ORG-01…06`.
+  ✓ **Org units** (`ORG-01`) — configurable-depth hierarchy, sibling-unique names, moves refused when
+  they would put a unit inside its own branch. The module's public contracts land with the slices
+  that give them a consumer.
 - Outlets: `Outlet` with channel/segment/geo/contacts, lifecycle; `IOutletCatalog`/`IOutletClassification`; events ([Outlets spec](product/12-outlets-master-data.md)) — `OUT-01…04`.
 - **Configuration module (10th):** field-definition catalog + `IFieldDefinitionCatalog` + JSONB values + server validation, wired into Outlets first ([ADR-0009](architecture/adr/0009-config-driven-customization.md)). (Workflow/survey/weight definitions land in W10.)
 - Bulk-import / seed outlets.
