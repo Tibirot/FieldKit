@@ -1,4 +1,12 @@
-<Project Sdk="Aspire.AppHost.Sdk/13.2.4">
+<!--
+  The SDK version and the Aspire.Hosting.* package versions in Directory.Packages.props must move
+  together. The SDK supplies DCP (the orchestrator), which refuses to start when it is older than
+  the Aspire.Hosting packages it is asked to run — the app fails at launch with "Newer version of
+  the Aspire.Hosting.AppHost package is required", *after* a clean build, so nothing catches it
+  earlier. This version cannot live in Directory.Packages.props: central package management does
+  not cover MSBuild SDK references.
+-->
+<Project Sdk="Aspire.AppHost.Sdk/13.4.6">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
