@@ -88,15 +88,27 @@ the API validates the JWT bearer — signature, issuer, audience and lifetime �
 The token carries `tenant`, `sub` and a flattened `permissions` claim, verified end to end against a
 real Keycloak in the integration tests.
 
+`ITenantContext` is **derived from the token** (`IAM-02`): the tenant comes from the `tenant` claim
+and nowhere else — not a header, not a route value, not the body. Business endpoints require a
+permission (`IAM-05`), checked as `resource:action` strings rather than role names (BR-IAM-2).
+
+Three properties are worth stating because each closes a specific hole:
+
+- **A token without a usable `tenant` claim is rejected at validation**, not at first use. A token
+  that authenticates but cannot be attributed is more dangerous than an anonymous one — the request
+  would reach the data layer, where the query filter compares against *some* tenant, so the failure
+  mode is not "denied" but "attributed to the wrong tenant".
+- **The tenant is unreachable from the request.** The previous stand-in honoured an `X-Tenant-Id`
+  header; that is now a test asserting a crafted header cannot move a write between tenants.
+- **A missing permission is 403, not 401.** Telling a rep with the wrong role to authenticate again
+  is a dead end for them and a support ticket for someone else.
+
 **Not yet, and deliberately so:**
 
-- **`ITenantContext` is still `DevTenantContext`.** Tokens are *validated* but not yet
-  *authoritative* — nothing derives the tenant from the `tenant` claim. Until that lands, protecting
-  business endpoints would be worse than leaving them open: an authenticated caller carrying a real
-  tenant claim would still write rows stamped with the dev tenant. Only `/api/auth/whoami` requires a
-  token today.
 - **Single issuer.** Realm-per-tenant means per-tenant issuers and JWKS endpoints (finding S6 above),
   so the finished system resolves the issuer per request against a registry of tenant realms. That
   registry needs a source of tenants, which IAM owns and has not delivered — building it now would
   mean inventing a tenant list to drive it. The API validates the one realm that exists.
 - **No realm provisioning** (`IAM-10`). The dev realm is hand-written.
+- **No permission catalog** (`IAM-04`). Each module declares its own permission constants; the
+  contribution mechanism that lets an admin compose roles from them arrives with IAM.

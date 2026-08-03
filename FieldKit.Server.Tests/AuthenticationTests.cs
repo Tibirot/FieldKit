@@ -83,15 +83,15 @@ public class AuthenticationTests(ServerFixture fixture)
     }
 
     [Fact]
-    public async Task Products_stay_anonymous_until_the_tenant_context_is_token_derived()
+    public async Task Business_endpoints_reject_anonymous_callers()
     {
-        // Not an oversight — pinned deliberately. Requiring auth here while ITenantContext is still
-        // DevTenantContext would let an authenticated caller carrying a real tenant claim write rows
-        // stamped with the dev tenant: authenticated and wrong. This flips in the next slice, and
-        // this assertion is meant to flip with it.
+        // The previous slice pinned the opposite of this on purpose — products were anonymous while
+        // the tenant context was a hard-coded stand-in, because authenticating a caller and then
+        // attributing their writes to the dev tenant is worse than not authenticating at all. Now
+        // that the tenant comes from the token, the assertion flips.
         var response = await fixture.Client.GetAsync("/api/products");
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     /// <summary>

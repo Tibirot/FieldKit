@@ -85,8 +85,10 @@ several small PRs.
   branch protection.
 
 **Done when:** the themed Next.js shell is served through Aspire, installs as a PWA, and CI is green. **⚠︎ Heavy** (front-end migration + PWA + Keycloak) — budget ~1.5 weeks.
-*(All of W2 has landed. What Keycloak does **not** yet do is authorize anything: `ITenantContext` is
-still `DevTenantContext`, so tokens are validated but not yet authoritative — that swap is W3.)*
+*(All of W2 has landed, and it went past the "skeleton" in the bullet above: `ITenantContext` is
+token-derived and business endpoints are permission-checked, which is the substance of `IAM-02` and
+`IAM-05`. W3 still owns the IAM module itself — users, roles, realm provisioning — and the
+multi-issuer validation that realm-per-tenant needs once there is more than one realm.)*
 
 ---
 

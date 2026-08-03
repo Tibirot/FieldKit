@@ -37,7 +37,7 @@ public sealed class CatalogModule : IModule
             return Results.Created(
                 $"/api/products/{product.Id}",
                 new ProductResponse(product.Id, product.Sku, product.Name));
-        });
+        }).RequirePermission(CatalogPermissions.Write);
 
         products.MapGet("/", async (CatalogDbContext db, CancellationToken cancellationToken) =>
         {
@@ -46,8 +46,22 @@ public sealed class CatalogModule : IModule
                 .Select(p => new ProductResponse(p.Id, p.Sku, p.Name))
                 .ToListAsync(cancellationToken);
             return Results.Ok(all);
-        });
+        }).RequirePermission(CatalogPermissions.Read);
     }
+}
+
+/// <summary>
+/// The permissions this module owns, as <c>resource:action</c> strings.
+/// </summary>
+/// <remarks>
+/// Constants rather than literals so a rename is a compile error rather than a silently open
+/// endpoint. They are mirrored as realm roles in the AppHost's realm; the permission-catalog
+/// contribution that makes that mapping automatic arrives with IAM (<c>IAM-04</c>).
+/// </remarks>
+public static class CatalogPermissions
+{
+    public const string Read = "product:read";
+    public const string Write = "product:write";
 }
 
 public sealed record CreateProductRequest(string Sku, string Name);

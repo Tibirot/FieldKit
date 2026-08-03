@@ -15,11 +15,13 @@ namespace FieldKit.Server.Tests;
 [Collection(ServerCollection.Name)]
 public class CatalogApiTests(ServerFixture fixture)
 {
-    private HttpClient Client => fixture.Client;
-
     [Fact]
     public async Task Create_then_list_returns_the_product()
     {
+        // Products now require product:write / product:read, so this drives the API as an
+        // authenticated caller rather than anonymously.
+        using var Client = fixture.CreateAuthenticatedClient();
+
         var create = await Client.PostAsJsonAsync(
             "/api/products", new CreateProductRequest("VRD-STL-050", "Veridian Still 0.5L"));
 
@@ -38,7 +40,9 @@ public class CatalogApiTests(ServerFixture fixture)
     public async Task Liveness_endpoint_responds()
     {
         // /alive checks only "live"-tagged checks (the app itself), not readiness deps like Redis.
-        var response = await Client.GetAsync("/alive");
+        // Anonymous on purpose: an orchestrator probing liveness has no token, and requiring one
+        // would make the app look dead whenever Keycloak was.
+        var response = await fixture.Client.GetAsync("/alive");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 }

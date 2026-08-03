@@ -51,10 +51,45 @@ public static class AuthenticationExtensions
                 // network. Anywhere else, refusing non-HTTPS metadata is not negotiable — a
                 // spoofable JWKS endpoint defeats signature validation entirely.
                 options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
+
+                options.Events = new JwtBearerEvents { OnTokenValidated = RequireUsableTenantClaim };
             });
 
         builder.Services.AddAuthorization();
 
         return builder;
+    }
+
+    /// <summary>
+    /// Rejects an otherwise-valid token that carries no usable <c>tenant</c> claim.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Enforced here rather than where the claim is read, so the guarantee holds for *every* endpoint
+    /// instead of only the ones that remember to check. By the time any handler runs, an
+    /// authenticated request is known to have a tenant.
+    /// </para>
+    /// <para>
+    /// Failing is the only safe option. A token that authenticates but cannot be attributed to a
+    /// tenant is more dangerous than an anonymous one: the request would reach the data layer, where
+    /// the global query filter compares against *some* tenant id — so the failure mode is not "access
+    /// denied" but "reads and writes attributed to the wrong tenant".
+    /// </para>
+    /// <para>
+    /// <see cref="Guid.TryParse(string, out Guid)"/> rather than <c>TenantId.Parse</c> because this
+    /// runs on attacker-supplied input; the parse must not throw. <c>TenantId</c> wraps a
+    /// <see cref="Guid"/>, so this is the same acceptance test without the exception.
+    /// </para>
+    /// </remarks>
+    private static Task RequireUsableTenantClaim(TokenValidatedContext context)
+    {
+        var tenant = context.Principal?.FindFirst("tenant")?.Value;
+
+        if (!Guid.TryParse(tenant, out _))
+        {
+            context.Fail("The access token carries no usable 'tenant' claim.");
+        }
+
+        return Task.CompletedTask;
     }
 }

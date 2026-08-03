@@ -41,8 +41,8 @@ Turn the scaffold into a clean skeleton the rest hangs off.
 - [x] **Module hosting** (`IModule` self-registration in `FieldKit.Web`) + the **first real module
   (`Catalog`)** replacing the sample `WeatherForecast`. The AppHost boots the whole thing on
   Postgres and `POST/GET /api/products` answers from the module — verified end-to-end with
-  `WebApplicationFactory<Program>` + real Postgres. A temporary `DevTenantContext` stands in until
-  IAM. — *[module-hosting slice]* **← the modular monolith now runs.**
+  `WebApplicationFactory<Program>` + real Postgres. A temporary `DevTenantContext` stood in until
+  Keycloak landed (below). — *[module-hosting slice]* **← the modular monolith now runs.**
 - [ ] **Per-tenant row-version stamping** (the `IReferenceChangeFeed` primitive) — lands with the sync slices
 - [x] **Per-module EF migrations** — `ModuleMigrator<TContext>` applies each module's migrations on
   startup (`MigrateAsync`); each keeps its own `__EFMigrationsHistory` in its own schema, so contexts
@@ -69,8 +69,10 @@ Turn the scaffold into a clean skeleton the rest hangs off.
   the container runs with the **dev tenant realm imported from source** (a tenant *is* a realm under
   realm-per-tenant), and the API **validates the JWT bearer** it issues: signature, issuer, audience
   and lifetime, against the real realm in the integration tests. `GET /api/auth/whoami` is the one
-  endpoint that requires a token today. The tenant context is still the temporary `DevTenantContext`
-  — making it token-derived is Phase 1 work, and is what turns validation into *isolation*.
+  endpoint that requires a token today. **`ITenantContext` is now derived from the token** — the
+  tenant comes from the `tenant` claim and nowhere else, a token without a usable one is rejected at
+  validation, and business endpoints require a `resource:action` permission. `DevTenantContext` and
+  its `X-Tenant-Id` header override are gone.
 - [x] **Architecture-test** project (NetArchTest) enforcing empty-but-real boundaries —
   `FieldKit.ArchitectureTests` runs the **foundation subset**: dependencies point inward
   (`SharedKernel` knows nothing of `BuildingBlocks`), and neither the kernel nor the building blocks
