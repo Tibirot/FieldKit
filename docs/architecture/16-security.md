@@ -73,10 +73,12 @@ Per [B8](../product/decisions-and-assumptions.md#b8--privacy--gdpr-posture):
 - Security headers, CORS locked to known origins, rate limiting on `/sync` and auth paths.
 - Secrets via Aspire/user-secrets in dev and the platform secret store in prod — never in source.
 - **Dependency auditing:** `NuGetAudit` runs on every restore (transitive included) and CI surfaces
-  advisories; known transitive CVEs are pinned to patched versions with a comment citing the GHSA
-  (e.g. `Microsoft.OpenApi` → 2.7.5, `MessagePack` → 2.5.302). Making high-severity audit warnings a
-  build error is a considered future gate (weighed against lockout when a framework-transitive CVE
-  has no fix yet).
+  advisories; known transitive CVEs are pinned to patched versions with a comment citing the GHSA.
+  Every NuGet version — pins included — lives in [`Directory.Packages.props`](../../Directory.Packages.props)
+  under central package management, so a pin cannot be applied to one project and missed in another.
+  The standing one is `MessagePack` → 2.5.302 (GHSA-hv8m-jj95-wg3x), pinned transitively over
+  Aspire's 2.5.192. Making high-severity audit warnings a build error is a considered future gate
+  (weighed against lockout when a framework-transitive CVE has no fix yet).
 - **npm transitive CVEs** use `overrides` in [`frontend/package.json`](../../frontend/package.json),
   the same idea as the NuGet pins above. `next@16.2.12` declares `postcss` as exactly `8.4.31` and
   `sharp` as `^0.34.5`; **the patched versions are unreachable by resolution**, because an exact pin
