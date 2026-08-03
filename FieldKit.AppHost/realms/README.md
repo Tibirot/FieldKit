@@ -13,15 +13,24 @@ reproducible, not demoable, and not reviewable. Committing the realm makes the d
 Realm **provisioning** for real tenants is automated through the Keycloak admin API when IAM lands
 (`IAM-10`, Phase 2). This file is only the dev tenant.
 
-## Two users, because one cannot prove authorization works
+## Three users, because one cannot prove authorization works
 
 | User | Realm roles | Exists to prove |
 |---|---|---|
 | `rep` | `product:read`, `product:write` | the permitted path succeeds |
-| `viewer` | `product:read` | a missing permission is **403**, not 401 — and that the 403 is caused by the permission check rather than by anything incidental |
+| `viewer` | `product:read`, `role:read` | a missing permission is **403**, not 401 — and that read and write are genuinely separate capabilities |
+| `admin` | `role:read`, `role:write`, `user:read`, `user:write` | permissions are **independent, not hierarchical** — an admin who can manage roles cannot touch products, and `rep` cannot touch roles |
 
 A single all-powerful user makes an authorization test vacuous: everything passes whether or not the
-check is wired up. The difference between these two is the assertion.
+check is wired up. The differences between these three are the assertions.
+
+`admin` deliberately holds **no** product permissions. That disjointness is what demonstrates
+permission-based authorization rather than tiers — there is no "administrator" who implicitly
+outranks everyone; there are only capabilities, and you hold them or you do not.
+
+Realm roles here mirror the permission catalogue the modules contribute in code. Keeping them in step
+is manual today; the catalogue endpoint (`GET /api/iam/permissions`) is what an admin UI will read,
+and realm provisioning (`IAM-10`) is what will eventually generate these.
 
 ## The credentials in this file are not secrets
 

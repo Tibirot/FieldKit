@@ -66,4 +66,65 @@ Authorization: Bearer {{viewerToken.response.body.access_token}}
   "name": "Should be forbidden"
 }
 
+### A token for `admin`, who holds the IAM permissions and none of Catalog's.
+# @name adminToken
+POST {{Keycloak_HostAddress}}/realms/{{Realm}}/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=password&client_id=fieldkit-web&username=admin&password=dev-only-not-a-secret
+
+### The permission catalogue — every permission the running system enforces, contributed by the
+### modules that own them. There is no endpoint to add one: a permission nothing checks is not a
+### permission. Requires `role:read`.
+GET {{Server_HostAddress}}/api/iam/permissions
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### List roles. Requires `role:read`.
+GET {{Server_HostAddress}}/api/iam/roles
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Create a role. Requires `role:write`.
+# @name newRole
+POST {{Server_HostAddress}}/api/iam/roles
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Field Rep",
+  "permissions": ["product:read"]
+}
+
+### Replace a role's permissions. Wholesale, not a patch.
+PUT {{Server_HostAddress}}/api/iam/roles/{{newRole.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Field Rep",
+  "permissions": ["product:read", "product:write"]
+}
+
+### A permission no module enforces — expect 400 naming the unknown entry. This is what the
+### catalogue is for: `prodcut:read` would otherwise store fine and grant nothing.
+POST {{Server_HostAddress}}/api/iam/roles
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Typo Role",
+  "permissions": ["prodcut:read"]
+}
+
+### Roles as `rep` — authenticated, holds both product permissions, still 403. Capabilities are
+### independent: being trusted with products grants nothing over who may use them.
+GET {{Server_HostAddress}}/api/iam/roles
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### Delete a role. Refused for a system template, or while users still hold it.
+DELETE {{Server_HostAddress}}/api/iam/roles/{{newRole.response.body.id}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
 ###

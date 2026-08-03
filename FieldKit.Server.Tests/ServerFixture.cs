@@ -32,8 +32,14 @@ public sealed class ServerFixture : IAsyncLifetime
     /// <summary>Holds both catalog permissions.</summary>
     private const string RepUsername = "rep";
 
-    /// <summary>Holds <c>product:read</c> only — the difference is what proves 403 is real.</summary>
+    /// <summary>Holds the read half of both modules and the write half of neither — what proves 403 is real.</summary>
     private const string ViewerUsername = "viewer";
+
+    /// <summary>
+    /// Holds the IAM permissions and none of Catalog's. The disjointness is the point: it shows a
+    /// permission grants exactly its own capability rather than "administrator-ness".
+    /// </summary>
+    private const string AdminUsername = "admin";
 
     // Matches the fixture users in the imported realm. Not a secret — see realms/README.md.
     private const string Password = "dev-only-not-a-secret";
@@ -55,8 +61,11 @@ public sealed class ServerFixture : IAsyncLifetime
     /// <summary>Access token for <c>rep</c> — both catalog permissions.</summary>
     public string AccessToken { get; private set; } = null!;
 
-    /// <summary>Access token for <c>viewer</c> — <c>product:read</c> but not <c>product:write</c>.</summary>
+    /// <summary>Access token for <c>viewer</c> — <c>product:read</c> + <c>role:read</c>, no write anywhere.</summary>
     public string ReadOnlyAccessToken { get; private set; } = null!;
+
+    /// <summary>Access token for <c>admin</c> — role and user permissions, no product permissions.</summary>
+    public string AdminAccessToken { get; private set; } = null!;
 
     public async Task InitializeAsync()
     {
@@ -85,6 +94,7 @@ public sealed class ServerFixture : IAsyncLifetime
         Client = _factory.CreateClient();
         AccessToken = await RequestAccessTokenAsync(_keycloak.GetBaseAddress(), RepUsername);
         ReadOnlyAccessToken = await RequestAccessTokenAsync(_keycloak.GetBaseAddress(), ViewerUsername);
+        AdminAccessToken = await RequestAccessTokenAsync(_keycloak.GetBaseAddress(), AdminUsername);
     }
 
     /// <summary>A client presenting a bearer token — <c>rep</c>'s unless another is given.</summary>

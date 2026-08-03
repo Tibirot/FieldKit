@@ -15,6 +15,12 @@ public sealed class CatalogModule : IModule
 {
     public string Name => "Catalog";
 
+    public IReadOnlyList<PermissionDefinition> Permissions =>
+    [
+        new(CatalogPermissions.Read, "View products and their details."),
+        new(CatalogPermissions.Write, "Create and modify products."),
+    ];
+
     public void AddModule(IServiceCollection services, IConfiguration configuration)
     {
         var connectionString = configuration.GetConnectionString("fieldkitdb")

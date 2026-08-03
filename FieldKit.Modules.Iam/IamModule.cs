@@ -7,14 +7,22 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace FieldKit.Modules.Iam;
 
-/// <summary>The IAM module: registers its context and its public contracts.</summary>
+/// <summary>The IAM module: registers its context, its public contracts and roles administration.</summary>
 /// <remarks>
-/// No endpoints yet — this slice establishes the module, its schema and the contracts other modules
-/// will depend on. Users &amp; roles administration (IAM-03/04) is the next one.
+/// Roles (<c>IAM-04</c>) are here; users (<c>IAM-03</c>) are the next slice — roles come first
+/// because a user without a role to hold is not a user the domain permits (BR-IAM-3).
 /// </remarks>
 public sealed class IamModule : IModule
 {
     public string Name => "IAM";
+
+    public IReadOnlyList<PermissionDefinition> Permissions =>
+    [
+        new(IamPermissions.RoleRead, "View roles and the permissions they grant."),
+        new(IamPermissions.RoleWrite, "Create, edit and delete roles."),
+        new(IamPermissions.UserRead, "View users and their assigned roles."),
+        new(IamPermissions.UserWrite, "Invite users, edit their profile, and assign roles."),
+    ];
 
     public void AddModule(IServiceCollection services, IConfiguration configuration)
     {
@@ -30,8 +38,5 @@ public sealed class IamModule : IModule
         services.AddScoped<ITenantRegistry, TenantRegistry>();
     }
 
-    public void MapEndpoints(IEndpointRouteBuilder endpoints)
-    {
-        // Intentionally empty for now — see the remarks above.
-    }
+    public void MapEndpoints(IEndpointRouteBuilder endpoints) => endpoints.MapRoleEndpoints();
 }
