@@ -19,6 +19,35 @@
     "syncedLabel": "Last synced",
     "timeZoneNote": "Stored in UTC, displayed in the user's timezone (ADR-0010)."
   },
+  "Login": {
+    "title": "Sign in",
+    "description": "FieldKit never sees your password — your workspace's identity provider handles it.",
+    "workspaceLabel": "Workspace",
+    "workspaceHint": "The workspace your administrator gave you. We'll remember it on this device.",
+    "workspaceInvalid": "Use lowercase letters, numbers and hyphens.",
+    "submit": "Continue",
+    "unconfigured": "Sign-in is unavailable: no identity provider is configured for this deployment.",
+    "redirectFailed": "Couldn't reach the identity provider. Check the workspace name and try again."
+  },
+  "Callback": {
+    "title": "Signing you in",
+    "description": "Finishing up — this only takes a moment.",
+    "failedTitle": "Sign-in didn't complete",
+    "failedDescription": "The sign-in link was already used or has expired. Starting again will fix it.",
+    "retry": "Back to sign in"
+  },
+  "Session": {
+    "title": "Your session",
+    "loading": "Checking your session…",
+    "anonymous": "You're not signed in.",
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "signedInAs": "Signed in to {workspace}.",
+    "subjectLabel": "User",
+    "tenantLabel": "Tenant",
+    "permissionsLabel": "Permissions",
+    "apiUnreachable": "Signed in, but the API didn't accept the token. It may be offline."
+  },
   "LocaleSwitcher": {
     "label": "Change language",
     "locale": "{locale, select, en {English} ro {Română} other {Unknown}}"

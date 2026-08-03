@@ -116,6 +116,21 @@ Three properties are worth stating because each closes a specific hole:
 - **A missing permission is 403, not 401.** Telling a rep with the wrong role to authenticate again
   is a dead end for them and a support ticket for someone else.
 
+**Front-end sign-in** (`IAM-01`) is authorization-code + PKCE from the browser, against the realm of
+the workspace the user names. Three consequences are worth recording, because each was a choice:
+
+- **Tokens live on the device, not in a server-side session.** That is what makes going offline
+  mid-shift survivable ([IAM §7](../../product/10-identity-and-access.md#7-offline-behavior)) — a
+  cookie session cannot restore anything once the server is unreachable. The cost is that an XSS on
+  this origin reaches the tokens, which is why the app loads no third-party script.
+- **The realm is named by the user, once.** Realm-per-tenant leaves nothing to redirect an unknown
+  visitor to. A subdomain needs wildcard DNS and per-tenant redirect URIs; an email-domain lookup
+  needs a public endpoint that confirms whether a tenant exists. Asking is the reversible option, and
+  the mapping lives behind one function for when provisioning (`IAM-10`) picks a convention.
+- **Keycloak's address is read per request, never baked into the bundle.** It is assigned per run in
+  dev and per environment in production, and a stale one is not a broken link — it mints tokens whose
+  issuer the API refuses, which presents as signing in successfully and staying signed out.
+
 **Not yet, and deliberately so:**
 
 - **No realm provisioning** (`IAM-10`). The dev realms are hand-written, and the tenant rows that make

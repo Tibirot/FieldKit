@@ -90,6 +90,11 @@ Postgres keeps its volume because the data there is *not* reproducible from sour
 
 Three protocol mappers on each realm's `fieldkit-web` client, each load-bearing for the API:
 
+The `redirectUris` and `webOrigins` on that client are the front end's sign-in contract: the browser
+is sent back to `/{locale}/auth/callback` on the app's own origin, and Keycloak refuses any redirect
+target not listed. Change where the app is served from and these move with it — otherwise sign-in
+fails at Keycloak, before the app gets a chance to say anything.
+
 | Claim | Mapper | Why |
 |---|---|---|
 | `tenant` | hardcoded | The FieldKit `TenantId` for this realm. Hardcoded *per realm* — that is what makes realm-per-tenant resolve to a tenant id. Matches the id `DevTenantContext` used, so the swap in the token-derived context changes no existing data. |

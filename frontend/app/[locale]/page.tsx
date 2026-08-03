@@ -1,5 +1,6 @@
 import { getFormatter, getTranslations, setRequestLocale } from "next-intl/server";
 
+import { IdentityCard } from "@/components/identity-card";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,8 @@ export default async function Home({
             <Button variant="outline">{t("secondaryCta")}</Button>
           </CardFooter>
         </Card>
+
+        <IdentityCard />
 
         <Card className="w-full" size="sm">
           <CardHeader>

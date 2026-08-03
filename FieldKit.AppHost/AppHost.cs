@@ -37,6 +37,11 @@ var server = builder.AddProject<Projects.FieldKit_Server>("server")
 builder.AddJavaScriptApp("webfrontend", "../frontend", "dev")
     .WithReference(server)
     .WaitFor(server)
+    // The browser is redirected to Keycloak by *address*, so the front end needs the same one the
+    // API resolves issuers against. Reaching one Keycloak by two addresses mints tokens whose
+    // issuer the API has never heard of — a 401 that looks nothing like a configuration mistake.
+    .WithReference(keycloak)
+    .WaitFor(keycloak)
     .WithExternalHttpEndpoints();
 
 builder.Build().Run();

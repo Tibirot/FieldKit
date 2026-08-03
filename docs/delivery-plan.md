@@ -100,7 +100,9 @@ token-derived and business endpoints are permission-checked, which is the substa
   ✓ **Multi-issuer validation** — issuer and signing keys resolved per request from the tenant table,
   and a token's `tenant` claim bound to the tenant that owns its issuer. A second dev realm exists so
   those are testable: with one realm they pass whether resolution is per-request or hard-coded.
-  Login in Next.js is the remaining half of `IAM-01`.
+  ✓ **Sign-in in Next.js** — auth-code + PKCE against the realm of the workspace the user names,
+  tokens held on-device so a session survives going offline, and the API called same-origin with the
+  bearer. `IAM-01` complete.
 - **Multi-tenancy**: global query filter + insert stamping; arch-test banning `IgnoreQueryFilters` / raw bypass.
 - ✓ Users & roles CRUD (backend); tenant seed (create the demo realm + admin).
   **Roles** (`IAM-04`) + the **permission catalogue** they validate against — each module declares
