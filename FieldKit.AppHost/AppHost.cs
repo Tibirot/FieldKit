@@ -10,11 +10,24 @@ var postgres = builder.AddPostgres("postgres")
 
 var database = postgres.AddDatabase("fieldkitdb");
 
+// Keycloak — the identity provider (ADR-0008). FieldKit never stores passwords.
+//
+// A tenant *is* a realm (realm-per-tenant), so the dev tenant is imported from source rather than
+// clicked together by hand: see realms/README.md. Deliberately **no** data volume — Keycloak skips
+// importing a realm that already exists, so a persisted volume would silently ignore edits to the
+// realm file. Admin credentials are Aspire parameters in user-secrets, never in source.
+var keycloak = builder.AddKeycloak("keycloak")
+    .WithRealmImport("./realms");
+
 var server = builder.AddProject<Projects.FieldKit_Server>("server")
     .WithReference(cache)
     .WaitFor(cache)
     .WithReference(database)
     .WaitFor(database)
+    // The API validates tokens against this realm; wiring the reference now means service discovery
+    // resolves the authority in the next slice rather than a hard-coded URL.
+    .WithReference(keycloak)
+    .WaitFor(keycloak)
     .WithHttpHealthCheck("/health")
     .WithExternalHttpEndpoints();
 
