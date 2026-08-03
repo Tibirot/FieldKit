@@ -1,0 +1,96 @@
+<Project>
+
+  <!--
+    Central Package Management — every NuGet version for the solution lives here, and the
+    `PackageReference` entries in each .csproj carry only an `Include`.
+
+    Why: versions previously lived in 11 separate .csproj files, and Dependabot bumps one project at
+    a time. That is not a hypothetical problem — it produced a real one. `coverlet.collector` was
+    raised to 10.0.1 in a single test project (#26) and had to be applied to the other three by hand,
+    and `Microsoft.EntityFrameworkCore.Design` reached 10.0.10 in Catalog while Infrastructure still
+    resolved EF Core 10.0.4 through Npgsql, so every build emitted MSB3277 assembly-conflict
+    warnings. Both are the same failure: one version, many places to change it.
+
+    With this file a bump is one line, and skew between projects is not expressible.
+  -->
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+
+    <!--
+      Lets a `PackageVersion` below also pin a package that only arrives *transitively*. This is what
+      resolves the EF Core conflict: nothing references EF Core directly, but Npgsql declares a range
+      (`[10.0.4, 11.0.0)`) and resolved the floor, while the Design package sat at 10.0.10. Pinning
+      the two EF assemblies here unifies the graph without adding a fake direct dependency to a
+      project that does not use the package.
+    -->
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup Label="Aspire">
+    <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.4.6" />
+    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.4.6" />
+    <PackageVersion Include="Aspire.Hosting.Redis" Version="13.4.6" />
+    <PackageVersion Include="Aspire.StackExchange.Redis.OutputCaching" Version="13.4.6" />
+  </ItemGroup>
+
+  <ItemGroup Label="Entity Framework Core &amp; Postgres">
+    <!--
+      EF Core itself is never referenced directly — Npgsql brings it in. These two entries exist
+      solely to pin that transitive graph to one version (see transitive pinning above), which is
+      what silences MSB3277. Npgsql accepts anything in `[10.0.4, 11.0.0)`, so 10.0.10 is inside its
+      supported range rather than an override of it.
+
+      Keep all three in step when bumping: Design is a design-time tool for `dotnet ef`, and it is
+      the one that drifted last time.
+    -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.10" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup Label="ASP.NET Core &amp; Microsoft.Extensions">
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.8.0" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.11.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Observability">
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Analyzers">
+    <!-- Enforces AT-7 ("no static time; IClock only") at compile time — module-boundaries §5. -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Testing">
+    <PackageVersion Include="coverlet.collector" Version="10.0.1" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <PackageVersion Include="NetArchTest.Rules" Version="1.3.2" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.13.0" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+
+  <ItemGroup Label="Security overrides">
+    <!--
+      Not a dependency this solution uses — a transitive pin. Aspire pulls MessagePack 2.5.192,
+      which carries GHSA-hv8m-jj95-wg3x and others; 2.5.302 is the latest patched 2.5.x and is
+      API-compatible. Drop this entry once Aspire itself declares a patched version.
+      Rationale: docs/architecture/16-security.md §6.
+    -->
+    <PackageVersion Include="MessagePack" Version="2.5.302" />
+  </ItemGroup>
+
+</Project>
