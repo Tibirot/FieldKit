@@ -15,6 +15,22 @@
       {
         "name": "product:write",
         "description": "Create and modify products (Catalog module)."
+      },
+      {
+        "name": "role:read",
+        "description": "View roles and the permissions they grant (IAM module)."
+      },
+      {
+        "name": "role:write",
+        "description": "Create, edit and delete roles (IAM module)."
+      },
+      {
+        "name": "user:read",
+        "description": "View users and their assigned roles (IAM module)."
+      },
+      {
+        "name": "user:write",
+        "description": "Invite users, edit their profile, and assign roles (IAM module)."
       }
     ]
   },
@@ -107,7 +123,23 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["product:read"]
+      "realmRoles": ["product:read", "role:read"]
+    },
+    {
+      "username": "admin",
+      "email": "admin@fieldkit.local",
+      "firstName": "Dev",
+      "lastName": "Admin",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "dev-only-not-a-secret",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["role:read", "role:write", "user:read", "user:write"]
     }
   ]
 }

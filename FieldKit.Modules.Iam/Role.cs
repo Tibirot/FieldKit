@@ -53,6 +53,16 @@ public sealed class Role : AggregateRoot, ITenantOwned, IAuditable
     }
 
     /// <summary>
+    /// Renames the role. A system template may be renamed — only deleting it is refused, since the
+    /// template is the way back to a working set of roles, not a fixed label.
+    /// </summary>
+    public void Rename(string name, IClock clock)
+    {
+        Name = name;
+        ModifiedAtUtc = clock.UtcNow;
+    }
+
+    /// <summary>
     /// Replaces the permission set wholesale. Add/remove deltas would need the caller to know the
     /// current state, and two admins editing the same role would silently interleave.
     /// </summary>

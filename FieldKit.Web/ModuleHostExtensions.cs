@@ -14,6 +14,12 @@ public static class ModuleHostExtensions
     {
         foreach (var module in modules)
             module.AddModule(services, configuration);
+
+        // Built from the composed set, so the catalogue describes the system that is actually
+        // running rather than every permission any assembly happens to define. Singleton because it
+        // is fixed at startup — a permission cannot appear without a deployment.
+        services.AddSingleton<IPermissionCatalog>(new PermissionCatalog(modules));
+
         return services;
     }
 
