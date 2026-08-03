@@ -35,6 +35,16 @@ var server = builder.AddProject<Projects.FieldKit_Server>("server")
 // Dockerfile on publish), calling the API through service discovery. It is a standalone app, not
 // static files served by the Server (ADR-0004).
 builder.AddJavaScriptApp("webfrontend", "../frontend", "dev")
+    // No install step on start. `AddJavaScriptApp` otherwise attaches an installer resource that
+    // runs `npm install` before every run — and on Windows that rewrites `package-lock.json` even
+    // when it has nothing to install (measured: 1.9s of no work, 23 insertions and 263 deletions),
+    // which is exactly the lockfile CI's `npm ci` rejects. Running the app is not a reason to
+    // modify a tracked file.
+    //
+    // `installCommand: "ci"` would also fix it and was measured at 46s per start, because `npm ci`
+    // wipes node_modules unconditionally — too much to pay on every run. Installing dependencies
+    // is a step you take when they change; see docs/engineering/frontend-toolchain.md.
+    .WithNpm(install: false)
     .WithReference(server)
     .WaitFor(server)
     // The browser is redirected to Keycloak by *address*, so the front end needs the same one the

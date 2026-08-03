@@ -63,6 +63,30 @@ OSes, and the divergence persists. Only generating on Linux does.
    Dependabot PR fails `npm ci`, that's cause 1: check out its branch, regenerate as below, and
    push. `@dependabot recreate` will not fix it, because the problem isn't a stale branch.
 
+## Installing dependencies (and why the AppHost doesn't)
+
+**Run `npm ci` yourself after cloning, and whenever `package.json` or the lockfile changes.**
+
+```bash
+npm --prefix frontend ci
+```
+
+The AppHost deliberately does **not** install for you: `AddJavaScriptApp(...)` is chained with
+`.WithNpm(install: false)`. Left at its default it attaches an installer resource that runs
+`npm install` before every start — and per [rule 3](#the-rules) that rewrites the lockfile on
+Windows. It did, twice in one afternoon, producing diffs that would have failed CI had they been
+committed. It was not even doing work: with an up-to-date tree it took 1.9s and still rewrote 286
+lines. **Running the app is not a reason to modify a tracked file.**
+
+`installCommand: "ci"` would have been correct rather than merely quiet — `npm ci` installs exactly
+the lockfile and never rewrites it — but it wipes `node_modules` unconditionally, measured at **46s
+on every start** against a startup already around 90s. Installing dependencies is something you do
+when they change, not something you pay for on every run.
+
+The trade this accepts: after pulling a dependency change, the frontend fails to start with a
+missing-module error until you run `npm ci`. That is the failure mode to recognise — and the one
+line above is the fix.
+
 ## Cascade layers (global CSS)
 
 **Every ordinary declaration in [`app/globals.css`](../../frontend/app/globals.css) must sit inside

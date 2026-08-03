@@ -47,7 +47,10 @@ Until [Phase 0](docs/roadmap.md#phase-0--foundation-in-progress) the repo is a s
 ## Working conventions
 
 - **Running the app:** when spinning up the app for manual verification, open the frontend in the
-  built-in browser tool (not an external browser) so the check happens in-session.
+  built-in browser tool (not an external browser) so the check happens in-session. The AppHost does
+  **not** install npm packages — run `npm --prefix frontend ci` yourself after a dependency change,
+  and see [frontend-toolchain.md](docs/engineering/frontend-toolchain.md#installing-dependencies-and-why-the-apphost-doesnt)
+  for why.
 - **New APIs ship `.http` requests:** every new or changed API endpoint gets a request added to the
   matching `*.http` file (e.g. [FieldKit.Server.http](FieldKit.Server/FieldKit.Server.http)) alongside
   its automated tests — this is in addition to, not instead of, the test coverage required under
