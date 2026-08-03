@@ -43,11 +43,22 @@ public sealed class TenantIssuerDirectory(
     /// </summary>
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// How long to wait before retrying after a failed reload. Without it a failure leaves the list
+    /// permanently due, so an unreachable database turns every JWT validation in the platform into
+    /// its own retry — the load arriving exactly when the database can least take it.
+    /// </summary>
+    private static readonly TimeSpan RetryAfterFailedReload = TimeSpan.FromSeconds(15);
+
     private readonly ConcurrentDictionary<string, ConfigurationManager<OpenIdConnectConfiguration>> _metadata = new();
     private readonly SemaphoreSlim _reloadLock = new(1, 1);
 
     private IReadOnlyDictionary<string, IssuerTenant> _byIssuer = new Dictionary<string, IssuerTenant>();
-    private DateTimeOffset _loadedAt = DateTimeOffset.MinValue;
+
+    // Ticks rather than DateTimeOffset, read through Volatile: this is written by whichever request
+    // wins the reload and read by every other one. A DateTimeOffset is wider than a word, so an
+    // unsynchronised read of it can tear; a long cannot.
+    private long _reloadDueAtTicks = long.MinValue;
 
     /// <summary>The Keycloak base address, supplied by Aspire's service discovery for the resource.</summary>
     private string BaseAddress =>
@@ -115,13 +126,13 @@ public sealed class TenantIssuerDirectory(
 
     private void EnsureLoaded()
     {
-        if (clock.UtcNow - _loadedAt < CacheLifetime) return;
+        if (clock.UtcNow.Ticks < Volatile.Read(ref _reloadDueAtTicks)) return;
 
         if (!_reloadLock.Wait(0)) return; // another request is already reloading; serve what we have
 
         try
         {
-            if (clock.UtcNow - _loadedAt < CacheLifetime) return;
+            if (clock.UtcNow.Ticks < Volatile.Read(ref _reloadDueAtTicks)) return;
 
             using var scope = scopeFactory.CreateScope();
             var registry = scope.ServiceProvider.GetRequiredService<ITenantRegistry>();
@@ -132,7 +143,7 @@ public sealed class TenantIssuerDirectory(
                 tenant => new IssuerTenant(tenant.TenantId, tenant.Realm, tenant.IsActive),
                 StringComparer.Ordinal);
 
-            _loadedAt = clock.UtcNow;
+            Volatile.Write(ref _reloadDueAtTicks, (clock.UtcNow + CacheLifetime).Ticks);
 
             // The issuers themselves, not just the count: every rejected token is rejected by a
             // string comparison against this list, and "which issuers do we actually trust" is the
@@ -144,6 +155,8 @@ public sealed class TenantIssuerDirectory(
         {
             // Keep serving the previous list rather than failing every request. An empty list would
             // reject every token in the platform because the database was briefly unreachable.
+            // Backed off rather than left due, so the retry does not run once per request.
+            Volatile.Write(ref _reloadDueAtTicks, (clock.UtcNow + RetryAfterFailedReload).Ticks);
             logger.LogError(ex, "Could not reload the tenant issuer list; continuing with the cached one.");
         }
         finally

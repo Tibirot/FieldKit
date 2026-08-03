@@ -29,8 +29,6 @@ public static class AuthenticationExtensions
     {
         var audience = builder.Configuration["Keycloak:Audience"]
             ?? throw new InvalidOperationException("Keycloak:Audience is not configured.");
-        var requireHttpsMetadata = !builder.Environment.IsDevelopment();
-
         builder.Services.AddSingleton<TenantIssuerDirectory>();
         builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
 
@@ -44,7 +42,11 @@ public static class AuthenticationExtensions
             {
                 // No Authority: it would pin one realm's metadata, which is the thing being replaced.
                 options.MapInboundClaims = false;
-                options.RequireHttpsMetadata = requireHttpsMetadata;
+
+                // Deliberately no RequireHttpsMetadata here. The handler only consults it when it
+                // builds its own ConfigurationManager from Authority/MetadataAddress, neither of
+                // which is set — so it would read as a guarantee while enforcing nothing. The real
+                // enforcement is on the retrievers in TenantIssuerDirectory, which do the fetching.
 
                 options.TokenValidationParameters = new TokenValidationParameters
                 {

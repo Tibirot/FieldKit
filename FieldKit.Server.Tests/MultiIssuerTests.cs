@@ -76,6 +76,14 @@ public class MultiIssuerTests(ServerFixture fixture)
         var response = await client.GetAsync("/api/auth/whoami");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+
+        // The reason, not just the status. A 401 alone would survive a regression that made the
+        // registry trust every realm: this token would still be refused, only later and for
+        // something else (its `master` audience, its missing `tenant` claim). Naming the issuer in
+        // the challenge is what ties the test to the check it claims to cover.
+        var challenge = response.Headers.WwwAuthenticate.ToString();
+        Assert.Contains("realms/master", challenge);
+        Assert.Contains("issuer", challenge);
     }
 
     [Fact]
