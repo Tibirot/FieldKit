@@ -3,6 +3,7 @@ import { Geist } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
+import { AuthProvider } from "@/components/auth-provider";
 import { ServiceWorkerRegistrar } from "@/components/service-worker-registrar";
 import { resolveLocale } from "@/i18n/locale";
 import { routing } from "@/i18n/routing";
@@ -63,7 +64,16 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
   return (
     <html lang={locale} className={cn("font-sans", geist.variable)}>
       <body>
-        <NextIntlClientProvider>{children}</NextIntlClientProvider>
+        <NextIntlClientProvider>
+          {/*
+            Deliberately not given Keycloak's address. This layout is statically rendered, so
+            anything read from the environment here is baked in at build time — and a stale
+            Keycloak port fails in the worst way, minting tokens whose issuer the API refuses.
+            The address arrives from the two dynamic pages that need a live one; the provider
+            restores an existing session from the device, which also makes it work offline.
+          */}
+          <AuthProvider locale={locale}>{children}</AuthProvider>
+        </NextIntlClientProvider>
         <ServiceWorkerRegistrar />
       </body>
     </html>

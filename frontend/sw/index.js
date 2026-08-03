@@ -70,6 +70,14 @@ async function offlineFallback(url) {
 registerRoute(({ url }) => url.pathname.startsWith("/api/"), new NetworkOnly());
 
 /**
+ * The OIDC callback is never cached either. Its URL carries a one-time authorization code, so a
+ * cached copy is both useless — the code is spent the moment it is exchanged — and a copy of a
+ * credential sitting in the cache API for the next person to open the browser. It is also the one
+ * route with nothing to show offline: completing a sign-in requires reaching Keycloak.
+ */
+registerRoute(({ url }) => /^\/[^/]+\/auth\/callback$/.test(url.pathname), new NetworkOnly());
+
+/**
  * Navigations: try the network briefly, fall back to the last good copy of that page, then to the
  * offline shell. The timeout matters more than it looks — a rep in a back room is usually on a
  * *technically connected* but dead link, where a plain `fetch` hangs rather than failing.

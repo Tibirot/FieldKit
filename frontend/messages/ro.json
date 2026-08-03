@@ -19,6 +19,35 @@
     "syncedLabel": "Ultima sincronizare",
     "timeZoneNote": "Stocat în UTC, afișat în fusul orar al utilizatorului (ADR-0010)."
   },
+  "Login": {
+    "title": "Autentificare",
+    "description": "FieldKit nu îți vede niciodată parola — de ea se ocupă furnizorul de identitate al spațiului tău de lucru.",
+    "workspaceLabel": "Spațiu de lucru",
+    "workspaceHint": "Spațiul de lucru primit de la administrator. Îl reținem pe acest dispozitiv.",
+    "workspaceInvalid": "Folosește litere mici, cifre și cratime.",
+    "submit": "Continuă",
+    "unconfigured": "Autentificarea nu este disponibilă: nu există un furnizor de identitate configurat.",
+    "redirectFailed": "Nu am putut contacta furnizorul de identitate. Verifică numele spațiului de lucru și încearcă din nou."
+  },
+  "Callback": {
+    "title": "Te autentificăm",
+    "description": "Finalizăm — durează doar o clipă.",
+    "failedTitle": "Autentificarea nu s-a finalizat",
+    "failedDescription": "Linkul de autentificare a fost deja folosit sau a expirat. Reluarea procesului rezolvă problema.",
+    "retry": "Înapoi la autentificare"
+  },
+  "Session": {
+    "title": "Sesiunea ta",
+    "loading": "Verificăm sesiunea…",
+    "anonymous": "Nu ești autentificat.",
+    "signIn": "Autentificare",
+    "signOut": "Deconectare",
+    "signedInAs": "Autentificat în {workspace}.",
+    "subjectLabel": "Utilizator",
+    "tenantLabel": "Tenant",
+    "permissionsLabel": "Permisiuni",
+    "apiUnreachable": "Ești autentificat, dar API-ul nu a acceptat token-ul. Poate fi indisponibil."
+  },
   "LocaleSwitcher": {
     "label": "Schimbă limba",
     "locale": "{locale, select, en {English} ro {Română} other {Necunoscut}}"
