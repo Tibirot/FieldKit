@@ -26,6 +26,7 @@
     <ProjectReference Include="..\FieldKit.Modules.Iam\FieldKit.Modules.Iam.csproj" />
     <ProjectReference Include="..\FieldKit.Modules.Iam.Contracts\FieldKit.Modules.Iam.Contracts.csproj" />
     <ProjectReference Include="..\FieldKit.Modules.Catalog\FieldKit.Modules.Catalog.csproj" />
+    <ProjectReference Include="..\FieldKit.Modules.Org\FieldKit.Modules.Org.csproj" />
   </ItemGroup>
 
 </Project>

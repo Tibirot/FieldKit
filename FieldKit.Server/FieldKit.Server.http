@@ -205,6 +205,98 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
 DELETE {{Server_HostAddress}}/api/iam/roles/{{seededRoles.response.body.$[0].id}}
 Authorization: Bearer {{adminToken.response.body.access_token}}
 
+### ─── Organization · the sales hierarchy (ORG-01) ────────────────────────────────────────────────
+
+### Every org unit for the tenant, flat — the tree is `parentId`, not nesting. Requires `orgunit:read`.
+GET {{Server_HostAddress}}/api/org/units
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### A root unit (no parent). Requires `orgunit:write`.
+# @name country
+POST {{Server_HostAddress}}/api/org/units
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Romania",
+  "parentId": null
+}
+
+### A child. Depth is whatever the tenant builds — nothing in the schema knows these labels.
+# @name region
+POST {{Server_HostAddress}}/api/org/units
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Bucharest & South",
+  "parentId": "{{country.response.body.id}}"
+}
+
+### A grandchild.
+# @name team
+POST {{Server_HostAddress}}/api/org/units
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Team North",
+  "parentId": "{{region.response.body.id}}"
+}
+
+### A sibling with a name already taken — expect 409. Names are unique among siblings only, so the
+### same "Team North" under a different region is fine.
+POST {{Server_HostAddress}}/api/org/units
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Team North",
+  "parentId": "{{region.response.body.id}}"
+}
+
+### Rename and reparent in one call — one edit on one screen, so one request that cannot half-apply.
+PUT {{Server_HostAddress}}/api/org/units/{{team.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Team North-East",
+  "parentId": "{{country.response.body.id}}"
+}
+
+### Move a unit into its own branch — expect 409. Nothing in the database can catch this: every
+### parent still exists, but the branch detaches from every root and no traversal reaches it again.
+PUT {{Server_HostAddress}}/api/org/units/{{country.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Romania",
+  "parentId": "{{region.response.body.id}}"
+}
+
+### Delete a unit that still has children — expect 409, not a cascade. Removing a region should not
+### silently take its areas and teams with it.
+DELETE {{Server_HostAddress}}/api/org/units/{{country.response.body.id}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### The hierarchy as `viewer`, who holds orgunit:read and not orgunit:write — 200 here…
+GET {{Server_HostAddress}}/api/org/units
+Accept: application/json
+Authorization: Bearer {{viewerToken.response.body.access_token}}
+
+### …and 403 here. Reading the org chart and redrawing it are different capabilities.
+POST {{Server_HostAddress}}/api/org/units
+Content-Type: application/json
+Authorization: Bearer {{viewerToken.response.body.access_token}}
+
+{
+  "name": "Should be forbidden",
+  "parentId": null
+}
+
 ### ─── Multi-issuer (ADR-0008) ────────────────────────────────────────────────────────────────────
 
 ### A token from the SECOND tenant's realm. Different issuer, different signing keys, same API.

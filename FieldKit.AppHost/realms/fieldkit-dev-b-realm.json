@@ -19,6 +19,14 @@
       {
         "name": "role:read",
         "description": "View roles. Held here so the second tenant can be asked what roles it has — which is how per-tenant role seeding (IAM-06) is provable rather than assumed."
+      },
+      {
+        "name": "orgunit:read",
+        "description": "View the sales hierarchy. Held here for the same reason as role:read — a second tenant that cannot be asked what it sees cannot demonstrate that it sees only its own (ORG-01)."
+      },
+      {
+        "name": "orgunit:write",
+        "description": "Edit the sales hierarchy. Held by the second tenant so that reaching for another tenant's unit is refused by the query filter (404) rather than by the permission check (403) — otherwise the isolation test passes without isolation."
       }
     ]
   },
@@ -144,7 +152,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["product:read", "product:write", "role:read"]
+      "realmRoles": ["product:read", "product:write", "role:read", "orgunit:read", "orgunit:write"]
     }
   ]
 }

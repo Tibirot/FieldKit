@@ -31,6 +31,14 @@
       {
         "name": "user:write",
         "description": "Invite users, edit their profile, and assign roles (IAM module)."
+      },
+      {
+        "name": "orgunit:read",
+        "description": "View the sales hierarchy (Organization module)."
+      },
+      {
+        "name": "orgunit:write",
+        "description": "Create, rename, move and delete org units (Organization module)."
       }
     ]
   },
@@ -123,7 +131,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["product:read", "role:read"]
+      "realmRoles": ["product:read", "role:read", "orgunit:read"]
     },
     {
       "username": "admin",
@@ -139,7 +147,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["role:read", "role:write", "user:read", "user:write"]
+      "realmRoles": ["role:read", "role:write", "user:read", "user:write", "orgunit:read", "orgunit:write"]
     }
   ]
 }

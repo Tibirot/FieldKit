@@ -215,6 +215,10 @@ module contract sections — the functional "what" and the technical "how" stay 
 **Each module is two assemblies:** `FieldKit.Modules.X` (implementation, private) and
 `FieldKit.Modules.X.Contracts` (its only public surface). IAM is the first built this way and sets
 the pattern; **Catalog predates it and is still a single assembly** — a retrofit, not a second rule.
+**Organization is single-assembly for now on purpose**, which is a different case from Catalog's:
+every contract in its registry row describes something that does not exist yet (the management line
+needs positions, territories need outlets), and an interface designed before its consumer is a guess
+other modules then have to live with. Its `.Contracts` assembly lands with its first contract.
 The split is what lets AT-1 be a real reference check rather than a naming convention, and it makes
 AT-3 structural: a contracts assembly that cannot see the implementation cannot name a domain type
 in a signature.
