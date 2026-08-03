@@ -66,6 +66,20 @@ public sealed class User : AggregateRoot, ITenantOwned, IAuditable
         };
 
     /// <summary>
+    /// Updates the editable profile. <see cref="SubjectId"/> is deliberately not among them: it is
+    /// the link to the Keycloak account, and repointing it would silently reattribute every visit,
+    /// order and audit this user has ever recorded.
+    /// </summary>
+    public void UpdateProfile(string email, string displayName, string locale, string timeZone, IClock clock)
+    {
+        Email = email;
+        DisplayName = displayName;
+        Locale = locale;
+        TimeZone = timeZone;
+        Touch(clock);
+    }
+
+    /// <summary>
     /// Replaces the user's roles.
     /// </summary>
     /// <remarks>

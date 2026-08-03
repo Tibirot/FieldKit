@@ -38,5 +38,9 @@ public sealed class IamModule : IModule
         services.AddScoped<ITenantRegistry, TenantRegistry>();
     }
 
-    public void MapEndpoints(IEndpointRouteBuilder endpoints) => endpoints.MapRoleEndpoints();
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapRoleEndpoints();
+        endpoints.MapUserEndpoints();
+    }
 }

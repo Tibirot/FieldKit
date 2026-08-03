@@ -123,6 +123,67 @@ GET {{Server_HostAddress}}/api/iam/roles
 Accept: application/json
 Authorization: Bearer {{token.response.body.access_token}}
 
+### List users. Requires `user:read`.
+GET {{Server_HostAddress}}/api/iam/users
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Create a user profile. Requires `user:write`.
+### Profile only — this does NOT create the Keycloak account. Realm/account provisioning is IAM-10;
+### until then an operator creates the Keycloak user and `subjectId` links the two.
+# @name newUser
+POST {{Server_HostAddress}}/api/iam/users
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "subjectId": "00000000-0000-0000-0000-00000000abcd",
+  "email": "maria@veridian.example",
+  "displayName": "Maria Ionescu",
+  "locale": "ro-RO",
+  "timeZone": "Europe/Bucharest",
+  "roleIds": ["{{newRole.response.body.id}}"]
+}
+
+### A user with no roles — expect 400. BR-IAM-3: a user who can authenticate and do nothing reads
+### as a broken account, not a disabled one. Deactivate instead.
+POST {{Server_HostAddress}}/api/iam/users
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "subjectId": "00000000-0000-0000-0000-00000000dead",
+  "email": "roleless@veridian.example",
+  "displayName": "No Roles",
+  "locale": "ro-RO",
+  "timeZone": "Europe/Bucharest",
+  "roleIds": []
+}
+
+### An unknown time zone — expect 400. Validated against the runtime, not merely required: an
+### unknown zone fails at render time in front of a rep instead of here in front of an admin.
+POST {{Server_HostAddress}}/api/iam/users
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "subjectId": "00000000-0000-0000-0000-00000000beef",
+  "email": "badzone@veridian.example",
+  "displayName": "Bad Zone",
+  "locale": "ro-RO",
+  "timeZone": "Mars/Olympus_Mons",
+  "roleIds": ["{{newRole.response.body.id}}"]
+}
+
+### Deactivate. Publishes UserDeactivated through the outbox so Sync releases the bound device (A8).
+### Idempotent: a second call changes nothing and publishes nothing.
+POST {{Server_HostAddress}}/api/iam/users/{{newUser.response.body.id}}/deactivate
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Reactivate.
+POST {{Server_HostAddress}}/api/iam/users/{{newUser.response.body.id}}/reactivate
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
 ### Delete a role. Refused for a system template, or while users still hold it.
 DELETE {{Server_HostAddress}}/api/iam/roles/{{newRole.response.body.id}}
 Authorization: Bearer {{adminToken.response.body.access_token}}

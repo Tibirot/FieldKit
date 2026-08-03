@@ -99,10 +99,12 @@ multi-issuer validation that realm-per-tenant needs once there is more than one 
 - IAM: `User`, `Role`, permission model, `Tenant`; permission-catalog contribution ([IAM spec](product/10-identity-and-access.md)).
 - **Keycloak realm-per-tenant**; OIDC auth-code+PKCE login in Next.js; token → `ITenantContext` + permissions ([ADR-0008](architecture/adr/0008-authentication-and-multitenancy.md)).
 - **Multi-tenancy**: global query filter + insert stamping; arch-test banning `IgnoreQueryFilters` / raw bypass.
-- Users & roles CRUD (backend); tenant seed (create the demo realm + admin).
-  ✓ **Roles** (`IAM-04`) + the **permission catalogue** they validate against — each module declares
+- ✓ Users & roles CRUD (backend); tenant seed (create the demo realm + admin).
+  **Roles** (`IAM-04`) + the **permission catalogue** they validate against — each module declares
   the permissions it owns, so a role naming one nothing enforces is rejected rather than stored.
-  Users (`IAM-03`) next.
+  **Users** (`IAM-03`) — profile, roles, deactivate/reactivate; deactivation publishes
+  `UserDeactivated` through the outbox. **Profile only**: creating the *Keycloak account* is
+  `IAM-10` (Phase 2), because doing it here means Keycloak admin credentials in the request path.
 
 **Done when:** login works; API is tenant-scoped; a crafted `tenantId` cannot cross tenants (test). `IAM-01…05`.
 

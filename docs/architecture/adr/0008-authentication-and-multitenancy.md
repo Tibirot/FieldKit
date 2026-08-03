@@ -110,5 +110,8 @@ Three properties are worth stating because each closes a specific hole:
   registry needs a source of tenants, which IAM owns and has not delivered — building it now would
   mean inventing a tenant list to drive it. The API validates the one realm that exists.
 - **No realm provisioning** (`IAM-10`). The dev realm is hand-written.
-- **No permission catalog** (`IAM-04`). Each module declares its own permission constants; the
-  contribution mechanism that lets an admin compose roles from them arrives with IAM.
+- **No account provisioning.** IAM owns the FieldKit *profile*; creating the matching Keycloak
+  account (spec F2) and the tenant realm (`IAM-10`) is Phase 2. Doing it now would put Keycloak
+  admin credentials into the request path — a blast radius that deserves its own decision rather
+  than arriving as a side effect of users CRUD. Until then an operator creates the account and the
+  profile links to it by `sub`.
