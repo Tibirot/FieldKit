@@ -32,6 +32,21 @@
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.4.6" />
     <PackageVersion Include="Aspire.Hosting.Redis" Version="13.4.6" />
     <PackageVersion Include="Aspire.StackExchange.Redis.OutputCaching" Version="13.4.6" />
+
+    <!--
+      The **only prerelease dependency in the repo**, and deliberately so: Aspire has never shipped
+      a stable `Aspire.Hosting.Keycloak` — all 42 published versions are `-preview`, this one
+      included. It is the same 13.4.6 build train as the stable Aspire packages above, not a
+      different or older branch.
+
+      The alternative was hand-rolling `AddContainer("keycloak", …)` to stay stable-only, which
+      trades a preview *version* for hand-written realm import, health checks and endpoint wiring —
+      more code to own, and to be thrown away when the integration stabilises anyway.
+
+      Removal condition: drop the `-preview…` suffix the moment a stable release exists. It is
+      pinned exactly (no floating range) so a preview cannot move underneath us silently.
+    -->
+    <PackageVersion Include="Aspire.Hosting.Keycloak" Version="13.4.6-preview.1.26319.6" />
   </ItemGroup>
 
   <ItemGroup Label="Entity Framework Core &amp; Postgres">
