@@ -32,6 +32,11 @@ public sealed class IamModule : IModule
         services.AddModuleDbContext<IamDbContext>(connectionString, IamDbContext.SchemaName);
         services.AddHostedService<ModuleMigrator<IamDbContext>>();
 
+        // Registered after the migrator so the schema exists — hosted services start in registration
+        // order. Without a tenant row no realm is a trusted issuer, so this is what makes a fresh
+        // database usable at all.
+        services.AddHostedService<TenantSeeder>();
+
         // The public surface. Registered against the Contracts interfaces so consumers can only bind
         // to those — the implementations are internal to this module by convention (AT-2).
         services.AddScoped<IUserDirectory, UserDirectory>();

@@ -87,8 +87,7 @@ several small PRs.
 **Done when:** the themed Next.js shell is served through Aspire, installs as a PWA, and CI is green. **⚠︎ Heavy** (front-end migration + PWA + Keycloak) — budget ~1.5 weeks.
 *(All of W2 has landed, and it went past the "skeleton" in the bullet above: `ITenantContext` is
 token-derived and business endpoints are permission-checked, which is the substance of `IAM-02` and
-`IAM-05`. W3 still owns the IAM module itself — users, roles, realm provisioning — and the
-multi-issuer validation that realm-per-tenant needs once there is more than one realm.)*
+`IAM-05`. W3 still owns the IAM module itself — users, roles, realm provisioning.)*
 
 ---
 
@@ -98,6 +97,10 @@ multi-issuer validation that realm-per-tenant needs once there is more than one 
 **Goal:** know who the user is and which tenant they may touch — everywhere.
 - IAM: `User`, `Role`, permission model, `Tenant`; permission-catalog contribution ([IAM spec](product/10-identity-and-access.md)).
 - **Keycloak realm-per-tenant**; OIDC auth-code+PKCE login in Next.js; token → `ITenantContext` + permissions ([ADR-0008](architecture/adr/0008-authentication-and-multitenancy.md)).
+  ✓ **Multi-issuer validation** — issuer and signing keys resolved per request from the tenant table,
+  and a token's `tenant` claim bound to the tenant that owns its issuer. A second dev realm exists so
+  those are testable: with one realm they pass whether resolution is per-request or hard-coded.
+  Login in Next.js is the remaining half of `IAM-01`.
 - **Multi-tenancy**: global query filter + insert stamping; arch-test banning `IgnoreQueryFilters` / raw bypass.
 - ✓ Users & roles CRUD (backend); tenant seed (create the demo realm + admin).
   **Roles** (`IAM-04`) + the **permission catalogue** they validate against — each module declares

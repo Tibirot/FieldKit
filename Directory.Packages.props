@@ -47,17 +47,6 @@
       pinned exactly (no floating range) so a preview cannot move underneath us silently.
     -->
     <PackageVersion Include="Aspire.Hosting.Keycloak" Version="13.4.6-preview.1.26319.6" />
-
-    <!--
-      The client half of the same integration, and the second (and last) prerelease entry — same
-      13.4.6 train, same reason, same removal condition as the hosting package above.
-
-      It is what lets the API point `Authority` at the Keycloak *resource* rather than a hard-coded
-      URL: the AppHost's `WithReference(keycloak)` supplies the address, and this resolves it. Doing
-      that by hand means reading Aspire's `services:keycloak:…` config keys directly, which is a
-      convention this package exists to encapsulate.
-    -->
-    <PackageVersion Include="Aspire.Keycloak.Authentication" Version="13.4.6-preview.1.26319.6" />
   </ItemGroup>
 
   <ItemGroup Label="Entity Framework Core &amp; Postgres">
@@ -78,6 +67,7 @@
 
   <ItemGroup Label="ASP.NET Core &amp; Microsoft.Extensions">
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.10" />

@@ -7,8 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Aspire.Keycloak.Authentication" />
     <PackageReference Include="Aspire.StackExchange.Redis.OutputCaching" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <!-- Security: override the vulnerable Microsoft.OpenApi 2.0.0 that AspNetCore.OpenApi 10.0.x
          still pins. GHSA-v5pm-xwqc-g5wc (circular-ref parser DoS) is fixed in 2.7.5 — the minimal
