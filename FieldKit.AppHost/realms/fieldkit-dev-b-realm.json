@@ -15,6 +15,10 @@
       {
         "name": "product:write",
         "description": "Create and modify products."
+      },
+      {
+        "name": "role:read",
+        "description": "View roles. Held here so the second tenant can be asked what roles it has — which is how per-tenant role seeding (IAM-06) is provable rather than assumed."
       }
     ]
   },
@@ -140,7 +144,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["product:read", "product:write"]
+      "realmRoles": ["product:read", "product:write", "role:read"]
     }
   ]
 }

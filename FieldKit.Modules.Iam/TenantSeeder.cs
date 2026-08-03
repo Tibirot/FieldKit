@@ -1,5 +1,7 @@
+using FieldKit.BuildingBlocks;
 using FieldKit.Infrastructure;
 using FieldKit.SharedKernel;
+using FieldKit.Web;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -46,10 +48,14 @@ public sealed class TenantSeeder(
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        using var scope = services.CreateScope();
+
+        // Before the early return below, deliberately: a template naming a permission nothing
+        // enforces is broken everywhere, not only where tenants happen to be seeded from config.
+        SystemRoleTemplates.Validate(scope.ServiceProvider.GetRequiredService<IPermissionCatalog>());
+
         var seeds = configuration.GetSection(ConfigurationSection).Get<SeedTenant[]>() ?? [];
         if (seeds.Length == 0) return;
-
-        using var scope = services.CreateScope();
 
         // A context built for the system, not the DI-registered one.
         //
@@ -65,15 +71,7 @@ public sealed class TenantSeeder(
         var connectionString = configuration.GetConnectionString("fieldkitdb")
             ?? throw new InvalidOperationException("Connection string 'fieldkitdb' is not configured.");
 
-        var options = new DbContextOptionsBuilder<IamDbContext>()
-            .UseNpgsql(
-                connectionString,
-                npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", IamDbContext.SchemaName))
-            .AddInterceptors(new EntityStampingInterceptor(
-                scope.ServiceProvider.GetRequiredService<IClock>(), SystemTenantContext.Instance))
-            .Options;
-
-        await using var db = new IamDbContext(options, SystemTenantContext.Instance);
+        var clock = scope.ServiceProvider.GetRequiredService<IClock>();
 
         foreach (var seed in seeds)
         {
@@ -84,27 +82,88 @@ public sealed class TenantSeeder(
                 continue;
             }
 
-            if (await db.Tenants.AnyAsync(tenant => tenant.Realm == seed.Realm, cancellationToken)) continue;
+            // One context per tenant, bound to that tenant.
+            //
+            // Roles are tenant-owned, so both halves of isolation apply to them: the interceptor
+            // stamps the ambient tenant on insert, and the query filter scopes the "does this tenant
+            // already have roles" read. A single context running as "the system with no tenant" would
+            // stamp every role with an empty tenant id and then be unable to see them — the query
+            // filter working exactly as designed, against work that genuinely belongs to a tenant.
+            // The alternative is IgnoreQueryFilters, which is banned at compile time and rightly so.
+            var identity = new SeedingIdentity(new TenantId(id));
 
-            db.Tenants.Add(Tenant.Create(new TenantId(id), seed.Name, seed.Realm));
-            logger.LogInformation("Seeded tenant '{Name}' on realm '{Realm}'.", seed.Name, seed.Realm);
+            await using var db = new IamDbContext(
+                BuildOptions(connectionString, clock, identity), identity);
+
+            var existing = await db.Tenants
+                .FirstOrDefaultAsync(tenant => tenant.Realm == seed.Realm, cancellationToken);
+
+            if (existing is null)
+            {
+                db.Tenants.Add(Tenant.Create(new TenantId(id), seed.Name, seed.Realm));
+                logger.LogInformation("Seeded tenant '{Name}' on realm '{Realm}'.", seed.Name, seed.Realm);
+            }
+
+            await SeedRoleTemplatesAsync(db, seed, cancellationToken);
+
+            // Per tenant, so one malformed seed cannot roll back the tenants before it.
+            await db.SaveChangesAsync(cancellationToken);
         }
-
-        await db.SaveChangesAsync(cancellationToken);
     }
+
+    /// <summary>
+    /// Gives a tenant the system role templates, if it has no roles at all (<c>IAM-06</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// "No roles at all" rather than "is new", so a tenant seeded before templates existed — every
+    /// developer's database, and any environment upgraded across this change — is repaired rather
+    /// than left permanently unusable. A tenant with zero roles has nobody who can administer it and
+    /// no way to create the first role from inside the product, which is always a bug.
+    /// </para>
+    /// <para>
+    /// Deliberately <b>not</b> a reconcile. Templates are starting points an admin may rename or
+    /// recompose (<c>IAM-04</c>); restoring individual missing ones on every start would either undo
+    /// that or duplicate roles they renamed, since nothing links a renamed role back to its template.
+    /// </para>
+    /// </remarks>
+    private async Task SeedRoleTemplatesAsync(
+        IamDbContext db, SeedTenant seed, CancellationToken cancellationToken)
+    {
+        if (await db.Roles.AnyAsync(cancellationToken)) return;
+
+        db.Roles.AddRange(SystemRoleTemplates.Materialize());
+
+        logger.LogInformation(
+            "Seeded {Count} system role template(s) for tenant on realm '{Realm}'.",
+            SystemRoleTemplates.All.Count,
+            seed.Realm);
+    }
+
+    private static DbContextOptions<IamDbContext> BuildOptions(
+        string connectionString, IClock clock, ITenantContext identity) =>
+        new DbContextOptionsBuilder<IamDbContext>()
+            .UseNpgsql(
+                connectionString,
+                npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", IamDbContext.SchemaName))
+            .AddInterceptors(new EntityStampingInterceptor(clock, identity))
+            .Options;
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
     /// <summary>
-    /// The identity startup work runs under. Deliberately holds no permissions and no tenant: it
-    /// exists to satisfy the auditing interceptor, not to grant anything, and a
-    /// <see cref="Tenant"/> is not tenant-owned so nothing here needs a tenant to resolve.
+    /// The identity startup work runs under: the system, acting within one tenant.
     /// </summary>
-    private sealed class SystemTenantContext : FieldKit.BuildingBlocks.ITenantContext
+    /// <remarks>
+    /// Holds <b>no permissions</b>, deliberately. It exists to satisfy the query filter and the
+    /// auditing interceptor, not to grant anything — seeding writes entities directly and never goes
+    /// through an endpoint, so a permission here could only ever be a way for startup code to do
+    /// something an administrator could not. The audit columns record <c>system</c> rather than an
+    /// invented user, which is what actually happened.
+    /// </remarks>
+    private sealed class SeedingIdentity(TenantId tenantId) : ITenantContext
     {
-        public static readonly SystemTenantContext Instance = new();
-
-        public TenantId TenantId => default;
+        public TenantId TenantId => tenantId;
         public string UserId => "system";
         public IReadOnlySet<string> Permissions { get; } = new HashSet<string>();
         public bool Has(string permission) => false;

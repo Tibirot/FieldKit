@@ -8,6 +8,11 @@ and the Server tests import the same files. JSON has no comments, so the reasoni
 | `fieldkit-dev` | `…0001` | the ordinary path: authentication, permissions, 401 vs 403 |
 | `fieldkit-dev-b` | `…0002` | **multi-issuer validation** — a second issuer, a second JWKS, a second tenant |
 
+`rep-b` holds `role:read` on top of the product permissions, which the first realm's `rep` does not.
+That asymmetry is deliberate: it is how "each tenant gets its **own** seeded roles" (`IAM-06`) becomes
+provable rather than assumed — without it, the second tenant cannot be asked what roles it has, and a
+single shared set would look identical to two correct ones.
+
 ## Why there are two realms
 
 With one realm every assertion about issuer resolution passes whether the issuer is resolved per
