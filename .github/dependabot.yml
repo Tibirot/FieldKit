@@ -67,12 +67,14 @@ updates:
         update-types: ["version-update:semver-major"]
 
   # ── Backend (NuGet) ───────────────────────────────────────────────────────
-  # No central package management: PackageReference lives in each .csproj, so Dependabot walks the
-  # tree from the root. Verify on the first run (Insights → Dependency graph → Dependabot → job
-  # logs) that all 11 projects are discovered — `FieldKit.slnx` is the new XML solution format and
-  # discovery through it is unproven, and the solution also references `frontend/frontend.esproj`,
-  # which the NuGet updater has no business parsing. If projects are missing, switch to the plural
-  # key, which supports globs: `directories: ["/FieldKit.*"]`.
+  # Versions are centrally managed in `/Directory.Packages.props`, so Dependabot edits that one file
+  # instead of walking 11 .csproj files. That removes the failure this config previously had to warn
+  # about: a bump landing in one project and silently leaving the others behind (which is exactly
+  # what happened with coverlet.collector in #26, and with EF Core Design vs Npgsql).
+  #
+  # It also retires the open question about whether discovery through `FieldKit.slnx` — the new XML
+  # solution format, which also references `frontend/frontend.esproj` — finds every project. There is
+  # now a single manifest at a fixed path, so there is nothing to discover.
   - package-ecosystem: nuget
     directory: /
     schedule:
