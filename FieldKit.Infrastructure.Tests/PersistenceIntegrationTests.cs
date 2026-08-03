@@ -97,9 +97,15 @@ public class PersistenceIntegrationTests : IAsyncLifetime
         Assert.Null(await tenantB.Widgets.SingleOrDefaultAsync(w => w.Id == craftedId));
         Assert.False(await tenantB.Widgets.AnyAsync(w => w.Id == craftedId));
 
-        // And the row does exist — otherwise the assertions above would pass against nothing.
-        await using var tenantA = NewContext(_tenantA);
-        Assert.NotNull(await tenantA.Widgets.SingleOrDefaultAsync(w => w.Id == craftedId));
+        // …and it *is* physically there, visible to B's own connection the moment the filter is
+        // lifted. Without this the assertions above would pass just as happily against a row that
+        // was never written — proving nothing about isolation.
+        //
+        // `IgnoreQueryFilters` is banned in production code (Directory.Build.props). Test projects
+        // are exempt precisely for this: demonstrating that the filter is what hides the row
+        // requires being able to look past it.
+        var unfiltered = await tenantB.Widgets.IgnoreQueryFilters().SingleAsync(w => w.Id == craftedId);
+        Assert.Equal(_tenantA, unfiltered.TenantId);
     }
 
     [Fact]
