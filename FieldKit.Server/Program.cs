@@ -13,6 +13,10 @@ builder.AddRedisClientBuilder("cache").WithOutputCache();
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 
+// Validate the Keycloak-issued JWT (ADR-0008). Nothing requires it yet except /api/auth/whoami —
+// the tenant context is still DevTenantContext until the next slice.
+builder.AddKeycloakAuthentication();
+
 // Cross-cutting: the clock and the (temporary) dev tenant context (ADR-0008 replaces this in Phase 1).
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddHttpContextAccessor();
@@ -31,6 +35,12 @@ if (app.Environment.IsDevelopment())
 
 app.UseOutputCache();
 
+// Must precede the endpoints: authentication populates HttpContext.User, authorization enforces
+// what individual endpoints ask for via RequireAuthorization().
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapAuthEndpoints();
 app.MapModules(modules);
 
 app.MapDefaultEndpoints();

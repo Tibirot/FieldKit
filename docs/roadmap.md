@@ -65,7 +65,12 @@ Turn the scaffold into a clean skeleton the rest hangs off.
   network-first and fall back to the shell **in the right language**. Requests persistent storage
   ([offline behavior §2](product/30-offline-behavior.md)). The API is never cached — offline *data*
   is the Phase-2 sync engine's job. — *[this slice]*
-- [ ] Add **Keycloak** container to the AppHost ([ADR-0008](architecture/adr/0008-authentication-and-multitenancy.md))
+- [x] Add **Keycloak** container to the AppHost ([ADR-0008](architecture/adr/0008-authentication-and-multitenancy.md)) —
+  the container runs with the **dev tenant realm imported from source** (a tenant *is* a realm under
+  realm-per-tenant), and the API **validates the JWT bearer** it issues: signature, issuer, audience
+  and lifetime, against the real realm in the integration tests. `GET /api/auth/whoami` is the one
+  endpoint that requires a token today. The tenant context is still the temporary `DevTenantContext`
+  — making it token-derived is Phase 1 work, and is what turns validation into *isolation*.
 - [x] **Architecture-test** project (NetArchTest) enforcing empty-but-real boundaries —
   `FieldKit.ArchitectureTests` runs the **foundation subset**: dependencies point inward
   (`SharedKernel` knows nothing of `BuildingBlocks`), and neither the kernel nor the building blocks

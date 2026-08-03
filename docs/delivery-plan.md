@@ -79,12 +79,14 @@ several small PRs.
 - ✓ **next-intl** scaffold (EN + RO), locale routing ([ADR-0010](architecture/adr/0010-internationalization.md)).
 - ✓ **PWA baseline**: per-locale manifest, Workbox service worker (app-shell cache + offline
   fallback), installability.
-- Add **Keycloak** container to the AppHost; JWT bearer validation skeleton in the API ([ADR-0008](architecture/adr/0008-authentication-and-multitenancy.md)).
+- ✓ Add **Keycloak** container to the AppHost; JWT bearer validation skeleton in the API ([ADR-0008](architecture/adr/0008-authentication-and-multitenancy.md)).
+  Dev realm imported from source; tokens validated against it in integration tests on a real Keycloak.
 - ✓ **GitHub Actions CI**: build (dotnet + next) → unit tests → arch-tests, both jobs required in
   branch protection.
 
 **Done when:** the themed Next.js shell is served through Aspire, installs as a PWA, and CI is green. **⚠︎ Heavy** (front-end migration + PWA + Keycloak) — budget ~1.5 weeks.
-*(Remaining: Keycloak. Everything else in this package has landed.)*
+*(All of W2 has landed. What Keycloak does **not** yet do is authorize anything: `ITenantContext` is
+still `DevTenantContext`, so tokens are validated but not yet authoritative — that swap is W3.)*
 
 ---
 

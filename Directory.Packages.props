@@ -47,6 +47,17 @@
       pinned exactly (no floating range) so a preview cannot move underneath us silently.
     -->
     <PackageVersion Include="Aspire.Hosting.Keycloak" Version="13.4.6-preview.1.26319.6" />
+
+    <!--
+      The client half of the same integration, and the second (and last) prerelease entry — same
+      13.4.6 train, same reason, same removal condition as the hosting package above.
+
+      It is what lets the API point `Authority` at the Keycloak *resource* rather than a hard-coded
+      URL: the AppHost's `WithReference(keycloak)` supplies the address, and this resolves it. Doing
+      that by hand means reading Aspire's `services:keycloak:…` config keys directly, which is a
+      convention this package exists to encapsulate.
+    -->
+    <PackageVersion Include="Aspire.Keycloak.Authentication" Version="13.4.6-preview.1.26319.6" />
   </ItemGroup>
 
   <ItemGroup Label="Entity Framework Core &amp; Postgres">
@@ -93,6 +104,11 @@
     <PackageVersion Include="coverlet.collector" Version="10.0.1" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageVersion Include="NetArchTest.Rules" Version="1.3.2" />
+    <!--
+      Same version as the Postgres module on purpose: Testcontainers ships its modules as one
+      matched set, and mixing versions across them is unsupported.
+    -->
+    <PackageVersion Include="Testcontainers.Keycloak" Version="4.13.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.13.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />

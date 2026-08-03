@@ -77,3 +77,26 @@ including under a crafted/hostile request.
 **Enforcement:** the tenant-isolation guarantees, the bypass ban, and the threat model live in
 [security](../16-security.md); tests assert every tenant-owned entity has the filter and no
 `IgnoreQueryFilters` appears in module code.
+
+## Implementation status *(Phase 0)*
+
+The decision above is accepted in full; this records how much of it currently exists, because the
+gap is security-relevant and easy to misread as "auth is done".
+
+**Landed.** Keycloak runs as an Aspire container with the dev tenant realm imported from source, and
+the API validates the JWT bearer — signature, issuer, audience and lifetime — against that realm.
+The token carries `tenant`, `sub` and a flattened `permissions` claim, verified end to end against a
+real Keycloak in the integration tests.
+
+**Not yet, and deliberately so:**
+
+- **`ITenantContext` is still `DevTenantContext`.** Tokens are *validated* but not yet
+  *authoritative* — nothing derives the tenant from the `tenant` claim. Until that lands, protecting
+  business endpoints would be worse than leaving them open: an authenticated caller carrying a real
+  tenant claim would still write rows stamped with the dev tenant. Only `/api/auth/whoami` requires a
+  token today.
+- **Single issuer.** Realm-per-tenant means per-tenant issuers and JWKS endpoints (finding S6 above),
+  so the finished system resolves the issuer per request against a registry of tenant realms. That
+  registry needs a source of tenants, which IAM owns and has not delivered — building it now would
+  mean inventing a tenant list to drive it. The API validates the one realm that exists.
+- **No realm provisioning** (`IAM-10`). The dev realm is hand-written.
