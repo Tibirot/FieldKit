@@ -66,9 +66,19 @@ Turn the scaffold into a clean skeleton the rest hangs off.
   ([offline behavior §2](product/30-offline-behavior.md)). The API is never cached — offline *data*
   is the Phase-2 sync engine's job. — *[this slice]*
 - [ ] Add **Keycloak** container to the AppHost ([ADR-0008](architecture/adr/0008-authentication-and-multitenancy.md))
-- [ ] **Architecture-test** project (NetArchTest) enforcing empty-but-real boundaries
+- [x] **Architecture-test** project (NetArchTest) enforcing empty-but-real boundaries —
+  `FieldKit.ArchitectureTests` runs the **foundation subset**: dependencies point inward
+  (`SharedKernel` knows nothing of `BuildingBlocks`), and neither the kernel nor the building blocks
+  may reference ASP.NET Core or EF Core (AT-8). **AT-7** ("no static time; `IClock` only") is enforced
+  a step earlier still, at *compile* time, by the banned-API analyzer. The module-boundary rules
+  **AT-1…AT-6** land with the second module — there is nothing to keep apart until then
+  ([module boundaries §5](architecture/10-module-boundaries.md#5-enforcement--architecture-tests)).
 - [ ] **Seed/demo-data** harness (a believable tenant) so every phase is demoable
-- [ ] CI: build + test + arch-test on GitHub Actions
+- [x] CI: build + test + arch-test on GitHub Actions — [`ci.yml`](../.github/workflows/ci.yml) runs
+  two jobs on every PR and push to `main`: **dotnet** (restore → build → `dotnet test`, which covers
+  unit, architecture and the Testcontainers integration suite on real Postgres) and **frontend**
+  (`npm ci` → lint → build → Vitest). Both are **required status checks** in branch protection with
+  *require branches to be up to date* on, so the gate is enforced rather than merely present.
 
 **Demo:** the app boots via Aspire, one health-checked module answers, dashboard shows traces.
 
