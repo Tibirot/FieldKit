@@ -149,6 +149,22 @@ Boundaries that rely on goodwill rot. FieldKit encodes them as **executable test
 | AT-6 | Integration-event handlers are idempotent-by-construction (registered via the bus, not called directly). | At-least-once safety. |
 | AT-7 | No `DateTime.Now`/`DateTimeOffset.Now`; only an injected `IClock` (UTC). | Testability + [i18n/timezone](adr/0010-internationalization.md). |
 | AT-8 | Domain layer references no EF Core / ASP.NET types. | Keep the domain pure. |
+| AT-9 | No `IgnoreQueryFilters` or `ExecuteSqlRaw` in production code. | The tenant filter is the isolation guarantee ([ADR-0008](adr/0008-authentication-and-multitenancy.md), BR-IAM-1). |
+
+**Two enforcement mechanisms, not one.** AT-1…AT-6 and AT-8 are *tests* — they inspect assemblies,
+so they need the assemblies to exist. **AT-7 and AT-9 are compile-time**, via the banned-API
+analyzer: banning a symbol outright is stronger than asserting nobody used it, because the failure
+lands on the developer who typed it rather than on CI minutes later.
+
+Both are wired in [`Directory.Build.props`](../../Directory.Build.props), so a new module inherits
+them at creation instead of when someone remembers to copy a `csproj` fragment. `RS0030` is escalated
+to an **error**; left as a warning these would be suggestions, and one of them is the tenant-isolation
+bypass.
+
+**Test projects are exempt from AT-9**, deliberately: proving the tenant filter works means being
+able to look past it. A test that could only query *through* the filter would be asserting the filter
+against itself — so `PersistenceIntegrationTests` uses `IgnoreQueryFilters` to show the hidden row is
+physically present and correctly stamped.
 
 ```csharp
 // Example (NetArchTest): AT-1

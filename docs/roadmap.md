@@ -30,7 +30,9 @@ Turn the scaffold into a clean skeleton the rest hangs off.
   full architecture + 11 ADRs, [wireframes](ux/README.md) (12 screens)
 - [x] **`SharedKernel`** (Money, GeoPoint, `IClock`, Result, TenantId) + **`BuildingBlocks`**
   (pure abstractions: messaging contracts, `ITenantContext`, `ITenantOwned`/`IAuditable`) +
-  **NetArchTest** harness with **AT-7** enforced at compile time (banned-API analyzer) — *[PR #2]*
+  **NetArchTest** harness with **AT-7** enforced at compile time (banned-API analyzer) — *[PR #2]*.
+  That analyzer initially reached only these two projects; it is now applied solution-wide alongside
+  **AT-9** (no `IgnoreQueryFilters` / `ExecuteSqlRaw` in production code) via `Directory.Build.props`.
 - [x] Add **PostgreSQL** to the AppHost + **`Infrastructure`**: EF Core base `ModuleDbContext`
   (**schema-per-module**, ADR-0005), the tenant query filter + stamping interceptors, verified on
   real Postgres (Testcontainers) — *[this slice]*

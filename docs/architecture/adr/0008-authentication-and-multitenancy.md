@@ -68,8 +68,8 @@ including under a crafted/hostile request.
 - Permission model supports per-tenant role customization ([A1](../../product/decisions-and-assumptions.md#a1--per-tenant-customization-config-driven-moderate)).
 
 **Negative / costs**
-- **Query-filter bypass risk:** raw SQL or `IgnoreQueryFilters()` sidesteps isolation — so those
-  are **banned by [architecture test](../17-testing-strategy.md)** and reviewed.
+- **Query-filter bypass risk:** raw SQL or `IgnoreQueryFilters()` sidesteps isolation — so those are
+  **banned symbols in every production project** (AT-9), failing the build rather than review.
 - Realm-per-tenant means realm provisioning automation and more Keycloak objects to manage.
 - Cross-tenant admin/reporting (platform-level) needs an explicit, audited elevation path — out of
   scope for v1.
