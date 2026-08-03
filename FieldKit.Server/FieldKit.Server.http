@@ -193,6 +193,18 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
 DELETE {{Server_HostAddress}}/api/iam/roles/{{newRole.response.body.id}}
 Authorization: Bearer {{adminToken.response.body.access_token}}
 
+### The roles a tenant is seeded with (IAM-06) — Field Rep, Supervisor, Sales Ops, Tenant Admin,
+### each flagged `isSystemTemplate`. A tenant without them has permissions nobody can hold.
+# @name seededRoles
+GET {{Server_HostAddress}}/api/iam/roles
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Delete a system template — expect 409. Templates are the way back to a working set of roles, so
+### they may be renamed and recomposed but not removed. (Take an id from the response above.)
+DELETE {{Server_HostAddress}}/api/iam/roles/{{seededRoles.response.body.$[0].id}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
 ### ─── Multi-issuer (ADR-0008) ────────────────────────────────────────────────────────────────────
 
 ### A token from the SECOND tenant's realm. Different issuer, different signing keys, same API.

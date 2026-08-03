@@ -50,6 +50,31 @@ IAM owns the *authorization* model and the FieldKit-side user profile.
 - Admin creates/edits roles and toggles their permissions from the catalog of known
   permissions (contributed by each module).
 
+### F5 · Seed a new tenant's roles (`IAM-06`)
+
+A tenant is created with a small set of **system role templates**, because a tenant with no roles
+has permissions defined and nobody who can hold them — and since role administration is itself
+permission-guarded, no way to create the first role from inside the product.
+
+| Template | Permissions today |
+|---|---|
+| Field Rep | `product:read` |
+| Supervisor | `product:read`, `user:read` |
+| Sales Ops | `product:read`, `product:write` |
+| Tenant Admin | `role:read`, `role:write`, `user:read`, `user:write` |
+
+Two properties are deliberate:
+
+- **No template is a superset of the others.** Tenant Admin holds no product permissions at all:
+  administering who may sell is a different capability from selling. That is what makes this a
+  permission model rather than a tier list, and it is the same point BR-IAM-2 makes in code.
+- **They are starting points, not policy.** An admin may rename or recompose any of them; only
+  *deleting* one is refused, so a tenant always has a way back to a working set of roles.
+
+The templates are code, not data — a table of them would be a second copy of a product decision,
+free to drift from the permissions that actually exist. A template naming a permission no module
+enforces fails at startup rather than presenting as a role that grants nothing.
+
 ### F4 · Device binding (field users)
 - A field user has **one active device** ([A8](decisions-and-assumptions.md#a8--device--sync-behavior-one-active-device-auto-background-sync)).
   Registering a new device deactivates the previous one. (Device *registry* lives in Sync; IAM

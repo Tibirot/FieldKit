@@ -104,7 +104,8 @@ token-derived and business endpoints are permission-checked, which is the substa
   tokens held on-device so a session survives going offline, and the API called same-origin with the
   bearer. `IAM-01` complete.
 - **Multi-tenancy**: global query filter + insert stamping; arch-test banning `IgnoreQueryFilters` / raw bypass.
-- ✓ Users & roles CRUD (backend); tenant seed (create the demo realm + admin).
+- ✓ Users & roles CRUD (backend); ✓ tenant seed — a seeded tenant starts with the system role
+  templates (`IAM-06`), so it has someone who can administer it rather than permissions nobody holds.
   **Roles** (`IAM-04`) + the **permission catalogue** they validate against — each module declares
   the permissions it owns, so a role naming one nothing enforces is rejected rather than stored.
   **Users** (`IAM-03`) — profile, roles, deactivate/reactivate; deactivation publishes
