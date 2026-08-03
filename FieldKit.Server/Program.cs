@@ -1,5 +1,6 @@
 using FieldKit.BuildingBlocks;
 using FieldKit.Modules.Catalog;
+using FieldKit.Modules.Iam;
 using FieldKit.Server;
 using FieldKit.SharedKernel;
 using FieldKit.Web;
@@ -23,7 +24,8 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantContext, KeycloakTenantContext>();
 
 // The modular monolith: the host composes modules; it does not know how they work (module boundaries §1).
-IReadOnlyList<IModule> modules = [new CatalogModule()];
+// IAM first — it owns the tenant registry every other module's isolation ultimately rests on.
+IReadOnlyList<IModule> modules = [new IamModule(), new CatalogModule()];
 builder.Services.AddModules(builder.Configuration, modules);
 
 var app = builder.Build();

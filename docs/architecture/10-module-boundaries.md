@@ -182,7 +182,7 @@ we hold the option without paying to exercise it.
 
 | Module | Assembly | Schema | Key contracts | Publishes |
 |---|---|---|---|---|
-| IAM | `…Modules.Iam` | `iam` | `ITenantContext`, `IAuthorizationService`, `IUserDirectory` | `UserDeactivated` |
+| IAM | `…Modules.Iam` (+ `.Contracts`) | `iam` | `IUserDirectory`, `ITenantRegistry` | `UserDeactivated` |
 | Organization | `…Modules.Org` | `org` | `ITerritoryDirectory`, `IRepScope`, `IOrgHierarchy` | `RepAssignmentChanged` |
 | Outlets | `…Modules.Outlets` | `outlets` | `IOutletCatalog`, `IOutletClassification`, `IReferenceChangeFeed`, `IOutletProposalIngest` | `OutletChanged`, `OutletClosed` |
 | Products & Pricing | `…Modules.Products` | `products` | `IProductCatalog`, `IAssortmentService`, `IPricingService`, `IReferenceChangeFeed` | `PriceListPublished`, `PromotionActivated` |
@@ -195,6 +195,21 @@ we hold the option without paying to exercise it.
 
 **Ten modules.** Contracts and events map 1:1 to the [functional specs'](../product/00-product-overview.md)
 module contract sections — the functional "what" and the technical "how" stay in lockstep.
+
+**Each module is two assemblies:** `FieldKit.Modules.X` (implementation, private) and
+`FieldKit.Modules.X.Contracts` (its only public surface). IAM is the first built this way and sets
+the pattern; **Catalog predates it and is still a single assembly** — a retrofit, not a second rule.
+The split is what lets AT-1 be a real reference check rather than a naming convention, and it makes
+AT-3 structural: a contracts assembly that cannot see the implementation cannot name a domain type
+in a signature.
+
+> Two registry entries are not where an earlier draft placed them, and the difference is deliberate.
+> **`ITenantContext` lives in `BuildingBlocks`**, not `Iam.Contracts`: every module needs it on every
+> request, and routing that through a module contract would make the most cross-cutting primitive in
+> the system depend on one module's assembly. **`IAuthorizationService`** is not a FieldKit interface
+> at all — permission checks are `ITenantContext.Has` plus the `RequirePermission` endpoint
+> convention, both fed from the token, so introducing a service that could answer differently from
+> the request's own token would be a hazard rather than a feature.
 
 **Two sync-specific contract families** keep [ADR-0002](adr/0002-modular-monolith.md)'s "no cross-
 schema access" honest (resolves finding S3):

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The IAM module's *only* public surface. Other modules reference this assembly and never
+    FieldKit.Modules.Iam (AT-1), which is what keeps the boundary enforceable by assembly reference
+    rather than by convention.
+
+    Note what it does NOT reference: no EF Core, no ASP.NET, no Infrastructure. A contracts assembly
+    that could see a DbContext would let an entity leak through a signature (AT-3), and the arch test
+    for that would be checking types rather than the far simpler fact that the reference is absent.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FieldKit.SharedKernel\FieldKit.SharedKernel.csproj" />
+    <ProjectReference Include="..\FieldKit.BuildingBlocks\FieldKit.BuildingBlocks.csproj" />
+  </ItemGroup>
+
+</Project>
