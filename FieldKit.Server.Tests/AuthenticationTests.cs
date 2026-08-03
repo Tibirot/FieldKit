@@ -68,7 +68,14 @@ public class AuthenticationTests(ServerFixture fixture)
 
         // Realm roles arrive flattened into one claim, so modules check permissions and never role
         // names (BR-IAM-2).
-        Assert.Equal(["product:read", "product:write"], identity.Permissions);
+        //
+        // Asserted as an exact set rather than a containment check: the point is that the context
+        // carries *what the token says and nothing else*, and "contains product:read" would still
+        // pass if a permission appeared from somewhere other than the realm. The cost is that this
+        // moves whenever `rep`'s fixture roles do — which is the reminder being paid for.
+        Assert.Equal(
+            ["channel:read", "outlet:read", "product:read", "product:write"],
+            identity.Permissions.Order(StringComparer.Ordinal));
     }
 
     [Fact]

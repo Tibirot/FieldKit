@@ -56,6 +56,21 @@ downstream possible.
 ### F4 · Lifecycle
 - Outlets can be `Active`, `Inactive` (temporarily not visited), or `Closed` (permanent).
 
+`Closed` is **terminal**: an outlet cannot be reopened. That is what makes it mean anything beyond
+`Inactive` — a status that can be walked back is just a long-lived `Inactive`, and BR-OUT-4's
+"excluded from new journeys, retains history" would be a preference rather than a fact. A location
+that genuinely reopens is a **new outlet with its own code**, because its trading history as a
+different business should not silently continue.
+
+> 📝 ASSUMPTION: no back-office "reopen" escape hatch. An outlet closed by mistake has to be
+> re-created under a new code, which loses the link to its history. If operators hit this in
+> practice, the answer is an explicit, separately-permissioned reopen that records who did it —
+> **not** relaxing the transition, which would take the meaning out of `Closed`.
+
+Status changes go through their own endpoint rather than the edit form. "This store is shut" is a
+different decision from "the name was spelled wrong", and merging them lets a careless update close
+an outlet as a side effect of fixing a typo.
+
 ## 5. Business rules
 
 - **BR-OUT-1** Every outlet has a **channel** and a **primary territory**.
