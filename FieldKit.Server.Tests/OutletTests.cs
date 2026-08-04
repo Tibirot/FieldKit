@@ -10,6 +10,9 @@ namespace FieldKit.Server.Tests;
 [Collection(ServerCollection.Name)]
 public class OutletTests(ServerFixture fixture)
 {
+    /// <summary>A real IANA zone — the field is required, and validated against the runtime.</summary>
+    private const string Zone = "Europe/Bucharest";
+
     private static string Unique(string label) => $"{label}-{Guid.NewGuid():N}"[..20];
 
     private async Task<ChannelResponse> ChannelAsync(HttpClient client, string? name = null)
@@ -25,7 +28,7 @@ public class OutletTests(ServerFixture fixture)
     {
         var response = await client.PostAsJsonAsync(
             "/api/outlets",
-            new CreateOutletRequest(code ?? Unique("OUT"), "Corner Shop", channelId, "A", "Veridian Group"));
+            new CreateOutletRequest(code ?? Unique("OUT"), "Corner Shop", channelId, "A", "Veridian Group", Zone));
 
         // The body on failure, not just the code: the host runs in Development, so a 500 carries the
         // exception — and a bare "expected Created, actual InternalServerError" costs a debug cycle
@@ -55,6 +58,123 @@ public class OutletTests(ServerFixture fixture)
     }
 
     [Fact]
+    public async Task An_outlet_carries_an_address_a_location_and_its_contacts()
+    {
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var channel = await ChannelAsync(client);
+        var response = await client.PostAsJsonAsync("/api/outlets", new CreateOutletRequest(
+            Unique("OUT"),
+            "Mega Image Dorobanți",
+            channel.Id,
+            "A",
+            "Mega Image",
+            Zone,
+            new Address("Calea Dorobanți 172", "București", "010578", "RO"),
+            new GeoPoint(44.4638, 26.0946),
+            [new OutletContact("Ana Ionescu", "Store manager", "+40 721 000 000", "ana@example.ro")]));
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var outlet = await response.Content.ReadFromJsonAsync<OutletResponse>();
+        Assert.Equal("010578", outlet!.Address!.PostalCode);
+        Assert.Equal(44.4638, outlet.Location!.Latitude);
+        Assert.Equal("Ana Ionescu", Assert.Single(outlet.Contacts).Name);
+        Assert.Equal(Zone, outlet.TimeZoneId);
+    }
+
+    [Fact]
+    public async Task The_time_zone_is_required_and_checked_against_the_runtime()
+    {
+        // Not cosmetic: a visit's business day and a promotion's validity both resolve in this zone
+        // (BR-PRD-6), so an unknown one is a wrong answer waiting to be given. Checked against the
+        // runtime rather than a regex, because "Europe/Bucuresti" is well-formed and does not exist.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var channel = await ChannelAsync(client);
+
+        foreach (var bad in new[] { "", "Europe/Bucuresti", "GMT+2" })
+        {
+            var response = await client.PostAsJsonAsync(
+                "/api/outlets",
+                new CreateOutletRequest(Unique("OUT"), "Bad zone", channel.Id, null, null, bad));
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task Contacts_are_replaced_wholesale_and_an_empty_list_removes_them()
+    {
+        // Wholesale rather than deltas: a patch needs the caller to know the current state, and two
+        // people editing one outlet would interleave silently. It also gives erasure a trivial
+        // shape — these are personal data (B8), and an empty list deletes the rows rather than
+        // flagging them.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var channel = await ChannelAsync(client);
+        var outlet = await OutletAsync(client, channel.Id);
+
+        var withContacts = await client.PutAsJsonAsync($"/api/outlets/{outlet.Id}", new UpdateOutletRequest(
+            outlet.Name, channel.Id, null, null, Zone,
+            Contacts: [new OutletContact("Ana", "Buyer", null, null), new OutletContact("Bogdan", null, null, null)]));
+
+        Assert.Equal(2, (await withContacts.Content.ReadFromJsonAsync<OutletResponse>())!.Contacts.Count);
+
+        var erased = await client.PutAsJsonAsync($"/api/outlets/{outlet.Id}", new UpdateOutletRequest(
+            outlet.Name, channel.Id, null, null, Zone, Contacts: []));
+
+        Assert.Empty((await erased.Content.ReadFromJsonAsync<OutletResponse>())!.Contacts);
+    }
+
+    [Fact]
+    public async Task Coordinate_validation_follows_the_tenants_setting()
+    {
+        // The rule as specified: coordinates are optional, and the tenant decides whether supplied
+        // ones are checked. An outlet with no coordinates is never rejected either way — this
+        // setting does not make them required.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var channel = await ChannelAsync(client);
+        var offEarth = new GeoPoint(91, 200);
+
+        try
+        {
+            // Default is on, so a point that is not on the earth is refused…
+            var refused = await client.PostAsJsonAsync(
+                "/api/outlets",
+                new CreateOutletRequest(Unique("OUT"), "Off earth", channel.Id, null, null, Zone,
+                    Location: offEarth));
+            Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+
+            // …and an outlet with none is accepted regardless, because they are optional.
+            Assert.Equal(
+                HttpStatusCode.Created,
+                (await client.PostAsJsonAsync(
+                    "/api/outlets",
+                    new CreateOutletRequest(Unique("OUT"), "No location", channel.Id, null, null, Zone)))
+                    .StatusCode);
+
+            // Turned off, the same point is stored — which is the documented consequence: enabling
+            // validation later will fail against rows already saved.
+            await client.PutAsJsonAsync("/api/outlets/settings", new OutletSettingsRequest(false));
+
+            var accepted = await client.PostAsJsonAsync(
+                "/api/outlets",
+                new CreateOutletRequest(Unique("OUT"), "Off earth, allowed", channel.Id, null, null, Zone,
+                    Location: offEarth));
+
+            Assert.Equal(HttpStatusCode.Created, accepted.StatusCode);
+            Assert.Equal(91, (await accepted.Content.ReadFromJsonAsync<OutletResponse>())!.Location!.Latitude);
+        }
+        finally
+        {
+            // Shared fixture: leaving validation off would silently weaken every later test.
+            await client.PutAsJsonAsync("/api/outlets/settings", new OutletSettingsRequest(true));
+        }
+    }
+
+    [Fact]
     public async Task An_outlet_must_name_a_channel_this_tenant_has()
     {
         // BR-OUT-1: an outlet without a channel cannot be given an assortment, a price list or a
@@ -62,7 +182,7 @@ public class OutletTests(ServerFixture fixture)
         using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
 
         var response = await client.PostAsJsonAsync(
-            "/api/outlets", new CreateOutletRequest(Unique("OUT"), "No Channel", Guid.NewGuid(), null, null));
+            "/api/outlets", new CreateOutletRequest(Unique("OUT"), "No Channel", Guid.NewGuid(), null, null, Zone));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -77,7 +197,7 @@ public class OutletTests(ServerFixture fixture)
         await OutletAsync(client, channel.Id, code);
 
         var duplicate = await client.PostAsJsonAsync(
-            "/api/outlets", new CreateOutletRequest(code, "Same code", channel.Id, null, null));
+            "/api/outlets", new CreateOutletRequest(code, "Same code", channel.Id, null, null, Zone));
 
         Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
     }
@@ -94,7 +214,7 @@ public class OutletTests(ServerFixture fixture)
         var outlet = await OutletAsync(client, channel.Id);
 
         var response = await client.PutAsJsonAsync(
-            $"/api/outlets/{outlet.Id}", new UpdateOutletRequest("Renamed", channel.Id, "B", null));
+            $"/api/outlets/{outlet.Id}", new UpdateOutletRequest("Renamed", channel.Id, "B", null, Zone));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
@@ -149,7 +269,7 @@ public class OutletTests(ServerFixture fixture)
 
         // …then an ordinary edit, which is what used to destroy the record of the closure.
         await client.PutAsJsonAsync(
-            $"/api/outlets/{outlet.Id}", new UpdateOutletRequest("Renamed after closing", channel.Id, null, null));
+            $"/api/outlets/{outlet.Id}", new UpdateOutletRequest("Renamed after closing", channel.Id, null, null, Zone));
 
         var history = await client.GetFromJsonAsync<List<OutletStatusChangeResponse>>(
             $"/api/outlets/{outlet.Id}/status-history");
@@ -330,7 +450,7 @@ public class OutletTests(ServerFixture fixture)
         Assert.Equal(
             HttpStatusCode.Forbidden,
             (await rep.PostAsJsonAsync(
-                "/api/outlets", new CreateOutletRequest("X", "Nope", Guid.NewGuid(), null, null))).StatusCode);
+                "/api/outlets", new CreateOutletRequest("X", "Nope", Guid.NewGuid(), null, null, Zone))).StatusCode);
     }
 
     [Fact]
@@ -348,12 +468,12 @@ public class OutletTests(ServerFixture fixture)
         // `rep-b` deliberately holds outlet:write, so this is 404 from the query filter rather than
         // 403 from the permission check — otherwise the assertion proves nothing.
         var byId = await tenantB.PutAsJsonAsync(
-            $"/api/outlets/{mine.Id}", new UpdateOutletRequest("Hijacked", channel.Id, null, null));
+            $"/api/outlets/{mine.Id}", new UpdateOutletRequest("Hijacked", channel.Id, null, null, Zone));
         Assert.Equal(HttpStatusCode.NotFound, byId.StatusCode);
 
         // A's channel is not B's either, so B cannot even classify against it.
         var stolenChannel = await tenantB.PostAsJsonAsync(
-            "/api/outlets", new CreateOutletRequest("B-1", "Theirs", channel.Id, null, null));
+            "/api/outlets", new CreateOutletRequest("B-1", "Theirs", channel.Id, null, null, Zone));
         Assert.Equal(HttpStatusCode.BadRequest, stolenChannel.StatusCode);
     }
 }

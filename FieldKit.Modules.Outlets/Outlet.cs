@@ -21,13 +21,10 @@ public enum OutletStatus
 /// <summary>
 /// A retail location — the master data the field app is organized around (<c>OUT-01</c>).
 /// </summary>
-/// <remarks>
-/// This slice carries identity and classification. Address, geo-coordinates, the IANA timezone and
-/// contacts are the next one: they have rules of their own (BR-OUT-2's geo requirement, and contacts
-/// are personal data under <c>B8</c>) and deserve to be reviewed as a piece rather than as fields.
-/// </remarks>
 public sealed class Outlet : AggregateRoot, ITenantOwned, IAuditable
 {
+    private readonly List<OutletContact> _contacts = [];
+
     public Guid Id { get; private set; }
 
     /// <summary>
@@ -53,6 +50,28 @@ public sealed class Outlet : AggregateRoot, ITenantOwned, IAuditable
 
     public OutletStatus Status { get; private set; }
 
+    public Address? Address { get; private set; }
+
+    /// <summary>
+    /// Optional. Journey planning and geofenced check-in need it; recording an outlet does not, and
+    /// onboarding data routinely arrives without it.
+    /// </summary>
+    public GeoPoint? Location { get; private set; }
+
+    /// <summary>
+    /// The IANA zone this outlet trades in — <c>Europe/Bucharest</c>, not an offset.
+    /// </summary>
+    /// <remarks>
+    /// Required, and explicit rather than derived from <see cref="Location"/>. A visit's business
+    /// "day" and a promotion's validity both resolve here (BR-PRD-6), a rep may cross zones during a
+    /// shift, and an offset would be wrong twice a year. Deriving it on the device would make the
+    /// answer depend on which device asked.
+    /// </remarks>
+    public string TimeZoneId { get; private set; } = null!;
+
+    /// <summary>People at the outlet. <b>Personal data</b> — see <see cref="OutletContact"/>.</summary>
+    public IReadOnlyList<OutletContact> Contacts => _contacts;
+
     public TenantId TenantId { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public string? CreatedBy { get; set; }
@@ -61,8 +80,18 @@ public sealed class Outlet : AggregateRoot, ITenantOwned, IAuditable
 
     private Outlet() { } // EF
 
-    public static Outlet Create(string code, string name, Guid channelId, string? segment, string? banner) =>
-        new()
+    public static Outlet Create(
+        string code,
+        string name,
+        Guid channelId,
+        string? segment,
+        string? banner,
+        string timeZoneId,
+        Address? address,
+        GeoPoint? location,
+        IEnumerable<OutletContact>? contacts)
+    {
+        var outlet = new Outlet
         {
             Id = Guid.CreateVersion7(),
             Code = code,
@@ -71,7 +100,14 @@ public sealed class Outlet : AggregateRoot, ITenantOwned, IAuditable
             Segment = segment,
             Banner = banner,
             Status = OutletStatus.Active,
+            TimeZoneId = timeZoneId,
+            Address = address,
+            Location = location,
         };
+
+        outlet.SetContacts(contacts);
+        return outlet;
+    }
 
     /// <summary>
     /// Updates the details. Deliberately does not touch <see cref="Status"/> — see
@@ -82,13 +118,41 @@ public sealed class Outlet : AggregateRoot, ITenantOwned, IAuditable
     /// seen, so letting an edit change it would make the next import create a duplicate rather than
     /// update the original.
     /// </remarks>
-    public void Update(string name, Guid channelId, string? segment, string? banner, IClock clock)
+    public void Update(
+        string name,
+        Guid channelId,
+        string? segment,
+        string? banner,
+        string timeZoneId,
+        Address? address,
+        GeoPoint? location,
+        IEnumerable<OutletContact>? contacts,
+        IClock clock)
     {
         Name = name;
         ChannelId = channelId;
         Segment = segment;
         Banner = banner;
+        TimeZoneId = timeZoneId;
+        Address = address;
+        Location = location;
+        SetContacts(contacts);
         ModifiedAtUtc = clock.UtcNow;
+    }
+
+    /// <summary>
+    /// Replaces the contact list wholesale.
+    /// </summary>
+    /// <remarks>
+    /// Wholesale rather than add/remove deltas, for the same reason a role's permissions are: a delta
+    /// requires the caller to know the current state, and two people editing the same outlet would
+    /// silently interleave. It also gives erasure a trivial shape — an empty list removes every
+    /// contact, and the rows are actually gone rather than flagged.
+    /// </remarks>
+    private void SetContacts(IEnumerable<OutletContact>? contacts)
+    {
+        _contacts.Clear();
+        if (contacts is not null) _contacts.AddRange(contacts);
     }
 
     /// <summary>

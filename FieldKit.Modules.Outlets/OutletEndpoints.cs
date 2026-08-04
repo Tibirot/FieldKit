@@ -23,14 +23,47 @@ public sealed record OutletResponse(
     string ChannelName,
     string? Segment,
     string? Banner,
-    [property: JsonConverter(typeof(JsonStringEnumConverter<OutletStatus>))] OutletStatus Status);
+    [property: JsonConverter(typeof(JsonStringEnumConverter<OutletStatus>))] OutletStatus Status,
+    string TimeZoneId,
+    Address? Address,
+    GeoPoint? Location,
+    IReadOnlyList<OutletContact> Contacts);
 
 /// <summary>Create an outlet. <paramref name="Code"/> is the tenant's own identifier.</summary>
 public sealed record CreateOutletRequest(
-    string Code, string Name, Guid ChannelId, string? Segment, string? Banner);
+    string Code,
+    string Name,
+    Guid ChannelId,
+    string? Segment,
+    string? Banner,
+    string TimeZoneId,
+    Address? Address = null,
+    GeoPoint? Location = null,
+    IReadOnlyList<OutletContact>? Contacts = null);
 
-/// <summary>Update the details. The code is not editable — see <see cref="Outlet.Update"/>.</summary>
-public sealed record UpdateOutletRequest(string Name, Guid ChannelId, string? Segment, string? Banner);
+/// <summary>
+/// Update the details. The code is not editable — see <see cref="Outlet.Update"/>.
+/// </summary>
+/// <remarks>
+/// <paramref name="Contacts"/> replaces the list wholesale rather than patching it: a delta needs the
+/// caller to know the current state, and two people editing one outlet would interleave silently.
+/// Sending an empty list removes every contact, which is also how erasure works today.
+/// </remarks>
+public sealed record UpdateOutletRequest(
+    string Name,
+    Guid ChannelId,
+    string? Segment,
+    string? Banner,
+    string TimeZoneId,
+    Address? Address = null,
+    GeoPoint? Location = null,
+    IReadOnlyList<OutletContact>? Contacts = null);
+
+/// <summary>Per-tenant outlet policy.</summary>
+public sealed record OutletSettingsResponse(bool ValidateGeoCoordinates);
+
+/// <summary>Change the per-tenant outlet policy.</summary>
+public sealed record OutletSettingsRequest(bool ValidateGeoCoordinates);
 
 /// <summary>Move an outlet through its lifecycle (<c>OUT-04</c>). Accepts the status by name.</summary>
 /// <param name="Reason">Required when closing — see the endpoint for why only then.</param>
@@ -86,6 +119,10 @@ internal static class OutletEndpoints
             }
 
             if (await ChannelProblem(db, request.ChannelId, ct) is { } channelProblem) return channelProblem;
+            if (await LocationProblem(db, request.TimeZoneId, request.Location, ct) is { } locationProblem)
+            {
+                return locationProblem;
+            }
 
             if (await db.Outlets.AnyAsync(outlet => outlet.Code == request.Code, ct))
             {
@@ -93,7 +130,15 @@ internal static class OutletEndpoints
             }
 
             var created = Outlet.Create(
-                request.Code, request.Name, request.ChannelId, request.Segment, request.Banner);
+                request.Code,
+                request.Name,
+                request.ChannelId,
+                request.Segment,
+                request.Banner,
+                request.TimeZoneId,
+                request.Address,
+                request.Location,
+                request.Contacts);
 
             db.Outlets.Add(created);
 
@@ -120,8 +165,22 @@ internal static class OutletEndpoints
             if (outlet is null) return Results.NotFound();
 
             if (await ChannelProblem(db, request.ChannelId, ct) is { } channelProblem) return channelProblem;
+            if (await LocationProblem(db, request.TimeZoneId, request.Location, ct) is { } locationProblem)
+            {
+                return locationProblem;
+            }
 
-            outlet.Update(request.Name, request.ChannelId, request.Segment, request.Banner, clock);
+            outlet.Update(
+                request.Name,
+                request.ChannelId,
+                request.Segment,
+                request.Banner,
+                request.TimeZoneId,
+                request.Address,
+                request.Location,
+                request.Contacts,
+                clock);
+
             await db.SaveChangesAsync(ct);
 
             return Results.Ok(await Single(db, id, ct));
@@ -170,6 +229,24 @@ internal static class OutletEndpoints
             return Results.Ok(await Single(db, id, ct));
         }).RequirePermission(OutletsPermissions.OutletWrite);
 
+        // Per-tenant policy. Read with outlet:read because it explains why a save was rejected;
+        // changed with channel:write, which is this module's "owns the rules rather than the data"
+        // permission — the same reasoning that keeps channel renames away from whoever maintains
+        // outlets all day.
+        outlets.MapGet("/settings", async (OutletsDbContext db, CancellationToken ct) =>
+                new OutletSettingsResponse((await SettingsAsync(db, clock: null, ct)).ValidateGeoCoordinates))
+            .RequirePermission(OutletsPermissions.OutletRead);
+
+        outlets.MapPut("/settings", async (
+            OutletSettingsRequest request, OutletsDbContext db, IClock clock, CancellationToken ct) =>
+        {
+            var settings = await SettingsAsync(db, clock, ct);
+            settings.SetGeoValidation(request.ValidateGeoCoordinates, clock);
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(new OutletSettingsResponse(settings.ValidateGeoCoordinates));
+        }).RequirePermission(OutletsPermissions.ChannelWrite);
+
         // Read-only, and there is deliberately no endpoint to add, edit or remove an entry. The
         // trail is written as a side effect of the transitions above or not at all — an audit log
         // with a write API is a log that can be arranged after the fact.
@@ -190,6 +267,68 @@ internal static class OutletEndpoints
                     change.From, change.To, change.Reason, change.CreatedAtUtc, change.CreatedBy))
                 .ToListAsync(ct));
         }).RequirePermission(OutletsPermissions.OutletRead);
+    }
+
+    /// <summary>
+    /// The tenant's settings, created on first use.
+    /// </summary>
+    /// <remarks>
+    /// Created lazily rather than seeded with the tenant, so a tenant that never touches this never
+    /// grows a row — and, more usefully, so that adding a new setting later does not need a backfill
+    /// across every tenant that already exists. The defaults live in one place
+    /// (<see cref="TenantOutletSettings.CreateDefault"/>) instead of being spread across readers.
+    ///
+    /// Passing a null clock means "read only" — a GET should not write a row as a side effect of
+    /// someone looking at the page.
+    /// </remarks>
+    private static async Task<TenantOutletSettings> SettingsAsync(
+        OutletsDbContext db, IClock? clock, CancellationToken ct)
+    {
+        var settings = await db.Settings.SingleOrDefaultAsync(ct);
+        if (settings is not null) return settings;
+
+        var created = TenantOutletSettings.CreateDefault();
+        if (clock is not null) db.Settings.Add(created);
+
+        return created;
+    }
+
+    /// <summary>
+    /// Rejects an unknown time zone, and out-of-range coordinates <i>when the tenant asks for that</i>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The time zone is always checked and always required: a visit's business day and a promotion's
+    /// validity resolve in it, so an unknown zone is a wrong answer waiting to be given rather than a
+    /// cosmetic problem.
+    /// </para>
+    /// <para>
+    /// Coordinates follow the tenant's <see cref="TenantOutletSettings.ValidateGeoCoordinates"/>
+    /// setting exactly: checked when it is on and they are supplied, skipped when it is off, and
+    /// skipped when there are none — coordinates are optional and this setting does not make them
+    /// required. The consequence is recorded on that entity: while validation is off, out-of-range
+    /// values persist, and turning it on later fails against rows already stored.
+    /// </para>
+    /// </remarks>
+    private static async Task<IResult?> LocationProblem(
+        OutletsDbContext db, string timeZoneId, GeoPoint? location, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(timeZoneId) || !TimeZoneInfo.TryFindSystemTimeZoneById(timeZoneId, out _))
+        {
+            return Results.BadRequest(new { error = $"'{timeZoneId}' is not a known IANA time zone." });
+        }
+
+        if (location is null) return null;
+
+        var settings = await db.Settings.SingleOrDefaultAsync(ct);
+        if (settings is not null && !settings.ValidateGeoCoordinates) return null;
+
+        return location.IsWithinRange()
+            ? null
+            : Results.BadRequest(new
+            {
+                error = "Latitude must be between -90 and 90, and longitude between -180 and 180.",
+            });
     }
 
     /// <summary>
@@ -224,7 +363,10 @@ internal static class OutletEndpoints
     /// </para>
     /// </remarks>
     private static IQueryable<OutletResponse> Project(OutletsDbContext db, IQueryable<Outlet> source) =>
-        from outlet in source.OrderBy(outlet => outlet.Code)
+        // AsNoTracking is load-bearing, not an optimisation: EF refuses to project an owned entity
+        // (address, location, contacts) out of a *tracking* query, because a tracked owned instance
+        // without its owner has no identity to be tracked by. Every use of this is a read.
+        from outlet in source.AsNoTracking().OrderBy(outlet => outlet.Code)
         join channel in db.Channels on outlet.ChannelId equals channel.Id
         select new OutletResponse(
             outlet.Id,
@@ -236,7 +378,11 @@ internal static class OutletEndpoints
             // The enum, not `.ToString()` — that is not translatable to SQL, and the column already
             // holds the name anyway. Rendering it as text is the JSON layer's job.
             outlet.Banner,
-            outlet.Status);
+            outlet.Status,
+            outlet.TimeZoneId,
+            outlet.Address,
+            outlet.Location,
+            outlet.Contacts);
 
     private static async Task<OutletResponse?> Single(OutletsDbContext db, Guid id, CancellationToken ct) =>
         await Project(db, db.Outlets.Where(outlet => outlet.Id == id)).SingleOrDefaultAsync(ct);

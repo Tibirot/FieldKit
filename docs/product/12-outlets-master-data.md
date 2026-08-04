@@ -44,6 +44,37 @@ downstream possible.
 - CRUD outlets with classification (channel, segment, banner), address, geo, contacts, and
   tenant custom fields. Bulk import for onboarding.
 
+#### Location, time zone and contacts
+
+**The address is structured**, not one free-text block: postal code and city are what territory
+membership rules key off (`ORG-07`), and a single string would make those rules parse prose. Every
+part is optional — onboarding data is routinely half-known, and an address that must be complete
+before it can be recorded means a half-known outlet cannot be recorded at all.
+
+**The time zone is required and explicit** — `Europe/Bucharest`, never an offset, and never derived
+from the coordinates. A visit's business "day" and a promotion's validity ([BR-PRD-6](13-products-and-pricing.md#5-business-rules))
+both resolve in it, a rep may cross zones during a shift, and an offset is wrong twice a year.
+Deriving it on the device would make the answer depend on which device asked. It is validated against
+the runtime's zone database rather than a pattern, because `Europe/Bucuresti` is well-formed and does
+not exist.
+
+**Coordinates are optional**, and whether supplied ones are validated is a per-tenant setting
+(`validateGeoCoordinates`, default on). When it is on, a supplied point must be on the earth; when it
+is off, no coordinate validation happens. An outlet with **no** coordinates is never rejected either
+way — the setting does not make them required, and BR-OUT-2's "required for outlets that participate
+in journeys" lands with the Journey module, where participation is defined.
+
+> 📝 ASSUMPTION: the consequence of the flag being tenant-controlled. While validation is off,
+> out-of-range coordinates can be stored. Turning it on afterwards does not clean them, and the next
+> save of such an outlet fails against data already in the table. A tenant enabling this on an
+> existing estate should expect to fix rows, not just flip a switch.
+
+**Contacts are personal data** ([B8](decisions-and-assumptions.md#b8--privacy--gdpr-posture)). They
+are replaced wholesale on update rather than patched — a delta needs the caller to know the current
+state, and two people editing one outlet would interleave silently. It also gives erasure a trivial
+shape: an empty list removes every contact, and the rows are deleted rather than flagged. A dedicated
+erasure workflow is `OUT-10`.
+
 ### F2 · Classify & assign
 - Assign an outlet to a **channel** (mandatory — it drives assortment/pricing/workflow) and to
   a **territory** (via Organization).

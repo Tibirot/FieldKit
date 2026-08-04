@@ -19,6 +19,9 @@ public sealed class OutletsDbContext(DbContextOptions<OutletsDbContext> options,
     /// <summary>Append-only. Nothing in this module updates or removes one — see the entity.</summary>
     public DbSet<OutletStatusChange> OutletStatusChanges => Set<OutletStatusChange>();
 
+    /// <summary>One row per tenant, created on first read — see <see cref="TenantOutletSettings"/>.</summary>
+    public DbSet<TenantOutletSettings> Settings => Set<TenantOutletSettings>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -60,6 +63,50 @@ public sealed class OutletsDbContext(DbContextOptions<OutletsDbContext> options,
             // The two queries the outlet list actually makes: filter by channel, filter by status.
             outlet.HasIndex(o => new { o.TenantId, o.ChannelId });
             outlet.HasIndex(o => new { o.TenantId, o.Status });
+
+            // Not an offset and not derived from the coordinates: a visit's business day and a
+            // promotion's validity resolve here, and an offset is wrong twice a year.
+            outlet.Property(o => o.TimeZoneId).HasMaxLength(64).IsRequired(); // IANA
+
+            // Owned, so the columns live on `outlet` rather than in a join nobody wants for an
+            // address. Every part is optional — a half-known outlet must still be recordable.
+            outlet.OwnsOne(o => o.Address, address =>
+            {
+                address.Property(a => a.Street).HasColumnName("address_street").HasMaxLength(200);
+                address.Property(a => a.City).HasColumnName("address_city").HasMaxLength(100);
+                address.Property(a => a.PostalCode).HasColumnName("address_postal_code").HasMaxLength(20);
+                address.Property(a => a.CountryCode).HasColumnName("address_country_code").HasMaxLength(2);
+            });
+
+            // Owned as a pair: EF requires all of an owned type's columns to be nullable together,
+            // which is exactly the invariant wanted — there is no such thing as half a coordinate.
+            outlet.OwnsOne(o => o.Location, location =>
+            {
+                location.Property(l => l.Latitude).HasColumnName("latitude");
+                location.Property(l => l.Longitude).HasColumnName("longitude");
+            });
+
+            // A table, because contacts are a list and there may be several. Personal data (B8):
+            // it inherits the tenant filter through its owner, and removing a contact from the
+            // outlet deletes the row rather than flagging it.
+            outlet.OwnsMany(o => o.Contacts, contact =>
+            {
+                contact.ToTable("outlet_contact");
+                contact.WithOwner().HasForeignKey("OutletId");
+                contact.Property(c => c.Name).HasMaxLength(200).IsRequired();
+                contact.Property(c => c.Role).HasMaxLength(100);
+                contact.Property(c => c.Phone).HasMaxLength(50);
+                contact.Property(c => c.Email).HasMaxLength(320); // RFC 5321 maximum
+            });
+        });
+
+        modelBuilder.Entity<TenantOutletSettings>(settings =>
+        {
+            settings.ToTable("tenant_settings");
+            settings.HasKey(s => s.Id);
+
+            // One row per tenant, and the database says so rather than the code remembering to.
+            settings.HasIndex(s => s.TenantId).IsUnique();
         });
 
         modelBuilder.Entity<OutletStatusChange>(change =>
