@@ -65,6 +65,16 @@
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!--
+      CSV, for the outlet bulk import (OUT-05). A field can hold the delimiter, a newline and escaped
+      quotes, so the split-on-comma version works on every file until it meets a store called
+      "Smith, Jones & Co" — and the rejected-rows file this import hands back has to quote correctly
+      on the way out too. Apache-2.0 / MS-PL, which matters for a repo meant to be readable.
+    -->
+    <PackageVersion Include="CsvHelper" Version="33.1.0" />
+  </ItemGroup>
+
   <ItemGroup Label="ASP.NET Core &amp; Microsoft.Extensions">
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.10" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />

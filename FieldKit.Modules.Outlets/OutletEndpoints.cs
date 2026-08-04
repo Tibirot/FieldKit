@@ -134,7 +134,7 @@ internal static class OutletEndpoints
                 return fieldProblem;
             }
 
-            if (await db.Outlets.AnyAsync(outlet => outlet.Code == request.Code, ct))
+            if (await db.Outlets.AnyAsync(outlet => outlet.Code.ToLower() == request.Code.ToLower(), ct))
             {
                 return Results.Conflict(new { error = $"An outlet with code '{request.Code}' already exists." });
             }

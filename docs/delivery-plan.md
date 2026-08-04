@@ -151,13 +151,22 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
   validation, which needs the sync protocol that arrives with `CFG-06`/`CFG-07`
   ([spec §6.1](product/14-configuration.md#61-what-is-built-phase-1)).
 - Bulk-import / seed outlets.
+  ✓ **Bulk import** (`OUT-05`) — CSV as the request body, with the content type choosing the reader
+  so JSON and Excel are later readers rather than later endpoints. Held to the same rules as
+  `POST /api/outlets`, plus the one thing a typeless format needs: coercion driven by the tenant's
+  field definitions (`CFG-01`). `AllOrNothing` or `Partial` at the admin's choice, both atomic, with
+  the rejected rows handed back as a file to fix and re-send. The **import screen** lands in W5 and
+  the **demo seed data** in W14 — this is the mechanism both of them use
+  ([spec §6.1–6.2](product/12-outlets-master-data.md#61-import-formats-still-to-come)).
 
 **Done when:** territories + outlets CRUD via API; custom fields validate; events land in the outbox.
 
 ### Week 5 · Back-office shell + admin screens
 **Goal:** the Phase 1 demo — a usable back office.
 - Back-office route group + shell (nav per wireframes), auth guard, TanStack Query, i18n.
-- **Outlets** screen (table, filters, create/edit incl. custom-field form).
+- **Outlets** screen (table, filters, create/edit incl. custom-field form) + **import screen** —
+  upload, dry-run, fix the flagged cells in an **editable grid**, apply (`OUT-05`). Correcting before
+  the write rather than after is the point; the rejected-rows download stays as the escape hatch.
 - **Territories** screen (list + rep assignment).
 - **Users & roles** screen (list + role permission toggles).
 
@@ -237,7 +246,8 @@ promo types + tax + the resolver + a decimal-parity vector suite) in one week; b
 
 ### Week 14 · E2E + seed data + polish
 - Playwright E2E: the golden path **online and offline** (network toggling) + a tenant-isolation E2E ([testing strategy](architecture/17-testing-strategy.md)).
-- Polished seed/demo data (believable Veridian tenant) for a live demo.
+- Polished seed/demo data (believable Veridian tenant) for a live demo — loaded **through the bulk
+  import** (`OUT-05`), so the demo data proves the path a customer would actually use.
 - UI polish: accessibility, empty/error states, i18n coverage.
 
 **Done when:** E2E green in CI; demo data loads; the app feels finished.

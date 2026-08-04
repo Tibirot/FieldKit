@@ -985,3 +985,65 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
 ["not", "an", "object"]
 
 ###
+
+### ─── Bulk import of outlets (OUT-05) ────────────────────────────────────────────────────────────
+
+### Dry run first — the natural first click in the import screen. Validates everything, writes
+### nothing, and answers "what would happen" before anything does.
+POST {{Server_HostAddress}}/api/outlets/import?dryRun=true
+Content-Type: text/csv
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+code,name,channel,time_zone,city,latitude,longitude
+IMP-1,Alimentara Central,{{channel.response.body.name}},Europe/Bucharest,Bucharest,44.4268,26.1025
+IMP-2,"Smith, Jones & Co",{{channel.response.body.name}},Europe/Bucharest,Cluj-Napoca,46.7712,23.6236
+
+### The same file for real. The body *is* the file and its content type chooses the reader — which is
+### how JSON and Excel will slot in beside CSV rather than needing their own endpoint.
+POST {{Server_HostAddress}}/api/outlets/import
+Content-Type: text/csv
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+code,name,channel,time_zone,city,latitude,longitude
+IMP-1,Alimentara Central,{{channel.response.body.name}},Europe/Bucharest,Bucharest,44.4268,26.1025
+IMP-2,"Smith, Jones & Co",{{channel.response.body.name}},Europe/Bucharest,Cluj-Napoca,46.7712,23.6236
+
+### Default mode is AllOrNothing: one bad row and nothing is written. Expect 200 with `imported: 0`
+### — the import ran, and a file full of problems is its result rather than a malformed request.
+POST {{Server_HostAddress}}/api/outlets/import
+Content-Type: text/csv
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+code,name,channel,time_zone
+IMP-GOOD,Would Have Worked,{{channel.response.body.name}},Europe/Bucharest
+IMP-BAD,Bad Zone,{{channel.response.body.name}},Mars/Olympus_Mons
+
+### Partial: the good rows land, and `rejectedRowsCsv` comes back in the shape it was sent, plus an
+### `import_error` column. Fix that file, send that file — which is what stops a partial import from
+### being a trap, since re-sending the original would now collide with everything that landed.
+POST {{Server_HostAddress}}/api/outlets/import?mode=Partial
+Content-Type: text/csv
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+code,name,channel,time_zone,legacy_id
+IMP-3,Landed Fine,{{channel.response.body.name}},Europe/Bucharest,A-991
+IMP-4,Bad Zone,{{channel.response.body.name}},Mars/Olympus_Mons,A-992
+
+### A CSV has no types, so a Number custom field arrives as text and the catalogue is what says how
+### to read it. Define `chiller_count` above first — this is the one thing the import does that
+### POST /api/outlets does not, and it is parsing rather than a softer rule.
+POST {{Server_HostAddress}}/api/outlets/import
+Content-Type: text/csv
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+code,name,channel,time_zone,chiller_count
+IMP-5,Typed From Text,{{channel.response.body.name}},Europe/Bucharest,3
+
+### Expect 415 — JSON and Excel are the planned follow-ups, not yet read.
+POST {{Server_HostAddress}}/api/outlets/import
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+[{"code":"IMP-6","name":"Not yet"}]
+
+###

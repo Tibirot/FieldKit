@@ -1,5 +1,6 @@
 using FieldKit.Infrastructure;
 using FieldKit.Modules.Outlets.Contracts;
+using FieldKit.Modules.Outlets.Import;
 using FieldKit.Web;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
@@ -44,5 +45,6 @@ public sealed class OutletsModule : IModule
     {
         endpoints.MapChannelEndpoints();
         endpoints.MapOutletEndpoints();
+        endpoints.MapOutletImportEndpoints();
     }
 }

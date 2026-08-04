@@ -33,6 +33,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Bulk import (OUT-05) — see Directory.Packages.props for why it is not hand-rolled. -->
+    <PackageReference Include="CsvHelper" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
