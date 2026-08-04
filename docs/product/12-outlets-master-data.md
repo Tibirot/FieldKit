@@ -58,16 +58,25 @@ Deriving it on the device would make the answer depend on which device asked. It
 the runtime's zone database rather than a pattern, because `Europe/Bucuresti` is well-formed and does
 not exist.
 
-**Coordinates are optional**, and whether supplied ones are validated is a per-tenant setting
-(`validateGeoCoordinates`, default on). When it is on, a supplied point must be on the earth; when it
-is off, no coordinate validation happens. An outlet with **no** coordinates is never rejected either
-way — the setting does not make them required, and BR-OUT-2's "required for outlets that participate
-in journeys" lands with the Journey module, where participation is defined.
+**Coordinates are optional, and when supplied they are always validated.** Two rules that are easy to
+conflate and are not the same thing:
 
-> 📝 ASSUMPTION: the consequence of the flag being tenant-controlled. While validation is off,
-> out-of-range coordinates can be stored. Turning it on afterwards does not clean them, and the next
-> save of such an outlet fails against data already in the table. A tenant enabling this on an
-> existing estate should expect to fix rows, not just flip a switch.
+- Whether an outlet *has* coordinates is optional — onboarding data routinely arrives without them,
+  and BR-OUT-2's "required for outlets that participate in journeys" lands with the Journey module,
+  where participation is actually defined.
+- Whether a supplied pair is a real point on the earth is **not** a tenant policy. Latitude 91 is
+  meaningless for every kind of outlet and every kind of visit, and storing it produces a pin in the
+  ocean that nothing later can distinguish from a real one.
+
+What *is* a policy — and lives in Visit, not here — is whether a rep must be **standing at** the
+outlet. [BR-VIS-2](21-visit-execution.md#5-business-rules) already answers it: an out-of-geofence
+check-in is allowed with a recorded override reason, and the rep is never blocked. Remote-capable
+visit types (a phone call, a video conference, a head-office meeting) refine that further — see the
+Visit spec.
+
+> This replaced a per-tenant `validateGeoCoordinates` flag, briefly shipped in #56. It gated the one
+> thing that is not a policy, while the thing it was meant to enable was already specified two
+> modules away. Recorded because the reasoning is more useful than the code was.
 
 **Contacts are personal data** ([B8](decisions-and-assumptions.md#b8--privacy--gdpr-posture)). They
 are replaced wholesale on update rather than patched — a delta needs the caller to know the current

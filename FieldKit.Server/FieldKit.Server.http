@@ -434,13 +434,10 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
   "timeZoneId": "Europe/Bucuresti"
 }
 
-### The per-tenant outlet policy. `validateGeoCoordinates` decides whether *supplied* coordinates are
-### checked; it does not make them required. Default on.
-GET {{Server_HostAddress}}/api/outlets/settings
-Accept: application/json
-Authorization: Bearer {{adminToken.response.body.access_token}}
-
-### A point that is not on the earth — expect 400 while validation is on.
+### A point that is not on the earth — expect 400, always. Whether a coordinate is *valid* is data
+### integrity, not a tenant policy: latitude 91 is meaningless for every kind of outlet and every
+### kind of visit. Whether a rep must be *standing at* it is policy, and lives in Visit — BR-VIS-2
+### allows an out-of-geofence check-in with a recorded override reason, and never blocks the rep.
 POST {{Server_HostAddress}}/api/outlets
 Content-Type: application/json
 Authorization: Bearer {{adminToken.response.body.access_token}}
@@ -453,18 +450,8 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
   "location": { "latitude": 91, "longitude": 200 }
 }
 
-### Turn validation off. NOTE: while off, out-of-range coordinates are stored — turning it back on
-### does not clean them, and the next save of such an outlet fails against data already in the table.
-PUT {{Server_HostAddress}}/api/outlets/settings
-Content-Type: application/json
-Authorization: Bearer {{adminToken.response.body.access_token}}
-
-{
-  "validateGeoCoordinates": false
-}
-
-### An outlet with no coordinates at all — accepted either way. They are optional, and the setting
-### above does not make them required.
+### An outlet with no coordinates at all — accepted. They are optional; onboarding data routinely
+### arrives without them.
 POST {{Server_HostAddress}}/api/outlets
 Content-Type: application/json
 Authorization: Bearer {{adminToken.response.body.access_token}}

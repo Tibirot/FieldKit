@@ -19,8 +19,6 @@ public sealed class OutletsDbContext(DbContextOptions<OutletsDbContext> options,
     /// <summary>Append-only. Nothing in this module updates or removes one — see the entity.</summary>
     public DbSet<OutletStatusChange> OutletStatusChanges => Set<OutletStatusChange>();
 
-    /// <summary>One row per tenant, created on first read — see <see cref="TenantOutletSettings"/>.</summary>
-    public DbSet<TenantOutletSettings> Settings => Set<TenantOutletSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -78,13 +76,19 @@ public sealed class OutletsDbContext(DbContextOptions<OutletsDbContext> options,
                 address.Property(a => a.CountryCode).HasColumnName("address_country_code").HasMaxLength(2);
             });
 
-            // Owned as a pair: EF requires all of an owned type's columns to be nullable together,
-            // which is exactly the invariant wanted — there is no such thing as half a coordinate.
-            outlet.OwnsOne(o => o.Location, location =>
-            {
-                location.Property(l => l.Latitude).HasColumnName("latitude");
-                location.Property(l => l.Longitude).HasColumnName("longitude");
-            });
+            // Two columns, composed into a GeoPoint by the entity. Not an owned type: GeoPoint is a
+            // struct and EF owns only reference types — which is worth the swap, because the
+            // invariant is now a database constraint instead of a mapping convention.
+            outlet.Property(o => o.Latitude).HasColumnName("latitude");
+            outlet.Property(o => o.Longitude).HasColumnName("longitude");
+            outlet.Ignore(o => o.Location);
+
+            // Both or neither. A latitude without a longitude is not a partly-known location, it is
+            // a broken one — and this holds against anything that writes the table, including the
+            // bulk import that has not been written yet.
+            outlet.ToTable(table => table.HasCheckConstraint(
+                "ck_outlet_location_complete",
+                @"(""latitude"" IS NULL) = (""longitude"" IS NULL)"));
 
             // A table, because contacts are a list and there may be several. Personal data (B8):
             // it inherits the tenant filter through its owner, and removing a contact from the
@@ -98,15 +102,6 @@ public sealed class OutletsDbContext(DbContextOptions<OutletsDbContext> options,
                 contact.Property(c => c.Phone).HasMaxLength(50);
                 contact.Property(c => c.Email).HasMaxLength(320); // RFC 5321 maximum
             });
-        });
-
-        modelBuilder.Entity<TenantOutletSettings>(settings =>
-        {
-            settings.ToTable("tenant_settings");
-            settings.HasKey(s => s.Id);
-
-            // One row per tenant, and the database says so rather than the code remembering to.
-            settings.HasIndex(s => s.TenantId).IsUnique();
         });
 
         modelBuilder.Entity<OutletStatusChange>(change =>

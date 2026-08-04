@@ -71,7 +71,7 @@ public class OutletTests(ServerFixture fixture)
             "Mega Image",
             Zone,
             new Address("Calea Dorobanți 172", "București", "010578", "RO"),
-            new GeoPoint(44.4638, 26.0946),
+            new Coordinates(44.4638, 26.0946),
             [new OutletContact("Ana Ionescu", "Store manager", "+40 721 000 000", "ana@example.ro")]));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -128,50 +128,35 @@ public class OutletTests(ServerFixture fixture)
     }
 
     [Fact]
-    public async Task Coordinate_validation_follows_the_tenants_setting()
+    public async Task Coordinates_are_optional_but_always_have_to_be_a_real_place()
     {
-        // The rule as specified: coordinates are optional, and the tenant decides whether supplied
-        // ones are checked. An outlet with no coordinates is never rejected either way — this
-        // setting does not make them required.
+        // Two rules that are easy to conflate and are not the same thing. Whether an outlet *has*
+        // coordinates is optional — onboarding data routinely arrives without them. Whether a
+        // supplied pair is a point on the earth is not a policy any tenant chooses: latitude 91 is
+        // meaningless for every kind of outlet and every kind of visit.
+        //
+        // What *is* a policy lives in Visit, not here: BR-VIS-2 allows an out-of-geofence check-in
+        // with a recorded override reason, and remote-capable visit types skip even that.
         using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
 
         var channel = await ChannelAsync(client);
-        var offEarth = new GeoPoint(91, 200);
 
-        try
+        foreach (var offEarth in new[] { new Coordinates(91, 26), new Coordinates(44, 200) })
         {
-            // Default is on, so a point that is not on the earth is refused…
             var refused = await client.PostAsJsonAsync(
                 "/api/outlets",
                 new CreateOutletRequest(Unique("OUT"), "Off earth", channel.Id, null, null, Zone,
                     Location: offEarth));
+
             Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        }
 
-            // …and an outlet with none is accepted regardless, because they are optional.
-            Assert.Equal(
-                HttpStatusCode.Created,
-                (await client.PostAsJsonAsync(
-                    "/api/outlets",
-                    new CreateOutletRequest(Unique("OUT"), "No location", channel.Id, null, null, Zone)))
-                    .StatusCode);
-
-            // Turned off, the same point is stored — which is the documented consequence: enabling
-            // validation later will fail against rows already saved.
-            await client.PutAsJsonAsync("/api/outlets/settings", new OutletSettingsRequest(false));
-
-            var accepted = await client.PostAsJsonAsync(
+        Assert.Equal(
+            HttpStatusCode.Created,
+            (await client.PostAsJsonAsync(
                 "/api/outlets",
-                new CreateOutletRequest(Unique("OUT"), "Off earth, allowed", channel.Id, null, null, Zone,
-                    Location: offEarth));
-
-            Assert.Equal(HttpStatusCode.Created, accepted.StatusCode);
-            Assert.Equal(91, (await accepted.Content.ReadFromJsonAsync<OutletResponse>())!.Location!.Latitude);
-        }
-        finally
-        {
-            // Shared fixture: leaving validation off would silently weaken every later test.
-            await client.PutAsJsonAsync("/api/outlets/settings", new OutletSettingsRequest(true));
-        }
+                new CreateOutletRequest(Unique("OUT"), "No location", channel.Id, null, null, Zone)))
+                .StatusCode);
     }
 
     [Fact]

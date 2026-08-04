@@ -26,7 +26,11 @@ public sealed record OutletResponse(
     [property: JsonConverter(typeof(JsonStringEnumConverter<OutletStatus>))] OutletStatus Status,
     string TimeZoneId,
     Address? Address,
-    GeoPoint? Location,
+    // The DTO, not the domain value: `GeoPoint` is a struct with read-only properties, so a .NET
+    // client deserializing it would get the implicit parameterless constructor and two zeros. The
+    // wire shape is identical either way — this just keeps a serialization concern out of a shared
+    // domain type.
+    Coordinates? Location,
     IReadOnlyList<OutletContact> Contacts);
 
 /// <summary>Create an outlet. <paramref name="Code"/> is the tenant's own identifier.</summary>
@@ -38,7 +42,7 @@ public sealed record CreateOutletRequest(
     string? Banner,
     string TimeZoneId,
     Address? Address = null,
-    GeoPoint? Location = null,
+    Coordinates? Location = null,
     IReadOnlyList<OutletContact>? Contacts = null);
 
 /// <summary>
@@ -56,14 +60,9 @@ public sealed record UpdateOutletRequest(
     string? Banner,
     string TimeZoneId,
     Address? Address = null,
-    GeoPoint? Location = null,
+    Coordinates? Location = null,
     IReadOnlyList<OutletContact>? Contacts = null);
 
-/// <summary>Per-tenant outlet policy.</summary>
-public sealed record OutletSettingsResponse(bool ValidateGeoCoordinates);
-
-/// <summary>Change the per-tenant outlet policy.</summary>
-public sealed record OutletSettingsRequest(bool ValidateGeoCoordinates);
 
 /// <summary>Move an outlet through its lifecycle (<c>OUT-04</c>). Accepts the status by name.</summary>
 /// <param name="Reason">Required when closing — see the endpoint for why only then.</param>
@@ -119,7 +118,7 @@ internal static class OutletEndpoints
             }
 
             if (await ChannelProblem(db, request.ChannelId, ct) is { } channelProblem) return channelProblem;
-            if (await LocationProblem(db, request.TimeZoneId, request.Location, ct) is { } locationProblem)
+            if (LocationProblem(request.TimeZoneId, request.Location, out var location) is { } locationProblem)
             {
                 return locationProblem;
             }
@@ -137,7 +136,7 @@ internal static class OutletEndpoints
                 request.Banner,
                 request.TimeZoneId,
                 request.Address,
-                request.Location,
+                location,
                 request.Contacts);
 
             db.Outlets.Add(created);
@@ -165,7 +164,7 @@ internal static class OutletEndpoints
             if (outlet is null) return Results.NotFound();
 
             if (await ChannelProblem(db, request.ChannelId, ct) is { } channelProblem) return channelProblem;
-            if (await LocationProblem(db, request.TimeZoneId, request.Location, ct) is { } locationProblem)
+            if (LocationProblem(request.TimeZoneId, request.Location, out var location) is { } locationProblem)
             {
                 return locationProblem;
             }
@@ -177,7 +176,7 @@ internal static class OutletEndpoints
                 request.Banner,
                 request.TimeZoneId,
                 request.Address,
-                request.Location,
+                location,
                 request.Contacts,
                 clock);
 
@@ -229,24 +228,6 @@ internal static class OutletEndpoints
             return Results.Ok(await Single(db, id, ct));
         }).RequirePermission(OutletsPermissions.OutletWrite);
 
-        // Per-tenant policy. Read with outlet:read because it explains why a save was rejected;
-        // changed with channel:write, which is this module's "owns the rules rather than the data"
-        // permission — the same reasoning that keeps channel renames away from whoever maintains
-        // outlets all day.
-        outlets.MapGet("/settings", async (OutletsDbContext db, CancellationToken ct) =>
-                new OutletSettingsResponse((await SettingsAsync(db, clock: null, ct)).ValidateGeoCoordinates))
-            .RequirePermission(OutletsPermissions.OutletRead);
-
-        outlets.MapPut("/settings", async (
-            OutletSettingsRequest request, OutletsDbContext db, IClock clock, CancellationToken ct) =>
-        {
-            var settings = await SettingsAsync(db, clock, ct);
-            settings.SetGeoValidation(request.ValidateGeoCoordinates, clock);
-            await db.SaveChangesAsync(ct);
-
-            return Results.Ok(new OutletSettingsResponse(settings.ValidateGeoCoordinates));
-        }).RequirePermission(OutletsPermissions.ChannelWrite);
-
         // Read-only, and there is deliberately no endpoint to add, edit or remove an entry. The
         // trail is written as a side effect of the transitions above or not at all — an audit log
         // with a write API is a log that can be arranged after the fact.
@@ -270,49 +251,25 @@ internal static class OutletEndpoints
     }
 
     /// <summary>
-    /// The tenant's settings, created on first use.
-    /// </summary>
-    /// <remarks>
-    /// Created lazily rather than seeded with the tenant, so a tenant that never touches this never
-    /// grows a row — and, more usefully, so that adding a new setting later does not need a backfill
-    /// across every tenant that already exists. The defaults live in one place
-    /// (<see cref="TenantOutletSettings.CreateDefault"/>) instead of being spread across readers.
-    ///
-    /// Passing a null clock means "read only" — a GET should not write a row as a side effect of
-    /// someone looking at the page.
-    /// </remarks>
-    private static async Task<TenantOutletSettings> SettingsAsync(
-        OutletsDbContext db, IClock? clock, CancellationToken ct)
-    {
-        var settings = await db.Settings.SingleOrDefaultAsync(ct);
-        if (settings is not null) return settings;
-
-        var created = TenantOutletSettings.CreateDefault();
-        if (clock is not null) db.Settings.Add(created);
-
-        return created;
-    }
-
-    /// <summary>
-    /// Rejects an unknown time zone, and out-of-range coordinates <i>when the tenant asks for that</i>.
+    /// Rejects an unknown time zone, or coordinates that are not a place on the earth.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The time zone is always checked and always required: a visit's business day and a promotion's
-    /// validity resolve in it, so an unknown zone is a wrong answer waiting to be given rather than a
-    /// cosmetic problem.
+    /// The time zone is always required: a visit's business day and a promotion's validity resolve in
+    /// it, so an unknown zone is a wrong answer waiting to be given rather than a cosmetic problem.
     /// </para>
     /// <para>
-    /// Coordinates follow the tenant's <see cref="TenantOutletSettings.ValidateGeoCoordinates"/>
-    /// setting exactly: checked when it is on and they are supplied, skipped when it is off, and
-    /// skipped when there are none — coordinates are optional and this setting does not make them
-    /// required. The consequence is recorded on that entity: while validation is off, out-of-range
-    /// values persist, and turning it on later fails against rows already stored.
+    /// Coordinates are optional, and when supplied they are <b>always</b> checked. That is not a
+    /// policy a tenant chooses — latitude 91 is not meaningful for any kind of outlet or any kind of
+    /// visit. What <i>is</i> a policy, and lives elsewhere, is whether a rep must be standing at the
+    /// outlet: BR-VIS-2 already says an out-of-geofence check-in is allowed with a recorded override
+    /// reason, and remote-capable visit types are a Visit/Configuration concern.
     /// </para>
     /// </remarks>
-    private static async Task<IResult?> LocationProblem(
-        OutletsDbContext db, string timeZoneId, GeoPoint? location, CancellationToken ct)
+    private static IResult? LocationProblem(string timeZoneId, Coordinates? location, out GeoPoint? point)
     {
+        point = null;
+
         if (string.IsNullOrWhiteSpace(timeZoneId) || !TimeZoneInfo.TryFindSystemTimeZoneById(timeZoneId, out _))
         {
             return Results.BadRequest(new { error = $"'{timeZoneId}' is not a known IANA time zone." });
@@ -320,15 +277,18 @@ internal static class OutletEndpoints
 
         if (location is null) return null;
 
-        var settings = await db.Settings.SingleOrDefaultAsync(ct);
-        if (settings is not null && !settings.ValidateGeoCoordinates) return null;
-
-        return location.IsWithinRange()
-            ? null
-            : Results.BadRequest(new
+        // TryCreate rather than the constructor: this is untrusted input, and the caller deserves a
+        // 400 naming the range instead of an exception from inside a value object.
+        if (!GeoPoint.TryCreate(location.Latitude, location.Longitude, out var created))
+        {
+            return Results.BadRequest(new
             {
                 error = "Latitude must be between -90 and 90, and longitude between -180 and 180.",
             });
+        }
+
+        point = created;
+        return null;
     }
 
     /// <summary>
@@ -381,7 +341,9 @@ internal static class OutletEndpoints
             outlet.Status,
             outlet.TimeZoneId,
             outlet.Address,
-            outlet.Location,
+            outlet.Latitude != null && outlet.Longitude != null
+                ? new Coordinates(outlet.Latitude.Value, outlet.Longitude.Value)
+                : null,
             outlet.Contacts);
 
     private static async Task<OutletResponse?> Single(OutletsDbContext db, Guid id, CancellationToken ct) =>
