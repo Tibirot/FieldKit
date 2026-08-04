@@ -77,6 +77,31 @@ rather than scattering them.
 | CFG-08 | Per-tenant theme tokens | Should | 2 |
 | CFG-09 | Conditional survey logic (show-if) | Could | 4 |
 
+### 6.1 What is built (Phase 1)
+
+`CFG-01` and `CFG-02` ship as the **current** catalogue only — one definition per `(entity, key)`,
+no version history. That is deliberate rather than partial: `BR-CFG-1`'s retention exists to serve
+**as-of-capture** validation, and nothing captures offline yet. Building version history now would
+mean shipping a schema whose only reader arrives in Phase 3, designed against a sync protocol that
+does not exist — the retention lands with `CFG-06`/`CFG-07`, alongside the change feed that makes it
+mean something.
+
+Five field types are supported: `Text`, `Number`, `Boolean`, `Date`, `Choice`. They are the types a
+tenant can describe with a rule the server can enforce without a second module — a photo or a
+reference field needs storage or a lookup, so those belong with the builder in Phase 3.
+
+Consequences worth stating:
+
+- **A key is immutable after creation.** It is the JSONB key already written into every row; a rename
+  would orphan every value stored under the old one. Labels change freely — that is what an admin
+  actually wants when they say "rename this field".
+- **Deleting a definition does not rewrite data.** The values stay in the JSONB and simply stop being
+  described. It stops the field being collected; it is not a redaction.
+- **Values are replaced wholesale on write, not patched.** An empty map clears them, which is the only
+  way an optional field can be unset over a `PUT` that carries the whole entity.
+- **An undescribed key is rejected, not dropped.** Silently discarding it would lose an import's data
+  with no signal — and the catalogue exists precisely so that what is stored can be described.
+
 ## 7. Offline behavior
 
 All config is **reference data**: pulled (territory/tenant-scoped) and read-only on device, applied

@@ -59,6 +59,14 @@
       {
         "name": "territory:write",
         "description": "Edit territories. Held so a cross-tenant attempt is refused by the query filter (404), not by the permission check (403)."
+      },
+      {
+        "name": "config:read",
+        "description": "View custom-field definitions. Held so per-tenant catalogues can be shown to be separate (CFG-01)."
+      },
+      {
+        "name": "config:write",
+        "description": "Define custom fields. The second tenant needs its own catalogue to demonstrate that one tenant's definitions never validate another's values."
       }
     ]
   },
@@ -184,7 +192,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["product:read", "product:write", "role:read", "orgunit:read", "orgunit:write", "position:read", "position:write", "outlet:read", "outlet:write", "channel:read", "channel:write", "territory:read", "territory:write"]
+      "realmRoles": ["product:read", "product:write", "role:read", "orgunit:read", "orgunit:write", "position:read", "position:write", "outlet:read", "outlet:write", "channel:read", "channel:write", "territory:read", "territory:write", "config:read", "config:write"]
     }
   ]
 }

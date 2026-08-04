@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FieldKit.BuildingBlocks;
 using FieldKit.SharedKernel;
 
@@ -24,6 +25,7 @@ public enum OutletStatus
 public sealed class Outlet : AggregateRoot, ITenantOwned, IAuditable
 {
     private readonly List<OutletContact> _contacts = [];
+    private Dictionary<string, JsonElement> _customFields = [];
 
     public Guid Id { get; private set; }
 
@@ -85,6 +87,18 @@ public sealed class Outlet : AggregateRoot, ITenantOwned, IAuditable
     /// <summary>People at the outlet. <b>Personal data</b> — see <see cref="OutletContact"/>.</summary>
     public IReadOnlyList<OutletContact> Contacts => _contacts;
 
+    /// <summary>
+    /// Tenant-defined values, validated against the Configuration module's catalogue (<c>OUT-02</c>,
+    /// <c>CFG-02</c>, ADR-0009).
+    /// </summary>
+    /// <remarks>
+    /// JSONB rather than EAV tables: a read stays one row, and Postgres can index a hot custom field
+    /// with a GIN or expression index if one turns out to matter. What is allowed in here is not this
+    /// module's decision — it is whatever the tenant has defined, which is why the values arrive
+    /// already validated rather than being parsed on the way in.
+    /// </remarks>
+    public IReadOnlyDictionary<string, JsonElement> CustomFields => _customFields;
+
     public TenantId TenantId { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public string? CreatedBy { get; set; }
@@ -102,7 +116,8 @@ public sealed class Outlet : AggregateRoot, ITenantOwned, IAuditable
         string timeZoneId,
         Address? address,
         GeoPoint? location,
-        IEnumerable<OutletContact>? contacts)
+        IEnumerable<OutletContact>? contacts,
+        IReadOnlyDictionary<string, JsonElement>? customFields)
     {
         var outlet = new Outlet
         {
@@ -120,6 +135,7 @@ public sealed class Outlet : AggregateRoot, ITenantOwned, IAuditable
         };
 
         outlet.SetContacts(contacts);
+        outlet.SetCustomFields(customFields);
         return outlet;
     }
 
@@ -141,6 +157,7 @@ public sealed class Outlet : AggregateRoot, ITenantOwned, IAuditable
         Address? address,
         GeoPoint? location,
         IEnumerable<OutletContact>? contacts,
+        IReadOnlyDictionary<string, JsonElement>? customFields,
         IClock clock)
     {
         Name = name;
@@ -152,6 +169,7 @@ public sealed class Outlet : AggregateRoot, ITenantOwned, IAuditable
         Latitude = location?.Latitude;
         Longitude = location?.Longitude;
         SetContacts(contacts);
+        SetCustomFields(customFields);
         ModifiedAtUtc = clock.UtcNow;
     }
 
@@ -169,6 +187,22 @@ public sealed class Outlet : AggregateRoot, ITenantOwned, IAuditable
         _contacts.Clear();
         if (contacts is not null) _contacts.AddRange(contacts);
     }
+
+    /// <summary>
+    /// Replaces the custom-field values wholesale, like the contacts and for the same reason.
+    /// </summary>
+    /// <remarks>
+    /// Wholesale also makes "this field was cleared" expressible at all: a patch cannot distinguish
+    /// omitting a key from emptying it, so an optional field could never be unset once written.
+    ///
+    /// The elements are cloned because a <see cref="JsonElement"/> borrows the buffer of the document
+    /// it came from — keeping the originals would leave the entity pointing into a request body that
+    /// is disposed the moment the response is written.
+    /// </remarks>
+    private void SetCustomFields(IReadOnlyDictionary<string, JsonElement>? customFields) =>
+        _customFields = customFields is null
+            ? []
+            : customFields.ToDictionary(entry => entry.Key, entry => entry.Value.Clone(), StringComparer.Ordinal);
 
     /// <summary>
     /// Moves the outlet through its lifecycle, or returns why it cannot (<c>OUT-04</c>).

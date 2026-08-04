@@ -804,3 +804,143 @@ Accept: application/json
 Authorization: Bearer {{untrustedRealmToken.response.body.access_token}}
 
 ###
+
+### ─── Configuration: the custom-field catalogue (CFG-01, CFG-02) ──────────────────────────────────
+
+### What this tenant may record about an outlet. Renders the back-office form, so `config:read` is
+### held by every role that opens an outlet screen — reading the catalogue is not an admin act.
+GET {{Server_HostAddress}}/api/config/field-definitions?entity=Outlet
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### A number with bounds. `key` is an identifier and is immutable after creation: it is the JSONB
+### key already written into every outlet row, so renaming it would orphan the values.
+# @name chillerField
+POST {{Server_HostAddress}}/api/config/field-definitions
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "entity": "Outlet",
+  "key": "chiller_count",
+  "label": "Chiller count",
+  "type": "Number",
+  "required": false,
+  "minimum": 0,
+  "maximum": 50
+}
+
+### A closed vocabulary. Options are compared ordinally — "Franchise" is not "franchise", because a
+### tenant that meant them as the same value should have defined one of them.
+# @name ownershipField
+POST {{Server_HostAddress}}/api/config/field-definitions
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "entity": "Outlet",
+  "key": "ownership",
+  "label": "Ownership",
+  "type": "Choice",
+  "required": false,
+  "options": ["independent", "franchise", "cooperative"]
+}
+
+### Expect 400. A choice with no options can never be satisfied — it would save happily and then
+### reject every value, with the failure looking like the value's fault.
+POST {{Server_HostAddress}}/api/config/field-definitions
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "entity": "Outlet",
+  "key": "unsatisfiable",
+  "label": "Unsatisfiable",
+  "type": "Choice"
+}
+
+### Relabel it. The label is what an admin sees; the key is what the data is stored under, and only
+### one of those is safe to change.
+PUT {{Server_HostAddress}}/api/config/field-definitions/{{chillerField.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "label": "Chillers in store",
+  "type": "Number",
+  "required": false,
+  "minimum": 0,
+  "maximum": 80
+}
+
+### An outlet carrying values the catalogue describes. Outlets does not know what `ownership` means —
+### it asks Configuration, which is the whole point of ADR-0009's typed-JSONB shape.
+# @name customOutlet
+POST {{Server_HostAddress}}/api/outlets
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "code": "OUT-CFG-1",
+  "name": "Alimentara Central",
+  "channelId": "{{channel.response.body.id}}",
+  "timeZoneId": "Europe/Bucharest",
+  "customFields": {
+    "chiller_count": 3,
+    "ownership": "franchise"
+  }
+}
+
+### Expect 400 — a key no definition describes. Rejected rather than dropped: silently discarding it
+### would lose an import's data with no signal.
+POST {{Server_HostAddress}}/api/outlets
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "code": "OUT-CFG-2",
+  "name": "Unknown field",
+  "channelId": "{{channel.response.body.id}}",
+  "timeZoneId": "Europe/Bucharest",
+  "customFields": { "not_defined_anywhere": "value" }
+}
+
+### Expect 400 — over the maximum the definition set. The server re-validates whatever the device
+### believed (BR-CFG-3).
+POST {{Server_HostAddress}}/api/outlets
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "code": "OUT-CFG-3",
+  "name": "Out of range",
+  "channelId": "{{channel.response.body.id}}",
+  "timeZoneId": "Europe/Bucharest",
+  "customFields": { "chiller_count": 900 }
+}
+
+### Values are replaced wholesale, not patched — an empty map is the only way to clear an optional
+### field, and a PUT that omits `customFields` means "none", same as every other field on this body.
+PUT {{Server_HostAddress}}/api/outlets/{{customOutlet.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Alimentara Central",
+  "channelId": "{{channel.response.body.id}}",
+  "timeZoneId": "Europe/Bucharest",
+  "customFields": { "ownership": "independent" }
+}
+
+### As tenant B: the definitions above are invisible, so the same payload is refused for naming a key
+### that — from where B stands — does not exist. Nothing in Outlets had to know about tenants.
+GET {{Server_HostAddress}}/api/config/field-definitions?entity=Outlet
+Accept: application/json
+Authorization: Bearer {{tenantBToken.response.body.access_token}}
+
+### Delete a definition. The values already written stay in the JSONB — this stops the field being
+### collected, it does not rewrite history.
+DELETE {{Server_HostAddress}}/api/config/field-definitions/{{ownershipField.response.body.id}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+###

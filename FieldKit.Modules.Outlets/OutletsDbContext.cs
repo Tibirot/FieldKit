@@ -1,6 +1,8 @@
+using System.Text.Json;
 using FieldKit.BuildingBlocks;
 using FieldKit.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace FieldKit.Modules.Outlets;
 
@@ -79,6 +81,23 @@ public sealed class OutletsDbContext(DbContextOptions<OutletsDbContext> options,
             // Two columns, composed into a GeoPoint by the entity. Not an owned type: GeoPoint is a
             // struct and EF owns only reference types — which is worth the swap, because the
             // invariant is now a database constraint instead of a mapping convention.
+            // JSONB, not EAV (ADR-0009 §1). Mapped through a converter because the property is a
+            // dictionary of raw JSON elements — what is inside is the tenant's business, described by
+            // the Configuration catalogue rather than by this model.
+            outlet.Property(o => o.CustomFields)
+                .HasColumnName("custom_fields")
+                .HasColumnType("jsonb")
+                .HasConversion(
+                    fields => JsonSerializer.Serialize(fields, (JsonSerializerOptions?)null),
+                    json => JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json, (JsonSerializerOptions?)null)!,
+                    new ValueComparer<IReadOnlyDictionary<string, JsonElement>>(
+                        // Compared by serialized form: JsonElement has no value equality, so without
+                        // this EF would compare references and miss every edit to a custom field.
+                        (left, right) => JsonSerializer.Serialize(left, (JsonSerializerOptions?)null)
+                            == JsonSerializer.Serialize(right, (JsonSerializerOptions?)null),
+                        fields => JsonSerializer.Serialize(fields, (JsonSerializerOptions?)null).GetHashCode(),
+                        fields => fields));
+
             outlet.Property(o => o.Latitude).HasColumnName("latitude");
             outlet.Property(o => o.Longitude).HasColumnName("longitude");
             outlet.Ignore(o => o.Location);

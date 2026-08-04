@@ -226,6 +226,15 @@ the sequencing this note describes working as intended: the interface exposes ex
 territory needs to validate and label an outlet, and nothing about address, coordinates, contacts or
 channel, because no consumer asked for those and a consumer that could read them would soon be making
 decisions with a stale copy.
+**Configuration is the first module born with its `.Contracts` assembly**, because it is the first
+whose *reason to exist* is being called by other modules: a catalogue nobody reads configures nothing.
+`IFieldDefinitionCatalog` ships with Outlets as its caller, and its shape follows from that — it hands
+back **descriptors, not a validator**. Configuration owns what a tenant may record; deciding whether a
+given write satisfies it is the owning module's job, on the owning module's request path, where the
+rest of that entity's invariants already run. The alternative — a `ValidateAsync` on the contract —
+would have put Outlets' 400s inside Configuration and made every future consumer's error shape
+Configuration's problem.
+
 The split is what lets AT-1 be a real reference check rather than a naming convention, and it makes
 AT-3 structural: a contracts assembly that cannot see the implementation cannot name a domain type
 in a signature.

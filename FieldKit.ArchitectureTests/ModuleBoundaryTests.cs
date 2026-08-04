@@ -3,6 +3,8 @@ using FieldKit.Modules.Catalog;
 using FieldKit.Modules.Iam;
 using FieldKit.Modules.Iam.Contracts;
 using FieldKit.Modules.Org;
+using FieldKit.Modules.Configuration;
+using FieldKit.Modules.Configuration.Contracts;
 using FieldKit.Modules.Org.Contracts;
 using FieldKit.Modules.Outlets;
 using FieldKit.Modules.Outlets.Contracts;
@@ -31,6 +33,8 @@ public class ModuleBoundaryTests
     private static readonly Assembly OutletsModuleAssembly = typeof(OutletsModule).Assembly;
     private static readonly Assembly OutletsContracts = typeof(IOutletCatalog).Assembly;
     private static readonly Assembly OrgContracts = typeof(RepAssignmentChanged).Assembly;
+    private static readonly Assembly ConfigurationModuleAssembly = typeof(ConfigurationModule).Assembly;
+    private static readonly Assembly ConfigurationContracts = typeof(IFieldDefinitionCatalog).Assembly;
 
     /// <summary>Module <b>implementation</b> assemblies — the ones nothing outside may reference.</summary>
     private static readonly string[] ModuleImplementations =
@@ -39,6 +43,7 @@ public class ModuleBoundaryTests
         "FieldKit.Modules.Catalog",
         "FieldKit.Modules.Org",
         "FieldKit.Modules.Outlets",
+        "FieldKit.Modules.Configuration",
     ];
 
     [Fact] // AT-1 — the core boundary.
@@ -48,6 +53,7 @@ public class ModuleBoundaryTests
         AssertReferencesNoOtherModule(Iam);
         AssertReferencesNoOtherModule(OrgModuleAssembly);
         AssertReferencesNoOtherModule(OutletsModuleAssembly);
+        AssertReferencesNoOtherModule(ConfigurationModuleAssembly);
     }
 
     [Fact] // AT-3 — entities cannot leak, because contracts cannot see them.
@@ -58,6 +64,7 @@ public class ModuleBoundaryTests
         AssertDoesNotReference(IamContracts, ModuleImplementations);
         AssertDoesNotReference(OutletsContracts, ModuleImplementations);
         AssertDoesNotReference(OrgContracts, ModuleImplementations);
+        AssertDoesNotReference(ConfigurationContracts, ModuleImplementations);
     }
 
     [Fact] // AT-3, the half a reference check cannot cover.
@@ -66,7 +73,7 @@ public class ModuleBoundaryTests
         // A contracts assembly that could see EF or ASP.NET would let persistence and transport into
         // the shared surface — an `IQueryable<T>` return type, say, which hands the caller the
         // ability to compose queries against another module's tables.
-        foreach (var contracts in new[] { IamContracts, OutletsContracts, OrgContracts })
+        foreach (var contracts in new[] { IamContracts, OutletsContracts, OrgContracts, ConfigurationContracts })
         {
             var result = Types.InAssembly(contracts)
                 .Should().NotHaveDependencyOnAny("Microsoft.EntityFrameworkCore", "Microsoft.AspNetCore")
