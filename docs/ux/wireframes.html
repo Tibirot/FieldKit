@@ -230,6 +230,11 @@
     font-weight:700;padding:10px 13px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--inset)}
   tbody td{padding:10px 13px;border-bottom:1px solid var(--border);white-space:nowrap}
   tbody tr:last-child td{border-bottom:none}
+  /* Import grid: a cell the server refused, and the reason under it. */
+  td.bad{background:var(--crit-soft);box-shadow:inset 0 0 0 1.5px var(--crit)}
+  td.fixed{background:var(--good-soft);box-shadow:inset 0 0 0 1.5px var(--good)}
+  .cellerr{font-size:10px;font-weight:650;color:var(--crit);margin-top:4px;white-space:normal;min-width:150px;max-width:230px;line-height:1.35}
+  .editable{border-bottom:1px dashed var(--border-2);padding-bottom:1px}
   .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:13px}
   .inp{display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border-2);
     border-radius:8px;padding:7px 11px;font-size:12px;color:var(--muted);font-weight:550}
@@ -739,6 +744,92 @@
       <div class="ids"><code>OUT-01</code><code>OUT-03</code><code>OUT-04</code><code>OUT-06</code></div>
     </figcaption>
 
+
+    <!-- OUTLET IMPORT -->
+    <div class="browser">
+      <div class="btop"><div class="traffic"><i></i><i></i><i></i></div>
+        <div class="omni"><svg class="ic"><use href="#i-lock"/></svg>app.fieldkit.io/outlets/import</div></div>
+      <div class="console">
+        <nav class="side">
+          <div class="org"><span class="mark"><svg class="ic"><use href="#i-route"/></svg></span>
+            <div><div class="b sm">Veridian</div><div class="xs fnt">Bucharest region</div></div></div>
+          <div class="navi"><svg class="ic"><use href="#i-chart"/></svg>Dashboard</div>
+          <div class="navi"><svg class="ic"><use href="#i-route"/></svg>Journeys</div>
+          <div class="navi"><svg class="ic"><use href="#i-clip"/></svg>Visits &amp; audits</div>
+          <div class="navi"><svg class="ic"><use href="#i-cart"/></svg>Orders</div>
+          <div class="navgroup">Master data</div>
+          <div class="navi on"><svg class="ic"><use href="#i-store"/></svg>Outlets</div>
+          <div class="navi"><svg class="ic"><use href="#i-box"/></svg>Products &amp; pricing</div>
+          <div class="navi"><svg class="ic"><use href="#i-grid"/></svg>Territories</div>
+          <div class="navgroup">Admin</div>
+          <div class="navi"><svg class="ic"><use href="#i-users"/></svg>Users &amp; roles</div>
+        </nav>
+        <div class="main">
+          <div class="page-h">
+            <div><div class="crumb">Master data / Outlets / Import</div>
+              <h3>Import outlets <span class="chip c-warn" style="vertical-align:3px">Nothing written yet</span></h3></div>
+            <div class="row" style="gap:8px">
+              <span class="pill">Discard</span>
+              <span class="pill on"><svg class="ic" style="width:12px;height:12px;vertical-align:-1px"><use href="#i-check"/></svg> Import 3,986 rows</span>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <span class="inp"><svg class="ic"><use href="#i-clip"/></svg>veridian-outlets-2026.csv <span class="mut">· 4,000 rows</span></span>
+            <span class="pill on">All-or-nothing</span>
+            <span class="pill">Partial</span>
+            <span class="inp"><svg class="ic"><use href="#i-sync"/></svg>Re-check</span>
+            <span class="grow"></span>
+            <span class="pill">Only rows with problems</span>
+          </div>
+
+          <div class="banner warn" style="margin-bottom:13px"><svg class="ic"><use href="#i-alert"/></svg>
+            <div><b>14 rows need attention.</b> Fix the highlighted cells and re-check — or switch to
+              <b>Partial</b> to import the other 3,986 now and keep these to fix later.</div></div>
+
+          <div class="note" style="margin-top:0;margin-bottom:13px"><svg class="ic"><use href="#i-info"/></svg>
+            <div>Two columns were not imported: <code class="mono">legacy_id</code> and
+              <code class="mono">last_modified_by</code>. Nothing here defines them — if one is meant
+              to be a custom field, define it first and re-check.</div></div>
+
+          <div class="tscroll">
+            <table>
+              <thead><tr><th style="width:44px">Row</th><th>code</th><th>name</th><th>channel</th><th>time_zone</th><th>chiller_count</th><th>latitude</th><th>longitude</th></tr></thead>
+              <tbody>
+                <tr><td class="mono mut">2</td><td class="mono">OUT-2214</td><td class="b">Select Market Dorobanți</td><td>Modern Trade</td><td class="mono xs">Europe/Bucharest</td><td class="mono">4</td><td class="mono xs">44.4682</td><td class="mono xs">26.0921</td></tr>
+                <tr><td class="mono mut">3</td><td class="mono">OUT-1180</td><td class="b">Aurora MiniMarket</td><td>Traditional</td><td class="mono xs">Europe/Bucharest</td><td class="mono">1</td><td class="mono xs">44.4510</td><td class="mono xs">26.0873</td></tr>
+                <tr><td class="mono mut">4</td><td class="mono">OUT-3055</td><td class="b editable">Corner Shop Floreasca</td>
+                  <td class="bad"><span class="editable">Modren Trade</span><div class="cellerr">There is no channel called “Modren Trade”.</div></td>
+                  <td class="mono xs">Europe/Bucharest</td><td class="mono">—</td><td class="mono xs">44.4795</td><td class="mono xs">26.1004</td></tr>
+                <tr><td class="mono mut">5</td><td class="mono">OUT-2871</td><td class="b">Gara Nord Express</td><td>Impulse</td>
+                  <td class="bad"><span class="editable mono xs">Europe/Bucuresti</span><div class="cellerr">Not a known IANA time zone.</div></td>
+                  <td class="mono">2</td><td class="mono xs">44.4463</td><td class="mono xs">26.0748</td></tr>
+                <tr><td class="mono mut">6</td><td class="mono">OUT-4102</td><td class="b">Piața 1 Mai Kiosk</td><td>Traditional</td><td class="mono xs">Europe/Bucharest</td>
+                  <td class="bad"><span class="editable mono">120</span><div class="cellerr">Must be at most 50.</div></td>
+                  <td class="mono xs">44.4901</td><td class="mono xs">26.0619</td></tr>
+                <tr><td class="mono mut">7</td>
+                  <td class="bad"><span class="editable mono">OUT-2650</span><div class="cellerr">Appears more than once in this file (also row 41).</div></td>
+                  <td class="b">Verde Deli Herăstrău</td><td>HoReCa</td><td class="mono xs">Europe/Bucharest</td><td class="mono">6</td><td class="mono xs">44.4712</td><td class="mono xs">26.0836</td></tr>
+                <tr><td class="mono mut">8</td><td class="mono">OUT-5510</td><td class="b">Select Market Aviatorilor</td><td>Modern Trade</td><td class="mono xs">Europe/Bucharest</td><td class="mono">3</td>
+                  <td class="fixed"><span class="editable mono xs">44.4688</span><div class="cellerr" style="color:var(--good)">Fixed — re-check to confirm.</div></td>
+                  <td class="mono xs">26.0955</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption style="margin-top:13px">
+      <div class="cap-t">Outlets — bulk import</div>
+      <div class="cap-d">Onboarding a customer's existing outlet base. The upload is validated first and
+        written second: the grid is the dry run's answer, so a bad cell is corrected <i>before</i> it
+        becomes an outlet other people can see. Every rule is the one the create API enforces — a CSV
+        has no types, so the tenant's own field definitions are what say how to read
+        <code class="mono">chiller_count</code>. All-or-nothing refuses the file until it is clean;
+        Partial imports the good rows and hands the rest back as a file to fix and re-send.</div>
+      <div class="ids"><code>OUT-05</code><code>CFG-01</code><code>CFG-02</code></div>
+    </figcaption>
+
     <!-- PRODUCTS & PRICING -->
     <div class="browser">
       <div class="btop"><div class="traffic"><i></i><i></i><i></i></div>
@@ -1064,7 +1155,7 @@
 
   <footer class="foot">
     <span><b>FieldKit</b> — SFA wireframes · field app + back office</span>
-    <span class="mono xs">golden path · 5 field screens · 7 back-office views</span>
+    <span class="mono xs">golden path · 5 field screens · 8 back-office views</span>
   </footer>
 
 </div>
