@@ -13,6 +13,7 @@
     <ProjectReference Include="..\FieldKit.BuildingBlocks\FieldKit.BuildingBlocks.csproj" />
     <ProjectReference Include="..\FieldKit.Infrastructure\FieldKit.Infrastructure.csproj" />
     <ProjectReference Include="..\FieldKit.Web\FieldKit.Web.csproj" />
+    <ProjectReference Include="..\FieldKit.Modules.Outlets.Contracts\FieldKit.Modules.Outlets.Contracts.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

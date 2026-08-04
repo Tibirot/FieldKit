@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Outlets module's *only* public surface. Other modules reference this assembly and never
+    FieldKit.Modules.Outlets (AT-1), which is what keeps the boundary enforceable by assembly
+    reference rather than by convention.
+
+    Note what it does NOT reference: no EF Core, no ASP.NET, no Infrastructure. A contracts assembly
+    that could see a DbContext would let an entity leak through a signature (AT-3), and the arch test
+    for that would be checking types rather than the far simpler fact that the reference is absent.
+
+    It lands now rather than with the module itself because it now has a consumer: Organization
+    assigns outlets to territories and has to know which outlets exist. Designed against that caller
+    rather than guessed at in advance.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FieldKit.SharedKernel\FieldKit.SharedKernel.csproj" />
+    <ProjectReference Include="..\FieldKit.BuildingBlocks\FieldKit.BuildingBlocks.csproj" />
+  </ItemGroup>
+
+</Project>

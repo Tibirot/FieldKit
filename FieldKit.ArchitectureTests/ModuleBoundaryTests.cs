@@ -4,6 +4,7 @@ using FieldKit.Modules.Iam;
 using FieldKit.Modules.Iam.Contracts;
 using FieldKit.Modules.Org;
 using FieldKit.Modules.Outlets;
+using FieldKit.Modules.Outlets.Contracts;
 using NetArchTest.Rules;
 
 namespace FieldKit.ArchitectureTests;
@@ -27,6 +28,7 @@ public class ModuleBoundaryTests
     private static readonly Assembly Catalog = typeof(CatalogModule).Assembly;
     private static readonly Assembly OrgModuleAssembly = typeof(OrgModule).Assembly;
     private static readonly Assembly OutletsModuleAssembly = typeof(OutletsModule).Assembly;
+    private static readonly Assembly OutletsContracts = typeof(IOutletCatalog).Assembly;
 
     /// <summary>Module <b>implementation</b> assemblies — the ones nothing outside may reference.</summary>
     private static readonly string[] ModuleImplementations =
@@ -52,6 +54,7 @@ public class ModuleBoundaryTests
         // The stronger form of "no domain type in a signature": if the contracts assembly cannot see
         // the implementation, no signature in it can name a domain type. Verifiable from the csproj.
         AssertDoesNotReference(IamContracts, ModuleImplementations);
+        AssertDoesNotReference(OutletsContracts, ModuleImplementations);
     }
 
     [Fact] // AT-3, the half a reference check cannot cover.
@@ -60,13 +63,17 @@ public class ModuleBoundaryTests
         // A contracts assembly that could see EF or ASP.NET would let persistence and transport into
         // the shared surface — an `IQueryable<T>` return type, say, which hands the caller the
         // ability to compose queries against another module's tables.
-        var result = Types.InAssembly(IamContracts)
-            .Should().NotHaveDependencyOnAny("Microsoft.EntityFrameworkCore", "Microsoft.AspNetCore")
-            .GetResult();
+        foreach (var contracts in new[] { IamContracts, OutletsContracts })
+        {
+            var result = Types.InAssembly(contracts)
+                .Should().NotHaveDependencyOnAny("Microsoft.EntityFrameworkCore", "Microsoft.AspNetCore")
+                .GetResult();
 
-        Assert.True(
-            result.IsSuccessful,
-            "Failing types: " + string.Join(", ", result.FailingTypeNames ?? []));
+            Assert.True(
+                result.IsSuccessful,
+                $"{contracts.GetName().Name} — failing types: "
+                    + string.Join(", ", result.FailingTypeNames ?? []));
+        }
     }
 
     [Fact]
@@ -85,6 +92,16 @@ public class ModuleBoundaryTests
 
         Assert.NotEmpty(implementations);
         Assert.All(implementations, type => Assert.False(type.IsPublic, $"{type.Name} should be internal"));
+
+        // Same shape for Outlets, whose contracts assembly landed once Organization needed it.
+        Assert.Contains(typeof(IOutletCatalog), OutletsContracts.GetExportedTypes());
+
+        var catalogs = OutletsModuleAssembly.GetTypes()
+            .Where(type => !type.IsInterface && typeof(IOutletCatalog).IsAssignableFrom(type))
+            .ToList();
+
+        Assert.NotEmpty(catalogs);
+        Assert.All(catalogs, type => Assert.False(type.IsPublic, $"{type.Name} should be internal"));
     }
 
     private static void AssertReferencesNoOtherModule(Assembly module) =>

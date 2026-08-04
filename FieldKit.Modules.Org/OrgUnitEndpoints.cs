@@ -118,6 +118,18 @@ internal static class OrgUnitEndpoints
                 });
             }
 
+            // Third of the same kind. A territory is what makes a unit's outlets visible to the
+            // supervisors under it (BR-ORG-4), so deleting the unit beneath a territory would leave
+            // that territory attached to nothing and seen by nobody.
+            var territories = await db.Territories.CountAsync(territory => territory.OrgUnitId == id, ct);
+            if (territories > 0)
+            {
+                return Results.Conflict(new
+                {
+                    error = $"'{unit.Name}' still holds {territories} territory(ies). Move them first.",
+                });
+            }
+
             db.OrgUnits.Remove(unit);
             await db.SaveChangesAsync(ct);
 

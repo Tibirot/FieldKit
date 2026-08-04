@@ -602,6 +602,94 @@ Authorization: Bearer {{token.response.body.access_token}}
   "name": "Should be forbidden"
 }
 
+### ─── Organization · territories and their outlets (ORG-03, ORG-05) ──────────────────────────────
+
+### Territories, with how many outlets each holds. Requires `territory:read`.
+GET {{Server_HostAddress}}/api/org/territories
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### A territory belongs to an org unit, and that is required: BR-ORG-4 says a supervisor sees the
+### territories under their branch, so one under no branch would be visible to nobody.
+# @name territory
+POST {{Server_HostAddress}}/api/org/territories
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Bucharest North",
+  "orgUnitId": "{{region.response.body.id}}"
+}
+
+### Assign outlets. Validated through the Outlets module's IOutletCatalog contract — Organization
+### never reads the outlets schema — so an id this tenant does not have is rejected, and the whole
+### batch is refused rather than half-applied.
+POST {{Server_HostAddress}}/api/org/territories/{{territory.response.body.id}}/outlets
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outletIds": ["{{outlet.response.body.id}}"]
+}
+
+### The same outlet again — expect 204, not an error. Idempotent, so a retry after a dropped
+### response does the right thing.
+POST {{Server_HostAddress}}/api/org/territories/{{territory.response.body.id}}/outlets
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outletIds": ["{{outlet.response.body.id}}"]
+}
+
+### The outlets in a territory, named through the contract. An outlet that no longer resolves keeps
+### its row with nulls rather than disappearing — the membership is real, and hiding it would make
+### the territory quietly smaller than the count on the list screen says.
+GET {{Server_HostAddress}}/api/org/territories/{{territory.response.body.id}}/outlets
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### A second territory, to demonstrate single-primary.
+# @name otherTerritory
+POST {{Server_HostAddress}}/api/org/territories
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Bucharest South",
+  "orgUnitId": "{{region.response.body.id}}"
+}
+
+### The same outlet in a second territory — expect 409 (BR-ORG-1 / ORG-05). Refused rather than
+### moved silently: a territory's membership is a rep's offline data scope (BR-ORG-3), so this
+### changes what somebody's device downloads tomorrow. Remove it from the first one first.
+POST {{Server_HostAddress}}/api/org/territories/{{otherTerritory.response.body.id}}/outlets
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outletIds": ["{{outlet.response.body.id}}"]
+}
+
+### Remove an outlet from a territory — the first half of a move.
+DELETE {{Server_HostAddress}}/api/org/territories/{{territory.response.body.id}}/outlets/{{outlet.response.body.id}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Delete a territory that still holds outlets — expect 409, not a cascade. Every outlet in it
+### would silently become unassigned.
+DELETE {{Server_HostAddress}}/api/org/territories/{{otherTerritory.response.body.id}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Territories as `viewer`, who holds territory:read and not territory:write — 403 on the write.
+POST {{Server_HostAddress}}/api/org/territories
+Content-Type: application/json
+Authorization: Bearer {{viewerToken.response.body.access_token}}
+
+{
+  "name": "Should be forbidden",
+  "orgUnitId": "{{region.response.body.id}}"
+}
+
 ### ─── Multi-issuer (ADR-0008) ────────────────────────────────────────────────────────────────────
 
 ### A token from the SECOND tenant's realm. Different issuer, different signing keys, same API.

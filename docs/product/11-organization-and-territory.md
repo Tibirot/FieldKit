@@ -53,6 +53,25 @@ records the user who made it, so its attribution survives any change to the org 
    rule that materializes membership).
 2. An outlet belongs to **exactly one** primary territory at a time.
 
+A territory **belongs to an org unit**, and that is required rather than optional: BR-ORG-4 says a
+supervisor sees the territories under their branch, so a territory under no branch would be visible
+to nobody by that rule — and making it optional would mean inventing a second visibility rule for the
+territories that had skipped the first.
+
+**Single-primary (BR-ORG-1, `ORG-05`) is a unique index on the outlet**, not a check in code. One row
+per outlet makes it a fact about the table rather than a rule every write path has to remember —
+including the bulk ones that do not exist yet.
+
+**Reassigning an outlet is refused, not performed silently.** A territory's membership *is* a rep's
+offline data scope (BR-ORG-3), so moving an outlet changes what somebody's device downloads tomorrow
+morning. It has to be removed from its current territory first — the same two-step this module
+requires for moving a position, and for the same reason: the audit trail should show both halves.
+
+The membership lives in Organization rather than on the outlet, because Organization owns territories
+and Outlets must not depend on it. It is keyed by outlet id across a schema boundary, so there is no
+foreign key; outlets are validated and labelled through the Outlets module's `IOutletCatalog`
+contract, never by reading its tables.
+
 ### F3 · Assign reps
 1. Admin assigns a rep to a territory (with an effective date range).
 2. This assignment is the input to **journey generation** and defines the rep's **offline data

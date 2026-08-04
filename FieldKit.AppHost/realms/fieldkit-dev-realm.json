@@ -63,6 +63,14 @@
       {
         "name": "channel:write",
         "description": "Create, rename and delete trade channels (Outlets module). Separate from outlet:write because a channel is the vocabulary assortment and pricing rules key off, not a fact about one location."
+      },
+      {
+        "name": "territory:read",
+        "description": "View territories and the outlets in them (Organization module)."
+      },
+      {
+        "name": "territory:write",
+        "description": "Create territories and decide which outlets they cover (Organization module). Separate again because a territory's membership is a rep's offline data scope (BR-ORG-3) — moving an outlet changes what a device downloads tomorrow."
       }
     ]
   },
@@ -155,7 +163,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["product:read", "role:read", "orgunit:read", "position:read", "outlet:read", "channel:read"]
+      "realmRoles": ["product:read", "role:read", "orgunit:read", "position:read", "outlet:read", "channel:read", "territory:read"]
     },
     {
       "username": "admin",
@@ -171,7 +179,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["role:read", "role:write", "user:read", "user:write", "orgunit:read", "orgunit:write", "position:read", "position:write", "outlet:read", "outlet:write", "channel:read", "channel:write"]
+      "realmRoles": ["role:read", "role:write", "user:read", "user:write", "orgunit:read", "orgunit:write", "position:read", "position:write", "outlet:read", "outlet:write", "channel:read", "channel:write", "territory:read", "territory:write"]
     }
   ]
 }

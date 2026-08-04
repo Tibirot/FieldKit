@@ -1,4 +1,5 @@
 using FieldKit.Infrastructure;
+using FieldKit.Modules.Outlets.Contracts;
 using FieldKit.Web;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
@@ -33,6 +34,10 @@ public sealed class OutletsModule : IModule
 
         services.AddModuleDbContext<OutletsDbContext>(connectionString, OutletsDbContext.SchemaName);
         services.AddHostedService<ModuleMigrator<OutletsDbContext>>();
+
+        // The public surface. Registered against the Contracts interface so consumers can only bind
+        // to that — the implementation is internal to this module by convention (AT-2).
+        services.AddScoped<IOutletCatalog, OutletCatalog>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

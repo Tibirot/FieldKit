@@ -16,6 +16,10 @@ public sealed class OrgDbContext(DbContextOptions<OrgDbContext> options, ITenant
 
     public DbSet<Position> Positions => Set<Position>();
 
+    public DbSet<Territory> Territories => Set<Territory>();
+
+    public DbSet<TerritoryOutlet> TerritoryOutlets => Set<TerritoryOutlet>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -73,6 +77,45 @@ public sealed class OrgDbContext(DbContextOptions<OrgDbContext> options, ITenant
 
             // "Who is in this unit", which the delete check and the unit screen both ask.
             position.HasIndex(p => new { p.TenantId, p.OrgUnitId });
+        });
+
+        modelBuilder.Entity<Territory>(territory =>
+        {
+            territory.ToTable("territory");
+            territory.HasKey(t => t.Id);
+            territory.Property(t => t.Name).HasMaxLength(200).IsRequired();
+            territory.HasIndex(t => new { t.TenantId, t.Name }).IsUnique();
+
+            // Restricted like everything else that hangs off a unit: deleting a region should not
+            // take its territories — and the outlets in them — with it.
+            territory.HasOne<OrgUnit>()
+                .WithMany()
+                .HasForeignKey(t => t.OrgUnitId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            territory.HasIndex(t => new { t.TenantId, t.OrgUnitId });
+        });
+
+        modelBuilder.Entity<TerritoryOutlet>(membership =>
+        {
+            membership.ToTable("territory_outlet");
+            membership.HasKey(m => m.Id);
+
+            // BR-ORG-1 and ORG-05, as a fact about the table rather than a rule on every write path:
+            // one row per outlet means an outlet cannot be in two territories, including via a bulk
+            // import that forgets to check.
+            membership.HasIndex(m => new { m.TenantId, m.OutletId }).IsUnique();
+
+            // Cascade only from the territory — the membership has no meaning without it, and
+            // deleting a territory is already refused while it has outlets, so this is the safety
+            // net rather than the path. No foreign key to the outlet: different schema, different
+            // module (ADR-0005), validated through IOutletCatalog instead.
+            membership.HasOne<Territory>()
+                .WithMany()
+                .HasForeignKey(m => m.TerritoryId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            membership.HasIndex(m => new { m.TenantId, m.TerritoryId });
         });
     }
 }

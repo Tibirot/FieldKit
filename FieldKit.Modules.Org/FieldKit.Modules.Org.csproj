@@ -20,6 +20,12 @@
       modules. The architecture test checks the reference itself, not the intent.
     -->
     <ProjectReference Include="..\FieldKit.Modules.Iam.Contracts\FieldKit.Modules.Iam.Contracts.csproj" />
+    <!--
+      Outlets' contracts, for the same reason: a territory is defined by the outlets in it, so this
+      module must be able to ask which ones exist and what they are called without reading the
+      outlets schema. Contracts only, never the implementation (AT-1).
+    -->
+    <ProjectReference Include="..\FieldKit.Modules.Outlets.Contracts\FieldKit.Modules.Outlets.Contracts.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

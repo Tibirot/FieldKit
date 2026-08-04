@@ -219,6 +219,13 @@ the pattern; **Catalog predates it and is still a single assembly** — a retrof
 every contract in its registry row describes something that does not exist yet (the management line
 needs positions, territories need outlets), and an interface designed before its consumer is a guess
 other modules then have to live with. Its `.Contracts` assembly lands with its first contract.
+
+**Outlets grew its `.Contracts` assembly when territories needed it** — `IOutletCatalog`, designed
+against Organization as an actual caller rather than guessed at when the module was created. That is
+the sequencing this note describes working as intended: the interface exposes exactly what a
+territory needs to validate and label an outlet, and nothing about address, coordinates, contacts or
+channel, because no consumer asked for those and a consumer that could read them would soon be making
+decisions with a stale copy.
 The split is what lets AT-1 be a real reference check rather than a naming convention, and it makes
 AT-3 structural: a contracts assembly that cannot see the implementation cannot name a domain type
 in a signature.
