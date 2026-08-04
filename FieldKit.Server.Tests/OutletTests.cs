@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using FieldKit.Modules.Outlets;
+using FieldKit.Web;
 
 namespace FieldKit.Server.Tests;
 
@@ -372,15 +373,19 @@ public class OutletTests(ServerFixture fixture)
         await client.PostAsJsonAsync(
             $"/api/outlets/{shut.Id}/status", new OutletStatusRequest(OutletStatus.Closed, "Lease ended"));
 
-        var byChannel = await client.GetFromJsonAsync<List<OutletResponse>>(
-            $"/api/outlets?channelId={mine.Id}");
-        Assert.Contains(byChannel!, outlet => outlet.Id == open.Id);
-        Assert.DoesNotContain(byChannel!, outlet => outlet.Id == elsewhere.Id);
+        var byChannel = (await client.GetFromJsonAsync<PagedList<OutletResponse>>(
+            $"/api/outlets?channelId={mine.Id}"))!;
+        Assert.Contains(byChannel.Items, outlet => outlet.Id == open.Id);
+        Assert.DoesNotContain(byChannel.Items, outlet => outlet.Id == elsewhere.Id);
 
-        var active = await client.GetFromJsonAsync<List<OutletResponse>>(
-            $"/api/outlets?channelId={mine.Id}&status={OutletStatus.Active}");
-        Assert.Contains(active!, outlet => outlet.Id == open.Id);
-        Assert.DoesNotContain(active!, outlet => outlet.Id == shut.Id);
+        // The total counts the filtered set, not the table. A pager built on the unfiltered count
+        // offers pages that are always empty.
+        Assert.Equal(2, byChannel.Total);
+
+        var active = (await client.GetFromJsonAsync<PagedList<OutletResponse>>(
+            $"/api/outlets?channelId={mine.Id}&status={OutletStatus.Active}"))!;
+        Assert.Contains(active.Items, outlet => outlet.Id == open.Id);
+        Assert.DoesNotContain(active.Items, outlet => outlet.Id == shut.Id);
     }
 
     [Fact]
@@ -476,7 +481,7 @@ public class OutletTests(ServerFixture fixture)
         var channel = await ChannelAsync(tenantA);
         var mine = await OutletAsync(tenantA, channel.Id);
 
-        var visibleToB = await tenantB.GetFromJsonAsync<List<OutletResponse>>("/api/outlets");
+        var visibleToB = (await tenantB.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?pageSize={Paging.MaxSize}"))!.Items;
         Assert.DoesNotContain(visibleToB!, outlet => outlet.Id == mine.Id);
 
         // `rep-b` deliberately holds outlet:write, so this is 404 from the query filter rather than

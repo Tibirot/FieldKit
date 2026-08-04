@@ -29,8 +29,56 @@ export type Outlet = {
   territory: TerritorySummary | null;
 };
 
-export function fetchOutlets(accessToken: string, signal?: AbortSignal): Promise<Outlet[]> {
-  return apiGet<Outlet[]>("/api/outlets", accessToken, signal);
+/**
+ * One page of a list, and enough to draw a pager around it.
+ *
+ * Mirrors the API's envelope exactly, down to `page` and `pageSize` carrying the same names the
+ * query string uses — so a request and its response never describe the same thing two ways.
+ */
+export type PagedList<T> = {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+/**
+ * What a caller asks a list for.
+ *
+ * Every field optional, because the screen builds this from URL search params and an absent one
+ * means "the server's default" rather than a value this app has to invent. Territory is absent on
+ * purpose: it is resolved after the page is fetched (`ORG-05`), so the database cannot filter or
+ * sort by it.
+ */
+export type OutletQuery = {
+  search?: string;
+  channelId?: string;
+  status?: OutletStatus;
+  sort?: OutletSort;
+  descending?: boolean;
+  page?: number;
+  pageSize?: number;
+};
+
+/** What an outlet list may be ordered by — a closed set, matching the API's enum by name. */
+export type OutletSort = "Code" | "Name" | "Channel" | "Status";
+
+export function fetchOutlets(
+  accessToken: string,
+  query: OutletQuery,
+  signal?: AbortSignal,
+): Promise<PagedList<Outlet>> {
+  const params = new URLSearchParams();
+
+  // Only what was asked for. Sending `search=` for an empty box would make the server escape and
+  // match an empty pattern rather than skip the filter — the same query, needlessly narrower to plan.
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== "") params.set(key, String(value));
+  }
+
+  const suffix = params.size > 0 ? `?${params}` : "";
+
+  return apiGet<PagedList<Outlet>>(`/api/outlets${suffix}`, accessToken, signal);
 }
 
 /**
@@ -40,5 +88,10 @@ export function fetchOutlets(accessToken: string, signal?: AbortSignal): Promise
  * one tenant's rows to the next person to sign in on the same browser, because the cache outlives a
  * sign-out. This makes that structurally impossible rather than something a sign-out handler has to
  * remember to clear — and the subject comes off the session already, so it costs no round trip.
+ *
+ * The query is part of the key too, so page 2 and a search for "cluj" are separate cache entries
+ * rather than one entry the next request overwrites. That is also what makes going back to page 1
+ * instant instead of a refetch.
  */
-export const outletsKey = (subject: string) => ["outlets", subject] as const;
+export const outletsKey = (subject: string, query: OutletQuery = {}) =>
+  ["outlets", subject, query] as const;

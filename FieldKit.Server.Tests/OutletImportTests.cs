@@ -4,6 +4,7 @@ using System.Text;
 using FieldKit.Modules.Configuration;
 using FieldKit.Modules.Configuration.Contracts;
 using FieldKit.Modules.Outlets;
+using FieldKit.Web;
 using FieldKit.Modules.Outlets.Import;
 
 namespace FieldKit.Server.Tests;
@@ -50,7 +51,7 @@ public class OutletImportTests(ServerFixture fixture)
 
     private static async Task<bool> ExistsAsync(HttpClient client, string code)
     {
-        var outlets = await client.GetFromJsonAsync<List<OutletResponse>>("/api/outlets");
+        var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?pageSize={Paging.MaxSize}"))!.Items;
         return outlets!.Any(outlet => outlet.Code == code);
     }
 
@@ -71,7 +72,7 @@ public class OutletImportTests(ServerFixture fixture)
         Assert.Empty(result.Problems);
         Assert.Null(result.RejectedRowsCsv);
 
-        var outlets = await client.GetFromJsonAsync<List<OutletResponse>>("/api/outlets");
+        var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?pageSize={Paging.MaxSize}"))!.Items;
         var imported = outlets!.Single(outlet => outlet.Code == code);
 
         Assert.Equal("Alimentara Central", imported.Name);
@@ -104,7 +105,7 @@ public class OutletImportTests(ServerFixture fixture)
 
         Assert.Equal(1, result.Imported);
 
-        var outlets = await client.GetFromJsonAsync<List<OutletResponse>>("/api/outlets");
+        var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?pageSize={Paging.MaxSize}"))!.Items;
         var imported = outlets!.Single(outlet => outlet.Code == code);
 
         // Stored as a number and a boolean, not as the strings the file held.
@@ -270,7 +271,7 @@ public class OutletImportTests(ServerFixture fixture)
         Assert.Equal(0, second.Imported);
         Assert.Contains(second.Problems, problem => problem.Message.Contains("already exists"));
 
-        var outlets = await client.GetFromJsonAsync<List<OutletResponse>>("/api/outlets");
+        var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?pageSize={Paging.MaxSize}"))!.Items;
         Assert.Equal("Original Name", outlets!.Single(outlet => outlet.Code == code).Name);
     }
 
@@ -291,7 +292,7 @@ public class OutletImportTests(ServerFixture fixture)
 
         Assert.Equal(1, result.Imported);
 
-        var outlets = await client.GetFromJsonAsync<List<OutletResponse>>("/api/outlets");
+        var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?pageSize={Paging.MaxSize}"))!.Items;
         Assert.Equal(channel, outlets!.Single(outlet => outlet.Code == code).ChannelName);
     }
 
@@ -322,7 +323,7 @@ public class OutletImportTests(ServerFixture fixture)
         Assert.Contains(againstStored.Problems, problem => problem.Message.Contains("already exists"));
 
         // And the stored code kept the capitalisation it arrived with.
-        var outlets = await client.GetFromJsonAsync<List<OutletResponse>>("/api/outlets");
+        var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?pageSize={Paging.MaxSize}"))!.Items;
         Assert.Contains(outlets!, outlet => outlet.Code == code);
     }
 
@@ -415,7 +416,7 @@ public class OutletImportTests(ServerFixture fixture)
 
         Assert.Equal(1, result.Imported);
 
-        var outlets = await client.GetFromJsonAsync<List<OutletResponse>>("/api/outlets");
+        var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?pageSize={Paging.MaxSize}"))!.Items;
         var imported = outlets!.Single(outlet => outlet.Code == code);
 
         Assert.Equal("Smith, Jones & Co", imported.Name);

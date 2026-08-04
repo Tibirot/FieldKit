@@ -97,8 +97,47 @@ worse one — a genuine server fault reported as the caller's problem is a fault
 
 ## 7. Pagination, filtering, caching
 
-- Lists: cursor or offset paging with `page`/`pageSize` (or `cursor`); envelopes include
-  `total`/`nextCursor`.
+A list endpoint returns an **envelope**, not a bare array:
+
+```jsonc
+{
+  "items": [ /* … */ ],
+  "total": 812,      // of the *filtered* set, so "1–50 of 812" is true
+  "page": 1,         // echoed, so a clamped request is visible
+  "pageSize": 50
+}
+```
+
+Driven by query parameters carrying the same names back — `?page=&pageSize=&search=&sort=&descending=`
+plus whatever filters the resource owns. A request and its response describing one thing two ways is
+a small cost every client pays forever.
+
+**Offset, not keyset.** A back office browsing wants a total and the ability to jump to page 40; a
+device replicating a dataset wants stability under concurrent writes and constant cost at depth.
+Different problems — Sync keeps its own cursor feed (`rowVersion > cursor`,
+[sync engine §4](12-offline-sync-engine.md)) for the second, and forcing one mechanism onto both is
+the mistake rather than having two. At master-data scale offset's weakness never bites: skipping
+4,800 rows is a scan Postgres does in under a millisecond.
+
+Rules that make it correct rather than merely present:
+
+- **The sort always ends on a unique column.** Rows with equal sort keys have no defined order in
+  SQL, so without a tiebreak Postgres may order them differently between the query for page 1 and the
+  query for page 2 — a row appears on both while another appears on neither. Sorting by a
+  low-cardinality column like status is exactly where that bites.
+- **Sort is a closed enum, never a column name from the query string** — the alternative is an
+  injection surface, or an `ORDER BY` over a column with no index.
+- **The total is counted on the filtered set, before the page is taken.** Counted before filtering,
+  the pager offers pages that are always empty.
+- **Search text is escaped.** `%` and `_` are `LIKE` wildcards: unescaped, a search for `50%`
+  matches everything beginning "50", and a lone `%` matches the whole table while looking like a
+  search that found a lot.
+- **Nonsense is clamped, not refused.** `pageSize=100000` and `page=-2` resolve to the cap and the
+  first page, and the echoed values say so. Nobody types those on purpose, and answering an obvious
+  typo with a 400 is worse than answering it with a page.
+- **Only what a module owns can be sorted or filtered.** An outlet's territory comes from
+  Organization *after* the page is fetched (`ORG-05`), so the database cannot order by it — sorting
+  on it would order the fifty rows already chosen, which is the page and not the list.
 - Read-heavy reference endpoints use **Redis output cache** (already wired via Aspire) with short
   TTLs and cache invalidation on the relevant integration events.
 
@@ -106,7 +145,7 @@ worse one — a genuine server fault reported as the caller's problem is a fault
 
 | Method | Path | Permission | Notes |
 |---|---|---|---|
-| `GET` | `/api/outlets?territoryId=&page=` | `outlet:read` | Back office list |
+| `GET` | `/api/outlets?search=&channelId=&status=&sort=&page=` | `outlet:read` | Back office list; paged envelope |
 | `POST` | `/api/outlets` | `outlet:write` | Create; `201` + Location |
 | `POST` | `/api/products/price-lists/{id}/publish` | `pricing:manage` | Emits `PriceListPublished` |
 | `POST` | `/sync/pull` | authenticated | Reference delta by watermark |

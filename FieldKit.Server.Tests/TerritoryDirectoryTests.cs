@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using FieldKit.Modules.Org;
 using FieldKit.Modules.Org.Contracts;
 using FieldKit.Modules.Outlets;
+using FieldKit.Web;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FieldKit.Server.Tests;
@@ -72,7 +73,7 @@ public class TerritoryDirectoryTests(ServerFixture fixture)
         Assert.Equal(name, single.Territory?.Name);
 
         // And on the list, which is the screen this exists for.
-        var listed = await client.GetFromJsonAsync<List<OutletResponse>>("/api/outlets");
+        var listed = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?pageSize={Paging.MaxSize}"))!.Items;
         Assert.Equal(territoryId, listed!.Single(row => row.Id == outlet.Id).Territory?.Id);
     }
 
@@ -117,7 +118,7 @@ public class TerritoryDirectoryTests(ServerFixture fixture)
 
         var outletB = await OutletAsync(tenantB);
 
-        var seenByB = await tenantB.GetFromJsonAsync<List<OutletResponse>>("/api/outlets");
+        var seenByB = (await tenantB.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?pageSize={Paging.MaxSize}"))!.Items;
 
         Assert.DoesNotContain(seenByB!, row => row.Id == outletA.Id);
         Assert.Null(seenByB!.Single(row => row.Id == outletB.Id).Territory);

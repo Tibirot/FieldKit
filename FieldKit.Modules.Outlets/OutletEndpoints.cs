@@ -86,6 +86,27 @@ public sealed record OutletStatusChangeResponse(
     string? ChangedBy);
 
 /// <summary>
+/// What an outlet list may be ordered by.
+/// </summary>
+/// <remarks>
+/// A closed set, not a column name from the query string. Accepting the latter is how a sort
+/// parameter becomes an injection surface or a way to order by a column with no index; a caller can
+/// only name something this enum already permits.
+///
+/// <b>Territory is deliberately absent.</b> It is resolved from Organization after the page is
+/// fetched (<c>ORG-05</c>), so the database cannot order by it — sorting on it would mean sorting
+/// fifty rows that were already chosen, which orders the page and not the list. Honest to refuse
+/// than to appear to work.
+/// </remarks>
+public enum OutletSort
+{
+    Code = 0,
+    Name = 1,
+    Channel = 2,
+    Status = 3,
+}
+
+/// <summary>
 /// The outlet base (<c>OUT-01</c>, <c>OUT-04</c>).
 /// </summary>
 internal static class OutletEndpoints
@@ -94,22 +115,41 @@ internal static class OutletEndpoints
     {
         var outlets = endpoints.MapGroup("/api/outlets").WithTags("Outlets");
 
-        // Filters rather than one list: an outlet base is the biggest table a tenant has, and the
-        // two questions a back office actually asks of it are "who is in this channel" and "what is
-        // still open". Both are indexed.
+        // One page at a time. An outlet base is the biggest table a tenant has — the wireframe's
+        // has 4,812 rows — and returning all of it was fine only while the dev database had
+        // seventeen. Offset rather than a cursor: a back office wants a total and the ability to
+        // jump, and Sync keeps its own cursor feed for the job that genuinely needs one.
         outlets.MapGet("/", async (
-                Guid? channelId, OutletStatus? status, OutletsDbContext db,
-                ITerritoryDirectory territories, CancellationToken ct) =>
-            await WithTerritories(
-                await Project(
-                        db,
-                        db.Outlets
-                            .Where(outlet => channelId == null || outlet.ChannelId == channelId)
-                            .Where(outlet => status == null || outlet.Status == status))
-                    .ToListAsync(ct),
-                territories,
-                ct))
-            .RequirePermission(OutletsPermissions.OutletRead);
+                string? search,
+                Guid? channelId,
+                OutletStatus? status,
+                OutletSort? sort,
+                bool? descending,
+                int? page,
+                int? pageSize,
+                OutletsDbContext db,
+                ITerritoryDirectory territories,
+                CancellationToken ct) =>
+        {
+            var (number, size, skip) = Paging.Resolve(page, pageSize);
+
+            var filtered = Sorted(
+                db,
+                Matching(db.Outlets, search)
+                    .Where(outlet => channelId == null || outlet.ChannelId == channelId)
+                    .Where(outlet => status == null || outlet.Status == status),
+                sort ?? OutletSort.Code,
+                descending ?? false);
+
+            // Counted before the page is taken, and on the *filtered* set — the only order that
+            // makes "1-50 of 812" a true statement rather than a decorative one.
+            var total = await filtered.CountAsync(ct);
+
+            var rows = await Project(db, filtered.Skip(skip).Take(size)).ToListAsync(ct);
+
+            return new PagedList<OutletResponse>(
+                await WithTerritories(rows, territories, ct), total, number, size);
+        }).RequirePermission(OutletsPermissions.OutletRead);
 
         outlets.MapGet("/{id:guid}", async (
                 Guid id, OutletsDbContext db, ITerritoryDirectory territories, CancellationToken ct) =>
@@ -380,7 +420,7 @@ internal static class OutletEndpoints
         // AsNoTracking is load-bearing, not an optimisation: EF refuses to project an owned entity
         // (address, location, contacts) out of a *tracking* query, because a tracked owned instance
         // without its owner has no identity to be tracked by. Every use of this is a read.
-        from outlet in source.AsNoTracking().OrderBy(outlet => outlet.Code)
+        from outlet in source.AsNoTracking()
         join channel in db.Channels on outlet.ChannelId equals channel.Id
         select new OutletResponse(
             outlet.Id,
@@ -400,6 +440,72 @@ internal static class OutletEndpoints
                 : null,
             outlet.Contacts,
             outlet.CustomFields);
+
+    /// <summary>
+    /// Narrows to outlets whose code or name contains <paramref name="search"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Code and name, because those are the two things someone types into that box: the label above
+    /// the door, or the identifier from the system they came from. Channel and segment are what the
+    /// filter pills are for — folding them in here would make "Modern" match every outlet in Modern
+    /// Trade and bury the shop actually called Modern Bazaar.
+    /// </para>
+    /// <para>
+    /// <b>Escaped, then matched case-insensitively.</b> <c>%</c> and <c>_</c> are <c>LIKE</c>
+    /// wildcards, so an unescaped search for <c>50%</c> quietly matches everything beginning "50",
+    /// and a lone <c>%</c> matches the entire table while looking like a search that simply found a
+    /// lot. The escape character is stated rather than assumed, because Postgres' implicit one
+    /// depends on a server setting.
+    /// </para>
+    /// </remarks>
+    private static IQueryable<Outlet> Matching(IQueryable<Outlet> outlets, string? search)
+    {
+        if (string.IsNullOrWhiteSpace(search)) return outlets;
+
+        var pattern = $"%{Paging.EscapeLike(search.Trim())}%";
+
+        return outlets.Where(outlet =>
+            EF.Functions.ILike(outlet.Code, pattern, "\\")
+            || EF.Functions.ILike(outlet.Name, pattern, "\\"));
+    }
+
+    /// <summary>
+    /// Orders the list, always ending on a unique column.
+    /// </summary>
+    /// <remarks>
+    /// <b>The tiebreak is what makes offset paging correct, not tidy.</b> Rows with equal sort keys
+    /// have no defined order in SQL, and Postgres is free to return them differently between the
+    /// query for page 1 and the query for page 2 — so an outlet can appear on both pages while
+    /// another appears on neither. Sorting by status, where thousands of rows share four values,
+    /// is exactly where that bites. <c>Code</c> is unique per tenant, so appending it makes every
+    /// page a slice of one total order.
+    /// </remarks>
+    private static IQueryable<Outlet> Sorted(
+        OutletsDbContext db, IQueryable<Outlet> outlets, OutletSort sort, bool descending)
+    {
+        var ordered = (sort, descending) switch
+        {
+            (OutletSort.Name, false) => outlets.OrderBy(outlet => outlet.Name),
+            (OutletSort.Name, true) => outlets.OrderByDescending(outlet => outlet.Name),
+            // Written inline because an expression tree cannot call a local function, so the
+            // subquery cannot be named once and reused. Sorting "by channel" means the word on the
+            // screen; ordering by ChannelId would sort by GUID — stable, repeatable, and meaningless
+            // to whoever clicked the header.
+            (OutletSort.Channel, false) => outlets.OrderBy(outlet =>
+                db.Channels.Where(channel => channel.Id == outlet.ChannelId)
+                    .Select(channel => channel.Name).First()),
+            (OutletSort.Channel, true) => outlets.OrderByDescending(outlet =>
+                db.Channels.Where(channel => channel.Id == outlet.ChannelId)
+                    .Select(channel => channel.Name).First()),
+            (OutletSort.Status, false) => outlets.OrderBy(outlet => outlet.Status),
+            (OutletSort.Status, true) => outlets.OrderByDescending(outlet => outlet.Status),
+            (_, true) => outlets.OrderByDescending(outlet => outlet.Code),
+            _ => outlets.OrderBy(outlet => outlet.Code),
+        };
+
+        return sort == OutletSort.Code ? ordered : ordered.ThenBy(outlet => outlet.Code);
+    }
 
     private static async Task<OutletResponse?> Single(
         OutletsDbContext db, Guid id, ITerritoryDirectory territories, CancellationToken ct) =>
