@@ -154,6 +154,19 @@ docker run --rm -v "$(pwd)/frontend:/src:ro" -w /build node:24 \
   sh -c 'cp -r /src/. /build && rm -rf node_modules .next && npm ci --no-audit --no-fund'
 ```
 
+> **On Windows, exclude `node_modules` from the copy instead of deleting it after.** The command
+> above copies it across a bind mount and then throws it away — measured at over ten minutes, against
+> **21 seconds** for the identical check when the copy skips it:
+>
+> ```bash
+> docker run --rm -v "$(pwd)/frontend:/src:ro" -w /build node:24 \
+>   sh -c 'cd /src && tar --exclude=./node_modules --exclude=./.next -cf - . \
+>     | (cd /build && tar -xf -) && cd /build && npm ci --no-audit --no-fund'
+> ```
+>
+> Same verification: a clean tree, the committed lockfile, and `npm ci` failing loudly on any
+> disagreement. Only the copy changes.
+
 ## Verifying a change to this setup
 
 Reproduce the failure before trusting a fix — this was originally misdiagnosed from a plausible
