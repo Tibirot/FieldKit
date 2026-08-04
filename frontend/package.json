@@ -41,6 +41,7 @@
   },
   "devDependencies": {
     "@formatjs/icu-messageformat-parser": "^3.5.16",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -48,6 +49,7 @@
     "esbuild": "^0.28.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
+    "jsdom": "^30.0.1",
     "postcss": "^8.5.18",
     "typescript": "^6",
     "vitest": "^4.1.10",

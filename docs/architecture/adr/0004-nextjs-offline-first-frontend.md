@@ -47,6 +47,35 @@ Adopt **Next.js (App Router) + React 19 + TypeScript** as the single front-end a
   ([ADR-0011](0011-deployment-azure-container-apps.md)), composed by Aspire
   ([ADR-0003](0003-adopt-dotnet-aspire.md)).
 
+## State: three kinds, and only one library
+
+Recorded after the fact, because it was being decided by default. TanStack Query was named here from
+the start and IndexedDB with it; **client state was never chosen**, so the shell was built with React
+state and one context simply because that is what you reach for first. Writing it down is what makes
+the next person's Zustand import a decision rather than a reflex.
+
+| Kind | Lives in | Example |
+|---|---|---|
+| **Server state** | TanStack Query | The outlet base, the field-definition catalogue |
+| **Durable device state** | IndexedDB via Dexie, read reactively with `liveQuery` | A rep's journey, a draft order, the outbox |
+| **Ephemeral UI state** | React `useState`, lifted to the nearest common owner | A filter, an open dialog, a half-edited import grid |
+
+**There is no global client store, and adding one needs a reason that passes this test:** state that
+must be shared *across routes* **and** is neither server-backed nor device-backed. Anything
+server-backed belongs in the query cache, where invalidation is already solved; anything a rep must
+not lose when the tab dies belongs in IndexedDB, which is the whole point of
+[ADR-0007](0007-offline-sync-strategy.md).
+
+Applying that test to what is actually coming: the import grid lives in one route; a draft order is
+device-backed; filters are one screen's business. **So the honest expectation is that this product
+never needs one** — which is worth saying, because the failure mode is not a missing library. It is a
+second copy of an outlet in a store, disagreeing with the query cache about which one is current, and
+no rule about which wins.
+
+Two things follow from having no store. **Cross-route state gets a URL** — a filter or a selected row
+belongs in search params, where it is shareable, restorable and back-button-correct for free. And
+**auth stays a context**, because it is genuinely global, genuinely small, and has exactly one writer.
+
 ## Options considered
 
 | Option | Verdict | Why |

@@ -33,6 +33,16 @@ flowchart TB
   as pricing** (decimal lib + rounding + **generated C#≡TS vectors**): share-of-shelf ratios and
   weighted sums are a second float-vs-decimal divergence surface (BR-AUD-5/12, [Audit](../product/22-merchandising-and-audits.md)).
 - Front-end units in **Vitest** (components, local-store repositories, outbox logic).
+  - **Components render for real**, through Testing Library in jsdom, with the **real message
+    catalog** — a stubbed `useTranslations` that echoes its key makes every missing-translation test
+    pass and deletes the assertion it looked like it was making.
+  - Queried **by role and by text**, never by test id or class name: what a test asserts should be
+    what a person can perceive, which is also what makes the assertions double as accessibility
+    checks. "There is no link to Dashboard" is a fact about the product; `.navi.disabled` is a fact
+    about the stylesheet.
+  - jsdom is **opt-in per file** (`@vitest-environment jsdom`). Most of this suite asserts over pure
+    modules and has no use for a DOM; making every file pay for one costs seconds on a suite that
+    runs in single digits.
 
 ## 3. Integration tests (some) — real Postgres
 
