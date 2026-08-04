@@ -71,6 +71,14 @@
       {
         "name": "territory:write",
         "description": "Create territories and decide which outlets they cover (Organization module). Separate again because a territory's membership is a rep's offline data scope (BR-ORG-3) — moving an outlet changes what a device downloads tomorrow."
+      },
+      {
+        "name": "config:read",
+        "description": "View the tenant's custom-field definitions (Configuration module)."
+      },
+      {
+        "name": "config:write",
+        "description": "Define and edit custom fields (Configuration module). One pair for the whole module: authoring fields, workflows, forms and weights is one job (ADR-0009)."
       }
     ]
   },
@@ -163,7 +171,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["product:read", "role:read", "orgunit:read", "position:read", "outlet:read", "channel:read", "territory:read"]
+      "realmRoles": ["product:read", "role:read", "orgunit:read", "position:read", "outlet:read", "channel:read", "territory:read", "config:read"]
     },
     {
       "username": "admin",
@@ -179,7 +187,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["role:read", "role:write", "user:read", "user:write", "orgunit:read", "orgunit:write", "position:read", "position:write", "outlet:read", "outlet:write", "channel:read", "channel:write", "territory:read", "territory:write"]
+      "realmRoles": ["role:read", "role:write", "user:read", "user:write", "orgunit:read", "orgunit:write", "position:read", "position:write", "outlet:read", "outlet:write", "channel:read", "channel:write", "territory:read", "territory:write", "config:read", "config:write"]
     }
   ]
 }

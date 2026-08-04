@@ -144,6 +144,12 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
   erasure is an empty list. BR-OUT-2's "required to participate in journeys" lands with Journey (W7),
   where participation is defined.
 - **Configuration module (10th):** field-definition catalog + `IFieldDefinitionCatalog` + JSONB values + server validation, wired into Outlets first ([ADR-0009](architecture/adr/0009-config-driven-customization.md)). (Workflow/survey/weight definitions land in W10.)
+  ✓ **Field definitions + custom-field validation** (`CFG-01`, `CFG-02`, `OUT-02`) — five types
+  (text/number/boolean/date/choice), the catalogue reached through `IFieldDefinitionCatalog` so
+  Outlets never learns what a tenant's fields mean, and values in typed JSONB validated
+  server-side (BR-CFG-3). Current definitions only: `BR-CFG-1`'s retention serves as-of-capture
+  validation, which needs the sync protocol that arrives with `CFG-06`/`CFG-07`
+  ([spec §6.1](product/14-configuration.md#61-what-is-built-phase-1)).
 - Bulk-import / seed outlets.
 
 **Done when:** territories + outlets CRUD via API; custom fields validate; events land in the outbox.

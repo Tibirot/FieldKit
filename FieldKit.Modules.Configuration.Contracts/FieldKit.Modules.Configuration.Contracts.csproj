@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Configuration module's *only* public surface. Other modules reference this assembly and never
+    FieldKit.Modules.Configuration (AT-1).
+
+    Unusually, it lands *with* the module rather than after it — because it has a consumer on day
+    one: Outlets validates its custom fields against IFieldDefinitionCatalog, and a catalogue nobody
+    can read is a catalogue that does nothing. The module's other registry contracts —
+    IVisitWorkflow, ISurveyForms, IScoreWeights, IReferenceChangeFeed — describe Phase 3 features and
+    still wait for theirs.
+
+    Note what it does NOT reference: no EF Core, no ASP.NET, no Infrastructure. A contracts assembly
+    that could see a DbContext would let an entity leak through a signature (AT-3), and the arch test
+    for that would be checking types rather than the far simpler fact that the reference is absent.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FieldKit.SharedKernel\FieldKit.SharedKernel.csproj" />
+    <ProjectReference Include="..\FieldKit.BuildingBlocks\FieldKit.BuildingBlocks.csproj" />
+  </ItemGroup>
+
+</Project>

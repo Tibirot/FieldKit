@@ -1,4 +1,6 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
+using FieldKit.Modules.Configuration.Contracts;
 using FieldKit.SharedKernel;
 using FieldKit.Web;
 using Microsoft.AspNetCore.Builder;
@@ -31,7 +33,8 @@ public sealed record OutletResponse(
     // wire shape is identical either way — this just keeps a serialization concern out of a shared
     // domain type.
     Coordinates? Location,
-    IReadOnlyList<OutletContact> Contacts);
+    IReadOnlyList<OutletContact> Contacts,
+    IReadOnlyDictionary<string, JsonElement> CustomFields);
 
 /// <summary>Create an outlet. <paramref name="Code"/> is the tenant's own identifier.</summary>
 public sealed record CreateOutletRequest(
@@ -43,7 +46,8 @@ public sealed record CreateOutletRequest(
     string TimeZoneId,
     Address? Address = null,
     Coordinates? Location = null,
-    IReadOnlyList<OutletContact>? Contacts = null);
+    IReadOnlyList<OutletContact>? Contacts = null,
+    IReadOnlyDictionary<string, JsonElement>? CustomFields = null);
 
 /// <summary>
 /// Update the details. The code is not editable — see <see cref="Outlet.Update"/>.
@@ -61,7 +65,8 @@ public sealed record UpdateOutletRequest(
     string TimeZoneId,
     Address? Address = null,
     Coordinates? Location = null,
-    IReadOnlyList<OutletContact>? Contacts = null);
+    IReadOnlyList<OutletContact>? Contacts = null,
+    IReadOnlyDictionary<string, JsonElement>? CustomFields = null);
 
 
 /// <summary>Move an outlet through its lifecycle (<c>OUT-04</c>). Accepts the status by name.</summary>
@@ -105,7 +110,8 @@ internal static class OutletEndpoints
             .RequirePermission(OutletsPermissions.OutletRead);
 
         outlets.MapPost("/", async (
-            CreateOutletRequest request, OutletsDbContext db, CancellationToken ct) =>
+            CreateOutletRequest request, OutletsDbContext db, IFieldDefinitionCatalog fields,
+            CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Code))
             {
@@ -123,6 +129,11 @@ internal static class OutletEndpoints
                 return locationProblem;
             }
 
+            if (await CustomFieldProblem(request.CustomFields, fields, ct) is { } fieldProblem)
+            {
+                return fieldProblem;
+            }
+
             if (await db.Outlets.AnyAsync(outlet => outlet.Code == request.Code, ct))
             {
                 return Results.Conflict(new { error = $"An outlet with code '{request.Code}' already exists." });
@@ -137,7 +148,8 @@ internal static class OutletEndpoints
                 request.TimeZoneId,
                 request.Address,
                 location,
-                request.Contacts);
+                request.Contacts,
+                request.CustomFields);
 
             db.Outlets.Add(created);
 
@@ -153,7 +165,8 @@ internal static class OutletEndpoints
         }).RequirePermission(OutletsPermissions.OutletWrite);
 
         outlets.MapPut("/{id:guid}", async (
-            Guid id, UpdateOutletRequest request, OutletsDbContext db, IClock clock, CancellationToken ct) =>
+            Guid id, UpdateOutletRequest request, OutletsDbContext db, IFieldDefinitionCatalog fields,
+            IClock clock, CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Name))
             {
@@ -169,6 +182,11 @@ internal static class OutletEndpoints
                 return locationProblem;
             }
 
+            if (await CustomFieldProblem(request.CustomFields, fields, ct) is { } fieldProblem)
+            {
+                return fieldProblem;
+            }
+
             outlet.Update(
                 request.Name,
                 request.ChannelId,
@@ -178,6 +196,7 @@ internal static class OutletEndpoints
                 request.Address,
                 location,
                 request.Contacts,
+                request.CustomFields,
                 clock);
 
             await db.SaveChangesAsync(ct);
@@ -248,6 +267,31 @@ internal static class OutletEndpoints
                     change.From, change.To, change.Reason, change.CreatedAtUtc, change.CreatedBy))
                 .ToListAsync(ct));
         }).RequirePermission(OutletsPermissions.OutletRead);
+    }
+
+    /// <summary>
+    /// Rejects custom-field values the tenant's catalogue does not describe (<c>CFG-02</c>).
+    /// </summary>
+    /// <remarks>
+    /// Outlets asks Configuration for the definitions and validates its own values, rather than
+    /// handing them over to be judged. The rule belongs where the data is written: this module knows
+    /// it is an outlet being saved and can say so, where a shared validator would have to say
+    /// "entity".
+    /// </remarks>
+    private static async Task<IResult?> CustomFieldProblem(
+        IReadOnlyDictionary<string, JsonElement>? values,
+        IFieldDefinitionCatalog catalog,
+        CancellationToken ct)
+    {
+        var definitions = await catalog.ForAsync(CustomFieldEntity.Outlet, ct);
+
+        // Skipped entirely when the tenant has defined nothing and sent nothing — the common case,
+        // and not worth a round trip's worth of ceremony to conclude there is nothing to check.
+        if (definitions.Count == 0 && (values is null || values.Count == 0)) return null;
+
+        var problems = CustomFieldValidator.Validate(values, definitions);
+
+        return problems.Count == 0 ? null : Results.BadRequest(new { errors = problems });
     }
 
     /// <summary>
@@ -344,7 +388,8 @@ internal static class OutletEndpoints
             outlet.Latitude != null && outlet.Longitude != null
                 ? new Coordinates(outlet.Latitude.Value, outlet.Longitude.Value)
                 : null,
-            outlet.Contacts);
+            outlet.Contacts,
+            outlet.CustomFields);
 
     private static async Task<OutletResponse?> Single(OutletsDbContext db, Guid id, CancellationToken ct) =>
         await Project(db, db.Outlets.Where(outlet => outlet.Id == id)).SingleOrDefaultAsync(ct);

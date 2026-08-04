@@ -54,7 +54,7 @@ public static class SystemRoleTemplates
     [
         // Reads the outlet base and the vocabulary it is classified by, because that is the round
         // they walk. Changes neither.
-        new("Field Rep", ["product:read", "outlet:read", "channel:read", "territory:read"]),
+        new("Field Rep", ["product:read", "outlet:read", "channel:read", "territory:read", "config:read"]),
 
         // Reads the hierarchy because a supervisor's job is defined by their branch of it, and reads
         // positions because that is who is in it. Cannot redraw either — both are back-office acts.
@@ -66,6 +66,8 @@ public static class SystemRoleTemplates
             "outlet:read",
             "channel:read",
             "territory:read",
+            // Reads the catalogue because the outlet screens a supervisor looks at render from it.
+            "config:read",
             IamPermissions.UserRead,
         ]),
 
@@ -86,6 +88,7 @@ public static class SystemRoleTemplates
             // scope (BR-ORG-3), which is squarely sales ops' job rather than org design's.
             "territory:read",
             "territory:write",
+            "config:read",
         ]),
 
         // No product permissions, on purpose. An admin who can grant capabilities does not thereby
@@ -100,6 +103,10 @@ public static class SystemRoleTemplates
             // channel changes what every assortment and pricing rule keyed to it means.
             "channel:read",
             "channel:write",
+            // Authoring what a tenant may record about its own data is tenant administration, not
+            // sales operations — the same reasoning that keeps channel renames here.
+            "config:read",
+            "config:write",
             IamPermissions.RoleRead,
             IamPermissions.RoleWrite,
             IamPermissions.UserRead,
