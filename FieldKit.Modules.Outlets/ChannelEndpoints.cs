@@ -36,7 +36,7 @@ internal static class ChannelEndpoints
                 return Results.BadRequest(new { error = "A channel needs a name." });
             }
 
-            if (await db.Channels.AnyAsync(channel => channel.Name == request.Name, ct))
+            if (await db.Channels.AnyAsync(channel => channel.Name.ToLower() == request.Name.ToLower(), ct))
             {
                 return Results.Conflict(new { error = $"A channel named '{request.Name}' already exists." });
             }
@@ -60,7 +60,7 @@ internal static class ChannelEndpoints
             var channel = await db.Channels.SingleOrDefaultAsync(c => c.Id == id, ct);
             if (channel is null) return Results.NotFound();
 
-            if (await db.Channels.AnyAsync(c => c.Name == request.Name && c.Id != id, ct))
+            if (await db.Channels.AnyAsync(c => c.Name.ToLower() == request.Name.ToLower() && c.Id != id, ct))
             {
                 return Results.Conflict(new { error = $"A channel named '{request.Name}' already exists." });
             }

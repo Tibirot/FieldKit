@@ -275,6 +275,58 @@ public class OutletImportTests(ServerFixture fixture)
     }
 
     [Fact]
+    public async Task A_channel_is_matched_however_the_spreadsheet_capitalised_it()
+    {
+        // A file saying "modern trade" means the tenant's "Modern Trade" and there is nothing else it
+        // could mean — because a channel name is unique per tenant ignoring case. Reading forgives
+        // the capitalisation; the channel itself keeps the one it was created with.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+        var channel = await ChannelAsync(client);
+        var code = Unique("OUT");
+
+        var result = await ImportAsync(client, $"""
+            code,name,channel,time_zone
+            {code},Corner Shop,{channel.ToUpperInvariant()},{Zone}
+            """);
+
+        Assert.Equal(1, result.Imported);
+
+        var outlets = await client.GetFromJsonAsync<List<OutletResponse>>("/api/outlets");
+        Assert.Equal(channel, outlets!.Single(outlet => outlet.Code == code).ChannelName);
+    }
+
+    [Fact]
+    public async Task A_code_that_differs_only_in_capitalisation_is_the_same_code()
+    {
+        // One shop entered twice, in the file and against what is already stored. Importing the pair
+        // would be the accident rather than the service.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+        var channel = await ChannelAsync(client);
+        var code = Unique("OUT").ToUpperInvariant();
+
+        var withinFile = await ImportAsync(client, $"""
+            code,name,channel,time_zone
+            {code},First,{channel},{Zone}
+            {code.ToLowerInvariant()},Second,{channel},{Zone}
+            """, OutletImportMode.Partial);
+
+        Assert.Equal(1, withinFile.Imported);
+        Assert.Contains(withinFile.Problems, problem => problem.Message.Contains("more than once in this file"));
+
+        var againstStored = await ImportAsync(client, $"""
+            code,name,channel,time_zone
+            {code.ToLowerInvariant()},Third,{channel},{Zone}
+            """, OutletImportMode.Partial);
+
+        Assert.Equal(0, againstStored.Imported);
+        Assert.Contains(againstStored.Problems, problem => problem.Message.Contains("already exists"));
+
+        // And the stored code kept the capitalisation it arrived with.
+        var outlets = await client.GetFromJsonAsync<List<OutletResponse>>("/api/outlets");
+        Assert.Contains(outlets!, outlet => outlet.Code == code);
+    }
+
+    [Fact]
     public async Task An_unknown_channel_is_refused_rather_than_created()
     {
         // A typo in one cell would otherwise mint "Modren Trade" as a permanent classification that

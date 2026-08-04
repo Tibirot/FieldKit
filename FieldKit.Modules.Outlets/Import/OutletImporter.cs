@@ -74,9 +74,11 @@ internal static class OutletImporter
             .ToListAsync(ct);
 
         var existingCodes = (await db.Outlets.Select(outlet => outlet.Code).ToListAsync(ct))
-            .ToHashSet(StringComparer.Ordinal);
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var codesInFile = new HashSet<string>(StringComparer.Ordinal);
+        // Both sets ignore case, matching the index that enforces it: a file holding OUT-1 and out-1
+        // is one shop entered twice, and importing the pair is the accident rather than the service.
+        var codesInFile = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var problems = new List<OutletImportProblem>();
         var rejected = new List<(OutletImportRow Row, IReadOnlyList<string> Reasons)>();
         var accepted = new List<Outlet>();
@@ -196,9 +198,14 @@ internal static class OutletImporter
     /// is a separate permission from <c>outlet:write</c> — this path holds only the latter.
     /// </para>
     /// <para>
-    /// Matched exactly first, then case-insensitively when that is unambiguous. A tenant with both
-    /// <c>HoReCa</c> and <c>Horeca</c> gets told its file is ambiguous rather than getting a coin
-    /// toss, because the names are unique per tenant case-<i>sensitively</i> and both may exist.
+    /// Matched <b>case-insensitively</b>, plainly. A spreadsheet saying <c>modern trade</c> means the
+    /// tenant's <c>Modern Trade</c> and there is nothing else it could mean, because a channel name
+    /// is unique per tenant case-insensitively.
+    ///
+    /// That is a database index rather than an assumption, which is the only reason this can be one
+    /// comparison. An earlier version of this method matched exactly, then loosely, then reported an
+    /// ambiguity — three branches to cope with a tenant holding both <c>HoReCa</c> and <c>Horeca</c>.
+    /// Fixing the index that let that pair exist deleted the problem instead of handling it.
     /// </para>
     /// </remarks>
     private static Guid? ResolveChannel(
@@ -212,28 +219,13 @@ internal static class OutletImporter
             return null;
         }
 
-        var exact = channels.Where(channel => string.Equals(
-            (string)channel.Name, wanted, StringComparison.Ordinal)).ToList();
+        var match = channels.FirstOrDefault(channel =>
+            string.Equals(channel.Name, wanted, StringComparison.OrdinalIgnoreCase));
 
-        if (exact.Count == 1) return exact[0].Id;
+        if (match is not null) return match.Id;
 
-        var loose = channels.Where(channel => string.Equals(
-            (string)channel.Name, wanted, StringComparison.OrdinalIgnoreCase)).ToList();
-
-        switch (loose.Count)
-        {
-            case 1:
-                return loose[0].Id;
-
-            case 0:
-                issues.Add((Column.Channel, $"There is no channel called '{wanted}'."));
-                return null;
-
-            default:
-                issues.Add((Column.Channel,
-                    $"'{wanted}' matches more than one channel, differing only in capitalisation."));
-                return null;
-        }
+        issues.Add((Column.Channel, $"There is no channel called '{wanted}'."));
+        return null;
     }
 
     private static string? ResolveTimeZone(OutletImportRow row, List<(string?, string)> issues)

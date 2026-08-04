@@ -31,7 +31,9 @@ public sealed class OutletsDbContext(DbContextOptions<OutletsDbContext> options,
             channel.ToTable("channel");
             channel.HasKey(c => c.Id);
             channel.Property(c => c.Name).HasMaxLength(100).IsRequired();
-            channel.HasIndex(c => new { c.TenantId, c.Name }).IsUnique();
+
+            // The uniqueness is case-insensitive and lives in raw SQL — see the note on the outlet's
+            // code index below, which is the same decision for the same reason.
         });
 
         modelBuilder.Entity<Outlet>(outlet =>
@@ -50,7 +52,15 @@ public sealed class OutletsDbContext(DbContextOptions<OutletsDbContext> options,
 
             // The tenant's own identifier, so unique per tenant and not globally — two tenants
             // numbering their stores from 1 is the ordinary case, not a collision.
-            outlet.HasIndex(o => new { o.TenantId, o.Code }).IsUnique();
+            //
+            // Declared in raw SQL (see the AddCaseInsensitiveUniqueness migration) rather than here,
+            // because the uniqueness is case-INsensitive and EF has no fluent API for an index over
+            // an expression. A plain `(TenantId, Code)` compares case-sensitively in Postgres, which
+            // let OUT-1 and out-1 both exist: two rows for one shop, and a bulk import of a file
+            // holding both would create the pair without a word.
+            //
+            // The stored value keeps whatever casing it was given — only the comparison ignores case,
+            // which is why the endpoints look up through `ToLower()` and hit the same index.
 
             // BR-OUT-1's half that a database can hold: every outlet has a channel, and the channel
             // cannot be deleted out from under it. The endpoint refuses first with a count, which is

@@ -191,6 +191,13 @@ Decisions worth stating, because each has a plausible opposite:
 - **Channels are resolved by name and never created.** A typo in one cell would otherwise mint
   "Modren Trade" as a permanent classification that assortment and pricing rules key off. That is why
   `channel:write` is a separate permission, and this path does not hold it.
+- **Reading ignores case; writing keeps it.** A file saying `modern trade` means the tenant's
+  `Modern Trade`, and `OUT-1` and `out-1` are one shop written two ways. Stored values keep whatever
+  capitalisation they arrived with — only comparison ignores it. This is a **database guarantee**, not
+  an importer convention: channel names and outlet codes are unique per tenant over `lower(…)`. Before
+  that index the claim in `Channel`'s own source — "two channels with one name are a data-entry
+  accident" — was stated but unenforced, and an assortment rule keyed to `HoReCa` would silently miss
+  every outlet filed under `Horeca`.
 - **Duplicate codes are caught within the file**, not left to the unique index — an exception mid-save
   is not the row number the admin needs.
 - **Unused columns are named, not dropped in silence.** A real export is full of `legacy_id`, so
@@ -237,7 +244,28 @@ What the response already provides for it:
 - `ignoredColumns` is the warning banner that catches a mistyped custom-field header.
 - `OutletImportFormat.MaxRows` is public so the screen can refuse an oversized file before uploading it.
 
-The intended flow is **dry run, review, then apply** — which is why the dry run costs nothing and
+**The review step is an editable grid.** Upload, dry-run, and the file comes back as a table with the
+bad cells flagged — fix them in place, re-check, apply. Mistakes get corrected *before* anything is
+written rather than after, which is the difference between an admin fixing a typo and an admin fixing
+a typo that is now an outlet other people can already see.
+
+That the grid needs no new API is the evidence the response shape was right: `problems` already
+carry `{row, column, message}`, `row` already matches the file's own line numbers, and re-checking is
+the same dry run again. The grid holds the file in the browser the whole time and serializes back to
+CSV on apply.
+
+Deliberately **before** the write rather than after it:
+
+- A post-apply grid would be editing outlets, which is the Outlets screen — the import has no more to
+  say about them by then.
+- Showing "what this import created" needs a batch identity, which needs a persisted import record —
+  the thing an inline result deliberately avoids. If audit ever wants it ("who loaded these 4,000
+  outlets"), that is a feature to add on purpose, not a side effect of a review screen.
+
+`rejectedRowsCsv` stays regardless: it is the escape hatch for `Partial` runs, for files too big to
+review by eye, and for anyone driving this from a script rather than a browser.
+
+The flow is therefore **dry run, fix in the grid, apply** — which is why the dry run costs nothing and
 returns exactly what the real run would.
 
 ## 7. Offline behavior

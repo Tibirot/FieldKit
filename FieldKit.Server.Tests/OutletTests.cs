@@ -185,6 +185,14 @@ public class OutletTests(ServerFixture fixture)
             "/api/outlets", new CreateOutletRequest(code, "Same code", channel.Id, null, null, Zone));
 
         Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
+
+        // Ignoring case, because OUT-1 and out-1 are one shop written two ways. Enforced by an index
+        // over lower(Code), so it holds against a concurrent write and not only against this check.
+        var recased = await client.PostAsJsonAsync(
+            "/api/outlets",
+            new CreateOutletRequest(code.ToLowerInvariant(), "Same code, quieter", channel.Id, null, null, Zone));
+
+        Assert.Equal(HttpStatusCode.Conflict, recased.StatusCode);
     }
 
     [Fact]
@@ -416,6 +424,27 @@ public class OutletTests(ServerFixture fixture)
         var after = await client.GetFromJsonAsync<OutletResponse>($"/api/outlets/{outlet.Id}");
         Assert.Equal(channel.Id, after!.ChannelId);
         Assert.Equal(renamed, after.ChannelName);
+    }
+
+    [Fact]
+    public async Task Two_channels_differing_only_in_capitalisation_are_one_data_entry_accident()
+    {
+        // The entity has claimed since it was written that "two channels with one name are a
+        // data-entry accident" — but the index behind it compared case-sensitively, so HoReCa and
+        // Horeca could both exist, and every assortment rule keyed to one of them would quietly miss
+        // the outlets filed under the other.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var channel = await ChannelAsync(client);
+
+        var recased = await client.PostAsJsonAsync(
+            "/api/outlets/channels", new ChannelRequest(channel.Name.ToUpperInvariant()));
+
+        Assert.Equal(HttpStatusCode.Conflict, recased.StatusCode);
+
+        // Writing keeps the capitalisation it was given; only the comparison ignores it.
+        var channels = await client.GetFromJsonAsync<List<ChannelResponse>>("/api/outlets/channels");
+        Assert.Contains(channels!, existing => existing.Name == channel.Name);
     }
 
     [Fact]

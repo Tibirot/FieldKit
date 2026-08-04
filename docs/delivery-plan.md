@@ -165,7 +165,8 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
 **Goal:** the Phase 1 demo — a usable back office.
 - Back-office route group + shell (nav per wireframes), auth guard, TanStack Query, i18n.
 - **Outlets** screen (table, filters, create/edit incl. custom-field form) + **import screen** —
-  upload, dry-run, review the problem table, apply, download the rejected rows (`OUT-05`).
+  upload, dry-run, fix the flagged cells in an **editable grid**, apply (`OUT-05`). Correcting before
+  the write rather than after is the point; the rejected-rows download stays as the escape hatch.
 - **Territories** screen (list + rep assignment).
 - **Users & roles** screen (list + role permission toggles).
 
