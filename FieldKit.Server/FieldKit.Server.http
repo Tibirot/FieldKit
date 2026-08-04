@@ -406,7 +406,87 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
   "name": "Mega Image Dorobanți",
   "channelId": "{{channel.response.body.id}}",
   "segment": "A",
-  "banner": "Mega Image"
+  "banner": "Mega Image",
+  "timeZoneId": "Europe/Bucharest",
+  "address": {
+    "street": "Calea Dorobanți 172",
+    "city": "București",
+    "postalCode": "010578",
+    "countryCode": "RO"
+  },
+  "location": { "latitude": 44.4638, "longitude": 26.0946 },
+  "contacts": [
+    { "name": "Ana Ionescu", "role": "Store manager", "phone": "+40 721 000 000", "email": "ana@example.ro" }
+  ]
+}
+
+### An unknown time zone — expect 400. Checked against the runtime's zone database rather than a
+### pattern, because "Europe/Bucuresti" is well-formed and does not exist. A visit's business day and
+### a promotion's validity both resolve in this zone, so a wrong one is a wrong answer waiting.
+POST {{Server_HostAddress}}/api/outlets
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "code": "RO-BUC-0003",
+  "name": "Bad zone",
+  "channelId": "{{channel.response.body.id}}",
+  "timeZoneId": "Europe/Bucuresti"
+}
+
+### The per-tenant outlet policy. `validateGeoCoordinates` decides whether *supplied* coordinates are
+### checked; it does not make them required. Default on.
+GET {{Server_HostAddress}}/api/outlets/settings
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### A point that is not on the earth — expect 400 while validation is on.
+POST {{Server_HostAddress}}/api/outlets
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "code": "RO-BUC-0004",
+  "name": "Off earth",
+  "channelId": "{{channel.response.body.id}}",
+  "timeZoneId": "Europe/Bucharest",
+  "location": { "latitude": 91, "longitude": 200 }
+}
+
+### Turn validation off. NOTE: while off, out-of-range coordinates are stored — turning it back on
+### does not clean them, and the next save of such an outlet fails against data already in the table.
+PUT {{Server_HostAddress}}/api/outlets/settings
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "validateGeoCoordinates": false
+}
+
+### An outlet with no coordinates at all — accepted either way. They are optional, and the setting
+### above does not make them required.
+POST {{Server_HostAddress}}/api/outlets
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "code": "RO-BUC-0005",
+  "name": "No coordinates",
+  "channelId": "{{channel.response.body.id}}",
+  "timeZoneId": "Europe/Bucharest"
+}
+
+### Contacts are replaced wholesale, so an empty list erases them. They are personal data (B8) and
+### this is the deletion path today — the rows go, rather than being flagged.
+PUT {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Mega Image Dorobanți",
+  "channelId": "{{channel.response.body.id}}",
+  "timeZoneId": "Europe/Bucharest",
+  "contacts": []
 }
 
 ### The same code twice — expect 409. Unique per tenant, not globally: two tenants numbering their
@@ -418,7 +498,8 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
 {
   "code": "RO-BUC-0001",
   "name": "Duplicate",
-  "channelId": "{{channel.response.body.id}}"
+  "channelId": "{{channel.response.body.id}}",
+  "timeZoneId": "Europe/Bucharest"
 }
 
 ### An unknown channel — expect 400.
@@ -429,7 +510,8 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
 {
   "code": "RO-BUC-0002",
   "name": "No channel",
-  "channelId": "00000000-0000-0000-0000-000000000000"
+  "channelId": "00000000-0000-0000-0000-000000000000",
+  "timeZoneId": "Europe/Bucharest"
 }
 
 ### Edit the details. Note there is no `code` field: the code is how an import recognises a location
@@ -443,7 +525,8 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
   "name": "Mega Image Dorobanți 1",
   "channelId": "{{channel.response.body.id}}",
   "segment": "B",
-  "banner": "Mega Image"
+  "banner": "Mega Image",
+  "timeZoneId": "Europe/Bucharest"
 }
 
 ### Filter the base. The two questions a back office actually asks of it, both indexed.
