@@ -148,6 +148,98 @@ person who knows the answer is the one doing it. Demanding a reason for a routin
 | OUT-09 | Map view of the outlet base | Could | 4 |
 | OUT-10 | Contact PII handling & erasure hooks | Could | 4 |
 
+### Bulk import (`OUT-05`)
+
+`POST /api/outlets/import` takes the file as the request body, with **`Content-Type` choosing the
+reader**. CSV is read today; JSON and Excel are follow-ups that add a reader and nothing else (see
+[§6.1](#61-import-formats-still-to-come)). Held to `outlet:write` — four thousand outlets is more
+volume than one, not a different capability.
+
+**Import is not a back door.** Every rule enforced by `POST /api/outlets` is enforced here, through
+the same domain factory, the same custom-field validator (`BR-OUT-5`), the same coordinate bounds and
+the same time-zone check. An importer with a laxer path becomes the way bad data enters, and every
+feature downstream inherits rows the API could never have produced.
+
+The one thing it does that the API does not is **coerce**, because a CSV has no types: `chiller_count`
+arrives as the text `"3"` and the validator would rightly refuse it as "must be a number". Coercion
+reads the tenant's own definitions (`CFG-01`) and converts text to the declared type — and then the
+identical validator runs. Coercion is parsing; the rules are unchanged. It is also only possible
+because Configuration exists to be asked: without the catalogue there is nothing to coerce *towards*.
+
+**The admin chooses what happens when rows are bad**, because both answers are right for different
+files:
+
+| Mode | Behavior |
+|---|---|
+| `AllOrNothing` (default) | One bad row and nothing is written. |
+| `Partial` | The good rows are written; the bad ones come back to be fixed and re-sent. |
+
+Both are **atomic** — every row is validated before anything is written, and the write is one
+transaction. The mode chooses *which set* is written, never whether the write can half-apply, which
+is what makes a retry safe either way. `dryRun=true` runs everything and writes nothing.
+
+Partial mode returns **`rejectedRowsCsv`**: the refused rows in the shape they arrived, plus an
+`import_error` column. Without it, an admin who imports 3,988 of 4,000 rows must hand-build a 12-row
+file, because re-sending the original would now collide with everything that landed. Returned inline
+rather than behind a link — a synchronous import has no result to outlive its response.
+
+Decisions worth stating, because each has a plausible opposite:
+
+- **Insert-only.** An existing `code` is reported, never overwritten. An import that updates would let
+  a stale spreadsheet silently revert back-office corrections across the whole base — and
+  `BR-OUT-3`'s point is that master data changes by a deliberate authorized act.
+- **Channels are resolved by name and never created.** A typo in one cell would otherwise mint
+  "Modren Trade" as a permanent classification that assortment and pricing rules key off. That is why
+  `channel:write` is a separate permission, and this path does not hold it.
+- **Duplicate codes are caught within the file**, not left to the unique index — an exception mid-save
+  is not the row number the admin needs.
+- **Unused columns are named, not dropped in silence.** A real export is full of `legacy_id`, so
+  refusing the file would be hostile; but a mistyped custom-field header looks identical, and passing
+  it over without a word is how a column of data goes missing quietly.
+- **Contacts are not importable.** A flat row cannot hold a list, and contacts are personal data
+  ([B8](decisions-and-assumptions.md#b8--privacy--gdpr-posture)) — a bulk path for PII deserves its
+  own decision rather than arriving as a side effect of an outlet import.
+- **Territory is not assigned on import.** `BR-OUT-1` names a primary territory, but membership is an
+  Organization-side act and the create API does not require one either. Enforcing it only on the
+  import path would make import stricter than the endpoint it mirrors, and having Outlets write Org
+  data for convenience is what module boundaries exist to prevent.
+- **A row cap, not a queue.** At most 5,000 rows per request, refused with a message rather than
+  truncated. An import that takes four minutes needs a job, a progress endpoint and somewhere to keep
+  its result — a different feature than this one.
+
+### 6.1 Import formats still to come
+
+CSV first because that is where this industry's data actually lives. The reader is a seam: coercion,
+validation, the write and the rejected-rows file all work on parsed rows, so each format below adds a
+reader and changes nothing else.
+
+| Format | Media type | Notes |
+|---|---|---|
+| JSON | `application/json` | Arrives already typed, so it skips coercion entirely. |
+| Excel | `.xlsx` media type | Also typed — a date cell is a date. Needs a library; **ClosedXML** (MIT), not EPPlus, which is no longer free for commercial use. |
+
+The rejected-rows file is worth deciding per format when they land: returning CSV for an Excel upload
+is defensible (every spreadsheet opens it) but is not the shape it was sent in.
+
+### 6.2 The import screen (Week 5)
+
+The API is shaped for a screen that does not exist yet and lands with the rest of the back office in
+[Week 5](../delivery-plan.md#week-5--back-office-shell--admin-screens), alongside the Outlets table.
+What the response already provides for it:
+
+- `accepted` / `rejected` / `imported` are **three separate numbers** because the screen has three
+  different sentences to say: what is valid, what is wrong, and what is now in the database. After a
+  dry run or a failed `AllOrNothing` run, `imported` is 0 while `accepted` is not.
+- `problems` are structured `{row, column, message}` — a table to scroll and sort, not prose to parse
+  apart. `row` is the line number in the uploaded file, header included, so it matches what the
+  admin's spreadsheet shows.
+- `rejectedRowsCsv` is a download button.
+- `ignoredColumns` is the warning banner that catches a mistyped custom-field header.
+- `OutletImportFormat.MaxRows` is public so the screen can refuse an oversized file before uploading it.
+
+The intended flow is **dry run, review, then apply** — which is why the dry run costs nothing and
+returns exactly what the real run would.
+
 ## 7. Offline behavior
 
 Outlets are **reference data**: pulled to the device (territory-scoped, [A4](decisions-and-assumptions.md#a4--offline-data-scope-territory-scoped))
