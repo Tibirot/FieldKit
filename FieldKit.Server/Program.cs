@@ -14,7 +14,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 builder.AddRedisClientBuilder("cache").WithOutputCache();
 
-builder.Services.AddProblemDetails();
+// Problem details that keep a 400 a 400: an unreadable body is the caller's mistake, and the plain
+// UseExceptionHandler reported every one of them as a server fault (ProblemDetailsExtensions).
+builder.AddRequestProblemDetails();
 builder.Services.AddOpenApi();
 
 // Validate the Keycloak-issued JWT (ADR-0008) and reject one without a usable tenant claim, so
@@ -33,7 +35,7 @@ builder.Services.AddModules(builder.Configuration, modules);
 
 var app = builder.Build();
 
-app.UseExceptionHandler();
+app.UseRequestExceptionHandler();
 
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
