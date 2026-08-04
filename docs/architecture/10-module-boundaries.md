@@ -150,8 +150,9 @@ Boundaries that rely on goodwill rot. FieldKit encodes them as **executable test
 | AT-7 | No `DateTime.Now`/`DateTimeOffset.Now`; only an injected `IClock` (UTC). | Testability + [i18n/timezone](adr/0010-internationalization.md). |
 | AT-8 | Domain layer references no EF Core / ASP.NET types. | Keep the domain pure. |
 | AT-9 | No `IgnoreQueryFilters` or `ExecuteSqlRaw` in production code. | The tenant filter is the isolation guarantee ([ADR-0008](adr/0008-authentication-and-multitenancy.md), BR-IAM-1). |
+| AT-10 | The graph of **contract implementations depending on other modules' contracts** is acyclic. | Two modules may reference each other's contracts; their *implementations* may not call in a circle. |
 
-**Two enforcement mechanisms, not one.** AT-1…AT-6 and AT-8 are *tests* — they inspect assemblies,
+**Two enforcement mechanisms, not one.** AT-1…AT-6, AT-8 and AT-10 are *tests* — they inspect assemblies,
 so they need the assemblies to exist. **AT-7 and AT-9 are compile-time**, via the banned-API
 analyzer: banning a symbol outright is stronger than asserting nobody used it, because the failure
 lands on the developer who typed it rather than on CI minutes later.
@@ -199,8 +200,8 @@ we hold the option without paying to exercise it.
 | Module | Assembly | Schema | Key contracts | Publishes |
 |---|---|---|---|---|
 | IAM | `…Modules.Iam` (+ `.Contracts`) | `iam` | `IUserDirectory`, `ITenantRegistry` | `UserDeactivated` |
-| Organization | `…Modules.Org` | `org` | `ITerritoryDirectory`, `IRepScope`, `IOrgHierarchy` | `RepAssignmentChanged` |
-| Outlets | `…Modules.Outlets` | `outlets` | `IOutletCatalog`, `IOutletClassification`, `IReferenceChangeFeed`, `IOutletProposalIngest` | `OutletChanged`, `OutletClosed` |
+| Organization | `…Modules.Org` (+ `.Contracts`) | `org` | `ITerritoryDirectory`, `IRepScope`, `IOrgHierarchy` | `RepAssignmentChanged` |
+| Outlets | `…Modules.Outlets` (+ `.Contracts`) | `outlets` | `IOutletCatalog`, `IOutletClassification`, `IReferenceChangeFeed`, `IOutletProposalIngest` | `OutletChanged`, `OutletClosed` |
 | Products & Pricing | `…Modules.Products` | `products` | `IProductCatalog`, `IAssortmentService`, `IPricingService`, `IReferenceChangeFeed` | `PriceListPublished`, `PromotionActivated` |
 | Configuration | `…Modules.Configuration` | `config` | `IFieldDefinitionCatalog`, `IVisitWorkflow`, `ISurveyForms`, `IScoreWeights`, `IReferenceChangeFeed` | `ConfigurationPublished` |
 | Journey | `…Modules.Journey` | `journey` | `IJourneyQuery`, `IReferenceChangeFeed`, `IJourneyIngest` | `JourneyPublished`, `PlannedVisitMarkedNotVisited` |
@@ -238,6 +239,33 @@ Configuration's problem.
 The split is what lets AT-1 be a real reference check rather than a naming convention, and it makes
 AT-3 structural: a contracts assembly that cannot see the implementation cannot name a domain type
 in a signature.
+
+### Two modules may point at each other
+
+**Organization and Outlets reference each other's contracts**, and that is allowed rather than
+tolerated. Organization asks `IOutletCatalog` whether a shop exists; Outlets asks
+`ITerritoryDirectory` which territory covers it, because `BR-OUT-1` says an outlet *has* one.
+
+It cannot cycle at build time. **Every `.Contracts` assembly is a leaf** — they reference only
+`SharedKernel` and `BuildingBlocks` — so the assembly graph stays acyclic however many modules point
+at each other, and AT-1 still forbids the coupling that would actually break a build. Insisting on a
+one-way arrow would have invented a hierarchy the domain does not have: Outlets owns *what a shop is*,
+Organization owns *who covers it*, and neither sits above the other.
+
+The alternatives are the ones that cause damage. A client-side join puts a domain relationship in the
+browser for every future consumer — an export, a report, the sync feed — to re-implement. Copying the
+territory onto the outlet buys a second source of truth plus an integration event to keep it aligned,
+which is a real tangle rather than a notional one.
+
+**What can still go wrong is a cycle at runtime**, and AT-1 cannot see it: if the class behind
+`ITerritoryDirectory` took a dependency on `IOutletCatalog` while the class behind `IOutletCatalog`
+took one on `ITerritoryDirectory`, a single call would re-enter through the other module — mutual
+recursion wearing two sets of perfectly legal references. **AT-10** is the gate: it builds the graph
+of contract *implementations* depending on other modules' contracts and asserts it is acyclic.
+
+The rule is deliberately about implementations only. An endpoint may depend on any module's contract,
+because nothing calls back into an endpoint; a contract implementation is the re-enterable surface,
+so it is the one constrained.
 
 > Two registry entries are not where an earlier draft placed them, and the difference is deliberate.
 > **`ITenantContext` lives in `BuildingBlocks`**, not `Iam.Contracts`: every module needs it on every

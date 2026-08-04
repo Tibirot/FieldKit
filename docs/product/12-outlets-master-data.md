@@ -125,7 +125,12 @@ person who knows the answer is the one doing it. Demanding a reason for a routin
 
 ## 5. Business rules
 
-- **BR-OUT-1** Every outlet has a **channel** and a **primary territory**.
+- **BR-OUT-1** Every outlet has a **channel** and a **primary territory**. The channel is required on
+  write; the territory is *shown* rather than required, because outlets are created before anyone
+  decides who covers them — the rule describes a configured tenant, not a precondition for storing a
+  shop. Organization owns the answer and Outlets asks for it through `ITerritoryDirectory`
+  ([module boundaries](../architecture/10-module-boundaries.md#two-modules-may-point-at-each-other)),
+  one call per page rather than one per row.
 - **BR-OUT-2** Geo-coordinates are required for outlets that participate in journeys/geofenced
   check-in (validated on save).
 - **BR-OUT-3** Field-originated changes are **proposals**; master data is only mutated by an

@@ -20,6 +20,13 @@
       schema is what keeps ADR-0005 intact. Contracts only, never the implementation (AT-1).
     -->
     <ProjectReference Include="..\FieldKit.Modules.Configuration.Contracts\FieldKit.Modules.Configuration.Contracts.csproj" />
+    <!--
+      Organization's contracts: BR-OUT-1 says an outlet has a territory, and Organization owns the
+      answer (ORG-05). This makes Org and Outlets the first pair of modules to reference each other's
+      contracts — see Territory.cs for why that cannot cycle at build time, and AT-10 for the part
+      that could cycle at runtime and is therefore tested rather than trusted.
+    -->
+    <ProjectReference Include="..\FieldKit.Modules.Org.Contracts\FieldKit.Modules.Org.Contracts.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

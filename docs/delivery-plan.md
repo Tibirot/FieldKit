@@ -164,6 +164,10 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
 ### Week 5 · Back-office shell + admin screens
 **Goal:** the Phase 1 demo — a usable back office.
 - Back-office route group + shell (nav per wireframes), auth guard, TanStack Query, i18n.
+  ✓ **`ITerritoryDirectory`** (`ORG-05`) — Organization's contract for which territory covers an
+  outlet, landing with the outlets screen as its first consumer. Makes Org and Outlets the first
+  module pair referencing each other's contracts, which is safe at build time and gated at runtime by
+  the new **AT-10** ([why](architecture/10-module-boundaries.md#two-modules-may-point-at-each-other)).
 - **Outlets** screen (table, filters, create/edit incl. custom-field form) + **import screen** —
   upload, dry-run, fix the flagged cells in an **editable grid**, apply (`OUT-05`). Correcting before
   the write rather than after is the point; the rejected-rows download stays as the escape hatch.
