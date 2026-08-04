@@ -53,6 +53,7 @@ the build, without pretending to be final visual design.
 |---|---|---|
 | Supervisor dashboard | Reporting & KPIs, `JRN-10`, `AUD-09` | Coverage, strike rate, perfect-store, order value; coverage-by-territory; live activity |
 | Outlets — master data | `OUT-01` `OUT-03` `OUT-04` `OUT-06` | Classified/territory-assigned/lifecycle; field-proposal review queue |
+| Outlets — bulk import | `OUT-05` `CFG-01` `CFG-02` | Dry-run first; bad cells corrected in the grid before anything is written |
 | Products & pricing | `PRD-01` `PRD-02` `PRD-03` `PRD-05` `PRD-06` | Catalog, assortment/MSL, price list, active promotions |
 | Territories | `ORG-03` `ORG-04` `ORG-05` `A4` | Territory list, single active rep, channel mix; drives offline scope |
 | Journey planning | `JRN-01` `JRN-02` `JRN-03` `JRN-04` | Week grid generated from frequency + capacity; frequency compliance |
@@ -64,6 +65,40 @@ the build, without pretending to be final visual design.
 The set now covers all core admin and field flows. Remaining screens (order review/approval,
 outlet detail with custom fields, survey run-through) reuse the same shell and are left to build
 time.
+
+The **outlet create/edit form** is deliberately in that list rather than mocked. Its conventional half
+is a form; its interesting half — the custom-field section rendered from the tenant's own catalogue —
+is better *specified* than drawn, because what it looks like depends entirely on what a tenant
+defined ([Configuration §6.1](../product/14-configuration.md#61-what-is-built-phase-1) has the five
+field types and their rules).
+
+## What Week 5 actually builds
+
+These wireframes are **design intent, drawn against the finished product**. Several screens show data
+that arrives in later weeks, and building them faithfully in
+[Week 5](../delivery-plan.md#week-5--back-office-shell--admin-screens) is impossible. Recording that
+here rather than silently dropping columns: the gap is a schedule, not a change of mind.
+
+| Screen | Built in W5 | Deferred, and to when |
+|---|---|---|
+| Shell + nav | Full nav per the wireframe, **unbuilt destinations visibly disabled**; lands on Outlets | Dashboard **W12**, Journeys **W7**, Visits/audits **W9**, Products **W6** |
+| Outlets | Table with code, name, channel, segment, status, **primary territory**; filters by channel and status; create/edit incl. the dynamic custom-field form | **Frequency** (`F2 · weekly`) — journey planning, **W7**. **Field proposals** count and the `Proposed` chip — `OUT-06`/`OUT-07`, **Phase 3** |
+| Outlets — import | The whole flow: upload, dry run, editable grid, apply | — |
+| Territories | List, outlet counts, rep assignment in the detail panel | **Coverage %** — reporting, **W12**. **Channel mix** bars — computable but has no endpoint; lands with the dashboard's read side |
+| Users & roles | User list, role bundles, permission toggles | **Device** column — `IAM-07`; no device concept exists in the IAM module yet |
+
+Three decisions taken with it:
+
+- **The nav renders in full, with unbuilt items disabled.** A five-item nav would misrepresent the
+  product; a full nav with live links to nothing would lie. A visibly disabled item does neither, and
+  it shows the shape of what is coming — which is the honest version for a portfolio.
+- **No tenant slug in the URL.** The wireframes show `app.fieldkit.io/veridian/dashboard`, but the
+  tenant comes from the token's realm ([ADR-0008](../architecture/adr/0008-keycloak-identity.md)) and
+  a slug would need a slug→realm mapping that buys nothing. Routes stay `/[locale]/…`.
+- **Primary territory is a real server-side field, not a client-side join.** It needs
+  `ITerritoryDirectory` — Organization's contract for the fact it owns — which lands with the outlets
+  screen as its first consumer. `BR-OUT-1` already says an outlet *has* a primary territory, so this
+  completes Outlets' own model rather than borrowing someone else's.
 
 ## Source
 
