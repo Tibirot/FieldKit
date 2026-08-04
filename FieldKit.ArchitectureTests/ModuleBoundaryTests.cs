@@ -3,6 +3,7 @@ using FieldKit.Modules.Catalog;
 using FieldKit.Modules.Iam;
 using FieldKit.Modules.Iam.Contracts;
 using FieldKit.Modules.Org;
+using FieldKit.Modules.Org.Contracts;
 using FieldKit.Modules.Outlets;
 using FieldKit.Modules.Outlets.Contracts;
 using NetArchTest.Rules;
@@ -29,6 +30,7 @@ public class ModuleBoundaryTests
     private static readonly Assembly OrgModuleAssembly = typeof(OrgModule).Assembly;
     private static readonly Assembly OutletsModuleAssembly = typeof(OutletsModule).Assembly;
     private static readonly Assembly OutletsContracts = typeof(IOutletCatalog).Assembly;
+    private static readonly Assembly OrgContracts = typeof(RepAssignmentChanged).Assembly;
 
     /// <summary>Module <b>implementation</b> assemblies — the ones nothing outside may reference.</summary>
     private static readonly string[] ModuleImplementations =
@@ -55,6 +57,7 @@ public class ModuleBoundaryTests
         // the implementation, no signature in it can name a domain type. Verifiable from the csproj.
         AssertDoesNotReference(IamContracts, ModuleImplementations);
         AssertDoesNotReference(OutletsContracts, ModuleImplementations);
+        AssertDoesNotReference(OrgContracts, ModuleImplementations);
     }
 
     [Fact] // AT-3, the half a reference check cannot cover.
@@ -63,7 +66,7 @@ public class ModuleBoundaryTests
         // A contracts assembly that could see EF or ASP.NET would let persistence and transport into
         // the shared surface — an `IQueryable<T>` return type, say, which hands the caller the
         // ability to compose queries against another module's tables.
-        foreach (var contracts in new[] { IamContracts, OutletsContracts })
+        foreach (var contracts in new[] { IamContracts, OutletsContracts, OrgContracts })
         {
             var result = Types.InAssembly(contracts)
                 .Should().NotHaveDependencyOnAny("Microsoft.EntityFrameworkCore", "Microsoft.AspNetCore")

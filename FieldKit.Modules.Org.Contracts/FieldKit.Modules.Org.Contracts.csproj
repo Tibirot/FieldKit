@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Organization module's public surface. Other modules reference this assembly and never
+    FieldKit.Modules.Org (AT-1).
+
+    It lands now because it finally has something to carry: `RepAssignmentChanged` is published
+    through the outbox, and an integration event nobody can name is an event nobody can subscribe to.
+    The query contracts the registry lists — ITerritoryDirectory, IRepScope, IOrgHierarchy — still
+    have no consumer, so they still wait for one.
+
+    Note what it does NOT reference: no EF Core, no ASP.NET, no Infrastructure. A contracts assembly
+    that could see a DbContext would let an entity leak through a signature (AT-3).
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FieldKit.SharedKernel\FieldKit.SharedKernel.csproj" />
+    <ProjectReference Include="..\FieldKit.BuildingBlocks\FieldKit.BuildingBlocks.csproj" />
+  </ItemGroup>
+
+</Project>

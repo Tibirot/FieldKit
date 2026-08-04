@@ -25,5 +25,6 @@ internal sealed class UserDirectory(IamDbContext db) : IUserDirectory
     // No tenant predicate anywhere in this file: the global query filter supplies it. Writing one by
     // hand would be the beginning of a codebase where some queries have it and some do not.
     private static IQueryable<UserSummary> Project(IQueryable<User> users) =>
-        users.Select(user => new UserSummary(user.SubjectId, user.DisplayName, user.Email, user.IsActive));
+        users.Select(user => new UserSummary(
+            user.SubjectId, user.DisplayName, user.Email, user.TimeZone, user.IsActive));
 }

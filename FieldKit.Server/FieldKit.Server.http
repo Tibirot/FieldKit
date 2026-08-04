@@ -677,6 +677,83 @@ Authorization: Bearer {{viewerToken.response.body.access_token}}
   "orgUnitId": "{{region.response.body.id}}"
 }
 
+### ─── Organization · rep assignments (ORG-04) ────────────────────────────────────────────────────
+
+### Assign a rep to a territory for a period. Dates are inclusive at both ends, and omitting `to`
+### means "until further notice". The rep is resolved through IAM's IUserDirectory contract.
+# @name assignment
+POST {{Server_HostAddress}}/api/org/territories/{{territory.response.body.id}}/assignments
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "userId": "{{newUser.request.body.$.subjectId}}",
+  "from": "2026-03-01",
+  "to": "2026-03-20"
+}
+
+### An overlapping period — expect 409 (BR-ORG-2). Sharing even a single day would mean two reps
+### covering one territory that day; the response names the assignment in the way.
+POST {{Server_HostAddress}}/api/org/territories/{{territory.response.body.id}}/assignments
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "userId": "{{newUser.request.body.$.subjectId}}",
+  "from": "2026-03-20",
+  "to": "2026-03-25"
+}
+
+### Starting the day after — the handover case, and allowed.
+POST {{Server_HostAddress}}/api/org/territories/{{territory.response.body.id}}/assignments
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "userId": "{{newUser.request.body.$.subjectId}}",
+  "from": "2026-03-21",
+  "to": "2026-03-31"
+}
+
+### Ending before it starts — expect 400.
+POST {{Server_HostAddress}}/api/org/territories/{{territory.response.body.id}}/assignments
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "userId": "{{newUser.request.body.$.subjectId}}",
+  "from": "2026-04-20",
+  "to": "2026-04-10"
+}
+
+### What covers this territory, and when. `isCurrent` is resolved in the *calling* user's timezone —
+### a territory spans outlets in different zones, so there is no "territory time".
+GET {{Server_HostAddress}}/api/org/territories/{{territory.response.body.id}}/assignments
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### The same question from the rep's side — BR-ORG-3's offline scope, which Sync will ask on pull.
+GET {{Server_HostAddress}}/api/org/users/{{newUser.request.body.$.subjectId}}/assignments
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Edit in place. Fully editable, subject to the overlap rule — correcting a mistyped start date
+### should not need a cancellation and a replacement. Publishes RepAssignmentChanged either way.
+PUT {{Server_HostAddress}}/api/org/assignments/{{assignment.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "userId": "{{newUser.request.body.$.subjectId}}",
+  "from": "2026-03-02",
+  "to": "2026-03-20"
+}
+
+### Remove it. The event is published *before* the row goes, while the module still knows whose
+### device needs to shrink.
+DELETE {{Server_HostAddress}}/api/org/assignments/{{assignment.response.body.id}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
 ### ─── Multi-issuer (ADR-0008) ────────────────────────────────────────────────────────────────────
 
 ### A token from the SECOND tenant's realm. Different issuer, different signing keys, same API.

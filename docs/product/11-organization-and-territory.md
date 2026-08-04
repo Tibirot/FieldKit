@@ -77,6 +77,31 @@ contract, never by reading its tables.
 2. This assignment is the input to **journey generation** and defines the rep's **offline data
    scope** ([A4 territory-scoped](decisions-and-assumptions.md#a4--offline-data-scope-territory-scoped)).
 
+#### Effective periods (`ORG-04`)
+
+An assignment runs **from a date, optionally to a date**, inclusive at both ends — that is how people
+write and read them, and "1–31 March" covers 31 March. An open end means "until further notice".
+
+**Overlaps are rejected (BR-ORG-2), and touching counts as overlapping.** Two assignments sharing a
+single day would mean two reps covering one territory that day. Adjacent ones — one ending the 20th,
+the next starting the 21st — are the handover case and are allowed.
+
+**"Is this current" is resolved in the *calling user's* timezone**, not the record's. A territory
+spans outlets that may sit in different zones, so there is no such thing as "territory time"; the
+zone that makes a back-office screen agree with the person reading it is theirs. Until account
+provisioning (`IAM-10`) links Keycloak accounts to FieldKit profiles, callers without a profile fall
+back to UTC — which today is the common path, not the edge case.
+
+Assignments are **editable in place**, subject to the overlap rule: correcting a mistyped start date
+should not need a cancellation and a replacement. Reassignment with retained history as a
+first-class concern is `ORG-08`, Phase 2.
+
+Every change publishes **`RepAssignmentChanged`** through the outbox, naming the incoming *and*
+outgoing rep. A territory's membership is a rep's offline data scope (BR-ORG-3), so this is the
+moment a device's contents should change — in both directions, which a consumer could not work out
+from the incoming rep alone. It deliberately does not carry the territory's outlets: that list is
+stale the moment membership changes, which happens independently of assignments.
+
 ### F4 · Reassignment / coverage
 - Reassign a territory to a different rep (e.g. holiday cover) with an effective date; history
   is retained.

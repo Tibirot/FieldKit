@@ -129,6 +129,10 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
   BR-ORG-4 is computable, and single-primary is a unique index rather than a rule on every write
   path. Outlets are validated and labelled through `IOutletCatalog`, which lands here because this is
   its first consumer.
+  ✓ **Rep assignments + `RepAssignmentChanged`** (`ORG-04`) — inclusive date ranges with overlaps
+  rejected (BR-ORG-2), "current" resolved in the caller's timezone, and every change published
+  through the outbox naming both the incoming and outgoing rep. Interval logic lives in a
+  `DateRange` value object in SharedKernel with its own tests, not in an endpoint.
 - Outlets: `Outlet` with channel/segment/geo/contacts, lifecycle; `IOutletCatalog`/`IOutletClassification`; events ([Outlets spec](product/12-outlets-master-data.md)) — `OUT-01…04`.
   ✓ **Classification + lifecycle** — channels as tenant-owned reference data, outlets carrying
   code/name/channel/segment/banner, and the Active → Inactive → Closed lifecycle with `Closed`
