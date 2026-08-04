@@ -1,4 +1,5 @@
 using FieldKit.Infrastructure;
+using FieldKit.Modules.Org.Contracts;
 using FieldKit.Web;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
@@ -35,6 +36,9 @@ public sealed class OrgModule : IModule
 
         services.AddModuleDbContext<OrgDbContext>(connectionString, OrgDbContext.SchemaName);
         services.AddHostedService<ModuleMigrator<OrgDbContext>>();
+
+        // Organization owns which territory covers an outlet; this is how Outlets asks (ORG-05).
+        services.AddScoped<ITerritoryDirectory, TerritoryDirectory>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

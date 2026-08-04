@@ -53,10 +53,31 @@ public sealed class Territory : AggregateRoot, ITenantOwned, IAuditable
 /// </summary>
 /// <remarks>
 /// <para>
-/// The mapping lives in Organization, not on the outlet, because Organization owns territories and
-/// Outlets must not depend on it — the dependency runs one way, and this is the direction that keeps
-/// it that way. It is keyed by outlet id across a schema boundary, so there is no foreign key; the
-/// endpoint validates through <c>IOutletCatalog</c> instead.
+/// The mapping lives in Organization, not on the outlet, because Organization owns territories. It
+/// is keyed by outlet id across a schema boundary, so there is no foreign key; the endpoint validates
+/// through <c>IOutletCatalog</c> instead.
+/// </para>
+/// <para>
+/// <b>This used to say the dependency runs one way and that Outlets must not depend on Organization.
+/// The first half still holds; the second was wrong.</b> Outlets now asks
+/// <see cref="Contracts.ITerritoryDirectory"/> which territory covers a shop, because <c>BR-OUT-1</c>
+/// says an outlet <i>has</i> one — so answering it completes Outlets' own model rather than borrowing
+/// Organization's.
+/// </para>
+/// <para>
+/// What that original note was protecting against does not apply. A mutual reference between two
+/// modules' <i>contracts</i> cannot produce a build cycle: every <c>.Contracts</c> assembly is a leaf,
+/// so the assembly graph stays acyclic however many modules point at each other, and AT-1 still
+/// forbids the coupling that would actually break (implementation to implementation). Insisting on a
+/// one-way arrow would have invented a hierarchy the domain does not have — Outlets owns what a shop
+/// is, Organization owns who covers it, and neither sits above the other.
+/// </para>
+/// <para>
+/// The real risk is one AT-1 cannot see: two contract implementations calling each other, which is
+/// mutual recursion wearing two sets of legal references. <b>AT-10</b> is the gate for that, and the
+/// alternatives it lets us avoid are worse — a client-side join puts a domain relationship in the
+/// browser for every future consumer to re-implement, and copying the territory onto the outlet buys
+/// a second source of truth plus an event to keep it aligned.
 /// </para>
 /// <para>
 /// <b>BR-ORG-1 / <c>ORG-05</c> are enforced by a unique index on the outlet</b>, not by a check in

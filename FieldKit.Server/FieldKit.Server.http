@@ -1047,3 +1047,38 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
 [{"code":"IMP-6","name":"Not yet"}]
 
 ###
+
+### ─── The territory covering an outlet (ORG-05, BR-OUT-1) ────────────────────────────────────────
+
+### Outlets now carry their territory. Organization owns the answer — the membership rows are in its
+### schema — so Outlets asks through `ITerritoryDirectory` rather than reading across (ADR-0005).
+### One call for the whole page, which is why the contract takes a collection.
+GET {{Server_HostAddress}}/api/outlets
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Put the outlet in a territory, then look again — `territory` fills in.
+POST {{Server_HostAddress}}/api/org/territories/{{territory.response.body.id}}/outlets
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outletIds": ["{{outlet.response.body.id}}"]
+}
+
+### Expect `territory` to name the one just assigned.
+GET {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Take it out again. `territory` goes back to null — unassigned is an ordinary state, not an error:
+### outlets are created before anyone decides who covers them.
+DELETE {{Server_HostAddress}}/api/org/territories/{{territory.response.body.id}}/outlets/{{outlet.response.body.id}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+###
+GET {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+###

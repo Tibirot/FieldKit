@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FieldKit.Modules.Configuration.Contracts;
+using FieldKit.Modules.Org.Contracts;
 using FieldKit.SharedKernel;
 using FieldKit.Web;
 using Microsoft.AspNetCore.Builder;
@@ -34,7 +35,8 @@ public sealed record OutletResponse(
     // domain type.
     Coordinates? Location,
     IReadOnlyList<OutletContact> Contacts,
-    IReadOnlyDictionary<string, JsonElement> CustomFields);
+    IReadOnlyDictionary<string, JsonElement> CustomFields,
+    TerritoryDescriptor? Territory = null);
 
 /// <summary>Create an outlet. <paramref name="Code"/> is the tenant's own identifier.</summary>
 public sealed record CreateOutletRequest(
@@ -96,22 +98,29 @@ internal static class OutletEndpoints
         // two questions a back office actually asks of it are "who is in this channel" and "what is
         // still open". Both are indexed.
         outlets.MapGet("/", async (
-                Guid? channelId, OutletStatus? status, OutletsDbContext db, CancellationToken ct) =>
-            await Project(
-                    db,
-                    db.Outlets
-                        .Where(outlet => channelId == null || outlet.ChannelId == channelId)
-                        .Where(outlet => status == null || outlet.Status == status))
-                .ToListAsync(ct))
+                Guid? channelId, OutletStatus? status, OutletsDbContext db,
+                ITerritoryDirectory territories, CancellationToken ct) =>
+            await WithTerritories(
+                await Project(
+                        db,
+                        db.Outlets
+                            .Where(outlet => channelId == null || outlet.ChannelId == channelId)
+                            .Where(outlet => status == null || outlet.Status == status))
+                    .ToListAsync(ct),
+                territories,
+                ct))
             .RequirePermission(OutletsPermissions.OutletRead);
 
-        outlets.MapGet("/{id:guid}", async (Guid id, OutletsDbContext db, CancellationToken ct) =>
-                await Single(db, id, ct) is { } outlet ? Results.Ok(outlet) : Results.NotFound())
+        outlets.MapGet("/{id:guid}", async (
+                Guid id, OutletsDbContext db, ITerritoryDirectory territories, CancellationToken ct) =>
+                await Single(db, id, territories, ct) is { } outlet
+                    ? Results.Ok(outlet)
+                    : Results.NotFound())
             .RequirePermission(OutletsPermissions.OutletRead);
 
         outlets.MapPost("/", async (
             CreateOutletRequest request, OutletsDbContext db, IFieldDefinitionCatalog fields,
-            CancellationToken ct) =>
+            ITerritoryDirectory territories, CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Code))
             {
@@ -161,12 +170,12 @@ internal static class OutletEndpoints
 
             await db.SaveChangesAsync(ct);
 
-            return Results.Created($"/api/outlets/{created.Id}", await Single(db, created.Id, ct));
+            return Results.Created($"/api/outlets/{created.Id}", await Single(db, created.Id, territories, ct));
         }).RequirePermission(OutletsPermissions.OutletWrite);
 
         outlets.MapPut("/{id:guid}", async (
             Guid id, UpdateOutletRequest request, OutletsDbContext db, IFieldDefinitionCatalog fields,
-            IClock clock, CancellationToken ct) =>
+            IClock clock, ITerritoryDirectory territories, CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Name))
             {
@@ -201,14 +210,15 @@ internal static class OutletEndpoints
 
             await db.SaveChangesAsync(ct);
 
-            return Results.Ok(await Single(db, id, ct));
+            return Results.Ok(await Single(db, id, territories, ct));
         }).RequirePermission(OutletsPermissions.OutletWrite);
 
         // Its own endpoint, not a field on the update. "This store is shut" is a different decision
         // from "the name was spelled wrong", and merging them lets a careless edit close an outlet
         // as a side effect of fixing a typo.
         outlets.MapPost("/{id:guid}/status", async (
-            Guid id, OutletStatusRequest request, OutletsDbContext db, IClock clock, CancellationToken ct) =>
+            Guid id, OutletStatusRequest request, OutletsDbContext db, IClock clock,
+            ITerritoryDirectory territories, CancellationToken ct) =>
         {
             if (!Enum.IsDefined(request.Status))
             {
@@ -244,7 +254,7 @@ internal static class OutletEndpoints
 
             await db.SaveChangesAsync(ct);
 
-            return Results.Ok(await Single(db, id, ct));
+            return Results.Ok(await Single(db, id, territories, ct));
         }).RequirePermission(OutletsPermissions.OutletWrite);
 
         // Read-only, and there is deliberately no endpoint to add, edit or remove an entry. The
@@ -391,6 +401,40 @@ internal static class OutletEndpoints
             outlet.Contacts,
             outlet.CustomFields);
 
-    private static async Task<OutletResponse?> Single(OutletsDbContext db, Guid id, CancellationToken ct) =>
-        await Project(db, db.Outlets.Where(outlet => outlet.Id == id)).SingleOrDefaultAsync(ct);
+    private static async Task<OutletResponse?> Single(
+        OutletsDbContext db, Guid id, ITerritoryDirectory territories, CancellationToken ct) =>
+        (await WithTerritories(
+            await Project(db, db.Outlets.Where(outlet => outlet.Id == id)).ToListAsync(ct),
+            territories,
+            ct)).SingleOrDefault();
+
+    /// <summary>
+    /// Fills in the territory covering each outlet, in one ask however many there are.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// After the projection rather than inside it: the answer lives in another module's schema, so it
+    /// cannot be a join, and asking per row would turn a fifty-outlet page into fifty round trips. The
+    /// contract is bulk precisely so that this is a single call (<c>ORG-05</c>).
+    /// </para>
+    /// <para>
+    /// An outlet in no territory keeps a null. Outlets are created before anyone decides who covers
+    /// them, so unassigned is an ordinary state — <c>BR-OUT-1</c>'s "every outlet has a primary
+    /// territory" describes a configured tenant, not a precondition for storing a shop.
+    /// </para>
+    /// </remarks>
+    private static async Task<IReadOnlyList<OutletResponse>> WithTerritories(
+        IReadOnlyList<OutletResponse> outlets, ITerritoryDirectory territories, CancellationToken ct)
+    {
+        if (outlets.Count == 0) return outlets;
+
+        var found = await territories.ForOutletsAsync([.. outlets.Select(outlet => outlet.Id)], ct);
+
+        return
+        [
+            .. outlets.Select(outlet => found.TryGetValue(outlet.Id, out var territory)
+                ? outlet with { Territory = territory }
+                : outlet),
+        ];
+    }
 }
