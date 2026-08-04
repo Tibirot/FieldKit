@@ -26,6 +26,7 @@
       outlets schema. Contracts only, never the implementation (AT-1).
     -->
     <ProjectReference Include="..\FieldKit.Modules.Outlets.Contracts\FieldKit.Modules.Outlets.Contracts.csproj" />
+    <ProjectReference Include="..\FieldKit.Modules.Org.Contracts\FieldKit.Modules.Org.Contracts.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

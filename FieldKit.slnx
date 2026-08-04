@@ -7,6 +7,7 @@
   <Project Path="FieldKit.Modules.Catalog/FieldKit.Modules.Catalog.csproj" />
   <Project Path="FieldKit.Modules.Iam.Contracts/FieldKit.Modules.Iam.Contracts.csproj" />
   <Project Path="FieldKit.Modules.Iam/FieldKit.Modules.Iam.csproj" />
+  <Project Path="FieldKit.Modules.Org.Contracts/FieldKit.Modules.Org.Contracts.csproj" />
   <Project Path="FieldKit.Modules.Org/FieldKit.Modules.Org.csproj" />
   <Project Path="FieldKit.Modules.Outlets.Contracts/FieldKit.Modules.Outlets.Contracts.csproj" />
   <Project Path="FieldKit.Modules.Outlets/FieldKit.Modules.Outlets.csproj" />

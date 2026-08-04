@@ -42,5 +42,6 @@ public sealed class OrgModule : IModule
         endpoints.MapOrgUnitEndpoints();
         endpoints.MapPositionEndpoints();
         endpoints.MapTerritoryEndpoints();
+        endpoints.MapRepAssignmentEndpoints();
     }
 }

@@ -9,11 +9,18 @@ namespace FieldKit.Modules.Iam.Contracts;
 /// <param name="UserId">The Keycloak subject (<c>sub</c>), stable for the life of the account.</param>
 /// <param name="DisplayName">Rendered next to a visit, order or audit.</param>
 /// <param name="Email">Contact address; also how an admin recognises the account.</param>
+/// <param name="TimeZone">
+/// The IANA zone on their profile (BR-IAM-5). Here because a caller rendering or deciding dates for
+/// this person needs it, and the token does not carry it — FieldKit owns the profile, Keycloak owns
+/// the credential. It is display information in the same sense as the name: it says how to present
+/// a moment to them, never what they may do.
+/// </param>
 /// <param name="IsActive">
 /// False once deactivated. Callers should still resolve deactivated users: work they did last month
 /// must keep its author, and blanking it would rewrite history rather than protect anything.
 /// </param>
-public sealed record UserSummary(string UserId, string DisplayName, string Email, bool IsActive);
+public sealed record UserSummary(
+    string UserId, string DisplayName, string Email, string TimeZone, bool IsActive);
 
 /// <summary>
 /// Resolves display information for users (IAM module contract).

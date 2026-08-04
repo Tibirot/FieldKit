@@ -20,6 +20,8 @@ public sealed class OrgDbContext(DbContextOptions<OrgDbContext> options, ITenant
 
     public DbSet<TerritoryOutlet> TerritoryOutlets => Set<TerritoryOutlet>();
 
+    public DbSet<RepAssignment> RepAssignments => Set<RepAssignment>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -116,6 +118,36 @@ public sealed class OrgDbContext(DbContextOptions<OrgDbContext> options, ITenant
                 .OnDelete(DeleteBehavior.Cascade);
 
             membership.HasIndex(m => new { m.TenantId, m.TerritoryId });
+        });
+
+        modelBuilder.Entity<RepAssignment>(assignment =>
+        {
+            assignment.ToTable("rep_assignment");
+            assignment.HasKey(a => a.Id);
+            assignment.Property(a => a.UserId).HasMaxLength(64).IsRequired(); // Keycloak `sub`
+            assignment.Property(a => a.FromDate).HasColumnName("from_date").IsRequired();
+            assignment.Property(a => a.ToDate).HasColumnName("to_date");
+
+            // Composed by the entity, not mapped — see RepAssignment.Period.
+            assignment.Ignore(a => a.Period);
+
+            // The half of the range invariant a database can hold. BR-ORG-2's no-overlap rule cannot
+            // be expressed this way without an exclusion constraint over a range type, so it is
+            // enforced in the endpoint and tested there; this at least makes a backwards range
+            // impossible for anything that writes the table.
+            assignment.ToTable(table => table.HasCheckConstraint(
+                "ck_rep_assignment_period", @"""to_date"" IS NULL OR ""to_date"" >= ""from_date"""));
+
+            assignment.HasOne<Territory>()
+                .WithMany()
+                .HasForeignKey(a => a.TerritoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // "What covers this territory, and when" — the overlap check's query.
+            assignment.HasIndex(a => new { a.TenantId, a.TerritoryId, a.FromDate });
+
+            // "What does this rep cover" — BR-ORG-3's offline scope, which Sync will ask on every pull.
+            assignment.HasIndex(a => new { a.TenantId, a.UserId });
         });
     }
 }
