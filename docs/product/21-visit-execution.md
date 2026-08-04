@@ -56,6 +56,16 @@ Visit. It is designed **offline-first**: the entire flow works with zero connect
   belong to it.
 - **BR-VIS-2** Check-in captures a geo point; outside-geofence requires an **override reason**
   (visit still allowed — never block the rep, always record).
+  > 📝 ASSUMPTION: **remote-capable visit types skip the override.** A phone call, a video
+  > conference or a head-office meeting is legitimately not at the outlet, so demanding an override
+  > reason records an exception where nothing exceptional happened — and a flag that fires on
+  > ordinary work is a flag supervisors learn to ignore. The visit type should carry whether presence
+  > is expected, configured per channel through `IVisitWorkflow` (Configuration module). Not built:
+  > `VIS-01`/`VIS-02` are Phase 2 and the Configuration module lands first.
+  >
+  > This is also the correct home for the question a per-tenant "geo validation" flag briefly tried
+  > to answer in the Outlets module (#56, reverted): whether coordinates are *valid* is data
+  > integrity and never optional; whether a rep must be *at* them is policy, and it belongs here.
 - **BR-VIS-3** All **mandatory** steps must be complete before check-out.
 - **BR-VIS-4** A visit, once **checked out**, is **sealed** — device-owned, append-only, and
   **not editable after sync** (mirrors the order rule; keeps sync conflict-free — [B7](decisions-and-assumptions.md#b7--conflict-resolution-matrix)).

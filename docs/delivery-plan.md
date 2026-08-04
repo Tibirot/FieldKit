@@ -134,8 +134,8 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
   code/name/channel/segment/banner, and the Active → Inactive → Closed lifecycle with `Closed`
   terminal (`OUT-04`). Every transition is recorded append-only with a reason, so BR-OUT-4's
   "retains history" holds even after later edits overwrite the outlet's own audit stamps.
-  ✓ **Location + contacts** — structured address, optional coordinates behind a per-tenant validation
-  setting, a required IANA time zone checked against the runtime, and contacts as personal data
+  ✓ **Location + contacts** — structured address, optional coordinates always validated against the
+  shared `GeoPoint`, a required IANA time zone checked against the runtime, and contacts as personal data
   ([B8](product/decisions-and-assumptions.md#b8--privacy--gdpr-posture)) replaced wholesale so
   erasure is an empty list. BR-OUT-2's "required to participate in journeys" lands with Journey (W7),
   where participation is defined.

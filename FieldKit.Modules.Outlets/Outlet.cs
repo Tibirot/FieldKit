@@ -52,11 +52,24 @@ public sealed class Outlet : AggregateRoot, ITenantOwned, IAuditable
 
     public Address? Address { get; private set; }
 
+    /// <summary>Latitude, or null. Never set without <see cref="Longitude"/> — see <see cref="Location"/>.</summary>
+    public double? Latitude { get; private set; }
+
+    /// <summary>Longitude, or null.</summary>
+    public double? Longitude { get; private set; }
+
     /// <summary>
-    /// Optional. Journey planning and geofenced check-in need it; recording an outlet does not, and
-    /// onboarding data routinely arrives without it.
+    /// Where the outlet is, or null. Optional: journey planning and geofenced check-in need it,
+    /// recording an outlet does not, and onboarding data routinely arrives without it.
     /// </summary>
-    public GeoPoint? Location { get; private set; }
+    /// <remarks>
+    /// Stored as two nullable columns and composed here rather than mapped as an owned type, because
+    /// <see cref="GeoPoint"/> is a struct and EF owns only reference types. The half-set state that
+    /// arrangement would otherwise allow is forbidden by a check constraint — a stronger guarantee
+    /// than the owned-type mapping gave, since it holds against anything that writes the table.
+    /// </remarks>
+    public GeoPoint? Location =>
+        Latitude is { } latitude && Longitude is { } longitude ? new GeoPoint(latitude, longitude) : null;
 
     /// <summary>
     /// The IANA zone this outlet trades in — <c>Europe/Bucharest</c>, not an offset.
@@ -102,7 +115,8 @@ public sealed class Outlet : AggregateRoot, ITenantOwned, IAuditable
             Status = OutletStatus.Active,
             TimeZoneId = timeZoneId,
             Address = address,
-            Location = location,
+            Latitude = location?.Latitude,
+            Longitude = location?.Longitude,
         };
 
         outlet.SetContacts(contacts);
@@ -135,7 +149,8 @@ public sealed class Outlet : AggregateRoot, ITenantOwned, IAuditable
         Banner = banner;
         TimeZoneId = timeZoneId;
         Address = address;
-        Location = location;
+        Latitude = location?.Latitude;
+        Longitude = location?.Longitude;
         SetContacts(contacts);
         ModifiedAtUtc = clock.UtcNow;
     }

@@ -13,18 +13,22 @@ namespace FieldKit.Modules.Outlets;
 public sealed record Address(string? Street, string? City, string? PostalCode, string? CountryCode);
 
 /// <summary>
-/// An outlet's position on the earth, used by journey planning and geofenced check-in.
+/// Coordinates as they arrive from a caller — untrusted, and not yet known to be a real place.
 /// </summary>
 /// <remarks>
-/// A pair, not two loose columns: a latitude without a longitude is not a partially-known location,
-/// it is a broken one. Making them one value means the model cannot express that state.
+/// <para>
+/// Deliberately separate from <see cref="FieldKit.SharedKernel.GeoPoint"/>, which is the validated
+/// domain value and refuses to exist outside <c>[-90, 90]</c> / <c>[-180, 180]</c>. Binding the
+/// request straight onto that type would make an out-of-range latitude throw inside JSON
+/// deserialization — before any handler runs, so the caller gets a framework error instead of a
+/// message naming the field.
+/// </para>
+/// <para>
+/// This is the only place the two shapes differ: the wire format is identical, so a client sees
+/// <c>{ "latitude": …, "longitude": … }</c> either way.
+/// </para>
 /// </remarks>
-public sealed record GeoPoint(double Latitude, double Longitude)
-{
-    /// <summary>Whether this point is on the earth. See <see cref="TenantOutletSettings"/> for when it is checked.</summary>
-    public bool IsWithinRange() =>
-        Latitude is >= -90 and <= 90 && Longitude is >= -180 and <= 180;
-}
+public sealed record Coordinates(double Latitude, double Longitude);
 
 /// <summary>
 /// A person at the outlet — store manager, buyer (<c>OUT-01</c>).
