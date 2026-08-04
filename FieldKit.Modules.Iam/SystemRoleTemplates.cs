@@ -54,7 +54,7 @@ public static class SystemRoleTemplates
     [
         // Reads the outlet base and the vocabulary it is classified by, because that is the round
         // they walk. Changes neither.
-        new("Field Rep", ["product:read", "outlet:read", "channel:read"]),
+        new("Field Rep", ["product:read", "outlet:read", "channel:read", "territory:read"]),
 
         // Reads the hierarchy because a supervisor's job is defined by their branch of it, and reads
         // positions because that is who is in it. Cannot redraw either — both are back-office acts.
@@ -65,6 +65,7 @@ public static class SystemRoleTemplates
             "position:read",
             "outlet:read",
             "channel:read",
+            "territory:read",
             IamPermissions.UserRead,
         ]),
 
@@ -81,6 +82,10 @@ public static class SystemRoleTemplates
             "outlet:read",
             "outlet:write",
             "channel:read",
+            // Owns which outlets a rep covers: a territory's membership *is* that rep's offline data
+            // scope (BR-ORG-3), which is squarely sales ops' job rather than org design's.
+            "territory:read",
+            "territory:write",
         ]),
 
         // No product permissions, on purpose. An admin who can grant capabilities does not thereby

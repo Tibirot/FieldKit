@@ -24,4 +24,15 @@ public static class OrgPermissions
     /// </remarks>
     public const string PositionRead = "position:read";
     public const string PositionWrite = "position:write";
+
+    /// <summary>
+    /// Territories again separate, because deciding which outlets a rep covers is a third job.
+    /// </summary>
+    /// <remarks>
+    /// It is the one with the most operational weight: a territory's membership is the rep's offline
+    /// data scope (BR-ORG-3) and the input to journey generation, so moving an outlet between
+    /// territories changes what somebody's device downloads tomorrow morning.
+    /// </remarks>
+    public const string TerritoryRead = "territory:read";
+    public const string TerritoryWrite = "territory:write";
 }

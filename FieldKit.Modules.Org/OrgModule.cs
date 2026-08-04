@@ -24,6 +24,8 @@ public sealed class OrgModule : IModule
         new(OrgPermissions.OrgUnitWrite, "Create, rename, move and delete org units."),
         new(OrgPermissions.PositionRead, "View who occupies which part of the sales hierarchy."),
         new(OrgPermissions.PositionWrite, "Assign people to org units and change their titles."),
+        new(OrgPermissions.TerritoryRead, "View territories and the outlets in them."),
+        new(OrgPermissions.TerritoryWrite, "Create territories and decide which outlets they cover."),
     ];
 
     public void AddModule(IServiceCollection services, IConfiguration configuration)
@@ -39,5 +41,6 @@ public sealed class OrgModule : IModule
     {
         endpoints.MapOrgUnitEndpoints();
         endpoints.MapPositionEndpoints();
+        endpoints.MapTerritoryEndpoints();
     }
 }

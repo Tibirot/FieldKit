@@ -125,6 +125,10 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
   ✓ **Positions + management line** (`ORG-02`) — users attached to units through IAM's
   `IUserDirectory`; the line derived upward for roll-up and the visibility scope downward for
   BR-ORG-4. Current state, not history: `ORG-08` is Phase 2, and a visit keeps its author regardless.
+  ✓ **Territories + outlet membership** (`ORG-03`, `ORG-05`) — territories hang off an org unit so
+  BR-ORG-4 is computable, and single-primary is a unique index rather than a rule on every write
+  path. Outlets are validated and labelled through `IOutletCatalog`, which lands here because this is
+  its first consumer.
 - Outlets: `Outlet` with channel/segment/geo/contacts, lifecycle; `IOutletCatalog`/`IOutletClassification`; events ([Outlets spec](product/12-outlets-master-data.md)) — `OUT-01…04`.
   ✓ **Classification + lifecycle** — channels as tenant-owned reference data, outlets carrying
   code/name/channel/segment/banner, and the Active → Inactive → Closed lifecycle with `Closed`

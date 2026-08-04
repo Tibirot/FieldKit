@@ -47,6 +47,18 @@
       {
         "name": "channel:read",
         "description": "View channels. Held so per-tenant classification vocabularies can be shown to be separate."
+      },
+      {
+        "name": "channel:write",
+        "description": "Create channels. The second tenant needs to be able to build its own outlets — a tenant that cannot create data cannot demonstrate that another tenant is unable to reach it."
+      },
+      {
+        "name": "territory:read",
+        "description": "View territories. Held so the second tenant can be asked what it sees (ORG-03)."
+      },
+      {
+        "name": "territory:write",
+        "description": "Edit territories. Held so a cross-tenant attempt is refused by the query filter (404), not by the permission check (403)."
       }
     ]
   },
@@ -172,7 +184,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["product:read", "product:write", "role:read", "orgunit:read", "orgunit:write", "position:read", "position:write", "outlet:read", "outlet:write", "channel:read"]
+      "realmRoles": ["product:read", "product:write", "role:read", "orgunit:read", "orgunit:write", "position:read", "position:write", "outlet:read", "outlet:write", "channel:read", "channel:write", "territory:read", "territory:write"]
     }
   ]
 }
