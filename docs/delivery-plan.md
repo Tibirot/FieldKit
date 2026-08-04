@@ -168,6 +168,12 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
   outlet, landing with the outlets screen as its first consumer. Makes Org and Outlets the first
   module pair referencing each other's contracts, which is safe at build time and gated at runtime by
   the new **AT-10** ([why](architecture/10-module-boundaries.md#two-modules-may-point-at-each-other)).
+  ✓ **Back-office shell** — route group, client-side auth guard, TanStack Query, and the nav from the
+  wireframes with **unbuilt destinations visibly disabled and labelled with the week that ships
+  them**. Sign-in lands on Outlets. Proven by a read-only **outlets table**: a token minted by a
+  tenant's realm, validated by the API, a tenant-scoped query, and a territory resolved across a
+  module boundary, all arriving in one screen. Filters, create/edit and the import screen are the
+  slices after it.
 - **Outlets** screen (table, filters, create/edit incl. custom-field form) + **import screen** —
   upload, dry-run, fix the flagged cells in an **editable grid**, apply (`OUT-05`). Correcting before
   the write rather than after is the point; the rejected-rows download stays as the escape hatch.

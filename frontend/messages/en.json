@@ -62,5 +62,60 @@
     "description": "FieldKit couldn't reach the server. Anything you've already captured is stored on this device and syncs as soon as you reconnect.",
     "retry": "Try again",
     "hint": "Install FieldKit to your home screen so it keeps working in dead zones."
+  },
+  "Nav": {
+    "label": "Back office",
+    "brand": "FieldKit",
+    "noWorkspace": "no workspace",
+    "groups": {
+      "masterData": "Master data",
+      "admin": "Admin"
+    },
+    "items": {
+      "dashboard": "Dashboard",
+      "journeys": "Journeys",
+      "visits": "Visits & audits",
+      "orders": "Orders",
+      "outlets": "Outlets",
+      "products": "Products & pricing",
+      "territories": "Territories",
+      "users": "Users & roles"
+    },
+    "soon": {
+      "week5": "W5",
+      "week6": "W6",
+      "week7": "W7",
+      "week9": "W9",
+      "week11": "W11",
+      "week12": "W12"
+    }
+  },
+  "BackOffice": {
+    "restoring": "Restoring your session…",
+    "redirecting": "Taking you to sign in…",
+    "signOut": "Sign out"
+  },
+  "Outlets": {
+    "crumb": "Master data / Outlets",
+    "title": "Outlets",
+    "caption": "Outlets with their classification, territory and status.",
+    "loading": "Loading outlets…",
+    "failed": "The outlet base could not be loaded.",
+    "forbidden": "You do not have permission to view outlets.",
+    "empty": "No outlets yet. Import them or add the first one.",
+    "noTerritory": "Unassigned",
+    "columns": {
+      "code": "Code",
+      "name": "Outlet",
+      "channel": "Channel",
+      "segment": "Segment",
+      "territory": "Territory",
+      "status": "Status"
+    },
+    "status": {
+      "Active": "Active",
+      "Inactive": "Inactive",
+      "Closed": "Closed"
+    }
   }
 }

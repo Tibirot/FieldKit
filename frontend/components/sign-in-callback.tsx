@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
+import { LANDING } from "@/components/back-office/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link, useRouter } from "@/i18n/navigation";
@@ -35,7 +36,10 @@ export function SignInCallback({ settings }: { settings: OidcSettings | null }) 
       ? completeSignIn(settings)
       : Promise.reject(new Error("Keycloak is not configured."));
 
-    completing.then(() => router.replace("/")).catch(() => setFailed(true));
+    // Straight into the back office rather than the app root: signing in is an intent to work, and a
+    // landing page between the two is a page nobody reads. LANDING is Outlets because that is the
+    // first screen that exists — see the UX build-scope note.
+    completing.then(() => router.replace(LANDING)).catch(() => setFailed(true));
   }, [completeSignIn, router, settings]);
 
   return (

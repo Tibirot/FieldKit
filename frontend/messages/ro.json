@@ -62,5 +62,60 @@
     "description": "FieldKit nu a putut contacta serverul. Tot ce ai înregistrat deja este stocat pe acest dispozitiv și se sincronizează imediat ce revii online.",
     "retry": "Încearcă din nou",
     "hint": "Instalează FieldKit pe ecranul principal ca să funcționeze și în zonele fără semnal."
+  },
+  "Nav": {
+    "label": "Back office",
+    "brand": "FieldKit",
+    "noWorkspace": "fără spațiu de lucru",
+    "groups": {
+      "masterData": "Date de bază",
+      "admin": "Administrare"
+    },
+    "items": {
+      "dashboard": "Tablou de bord",
+      "journeys": "Trasee",
+      "visits": "Vizite și audituri",
+      "orders": "Comenzi",
+      "outlets": "Puncte de vânzare",
+      "products": "Produse și prețuri",
+      "territories": "Teritorii",
+      "users": "Utilizatori și roluri"
+    },
+    "soon": {
+      "week5": "S5",
+      "week6": "S6",
+      "week7": "S7",
+      "week9": "S9",
+      "week11": "S11",
+      "week12": "S12"
+    }
+  },
+  "BackOffice": {
+    "restoring": "Se restaurează sesiunea…",
+    "redirecting": "Te ducem la autentificare…",
+    "signOut": "Deconectare"
+  },
+  "Outlets": {
+    "crumb": "Date de bază / Puncte de vânzare",
+    "title": "Puncte de vânzare",
+    "caption": "Puncte de vânzare cu clasificarea, teritoriul și starea lor.",
+    "loading": "Se încarcă punctele de vânzare…",
+    "failed": "Punctele de vânzare nu au putut fi încărcate.",
+    "forbidden": "Nu ai permisiunea de a vedea punctele de vânzare.",
+    "empty": "Niciun punct de vânzare încă. Importă-le sau adaugă primul.",
+    "noTerritory": "Nealocat",
+    "columns": {
+      "code": "Cod",
+      "name": "Punct de vânzare",
+      "channel": "Canal",
+      "segment": "Segment",
+      "territory": "Teritoriu",
+      "status": "Stare"
+    },
+    "status": {
+      "Active": "Activ",
+      "Inactive": "Inactiv",
+      "Closed": "Închis"
+    }
   }
 }

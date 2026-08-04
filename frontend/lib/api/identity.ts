@@ -1,3 +1,5 @@
+import { apiGet } from "@/lib/api/client";
+
 /**
  * Who the API thinks the caller is.
  *
@@ -12,30 +14,14 @@ export type Identity = {
   permissions: string[];
 };
 
-/** Raised for a response the caller should act on differently — chiefly 401. */
-export class ApiError extends Error {
-  constructor(readonly status: number) {
-    super(`The API responded ${status}.`);
-    this.name = "ApiError";
-  }
-}
-
 /**
- * Calls the API as the signed-in user.
+ * Calls `/api/auth/whoami` as the signed-in user.
  *
- * Same-origin `/api/...`, rewritten to the API by `next.config.ts`. That is not incidental: it keeps
- * every call free of CORS preflights, and it is what the service worker already assumes when it
- * refuses to cache anything under `/api/` (`sw/index.js`).
+ * The fetch and the error type moved to `lib/api/client.ts` when a second caller appeared. One
+ * `ApiError` rather than two identical ones, so `instanceof` keeps meaning what it looks like it
+ * means — two same-named classes is the duplication that reads as harmless right up until a retry
+ * predicate silently stops matching.
  */
-export async function fetchIdentity(accessToken: string, signal?: AbortSignal): Promise<Identity> {
-  const response = await fetch("/api/auth/whoami", {
-    headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
-    signal,
-  });
-
-  if (!response.ok) {
-    throw new ApiError(response.status);
-  }
-
-  return (await response.json()) as Identity;
+export function fetchIdentity(accessToken: string, signal?: AbortSignal): Promise<Identity> {
+  return apiGet<Identity>("/api/auth/whoami", accessToken, signal);
 }
