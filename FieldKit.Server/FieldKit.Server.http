@@ -944,3 +944,44 @@ DELETE {{Server_HostAddress}}/api/config/field-definitions/{{ownershipField.resp
 Authorization: Bearer {{adminToken.response.body.access_token}}
 
 ###
+### ─── A body the server cannot read (api-contracts §3.1) ─────────────────────────────────────────
+
+### Expect 400, not 500. An enum travels by name, so a name that is not one of the names is the
+### caller's mistake — and `detail` names the path (`$.status`) rather than the .NET type the parser
+### failed to build.
+POST {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}/status
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "status": "Nonsense",
+  "reason": "not one of Active, Inactive, Closed"
+}
+
+### The same shape in another module — the fix is the host's, so every enum-carrying endpoint has it.
+POST {{Server_HostAddress}}/api/config/field-definitions
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "entity": "Outlet",
+  "key": "k",
+  "label": "L",
+  "type": "Sasquatch"
+}
+
+### Expect 400 — not JSON at all.
+POST {{Server_HostAddress}}/api/outlets/channels
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{ this is not json
+
+### Expect 400 — valid JSON, wrong shape entirely.
+POST {{Server_HostAddress}}/api/outlets/channels
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+["not", "an", "object"]
+
+###

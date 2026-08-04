@@ -49,6 +49,25 @@ already wired), with a stable, machine-readable `code`:
 - Validation failures (FluentValidation) → `400` with per-field errors.
 - `traceId` ties every error to a distributed trace ([observability](15-observability.md)).
 
+### 3.1 A body the server cannot read
+
+A request body that will not bind is **`400`**, not `500` — including an enum name that is not one of
+the names (`{"status":"Nonsense"}`), a body that is not JSON, and a value of the wrong shape. The
+`detail` names the offending JSON path (`$.type`), which is the part of the parser's complaint that
+is about the caller's request rather than about the server's types.
+
+This needed saying because it did not hold. ASP.NET already decides these are 400s — minimal APIs
+raise a `BadHttpRequestException` that carries its own status code — but the bare
+`UseExceptionHandler()` reported every unhandled exception as a server fault, status code and all.
+The result was an API telling callers their correct payload had broken it. It also raised the wrong
+alarm: `5xx` is what pages someone, so a device syncing one bad enum name would have opened an
+incident for a client-side typo.
+
+The mapping is deliberately narrow ([`ProblemDetailsExtensions`](../../FieldKit.Server/ProblemDetailsExtensions.cs)):
+**only** `BadHttpRequestException` chooses its own status, and it can only ever choose a `4xx`.
+Everything else stays a `500`. Widening it further would trade a misreported client error for a
+worse one — a genuine server fault reported as the caller's problem is a fault nobody investigates.
+
 ## 4. Idempotency
 
 - **Sync push:** every mutation carries a client **`mutationId`**; the server dedupes and returns
