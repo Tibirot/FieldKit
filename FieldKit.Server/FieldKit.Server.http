@@ -375,6 +375,150 @@ Authorization: Bearer {{viewerToken.response.body.access_token}}
   "title": "Should be forbidden"
 }
 
+### ─── Outlets · the base and its classification (OUT-01, OUT-04) ─────────────────────────────────
+
+### The trade classifications this tenant works with. Requires `channel:read`.
+GET {{Server_HostAddress}}/api/outlets/channels
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### A channel. Reference data with a stable id rather than a string on the outlet: assortment and
+### pricing key off the id, so the label can be corrected without any rule silently ceasing to match.
+# @name channel
+POST {{Server_HostAddress}}/api/outlets/channels
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Modern Trade"
+}
+
+### An outlet. `code` is the tenant's own identifier — what the location is called in their ERP —
+### and a channel is mandatory (BR-OUT-1): without one there is no assortment, price list or visit
+### workflow to give it.
+# @name outlet
+POST {{Server_HostAddress}}/api/outlets
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "code": "RO-BUC-0001",
+  "name": "Mega Image Dorobanți",
+  "channelId": "{{channel.response.body.id}}",
+  "segment": "A",
+  "banner": "Mega Image"
+}
+
+### The same code twice — expect 409. Unique per tenant, not globally: two tenants numbering their
+### stores from 1 is the ordinary case, not a collision.
+POST {{Server_HostAddress}}/api/outlets
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "code": "RO-BUC-0001",
+  "name": "Duplicate",
+  "channelId": "{{channel.response.body.id}}"
+}
+
+### An unknown channel — expect 400.
+POST {{Server_HostAddress}}/api/outlets
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "code": "RO-BUC-0002",
+  "name": "No channel",
+  "channelId": "00000000-0000-0000-0000-000000000000"
+}
+
+### Edit the details. Note there is no `code` field: the code is how an import recognises a location
+### it has already seen, so an edit that could change it would make the next import create a
+### duplicate instead of updating the original.
+PUT {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Mega Image Dorobanți 1",
+  "channelId": "{{channel.response.body.id}}",
+  "segment": "B",
+  "banner": "Mega Image"
+}
+
+### Filter the base. The two questions a back office actually asks of it, both indexed.
+GET {{Server_HostAddress}}/api/outlets?channelId={{channel.response.body.id}}&status=Active
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Status is its own endpoint, not a field on the edit: "this store is shut" is a different
+### decision from "the name was spelled wrong", and merging them lets a careless PUT close an outlet
+### as a side effect of fixing a typo.
+POST {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}/status
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "status": "Inactive"
+}
+
+### Closing without a reason — expect 400. Closing is irreversible and removes the outlet from every
+### future journey, so "why" is the question an auditor will ask, and the person who can answer it is
+### the one doing it now. A routine Active↔Inactive toggle does not need one.
+POST {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}/status
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "status": "Closed"
+}
+
+### Closing is permanent (OUT-04) — it is what makes Closed mean more than a long-lived Inactive,
+### and what BR-OUT-4's "excluded from new journeys, keeps its history" rests on.
+POST {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}/status
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "status": "Closed",
+  "reason": "Lease ended; site redeveloped"
+}
+
+### The audit trail: every transition, newest first, starting with the outlet's creation (`from` is
+### null). Append-only — there is deliberately no endpoint to add, edit or remove an entry, because
+### an audit log with a write path is one that can be arranged after the fact.
+GET {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}/status-history
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Reopening a closed outlet — expect 409 naming the new-outlet path.
+POST {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}/status
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "status": "Active"
+}
+
+### Delete a channel that outlets are classified as — expect 409. BR-OUT-1 means there is no such
+### thing as removing a channel from under the outlets that use it.
+DELETE {{Server_HostAddress}}/api/outlets/channels/{{channel.response.body.id}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### The base as `rep`, who holds outlet:read + channel:read and neither write — 200 here…
+GET {{Server_HostAddress}}/api/outlets
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### …and 403 here. Walking the round and owning the master data are different capabilities.
+POST {{Server_HostAddress}}/api/outlets/channels
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Should be forbidden"
+}
+
 ### ─── Multi-issuer (ADR-0008) ────────────────────────────────────────────────────────────────────
 
 ### A token from the SECOND tenant's realm. Different issuer, different signing keys, same API.

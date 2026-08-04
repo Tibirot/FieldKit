@@ -52,15 +52,36 @@ public static class SystemRoleTemplates
     /// </remarks>
     public static readonly IReadOnlyList<RoleTemplate> All =
     [
-        new("Field Rep", ["product:read"]),
+        // Reads the outlet base and the vocabulary it is classified by, because that is the round
+        // they walk. Changes neither.
+        new("Field Rep", ["product:read", "outlet:read", "channel:read"]),
 
         // Reads the hierarchy because a supervisor's job is defined by their branch of it, and reads
         // positions because that is who is in it. Cannot redraw either — both are back-office acts.
-        new("Supervisor", ["product:read", "orgunit:read", "position:read", IamPermissions.UserRead]),
+        new("Supervisor",
+        [
+            "product:read",
+            "orgunit:read",
+            "position:read",
+            "outlet:read",
+            "channel:read",
+            IamPermissions.UserRead,
+        ]),
 
-        // Staffs the organization without redrawing it: sales ops decides who covers what, org
-        // design decides what there is to cover.
-        new("Sales Ops", ["product:read", "product:write", "orgunit:read", "position:read", "position:write"]),
+        // Staffs the organization without redrawing it, and owns the outlet base: sales ops decides
+        // who covers what, org design decides what there is to cover. It does not own the
+        // classification vocabulary — renaming a channel changes what every assortment rule means.
+        new("Sales Ops",
+        [
+            "product:read",
+            "product:write",
+            "orgunit:read",
+            "position:read",
+            "position:write",
+            "outlet:read",
+            "outlet:write",
+            "channel:read",
+        ]),
 
         // No product permissions, on purpose. An admin who can grant capabilities does not thereby
         // hold them — that is what makes this a permission model rather than a tier list.
@@ -70,6 +91,10 @@ public static class SystemRoleTemplates
             "orgunit:write",
             "position:read",
             "position:write",
+            // The classification vocabulary, which Sales Ops deliberately does not own: renaming a
+            // channel changes what every assortment and pricing rule keyed to it means.
+            "channel:read",
+            "channel:write",
             IamPermissions.RoleRead,
             IamPermissions.RoleWrite,
             IamPermissions.UserRead,

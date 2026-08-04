@@ -35,6 +35,18 @@
       {
         "name": "position:write",
         "description": "Edit positions. Held for the same reason as orgunit:write — a cross-tenant attempt must be refused by the query filter, not by the permission check."
+      },
+      {
+        "name": "outlet:read",
+        "description": "View outlets. Held so the second tenant can be asked what it sees (OUT-01)."
+      },
+      {
+        "name": "outlet:write",
+        "description": "Edit outlets. Held for the same reason as orgunit:write — a cross-tenant attempt must be refused by the query filter (404), not by the permission check (403)."
+      },
+      {
+        "name": "channel:read",
+        "description": "View channels. Held so per-tenant classification vocabularies can be shown to be separate."
       }
     ]
   },
@@ -160,7 +172,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["product:read", "product:write", "role:read", "orgunit:read", "orgunit:write", "position:read", "position:write"]
+      "realmRoles": ["product:read", "product:write", "role:read", "orgunit:read", "orgunit:write", "position:read", "position:write", "outlet:read", "outlet:write", "channel:read"]
     }
   ]
 }

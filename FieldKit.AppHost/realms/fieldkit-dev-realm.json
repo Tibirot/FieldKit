@@ -47,6 +47,22 @@
       {
         "name": "position:write",
         "description": "Assign people to org units and change their titles (Organization module). Separate from orgunit:write because redrawing the organization and staffing it are different jobs."
+      },
+      {
+        "name": "outlet:read",
+        "description": "View outlets and their classification (Outlets module)."
+      },
+      {
+        "name": "outlet:write",
+        "description": "Create and edit outlets, and change their status (Outlets module)."
+      },
+      {
+        "name": "channel:read",
+        "description": "View the trade classifications outlets are grouped by (Outlets module)."
+      },
+      {
+        "name": "channel:write",
+        "description": "Create, rename and delete trade channels (Outlets module). Separate from outlet:write because a channel is the vocabulary assortment and pricing rules key off, not a fact about one location."
       }
     ]
   },
@@ -123,7 +139,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["product:read", "product:write"]
+      "realmRoles": ["product:read", "product:write", "outlet:read", "channel:read"]
     },
     {
       "username": "viewer",
@@ -139,7 +155,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["product:read", "role:read", "orgunit:read", "position:read"]
+      "realmRoles": ["product:read", "role:read", "orgunit:read", "position:read", "outlet:read", "channel:read"]
     },
     {
       "username": "admin",
@@ -155,7 +171,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["role:read", "role:write", "user:read", "user:write", "orgunit:read", "orgunit:write", "position:read", "position:write"]
+      "realmRoles": ["role:read", "role:write", "user:read", "user:write", "orgunit:read", "orgunit:write", "position:read", "position:write", "outlet:read", "outlet:write", "channel:read", "channel:write"]
     }
   ]
 }

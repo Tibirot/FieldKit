@@ -56,6 +56,33 @@ downstream possible.
 ### F4 · Lifecycle
 - Outlets can be `Active`, `Inactive` (temporarily not visited), or `Closed` (permanent).
 
+`Closed` is **terminal**: an outlet cannot be reopened. That is what makes it mean anything beyond
+`Inactive` — a status that can be walked back is just a long-lived `Inactive`, and BR-OUT-4's
+"excluded from new journeys, retains history" would be a preference rather than a fact. A location
+that genuinely reopens is a **new outlet with its own code**, because its trading history as a
+different business should not silently continue.
+
+> 📝 ASSUMPTION: no back-office "reopen" escape hatch. An outlet closed by mistake has to be
+> re-created under a new code, which loses the link to its history. If operators hit this in
+> practice, the answer is an explicit, separately-permissioned reopen that records who did it —
+> **not** relaxing the transition, which would take the meaning out of `Closed`.
+
+Status changes go through their own endpoint rather than the edit form. "This store is shut" is a
+different decision from "the name was spelled wrong", and merging them lets a careless update close
+an outlet as a side effect of fixing a typo.
+
+**Every transition is recorded, append-only.** Neither `Inactive` nor `Closed` deletes anything — but
+the outlet's own audit stamps are overwritten by the next ordinary edit, so without a trail an outlet
+closed in March and renamed in April reads as though nobody ever closed it. The trail holds
+`from → to`, the reason, when, and who; it starts with the outlet's creation (`from` is null), so
+"no history" can never be mistaken for "the history was lost". There is no API to write, edit or
+delete an entry — an audit log with a write path is one that can be arranged after the fact.
+
+**A reason is required to close, and optional otherwise.** Closing is irreversible and removes the
+outlet from every future journey, so *why* is the question an auditor will ask about it, and the
+person who knows the answer is the one doing it. Demanding a reason for a routine
+`Active`↔`Inactive` toggle would buy a column full of ".".
+
 ## 5. Business rules
 
 - **BR-OUT-1** Every outlet has a **channel** and a **primary territory**.

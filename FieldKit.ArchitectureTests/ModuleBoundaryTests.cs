@@ -3,6 +3,7 @@ using FieldKit.Modules.Catalog;
 using FieldKit.Modules.Iam;
 using FieldKit.Modules.Iam.Contracts;
 using FieldKit.Modules.Org;
+using FieldKit.Modules.Outlets;
 using NetArchTest.Rules;
 
 namespace FieldKit.ArchitectureTests;
@@ -25,6 +26,7 @@ public class ModuleBoundaryTests
     private static readonly Assembly IamContracts = typeof(IUserDirectory).Assembly;
     private static readonly Assembly Catalog = typeof(CatalogModule).Assembly;
     private static readonly Assembly OrgModuleAssembly = typeof(OrgModule).Assembly;
+    private static readonly Assembly OutletsModuleAssembly = typeof(OutletsModule).Assembly;
 
     /// <summary>Module <b>implementation</b> assemblies — the ones nothing outside may reference.</summary>
     private static readonly string[] ModuleImplementations =
@@ -32,6 +34,7 @@ public class ModuleBoundaryTests
         "FieldKit.Modules.Iam",
         "FieldKit.Modules.Catalog",
         "FieldKit.Modules.Org",
+        "FieldKit.Modules.Outlets",
     ];
 
     [Fact] // AT-1 — the core boundary.
@@ -40,6 +43,7 @@ public class ModuleBoundaryTests
         AssertReferencesNoOtherModule(Catalog);
         AssertReferencesNoOtherModule(Iam);
         AssertReferencesNoOtherModule(OrgModuleAssembly);
+        AssertReferencesNoOtherModule(OutletsModuleAssembly);
     }
 
     [Fact] // AT-3 — entities cannot leak, because contracts cannot see them.
