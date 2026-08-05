@@ -136,12 +136,12 @@ internal static class RepAssignmentEndpoints
     {
         if (!DateRange.TryCreate(request.From, request.To, out var period))
         {
-            return (Results.BadRequest(new { error = "An assignment cannot end before it starts." }), default);
+            return (Problems.BadRequest("to", "An assignment cannot end before it starts."), default);
         }
 
         if (string.IsNullOrWhiteSpace(request.UserId))
         {
-            return (Results.BadRequest(new { error = "An assignment needs a rep." }), default);
+            return (Problems.BadRequest("userId", "An assignment needs a rep."), default);
         }
 
         // Through IAM's contract, never its tables. A deactivated user still resolves — their past
@@ -151,12 +151,12 @@ internal static class RepAssignmentEndpoints
 
         if (user is null)
         {
-            return (Results.BadRequest(new { error = "No such user in this tenant." }), default);
+            return (Problems.BadRequest("userId", "No such user in this tenant."), default);
         }
 
         if (!user.IsActive)
         {
-            return (Results.BadRequest(new { error = "That user is deactivated." }), default);
+            return (Problems.BadRequest("userId", "That user is deactivated."), default);
         }
 
         var others = await db.RepAssignments
@@ -171,11 +171,14 @@ internal static class RepAssignmentEndpoints
 
         return clash is null
             ? (null, period)
-            : (Results.Conflict(new
-            {
-                error = "Another rep is already assigned to this territory for part of that period.",
-                conflictsWith = new { clash.Id, clash.UserId, From = clash.FromDate, To = clash.ToDate },
-            }), default);
+            // Named for `from`, since moving the start is the usual way out of an overlap — and the
+            // clashing period is in the message rather than a side-channel object, so a client that
+            // only renders messages still tells someone what they collided with.
+            : (Problems.Conflict(
+                "from",
+                $"Another rep is already assigned to this territory from {clash.FromDate:yyyy-MM-dd} "
+                    + $"to {(clash.ToDate is { } to ? to.ToString("yyyy-MM-dd") : "further notice")}."),
+                default);
     }
 
     /// <summary>

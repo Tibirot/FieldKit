@@ -2,6 +2,13 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "//": "The whole system — Postgres, Keycloak, the API and the front end. Aspire assigns the front end's port, so check the dashboard (or this server's log) for the URL rather than trusting the one below.",
+      "name": "apphost",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "FieldKit.AppHost"],
+      "port": 3000
+    },
+    {
       "name": "frontend",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],

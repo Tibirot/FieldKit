@@ -169,25 +169,98 @@ describe("<OutletForm>", () => {
     expect(sent(updateOutlet).customFields).toEqual({ chillers: 7 });
   });
 
-  it("repeats what the server refused, in the server's words", async () => {
-    // The API knows things this form cannot — that a code was taken a second ago, or that a custom
-    // field broke a rule only the catalogue holds. Replacing those with "something went wrong"
-    // throws away the only description of what is actually wrong.
-    createOutlet.mockRejectedValue(
-      new ApiError(409, ["An outlet with code 'OUT-9' already exists."]),
-    );
-
-    render(<OutletForm />);
-    await waitFor(() => expect(fetchChannels).toHaveBeenCalled());
-
+  /** Fills the four required fields and submits. */
+  async function submitValid() {
     await userEvent.type(screen.getByLabelText(/^code/i), "OUT-9");
     await userEvent.type(screen.getByLabelText(/outlet name/i), "Corner Shop");
     await userEvent.selectOptions(screen.getByLabelText(/channel/i), "019f-c");
     await userEvent.selectOptions(screen.getByLabelText(/time zone/i), "Europe/Bucharest");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  }
+
+  it("puts a refusal the server attributed under the control it is about", async () => {
+    // The API knows things this form cannot — that a code was taken a second ago, or that a custom
+    // field broke a rule only the catalogue holds. Now that it names the field, a server refusal
+    // reads exactly like a client-side one instead of appearing in a list somewhere above.
+    createOutlet.mockRejectedValue(
+      new ApiError(409, [{ field: "code", message: "An outlet with code 'OUT-9' already exists." }]),
+    );
+
+    render(<OutletForm />);
+    await waitFor(() => expect(fetchChannels).toHaveBeenCalled());
+    await submitValid();
+
+    const message = await screen.findByText(/already exists/);
+    const code = screen.getByLabelText(/^code/i);
+
+    expect(code.getAttribute("aria-describedby")).toBe(message.id);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("keeps a refusal it could not attribute at the top", async () => {
+    // A message pinned to a guessed control is worse than one that admits it is about the request —
+    // and an unknown field is a rule the API grew, not a reason to lose what it said.
+    createOutlet.mockRejectedValue(
+      new ApiError(409, [{ field: null, message: "That would exceed the tenant's outlet allowance." }]),
+    );
+
+    render(<OutletForm />);
+    await waitFor(() => expect(fetchChannels).toHaveBeenCalled());
+    await submitValid();
 
     const alert = await screen.findByRole("alert");
-    expect(alert.textContent).toContain("already exists");
+    expect(alert.textContent).toContain("outlet allowance");
+  });
+
+  it("attaches a custom-field refusal despite the API nesting it differently", async () => {
+    // The request nests custom fields under `customFields`; the form holds them under `custom`.
+    // That one prefix is the only place the two vocabularies disagree.
+    fetchFieldDefinitions.mockResolvedValue([
+      {
+        id: "f1",
+        entity: "Outlet",
+        key: "chillers",
+        label: "Chillers",
+        type: "Number",
+        required: false,
+        options: [],
+        maxLength: null,
+        minimum: null,
+        maximum: null,
+      },
+    ]);
+
+    createOutlet.mockRejectedValue(
+      new ApiError(400, [
+        { field: "customFields.chillers", message: "'chillers' is not a defined custom field." },
+      ]),
+    );
+
+    render(<OutletForm />);
+    await screen.findByLabelText(/chillers/i);
+    await submitValid();
+
+    const message = await screen.findByText(/not a defined custom field/);
+
+    expect(screen.getByLabelText(/chillers/i).getAttribute("aria-describedby")).toBe(message.id);
+  });
+
+  it("keeps a custom-field refusal it has no control for at the top", async () => {
+    // The catalogue this form built its inputs from can be a moment behind the one the API validated
+    // against. `setError` on a path with no control attached swallows the message without a word, so
+    // a key the form does not render falls back to the top rather than disappearing.
+    createOutlet.mockRejectedValue(
+      new ApiError(400, [
+        { field: "customFields.freezers", message: "'freezers' is not a defined custom field." },
+      ]),
+    );
+
+    render(<OutletForm />);
+    await waitFor(() => expect(fetchChannels).toHaveBeenCalled());
+    await submitValid();
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("not a defined custom field");
   });
 
   it("goes to the outlet it just saved", async () => {

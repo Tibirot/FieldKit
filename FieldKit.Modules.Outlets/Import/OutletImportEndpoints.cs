@@ -45,9 +45,11 @@ internal static class OutletImportEndpoints
 
                 if (!IsCsv(http.ContentType))
                 {
-                    return Results.Json(
-                        new { error = $"Send the file as {Csv}. JSON and Excel are not read yet." },
-                        statusCode: StatusCodes.Status415UnsupportedMediaType);
+                    // The one refusal that is neither 400 nor 409 — same envelope all the same,
+                    // because a client should read every refusal the same way.
+                    return Problems.Refuse(
+                        StatusCodes.Status415UnsupportedMediaType,
+                        $"Send the file as {Csv}. JSON and Excel are not read yet.");
                 }
 
                 // Buffered first, because the reader is synchronous and ASP.NET refuses synchronous
@@ -63,21 +65,19 @@ internal static class OutletImportEndpoints
                     // A whole-file failure, kept apart from row failures: a file that is not CSV has
                     // nothing to say per row, and handing back 4,000 identical errors would bury the
                     // one fact that matters.
-                    return Results.BadRequest(new { error = problem });
+                    return Problems.BadRequest(problem!);
                 }
 
                 if (file.Rows.Count == 0)
                 {
-                    return Results.BadRequest(new { error = "The file has a header but no rows." });
+                    return Problems.BadRequest("The file has a header but no rows.");
                 }
 
                 if (file.Rows.Count > OutletImportFormat.MaxRows)
                 {
-                    return Results.BadRequest(new
-                    {
-                        error = $"This import takes at most {OutletImportFormat.MaxRows:N0} rows at a time; "
-                            + $"the file has {file.Rows.Count:N0}.",
-                    });
+                    return Problems.BadRequest(
+                        $"This import takes at most {OutletImportFormat.MaxRows:N0} rows at a time; "
+                            + $"the file has {file.Rows.Count:N0}.");
                 }
 
                 var result = await OutletImporter.RunAsync(file, chosen, dryRun ?? false, db, fields, ct);

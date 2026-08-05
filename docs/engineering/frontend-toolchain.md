@@ -167,6 +167,35 @@ docker run --rm -v "$(pwd)/frontend:/src:ro" -w /build node:24 \
 > Same verification: a clean tree, the committed lockfile, and `npm ci` failing loudly on any
 > disagreement. Only the copy changes.
 
+## The React Compiler runs in the app and not in the tests
+
+`reactCompiler: true` ([next.config.ts](../../frontend/next.config.ts)) memoises components
+automatically. **The test run does not.** Vitest transforms with esbuild —
+`@vitejs/plugin-react` v6 requires Babel 8 and this repo is on Babel 7, so it was dropped and
+esbuild reads `"jsx": "react-jsx"` from tsconfig instead. So every component test exercises code
+that is materially different from what ships, and the difference is invisible until you open the app.
+
+It has already cost one bug. react-hook-form's `setError` writes into the `formState.errors` object
+that already exists rather than replacing it; the compiler memoises markup on that object's
+identity, so a server refusal routed to a control re-rendered the component, read the same
+reference, and reused last render's inputs — no message, no `aria-invalid`. Ten tests passed.
+Submitting a duplicate outlet code against the running API showed nothing at all
+([outlet-form.tsx](../../frontend/components/back-office/outlet-form.tsx)).
+
+What follows from that:
+
+- **A mutated object is not a change** as far as the compiler is concerned. Anything from a library
+  that updates in place has to be rebuilt — `{ ...form.formState.errors }` — before the markup that
+  reads it will re-run. React state and query results are already new objects; library-owned
+  mutable trees are not.
+- **A green component suite is not proof a screen works.** Anything to do with *when* the UI
+  updates — memoisation, referential identity, effects firing — needs the browser against the
+  AppHost. Assertions about content and behaviour are still worth having in jsdom, where they are
+  fast.
+- **Running the compiler in vitest would close the gap** and is worth doing when the Babel 8
+  constraint lifts, or via a Babel transform in the vitest pipeline. Until then this section is the
+  warning.
+
 ## Verifying a change to this setup
 
 Reproduce the failure before trusting a fix — this was originally misdiagnosed from a plausible

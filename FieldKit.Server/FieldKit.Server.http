@@ -1129,3 +1129,76 @@ Accept: application/json
 Authorization: Bearer {{adminToken.response.body.access_token}}
 
 ###
+
+### ─── What a refusal says about where it went wrong (api-contracts §3) ───────────────────────────
+
+### One envelope for every refusal, whatever the status: `{ "errors": [{ "field", "message" }] }`.
+### This one is a 400 and names `code` — the field the caller sent, not a column and not a form
+### control, because the request is the only thing the API can promise anything about.
+POST {{Server_HostAddress}}/api/outlets
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "code": "",
+  "name": "No code",
+  "channelId": "{{channel.response.body.id}}",
+  "timeZoneId": "Europe/Bucharest"
+}
+
+### The same shape at 409 — re-sending a code that already exists. A client reads both with one
+### branch; before this, a 400 carried `{ errors: [...] }` and a 409 carried `{ error: "..." }`, so
+### every caller had to sniff between two shapes to find out what went wrong.
+POST {{Server_HostAddress}}/api/outlets
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "code": "RO-BUC-0001",
+  "name": "Duplicate code",
+  "channelId": "{{channel.response.body.id}}",
+  "timeZoneId": "Europe/Bucharest"
+}
+
+### Every problem at once, not the first. Six things are wrong here and six come back — someone
+### filling a form wants to fix them in one pass, and reporting one at a time turns a six-field form
+### into six round trips.
+POST {{Server_HostAddress}}/api/iam/users
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "subjectId": "",
+  "email": "",
+  "displayName": "",
+  "locale": "not-a-locale",
+  "timeZone": "Mars/Olympus_Mons",
+  "roleIds": []
+}
+
+### A custom field is named by the path it was sent under — `customFields.chiller_count`, not the
+### bare key. The request has a `customFields` object, so that is where a client looks; the bare key
+### would also collide with a fixed field the day a tenant defines one called `name`. Define
+### `chiller_count` (0-50) above first.
+POST {{Server_HostAddress}}/api/outlets
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "code": "RO-BUC-0099",
+  "name": "Too many chillers",
+  "channelId": "{{channel.response.body.id}}",
+  "timeZoneId": "Europe/Bucharest",
+  "customFields": { "chiller_count": 900 }
+}
+
+### `field: null` when the problem is about the request as a whole. A header row and nothing under it
+### is not any one column's fault, and a form handed a field name for it would highlight a control at
+### random — so it says so instead, and the screen shows it at the top.
+POST {{Server_HostAddress}}/api/outlets/import
+Content-Type: text/csv
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+code,name,channel,time_zone
+
+###

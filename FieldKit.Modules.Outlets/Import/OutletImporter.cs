@@ -29,6 +29,9 @@ namespace FieldKit.Modules.Outlets.Import;
 /// </remarks>
 internal static class OutletImporter
 {
+    /// <summary>How <see cref="CustomFieldValidator"/> prefixes a custom field's path.</summary>
+    private const string CustomFieldPrefix = "customFields.";
+
     /// <summary>A channel as this importer needs it — id to store, name to match on.</summary>
     private sealed record ChannelRef(Guid Id, string Name);
 
@@ -306,16 +309,16 @@ internal static class OutletImporter
 
         foreach (var problem in CustomFieldValidator.Validate(coerced, definitions))
         {
-            // The validator opens each message with the key it is about, and a custom field's key is
-            // its column name here — the file's vocabulary and the catalogue's are the same one. So
-            // the column is recovered by asking which definition the message names, rather than by
-            // taking the message apart: an unrecognised shape leaves the column null, which the
-            // screen already handles, instead of producing a wrong one.
-            var column = definitions
-                .FirstOrDefault(definition => problem.StartsWith($"'{definition.Key}'", StringComparison.Ordinal))
-                ?.Key;
+            // The validator names the field itself now, as `customFields.<key>` — and a custom
+            // field's key *is* its column here, because the file's vocabulary and the catalogue's
+            // are the same one. This used to recover the column by checking which definition the
+            // message started with, which worked and would have stopped working the moment a message
+            // was reworded.
+            var column = problem.Field?.StartsWith(CustomFieldPrefix, StringComparison.Ordinal) == true
+                ? problem.Field[CustomFieldPrefix.Length..]
+                : null;
 
-            issues.Add((column, problem));
+            issues.Add((column, problem.Message));
         }
 
         return coerced;

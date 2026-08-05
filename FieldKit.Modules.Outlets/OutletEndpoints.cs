@@ -164,12 +164,12 @@ internal static class OutletEndpoints
         {
             if (string.IsNullOrWhiteSpace(request.Code))
             {
-                return Results.BadRequest(new { error = "An outlet needs a code." });
+                return Problems.BadRequest("code", "An outlet needs a code.");
             }
 
             if (string.IsNullOrWhiteSpace(request.Name))
             {
-                return Results.BadRequest(new { error = "An outlet needs a name." });
+                return Problems.BadRequest("name", "An outlet needs a name.");
             }
 
             if (await ChannelProblem(db, request.ChannelId, ct) is { } channelProblem) return channelProblem;
@@ -185,7 +185,7 @@ internal static class OutletEndpoints
 
             if (await db.Outlets.AnyAsync(outlet => outlet.Code.ToLower() == request.Code.ToLower(), ct))
             {
-                return Results.Conflict(new { error = $"An outlet with code '{request.Code}' already exists." });
+                return Problems.Conflict("code", $"An outlet with code '{request.Code}' already exists.");
             }
 
             var created = Outlet.Create(
@@ -219,7 +219,7 @@ internal static class OutletEndpoints
         {
             if (string.IsNullOrWhiteSpace(request.Name))
             {
-                return Results.BadRequest(new { error = "An outlet needs a name." });
+                return Problems.BadRequest("name", "An outlet needs a name.");
             }
 
             var outlet = await db.Outlets.SingleOrDefaultAsync(o => o.Id == id, ct);
@@ -262,7 +262,7 @@ internal static class OutletEndpoints
         {
             if (!Enum.IsDefined(request.Status))
             {
-                return Results.BadRequest(new { error = "Unknown outlet status." });
+                return Problems.BadRequest("status", "Unknown outlet status.");
             }
 
             // A reason is required to close and optional otherwise. Closing is irreversible and
@@ -271,7 +271,7 @@ internal static class OutletEndpoints
             // Demanding one for a routine Active↔Inactive toggle would buy a field full of "." .
             if (request.Status == OutletStatus.Closed && string.IsNullOrWhiteSpace(request.Reason))
             {
-                return Results.BadRequest(new { error = "Closing an outlet permanently requires a reason." });
+                return Problems.BadRequest("reason", "Closing an outlet permanently requires a reason.");
             }
 
             var outlet = await db.Outlets.SingleOrDefaultAsync(o => o.Id == id, ct);
@@ -281,7 +281,7 @@ internal static class OutletEndpoints
 
             if (outlet.ChangeStatus(request.Status, clock) is { } refusal)
             {
-                return Results.Conflict(new { error = refusal });
+                return Problems.Conflict(refusal);
             }
 
             // Only a real transition is recorded. A no-op request is accepted (it is idempotent),
@@ -341,7 +341,7 @@ internal static class OutletEndpoints
 
         var problems = CustomFieldValidator.Validate(values, definitions);
 
-        return problems.Count == 0 ? null : Results.BadRequest(new { errors = problems });
+        return problems.Count == 0 ? null : Problems.BadRequest(problems);
     }
 
     /// <summary>
@@ -366,7 +366,7 @@ internal static class OutletEndpoints
 
         if (string.IsNullOrWhiteSpace(timeZoneId) || !TimeZoneInfo.TryFindSystemTimeZoneById(timeZoneId, out _))
         {
-            return Results.BadRequest(new { error = $"'{timeZoneId}' is not a known IANA time zone." });
+            return Problems.BadRequest("timeZoneId", $"'{timeZoneId}' is not a known IANA time zone.");
         }
 
         if (location is null) return null;
@@ -375,10 +375,9 @@ internal static class OutletEndpoints
         // 400 naming the range instead of an exception from inside a value object.
         if (!GeoPoint.TryCreate(location.Latitude, location.Longitude, out var created))
         {
-            return Results.BadRequest(new
-            {
-                error = "Latitude must be between -90 and 90, and longitude between -180 and 180.",
-            });
+            return Problems.BadRequest(
+                "location",
+                "Latitude must be between -90 and 90, and longitude between -180 and 180.");
         }
 
         point = created;
@@ -398,7 +397,7 @@ internal static class OutletEndpoints
         OutletsDbContext db, Guid channelId, CancellationToken ct) =>
         await db.Channels.AnyAsync(channel => channel.Id == channelId, ct)
             ? null
-            : Results.BadRequest(new { error = "The channel does not exist." });
+            : Problems.BadRequest("channelId", "The channel does not exist.");
 
     /// <summary>
     /// Joins the channel name in, so a list of outlets is readable without a second call.

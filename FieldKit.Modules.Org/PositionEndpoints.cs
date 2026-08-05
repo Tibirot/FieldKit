@@ -61,7 +61,7 @@ internal static class PositionEndpoints
 
             if (duplicate)
             {
-                return Results.Conflict(new { error = "That user already holds a position in this unit." });
+                return Problems.Conflict("userId", "That user already holds a position in this unit.");
             }
 
             var created = Position.Create(request.UserId, request.OrgUnitId, request.Title);
@@ -81,7 +81,7 @@ internal static class PositionEndpoints
         {
             if (string.IsNullOrWhiteSpace(request.Title))
             {
-                return Results.BadRequest(new { error = "A position needs a title." });
+                return Problems.BadRequest("title", "A position needs a title.");
             }
 
             var position = await db.Positions.SingleOrDefaultAsync(p => p.Id == id, ct);
@@ -89,10 +89,8 @@ internal static class PositionEndpoints
 
             if (position.OrgUnitId != request.OrgUnitId || position.UserId != request.UserId)
             {
-                return Results.BadRequest(new
-                {
-                    error = "A position cannot be moved. Remove it and create the new one.",
-                });
+                return Problems.BadRequest(
+                    "orgUnitId", "A position cannot be moved. Remove it and create the new one.");
             }
 
             position.Retitle(request.Title, clock);
@@ -151,17 +149,17 @@ internal static class PositionEndpoints
     {
         if (string.IsNullOrWhiteSpace(request.UserId))
         {
-            return Results.BadRequest(new { error = "A position needs a user." });
+            return Problems.BadRequest("userId", "A position needs a user.");
         }
 
         if (string.IsNullOrWhiteSpace(request.Title))
         {
-            return Results.BadRequest(new { error = "A position needs a title." });
+            return Problems.BadRequest("title", "A position needs a title.");
         }
 
         if (!await db.OrgUnits.AnyAsync(unit => unit.Id == request.OrgUnitId, ct))
         {
-            return Results.BadRequest(new { error = "The org unit does not exist." });
+            return Problems.BadRequest("orgUnitId", "The org unit does not exist.");
         }
 
         // Deactivated users resolve — IUserDirectory returns them on purpose, because work they did
@@ -171,8 +169,8 @@ internal static class PositionEndpoints
 
         return user switch
         {
-            null => Results.BadRequest(new { error = "No such user in this tenant." }),
-            { IsActive: false } => Results.BadRequest(new { error = "That user is deactivated." }),
+            null => Problems.BadRequest("userId", "No such user in this tenant."),
+            { IsActive: false } => Problems.BadRequest("userId", "That user is deactivated."),
             _ => null,
         };
     }
