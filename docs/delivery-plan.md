@@ -194,8 +194,12 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
   ✓ **Import screen — upload, check, apply** (`OUT-05`) — the dry run costs nothing and returns
   exactly what the real run would, so Apply stays unavailable until Check has run. The row cap and
   the readable formats come from **`GET /api/outlets/import`** rather than a copy in the front end,
-  because a drifted copy fails silently. The **editable grid** is the slice that remains
-  ([spec §6.2](product/12-outlets-master-data.md#62-the-import-screen-week-5)).
+  because a drifted copy fails silently.
+  ✓ **The editable grid** (`OUT-05`) — the refused rows come back as a table with the flagged cells
+  editable; fix them, check again, apply. No new API, which is what the response shape was designed
+  for. It does need a CSV reader in the browser, so the screen compares its own row count against the
+  response's and declines to offer the grid when the two readers disagree — a flag on the wrong shop
+  is worse than no grid ([spec §6.2](product/12-outlets-master-data.md#62-the-import-screen-week-5)).
 - **Territories** screen (list + rep assignment).
 - **Users & roles** screen (list + role permission toggles).
 

@@ -202,6 +202,12 @@
     "column": "Column",
     "problem": "Problem",
     "downloadRejected": "Download the refused rows",
-    "failed": "The file could not be imported."
+    "failed": "The file could not be imported.",
+    "fixTitle": "Fix the refused rows",
+    "fixHint": "Edit the flagged cells, then check again.",
+    "fixCaption": "The refused rows, editable, with the reason each was refused.",
+    "cellLabel": "{column}, row {row}",
+    "recheck": "Check again",
+    "tooManyToFix": "Showing {shown, number} of {total, number} refused rows. For the rest, download them and fix the file."
   }
 }

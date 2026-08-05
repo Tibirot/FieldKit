@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
+import { OutletImportGrid } from "@/components/back-office/outlet-import-grid";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -14,12 +15,19 @@ import {
   type OutletImportMode,
   type OutletImportResult,
 } from "@/lib/api/outlet-import";
+import { parseCsv, withCell, writeCsv, type Csv } from "@/lib/csv";
 import { cn } from "@/lib/utils";
 
 const MODES: readonly OutletImportMode[] = ["AllOrNothing", "Partial"];
 
-/** A file the browser has read, held in memory for as long as this screen is open. */
-type Chosen = { name: string; text: string; rows: number };
+/**
+ * A file the browser has read, held in memory for as long as this screen is open.
+ *
+ * Both the bytes and the parse. `text` is what was uploaded, untouched, and is what gets sent until
+ * someone edits a cell — "check the file I gave you" should mean the file they gave us. From the
+ * first edit onwards the parsed copy is the truth and is written back out.
+ */
+type Chosen = { name: string; text: string; csv: Csv; edited: boolean };
 
 /**
  * Bulk import of the outlet base (`OUT-05`).
@@ -54,13 +62,27 @@ export function OutletImport() {
   const [refused, setRefused] = useState<readonly string[]>([]);
 
   const maxRows = capabilities.data?.maxRows;
-  const tooBig = maxRows !== undefined && chosen !== null && chosen.rows > maxRows;
+  const rows = chosen?.csv.rows.length;
+  const tooBig = maxRows !== undefined && rows !== undefined && rows > maxRows;
+
+  /**
+   * Whether this browser read the file the same way the server did.
+   *
+   * Two CSV readers, one in C# and one here, and the grid depends on them agreeing about which row
+   * is row 7. If they do not, every flag would land on the wrong shop — so the counts are compared
+   * and the grid is simply not offered when they disagree. The rejected-rows download is the answer
+   * then, which is what it is for.
+   */
+  const aligned = result !== null && rows === result.totalRows;
 
   const run = useMutation({
     mutationFn: (dryRun: boolean) =>
       importOutlets(
         accessToken!,
-        { text: chosen!.text, mediaType: capabilities.data!.mediaTypes[0] },
+        {
+          text: chosen!.edited ? writeCsv(chosen!.csv) : chosen!.text,
+          mediaType: capabilities.data!.mediaTypes[0],
+        },
         { mode, dryRun },
       ),
 
@@ -94,7 +116,15 @@ export function OutletImport() {
 
     const text = await file.text();
 
-    setChosen({ name: file.name, text, rows: countRows(text) });
+    setChosen({ name: file.name, text, csv: parseCsv(text), edited: false });
+  }
+
+  function edit(row: number, column: number, value: string) {
+    setChosen((current) =>
+      current === null
+        ? null
+        : { ...current, csv: withCell(current.csv, row, column, value), edited: true },
+    );
   }
 
   return (
@@ -144,7 +174,7 @@ export function OutletImport() {
           // Refused here rather than by uploading twelve megabytes to be told the same thing. The
           // cap comes from the server, so this cannot disagree with what would actually happen.
           <p role="alert" className="text-sm text-destructive">
-            {t("tooBig", { rows: chosen.rows, max: maxRows })}
+            {t("tooBig", { rows: rows!, max: maxRows })}
           </p>
         ) : null}
 
@@ -179,23 +209,18 @@ export function OutletImport() {
       ) : null}
 
       {result ? <Outcome result={result} fileName={chosen?.name ?? "outlets.csv"} /> : null}
+
+      {result && chosen && aligned && result.problems.length > 0 ? (
+        <OutletImportGrid
+          file={chosen.csv}
+          problems={result.problems}
+          onEdit={edit}
+          onRecheck={() => run.mutate(true)}
+          busy={run.isPending}
+        />
+      ) : null}
     </div>
   );
-}
-
-/**
- * Counts data rows the way the server does — the header does not count, and a trailing newline is
- * not a row.
- *
- * Approximate by construction: a quoted field containing a newline is one row that looks like two.
- * That is acceptable for the *only* thing this number does, which is refuse a file that is obviously
- * far too large before uploading it. The server counts properly, and its answer is the one that
- * decides.
- */
-function countRows(text: string): number {
-  const lines = text.split(/\r?\n/).filter((line) => line.trim() !== "");
-
-  return Math.max(0, lines.length - 1);
 }
 
 function Outcome({ result, fileName }: { result: OutletImportResult; fileName: string }) {
