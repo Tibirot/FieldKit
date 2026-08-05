@@ -242,6 +242,25 @@
     "saveFailed": "Teritoriul nu a putut fi salvat.",
     "save": "Salvează",
     "saving": "Se salvează…",
-    "cancel": "Anulează"
+    "cancel": "Anulează",
+    "assignmentsFor": "Reprezentanți pentru {name}",
+    "assignRep": "Alocă un reprezentant",
+    "loadingAssignments": "Se încarcă alocările…",
+    "assignmentsFailed": "Alocările nu au putut fi încărcate.",
+    "noAssignments": "Nimeni nu este alocat încă acestui teritoriu.",
+    "unknownRep": "Reprezentant necunoscut",
+    "rep": "Reprezentant",
+    "from": "De la",
+    "to": "Până la",
+    "toHint": "Lasă gol pentru până la o nouă decizie.",
+    "period": "{from} – {to}",
+    "periodOpen": "{from} – până la o nouă decizie",
+    "current": "În curs",
+    "edit": "Editează",
+    "editAssignmentNamed": "Editează alocarea pentru {name}",
+    "remove": "Elimină",
+    "removeAssignmentNamed": "Elimină alocarea pentru {name}",
+    "removeFailed": "Alocarea nu a putut fi eliminată.",
+    "assignFailed": "Alocarea nu a putut fi salvată."
   }
 }

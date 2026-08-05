@@ -209,8 +209,14 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
   every membership of every territory to render a column of numbers. Deleting a territory that still
   holds outlets is refused rather than cascaded, and the screen shows the server's own sentence —
   those outlets are a rep's offline scope (`BR-ORG-3`), so a cascade is a set of shops vanishing from
-  a device tomorrow morning. **Rep assignment** (`ORG-04`) is the slice that remains, in the detail
-  panel the wireframe draws.
+  a device tomorrow morning.
+  ✓ **Rep assignment** (`ORG-04`) — the detail panel the wireframe draws, opened from the territory
+  name and held in the URL like every other view on this screen. A **history**, not a current
+  holder: `BR-ORG-2` allows one rep at a time, so several rows mean the periods do not overlap. An
+  end date is optional and means *until further notice*, and `isCurrent` is the server's answer in
+  the caller's own timezone rather than the browser's — the two disagree for anyone travelling.
+  Overlap stays the server's rule: two people can be editing the same territory, so a client-side
+  check is a guess about a set it does not own.
 - **Users & roles** screen (list + role permission toggles).
 
 **Done when:** an admin logs in, models a small org, and loads outlets — matches the [wireframes](ux/README.md), all tenant-scoped. **▶ Phase 1 demo.**

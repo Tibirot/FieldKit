@@ -28,8 +28,11 @@ vi.mock("@/i18n/navigation", () => ({
 
 vi.mock("next/navigation", () => ({ useSearchParams: () => search.current }));
 
+vi.mock("@/lib/api/users", () => ({ usersKey: () => ["users"], fetchUsers: () => Promise.resolve([]) }));
+
 vi.mock("@/lib/api/org", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/org")>()),
+  fetchAssignments: () => Promise.resolve([]),
   fetchOrgUnits: (...args: unknown[]) => fetchOrgUnits(...args),
   fetchTerritories: (...args: unknown[]) => fetchTerritories(...args),
   createTerritory: (...args: unknown[]) => createTerritory(...args),
@@ -184,6 +187,49 @@ describe("<TerritoryBrowser>", () => {
     const message = await screen.findByText(/already exists/);
 
     expect(screen.getByLabelText(/^name/i).getAttribute("aria-describedby")).toBe(message.id);
+  });
+
+  it("puts the open detail panel in the URL", async () => {
+    // Same reasoning as the filter: "the assignments for București Nord" is a view worth sending to
+    // a colleague, and React state cannot be linked to.
+    render(<TerritoryBrowser />);
+    await screen.findByRole("table");
+
+    await userEvent.click(screen.getByRole("button", { name: "București Nord" }));
+
+    expect(push).toHaveBeenCalledWith("/territories?territory=t-1");
+  });
+
+  it("closes the panel when the filter would hide the territory it is about", async () => {
+    // A territory the filter excludes is not one the screen is showing, and leaving its detail
+    // below an empty table reads as a bug.
+    search.current = new URLSearchParams("territory=t-1");
+
+    render(<TerritoryBrowser />);
+    await screen.findByRole("table");
+
+    await userEvent.selectOptions(screen.getByLabelText("Filter by org unit"), "u-mun");
+
+    expect(push).toHaveBeenCalledWith("/territories?orgUnitId=u-mun");
+  });
+
+  it("opens nothing for a territory id that is not in the current view", async () => {
+    // A stale link or a changed filter. Opening nothing is the honest outcome — the alternative is
+    // fetching a territory the list does not contain to render a panel under it.
+    search.current = new URLSearchParams("territory=t-gone");
+
+    render(<TerritoryBrowser />);
+    await screen.findByRole("table");
+
+    expect(screen.queryByRole("button", { name: "Assign a rep" })).toBeNull();
+  });
+
+  it("shows the detail panel for the territory named in the URL", async () => {
+    search.current = new URLSearchParams("territory=t-2");
+
+    render(<TerritoryBrowser />);
+
+    expect(await screen.findByText("Reps covering Iași")).toBeTruthy();
   });
 
   it("says so when there is nothing to show, and why", async () => {

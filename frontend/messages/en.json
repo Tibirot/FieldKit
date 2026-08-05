@@ -242,6 +242,25 @@
     "saveFailed": "This territory could not be saved.",
     "save": "Save",
     "saving": "Saving…",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "assignmentsFor": "Reps covering {name}",
+    "assignRep": "Assign a rep",
+    "loadingAssignments": "Loading assignments…",
+    "assignmentsFailed": "Assignments could not be loaded.",
+    "noAssignments": "Nobody is assigned to this territory yet.",
+    "unknownRep": "Unknown rep",
+    "rep": "Rep",
+    "from": "From",
+    "to": "To",
+    "toHint": "Leave empty for until further notice.",
+    "period": "{from} – {to}",
+    "periodOpen": "{from} – until further notice",
+    "current": "Current",
+    "edit": "Edit",
+    "editAssignmentNamed": "Edit the assignment for {name}",
+    "remove": "Remove",
+    "removeAssignmentNamed": "Remove the assignment for {name}",
+    "removeFailed": "This assignment could not be removed.",
+    "assignFailed": "This assignment could not be saved."
   }
 }

@@ -104,3 +104,75 @@ export function pathOf(unit: OrgUnit, units: Map<string, OrgUnit>): string {
 
   return names.join(" / ");
 }
+
+/**
+ * A rep's coverage of a territory over a period (`ORG-04`).
+ *
+ * **`userId` is the Keycloak subject**, not the IAM row's id. A user profile has both, they are
+ * different strings, and sending the wrong one is refused as "No such user in this tenant" — which
+ * reads like a missing user rather than a mismatched identifier.
+ */
+export type RepAssignment = {
+  id: string;
+  territoryId: string;
+  userId: string;
+  /** Null when the directory no longer resolves the subject — the assignment still stands. */
+  displayName: string | null;
+  /** ISO `YYYY-MM-DD`, which is also what a native date input holds. */
+  from: string;
+  /** Null means open-ended: until further notice. */
+  to: string | null;
+  /**
+   * Whether today falls inside the period.
+   *
+   * The server's answer, resolved in the *calling* user's timezone. Computing it here would use the
+   * browser's, and the two disagree for anyone travelling — which is most of a sales organisation.
+   */
+  isCurrent: boolean;
+};
+
+export type RepAssignmentWrite = {
+  userId: string;
+  from: string;
+  to: string | null;
+};
+
+export const assignmentsKey = (subject: string, territoryId: string) =>
+  ["assignments", subject, territoryId] as const;
+
+export function fetchAssignments(
+  accessToken: string,
+  territoryId: string,
+  signal?: AbortSignal,
+): Promise<RepAssignment[]> {
+  return apiGet<RepAssignment[]>(
+    `/api/org/territories/${territoryId}/assignments`,
+    accessToken,
+    signal,
+  );
+}
+
+export function createAssignment(
+  accessToken: string,
+  territoryId: string,
+  assignment: RepAssignmentWrite,
+): Promise<RepAssignment> {
+  return apiSend<RepAssignment>(
+    "POST",
+    `/api/org/territories/${territoryId}/assignments`,
+    accessToken,
+    assignment,
+  );
+}
+
+export function updateAssignment(
+  accessToken: string,
+  id: string,
+  assignment: RepAssignmentWrite,
+): Promise<RepAssignment> {
+  return apiSend<RepAssignment>("PUT", `/api/org/assignments/${id}`, accessToken, assignment);
+}
+
+export function deleteAssignment(accessToken: string, id: string): Promise<void> {
+  return apiDelete(`/api/org/assignments/${id}`, accessToken);
+}
