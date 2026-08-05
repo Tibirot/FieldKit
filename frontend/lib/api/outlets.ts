@@ -1,4 +1,4 @@
-import { apiGet } from "@/lib/api/client";
+import { apiGet, apiSend } from "@/lib/api/client";
 
 /** The lifecycle an outlet moves through (`OUT-04`). Sent and received by name, never by ordinal. */
 export type OutletStatus = "Active" | "Inactive" | "Closed";
@@ -95,3 +95,66 @@ export function fetchOutlets(
  */
 export const outletsKey = (subject: string, query: OutletQuery = {}) =>
   ["outlets", subject, query] as const;
+
+/** A structured address. Postal code and city are what territory rules key off (`ORG-07`). */
+export type Address = {
+  street: string | null;
+  city: string | null;
+  postalCode: string | null;
+  countryCode: string | null;
+};
+
+export type Coordinates = {
+  latitude: number;
+  longitude: number;
+};
+
+/**
+ * What the form sends.
+ *
+ * `code` is absent from the update shape because an outlet's code is not editable — it is the
+ * tenant's own identifier, already written into every territory membership and every import file
+ * that references the shop.
+ */
+export type OutletWrite = {
+  name: string;
+  channelId: string;
+  segment: string | null;
+  banner: string | null;
+  timeZoneId: string;
+  address: Address | null;
+  location: Coordinates | null;
+  customFields: Record<string, unknown>;
+};
+
+export type CreateOutlet = OutletWrite & { code: string };
+
+export function fetchOutlet(
+  accessToken: string,
+  id: string,
+  signal?: AbortSignal,
+): Promise<OutletDetail> {
+  return apiGet<OutletDetail>(`/api/outlets/${id}`, accessToken, signal);
+}
+
+/** The whole outlet, as the edit form needs it — the list only types the columns it renders. */
+export type OutletDetail = Outlet & {
+  timeZoneId: string;
+  address: Address | null;
+  location: Coordinates | null;
+  customFields: Record<string, unknown>;
+};
+
+export const outletKey = (subject: string, id: string) => ["outlet", subject, id] as const;
+
+export function createOutlet(accessToken: string, outlet: CreateOutlet): Promise<OutletDetail> {
+  return apiSend<OutletDetail>("POST", "/api/outlets", accessToken, outlet);
+}
+
+export function updateOutlet(
+  accessToken: string,
+  id: string,
+  outlet: OutletWrite,
+): Promise<OutletDetail> {
+  return apiSend<OutletDetail>("PUT", `/api/outlets/${id}`, accessToken, outlet);
+}

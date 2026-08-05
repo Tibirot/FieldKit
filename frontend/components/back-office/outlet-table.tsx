@@ -13,6 +13,7 @@ import {
   type OutletSort,
   type OutletStatus,
 } from "@/lib/api/outlets";
+import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 
 /**
@@ -141,7 +142,11 @@ export function OutletTable({
         <tbody>
           {outlets.data.items.map((outlet) => (
             <tr key={outlet.id} className="border-b border-border last:border-b-0">
-              <td className="px-3.5 py-2.5 font-mono tabular-nums">{outlet.code}</td>
+              <td className="px-3.5 py-2.5 font-mono tabular-nums">
+                <Link href={`/outlets/${outlet.id}`} className="hover:text-primary hover:underline">
+                  {outlet.code}
+                </Link>
+              </td>
               <td className="px-3.5 py-2.5 font-semibold">{outlet.name}</td>
               <td className="px-3.5 py-2.5">{outlet.channelName}</td>
               <td className="px-3.5 py-2.5 text-muted-foreground">{outlet.segment ?? "—"}</td>

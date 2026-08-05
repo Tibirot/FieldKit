@@ -182,6 +182,12 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
   the client-state decision in [ADR-0004](architecture/adr/0004-nextjs-offline-first-frontend.md#state-three-kinds-and-only-one-library):
   a filtered view is shareable, survives a reload, and is what a colleague can be sent. Create/edit
   and the import screen are what remain.
+  ✓ **Create / edit, with the tenant's own fields** (`OUT-01`, `OUT-02`) — one form for both, code
+  set once and read-only after. The custom-field section is rendered from the tenant's catalogue
+  (`CFG-01`), and its **Zod schema is generated from the same descriptor** rather than written by
+  hand — so the client cannot drift from the rules `BR-CFG-3` says the server owns. React Hook Form
+  carries it, which is what puts each message beside the control that caused it. Contacts and the
+  import screen are what remain.
 - **Territories** screen (list + rep assignment).
 - **Users & roles** screen (list + role permission toggles).
 

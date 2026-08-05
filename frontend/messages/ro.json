@@ -126,6 +126,45 @@
     "noMatches": "Niciun punct de vânzare nu corespunde acestor filtre.",
     "pageOf": "Pagina {page} din {pages}",
     "previousPage": "Pagina anterioară",
-    "nextPage": "Pagina următoare"
+    "nextPage": "Pagina următoare",
+    "newOutlet": "Punct de vânzare nou",
+    "edit": "Editează"
+  },
+  "OutletForm": {
+    "crumbNew": "Date de bază / Puncte de vânzare / Nou",
+    "crumbEdit": "Date de bază / Puncte de vânzare / {code}",
+    "titleNew": "Punct de vânzare nou",
+    "code": "Cod",
+    "name": "Denumire",
+    "channel": "Canal",
+    "timeZone": "Fus orar",
+    "segment": "Segment",
+    "banner": "Rețea",
+    "location": "Locație",
+    "street": "Stradă",
+    "city": "Oraș",
+    "postalCode": "Cod poștal",
+    "countryCode": "Cod țară",
+    "latitude": "Latitudine",
+    "longitude": "Longitudine",
+    "customFields": "Câmpuri personalizate",
+    "save": "Salvează",
+    "saving": "Se salvează…",
+    "cancel": "Anulează",
+    "loading": "Se încarcă punctul de vânzare…",
+    "failed": "Punctul de vânzare nu a putut fi salvat.",
+    "notFound": "Acest punct de vânzare nu există.",
+    "betweenLat": "Trebuie să fie între -90 și 90.",
+    "betweenLon": "Trebuie să fie între -180 și 180."
+  },
+  "Validation": {
+    "required": "Acest câmp este obligatoriu.",
+    "tooLong": "Cel mult {max} caractere.",
+    "atMost": "Cel mult {max}.",
+    "atLeast": "Cel puțin {min}.",
+    "mustBeNumber": "Trebuie să fie un număr.",
+    "notAnOption": "Nu este una dintre opțiuni.",
+    "mustBeDate": "Trebuie să fie o dată în formatul AAAA-LL-ZZ.",
+    "between": "Trebuie să fie între {min} și {max}."
   }
 }

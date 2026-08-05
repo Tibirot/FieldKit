@@ -14,6 +14,14 @@ const fetchOutlets = vi.hoisted(() => vi.fn());
 
 vi.mock("@/components/auth-provider", () => ({ useAuth: () => auth.current }));
 
+// The code cell links to the outlet now, and next-intl's Link reaches for Next's router — which does
+// not resolve outside a Next build. A plain anchor keeps this file about the table.
+vi.mock("@/i18n/navigation", () => ({
+  Link: ({ href, children }: { href: string; children: React.ReactNode }) => (
+    <a href={href}>{children}</a>
+  ),
+}));
+
 // The module, not `fetch`. Stubbing global fetch would test our URL-building and JSON-parsing at the
 // same time as the table's rendering, and leave the failure ambiguous when either breaks.
 vi.mock("@/lib/api/outlets", async (importOriginal) => ({

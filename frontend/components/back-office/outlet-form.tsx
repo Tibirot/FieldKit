@@ -1,0 +1,374 @@
+"use client";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
+import { useMemo, useState } from "react";
+import { useForm, type FieldErrors } from "react-hook-form";
+import { z } from "zod";
+
+import { useAuth } from "@/components/auth-provider";
+import { CustomFields } from "@/components/back-office/custom-fields";
+import { Button } from "@/components/ui/button";
+import { useRouter } from "@/i18n/navigation";
+import { ApiError } from "@/lib/api/client";
+import { channelsKey, fetchChannels } from "@/lib/api/channels";
+import { fetchFieldDefinitions, fieldDefinitionsKey } from "@/lib/api/field-definitions";
+import {
+  createOutlet,
+  updateOutlet,
+  type CreateOutlet,
+  type OutletDetail,
+  type OutletWrite,
+} from "@/lib/api/outlets";
+import { customFieldSchema, type ValidationMessages } from "@/lib/forms/custom-field-schema";
+import { useValidationMessages } from "@/lib/forms/use-validation-messages";
+import { cn } from "@/lib/utils";
+
+const CONTROL =
+  "h-9 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground"
+  + " focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
+
+/**
+ * The IANA zones this browser knows.
+ *
+ * From the platform rather than a bundled list: a hard-coded set goes stale every time a country
+ * changes its rules, and the API validates against the *runtime's* database anyway — so taking the
+ * options from the same source that will judge them is the only way the list cannot be wrong.
+ */
+function zones(): string[] {
+  return typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
+}
+
+/** Trimmed, and empty becomes absent — the shape every optional string on the API expects. */
+const optionalText = z
+  .string()
+  .trim()
+  .transform((value) => (value === "" ? null : value))
+  .nullable();
+
+/**
+ * The fields every outlet has, whatever a tenant added to them.
+ *
+ * Written out rather than derived, because unlike custom fields there is no descriptor to derive
+ * from — the API's own request record is the declaration, and this is the closest a TypeScript
+ * client gets to it. The lengths match its column limits; the coordinate bounds match the shared
+ * `GeoPoint`.
+ *
+ * Every message is supplied, never left to Zod. Its defaults are developer text — *"Too small:
+ * expected string to have >=1 characters"* — which is unreadable to a user and English-only in an
+ * app that ships two languages.
+ */
+function fixedSchema(t: ReturnType<typeof useTranslations<"OutletForm">>, m: ValidationMessages) {
+  const text = (max: number) =>
+    z
+      .string()
+      .trim()
+      .min(1, { message: m.required })
+      .max(max, { message: m.tooLong(max) });
+
+  return z.object({
+    code: text(50),
+    name: text(200),
+    channelId: z.string().min(1, { message: m.required }),
+    timeZoneId: z.string().min(1, { message: m.required }),
+    segment: optionalText,
+    banner: optionalText,
+    street: optionalText,
+    city: optionalText,
+    postalCode: optionalText,
+    countryCode: optionalText,
+
+    // Text in, number out. An emptied number input holds `""`, and `z.number()` would reject that
+    // as "expected number" for a field nobody filled in on purpose.
+    latitude: coordinate(-90, 90, t("betweenLat")),
+    longitude: coordinate(-180, 180, t("betweenLon")),
+  });
+}
+
+function coordinate(min: number, max: number, message: string) {
+  return z
+    .string()
+    .trim()
+    .transform((value) => (value === "" ? null : Number(value)))
+    .refine((value) => value === null || (Number.isFinite(value) && value >= min && value <= max), {
+      message,
+    });
+}
+
+function Field({
+  label,
+  htmlFor,
+  required,
+  error,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  required?: boolean;
+  error?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={htmlFor} className="text-sm font-medium">
+        {label}
+        {required ? (
+          <span aria-hidden="true" className="ml-1 text-destructive">
+            *
+          </span>
+        ) : null}
+      </label>
+      {children}
+      {error ? (
+        <p id={`${htmlFor}-error`} className="text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Create or edit an outlet (`OUT-01`, `OUT-02`).
+ *
+ * One component for both, because they are the same form with one field's worth of difference: a
+ * code is set at creation and never again (`Outlet.Update` has no code parameter — it is the
+ * identifier every territory membership and import file already refers to).
+ *
+ * **Status is not here.** Moving an outlet through its lifecycle is its own endpoint and its own
+ * decision (`OUT-04`); putting it in this form would let a careless edit close a shop as a side
+ * effect of fixing a typo.
+ */
+export function OutletForm({ outlet }: { outlet?: OutletDetail }) {
+  const t = useTranslations("OutletForm");
+  const router = useRouter();
+  const client = useQueryClient();
+  const { user } = useAuth();
+
+  const accessToken = user?.access_token;
+  const subject = user?.profile.sub;
+
+  const channels = useQuery({
+    enabled: Boolean(accessToken && subject),
+    queryKey: channelsKey(subject ?? ""),
+    queryFn: ({ signal }) => fetchChannels(accessToken!, signal),
+  });
+
+  const definitions = useQuery({
+    enabled: Boolean(accessToken && subject),
+    queryKey: fieldDefinitionsKey(subject ?? "", "Outlet"),
+    queryFn: ({ signal }) => fetchFieldDefinitions(accessToken!, "Outlet", signal),
+  });
+
+  const messages = useValidationMessages();
+
+  // Rebuilt when the catalogue arrives, and only then. The resolver closes over this, so a schema
+  // recreated every render would revalidate on every keystroke against a brand-new object.
+  const schema = useMemo(
+    () => fixedSchema(t, messages).extend({ custom: customFieldSchema(definitions.data ?? [], messages) }),
+    [definitions.data, t, messages],
+  );
+
+  const form = useForm({
+    resolver: zodResolver(schema),
+
+    // On blur rather than on change: telling someone their code is too short while they are typing
+    // the second character is noise, and `onSubmit` alone means finding out about four problems one
+    // page-scroll away from the field that caused each.
+    mode: "onBlur",
+
+    defaultValues: {
+      code: outlet?.code ?? "",
+      name: outlet?.name ?? "",
+      channelId: outlet?.channelId ?? "",
+      timeZoneId: outlet?.timeZoneId ?? "",
+      segment: outlet?.segment ?? "",
+      banner: outlet?.banner ?? "",
+      street: outlet?.address?.street ?? "",
+      city: outlet?.address?.city ?? "",
+      postalCode: outlet?.address?.postalCode ?? "",
+      countryCode: outlet?.address?.countryCode ?? "",
+      latitude: outlet?.location?.latitude?.toString() ?? "",
+      longitude: outlet?.location?.longitude?.toString() ?? "",
+      custom: outlet?.customFields ?? {},
+    },
+  });
+
+  const [refused, setRefused] = useState<readonly string[]>([]);
+
+  const save = useMutation({
+    mutationFn: (body: CreateOutlet | OutletWrite) =>
+      outlet
+        ? updateOutlet(accessToken!, outlet.id, body)
+        : createOutlet(accessToken!, body as CreateOutlet),
+
+    onSuccess: async (saved) => {
+      // Every list is now wrong — a rename changes a row, a channel change moves it between filters.
+      // Invalidating the prefix covers every page and filter combination without enumerating them.
+      await client.invalidateQueries({ queryKey: ["outlets"] });
+      router.push(`/outlets/${saved.id}`);
+    },
+
+    onError: (error) => setRefused(error instanceof ApiError ? error.problems : [t("failed")]),
+  });
+
+  const submit = form.handleSubmit((values) => {
+    setRefused([]);
+
+    const body: OutletWrite = {
+      name: values.name,
+      channelId: values.channelId,
+      timeZoneId: values.timeZoneId,
+      segment: values.segment,
+      banner: values.banner,
+
+      // An address of all-nulls is no address. Sending one would store a row of empties that reads
+      // as "we know nothing about where this is" in exactly the way `null` already does.
+      address:
+        values.street || values.city || values.postalCode || values.countryCode
+          ? {
+              street: values.street,
+              city: values.city,
+              postalCode: values.postalCode,
+              countryCode: values.countryCode,
+            }
+          : null,
+
+      // Both or neither — the server refuses half a coordinate, and sending one would be asking to
+      // be told so.
+      location:
+        values.latitude !== null && values.longitude !== null
+          ? { latitude: values.latitude, longitude: values.longitude }
+          : null,
+
+      customFields: values.custom,
+    };
+
+    save.mutate(outlet ? body : ({ ...body, code: values.code } satisfies CreateOutlet));
+  });
+
+  const errors = form.formState.errors as FieldErrors;
+  const message = (name: keyof typeof form.formState.errors) =>
+    errors[name]?.message as string | undefined;
+
+  /** The props every plain input shares: registration, and the error wiring around it. */
+  const bind = (name: Parameters<typeof form.register>[0]) => ({
+    ...form.register(name),
+    id: name,
+    "aria-invalid": Boolean(errors[name]),
+    "aria-describedby": errors[name] ? `${name}-error` : undefined,
+    className: cn(CONTROL, errors[name] && "border-destructive"),
+  });
+
+  return (
+    // noValidate: the browser's own bubbles would fire before the resolver runs and show a second,
+    // differently-worded refusal for the same field. The constraints stay on the controls for the
+    // keyboard they choose on a phone; the messages come from one place.
+    <form onSubmit={submit} noValidate className="flex max-w-2xl flex-col gap-4">
+      {refused.length > 0 ? (
+        // The server's own words. It knows things this form cannot — a code taken a second ago, a
+        // rule only the catalogue holds — and replacing those with "something went wrong" throws
+        // away the only description of what is actually wrong.
+        <ul role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {refused.map((problem) => (
+            <li key={problem}>{problem}</li>
+          ))}
+        </ul>
+      ) : null}
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t("code")} htmlFor="code" required={!outlet} error={message("code")}>
+          <input
+            {...bind("code")}
+            maxLength={50}
+            // Not editable after creation: it is the identifier territory memberships and import
+            // files already refer to, so a rename would orphan every one of them.
+            readOnly={Boolean(outlet)}
+            className={cn(bind("code").className, outlet && "cursor-not-allowed text-muted-foreground")}
+          />
+        </Field>
+
+        <Field label={t("name")} htmlFor="name" required error={message("name")}>
+          <input {...bind("name")} maxLength={200} />
+        </Field>
+
+        <Field label={t("channel")} htmlFor="channelId" required error={message("channelId")}>
+          <select {...bind("channelId")}>
+            <option value="" disabled />
+            {(channels.data ?? []).map((channel) => (
+              <option key={channel.id} value={channel.id}>
+                {channel.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <Field label={t("timeZone")} htmlFor="timeZoneId" required error={message("timeZoneId")}>
+          <select {...bind("timeZoneId")}>
+            <option value="" disabled />
+            {zones().map((zone) => (
+              <option key={zone} value={zone}>
+                {zone}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <Field label={t("segment")} htmlFor="segment" error={message("segment")}>
+          <input {...bind("segment")} maxLength={50} />
+        </Field>
+
+        <Field label={t("banner")} htmlFor="banner" error={message("banner")}>
+          <input {...bind("banner")} maxLength={100} />
+        </Field>
+      </div>
+
+      <fieldset className="grid gap-4 rounded-xl border border-border p-4 sm:grid-cols-2">
+        <legend className="px-1 text-xs font-semibold text-muted-foreground uppercase">
+          {t("location")}
+        </legend>
+
+        <Field label={t("street")} htmlFor="street" error={message("street")}>
+          <input {...bind("street")} maxLength={200} />
+        </Field>
+
+        <Field label={t("city")} htmlFor="city" error={message("city")}>
+          <input {...bind("city")} maxLength={100} />
+        </Field>
+
+        <Field label={t("postalCode")} htmlFor="postalCode" error={message("postalCode")}>
+          <input {...bind("postalCode")} maxLength={20} />
+        </Field>
+
+        <Field label={t("countryCode")} htmlFor="countryCode" error={message("countryCode")}>
+          <input {...bind("countryCode")} maxLength={2} />
+        </Field>
+
+        <Field label={t("latitude")} htmlFor="latitude" error={message("latitude")}>
+          {/* The bounds the shared GeoPoint enforces, mirrored in the schema for the message. */}
+          <input {...bind("latitude")} type="number" step="any" min={-90} max={90} />
+        </Field>
+
+        <Field label={t("longitude")} htmlFor="longitude" error={message("longitude")}>
+          <input {...bind("longitude")} type="number" step="any" min={-180} max={180} />
+        </Field>
+      </fieldset>
+
+      <CustomFields
+        definitions={definitions.data ?? []}
+        control={form.control as never}
+        errors={errors}
+      />
+
+      <div className="flex gap-2">
+        <Button type="submit" disabled={save.isPending}>
+          {save.isPending ? t("saving") : t("save")}
+        </Button>
+        <Button type="button" variant="outline" onClick={() => router.push("/outlets")}>
+          {t("cancel")}
+        </Button>
+      </div>
+    </form>
+  );
+}
