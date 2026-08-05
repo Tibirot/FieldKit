@@ -126,6 +126,33 @@
     "noMatches": "No outlets match these filters.",
     "pageOf": "Page {page} of {pages}",
     "previousPage": "Previous page",
-    "nextPage": "Next page"
+    "nextPage": "Next page",
+    "newOutlet": "New outlet",
+    "edit": "Edit"
+  },
+  "OutletForm": {
+    "crumbNew": "Master data / Outlets / New",
+    "crumbEdit": "Master data / Outlets / {code}",
+    "titleNew": "New outlet",
+    "code": "Code",
+    "name": "Outlet name",
+    "channel": "Channel",
+    "timeZone": "Time zone",
+    "segment": "Segment",
+    "banner": "Banner",
+    "location": "Location",
+    "street": "Street",
+    "city": "City",
+    "postalCode": "Postal code",
+    "countryCode": "Country code",
+    "latitude": "Latitude",
+    "longitude": "Longitude",
+    "customFields": "Custom fields",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "loading": "Loading outlet…",
+    "failed": "The outlet could not be saved.",
+    "notFound": "That outlet does not exist."
   }
 }

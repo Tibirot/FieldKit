@@ -1,6 +1,10 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
+import { Plus } from "lucide-react";
+
 import { OutletBrowser } from "@/components/back-office/outlet-browser";
+import { Button } from "@/components/ui/button";
+import { Link } from "@/i18n/navigation";
 import { resolveLocale } from "@/i18n/locale";
 
 /**
@@ -19,9 +23,15 @@ export default async function OutletsPage({ params }: { params: Promise<{ locale
 
   return (
     <div className="flex flex-col gap-4">
-      <header>
-        <p className="font-mono text-[11.5px] text-muted-foreground">{t("crumb")}</p>
-        <h1 className="text-lg font-semibold tracking-tight">{t("title")}</h1>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-mono text-[11.5px] text-muted-foreground">{t("crumb")}</p>
+          <h1 className="text-lg font-semibold tracking-tight">{t("title")}</h1>
+        </div>
+        <Button render={<Link href="/outlets/new" />} nativeButton={false} size="sm">
+          <Plus className="size-4" />
+          {t("newOutlet")}
+        </Button>
       </header>
       <OutletBrowser />
     </div>
