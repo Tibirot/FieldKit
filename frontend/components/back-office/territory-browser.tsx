@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
+import { TerritoryAssignments } from "@/components/back-office/territory-assignments";
 import { TerritoryForm } from "@/components/back-office/territory-form";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api/client";
@@ -20,6 +21,7 @@ import {
   type Territory,
 } from "@/lib/api/org";
 import { usePathname, useRouter } from "@/i18n/navigation";
+import { cn } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
 
 /**
@@ -43,6 +45,9 @@ export function TerritoryBrowser() {
   const accessToken = user?.access_token;
   const subject = user?.profile.sub;
   const orgUnitId = params.get("orgUnitId") || undefined;
+
+  /** Which territory's detail panel is open — in the URL, so it can be sent to a colleague. */
+  const selectedId = params.get("territory") || undefined;
 
   const units = useQuery({
     enabled: Boolean(accessToken && subject),
@@ -77,17 +82,23 @@ export function TerritoryBrowser() {
     },
   });
 
-  function filterBy(value: string) {
+  function go(changes: Record<string, string | undefined>) {
     const next = new URLSearchParams(params.toString());
 
-    if (value) next.set("orgUnitId", value);
-    else next.delete("orgUnitId");
+    for (const [key, value] of Object.entries(changes)) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
 
     router.push(`${pathname}${next.size > 0 ? `?${next}` : ""}`);
   }
 
   const unitsById = byId(units.data ?? []);
   const rows = territories.data ?? [];
+
+  // Resolved from the list rather than fetched: a territory id in the URL that is not in the current
+  // view — stale link, changed filter — simply opens nothing, which is the honest outcome.
+  const selected = rows.find((territory) => territory.id === selectedId);
 
   return (
     <div className="flex flex-col gap-4">
@@ -98,7 +109,9 @@ export function TerritoryBrowser() {
         <select
           id="orgUnitFilter"
           value={orgUnitId ?? ""}
-          onChange={(event) => filterBy(event.target.value)}
+          // Narrowing the list drops the open panel: a territory the filter excludes is not one the
+          // screen is showing, and leaving its detail below an empty table reads as a bug.
+          onChange={(event) => go({ orgUnitId: event.target.value, territory: undefined })}
           className="h-9 rounded-lg border border-input bg-background px-3 text-sm"
         >
           <option value="">{t("allOrgUnits")}</option>
@@ -167,9 +180,24 @@ export function TerritoryBrowser() {
             </thead>
             <tbody>
               {rows.map((territory) => (
-                <tr key={territory.id} className="border-t border-border">
+                <tr
+                  key={territory.id}
+                  className={cn(
+                    "border-t border-border",
+                    territory.id === selectedId && "bg-muted/40",
+                  )}
+                >
                   <th scope="row" className="px-3 py-2 text-left font-medium">
-                    {territory.name}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        go({ territory: territory.id === selectedId ? undefined : territory.id })
+                      }
+                      aria-expanded={territory.id === selectedId}
+                      className="text-left underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    >
+                      {territory.name}
+                    </button>
                   </th>
                   <td className="px-3 py-2 text-muted-foreground">
                     {unitsById.has(territory.orgUnitId)
@@ -209,6 +237,12 @@ export function TerritoryBrowser() {
           </table>
         </div>
       )}
+
+      {/*
+        Below the table rather than beside it: the detail is wider than a sidebar wants to be once it
+        holds a date-range form, and stacking is what the layout does on a phone anyway.
+      */}
+      {selected ? <TerritoryAssignments territory={selected} /> : null}
     </div>
   );
 }
