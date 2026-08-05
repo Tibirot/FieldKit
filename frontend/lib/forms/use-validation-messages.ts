@@ -27,6 +27,7 @@ export function useValidationMessages(): ValidationMessages {
       mustBeNumber: t("mustBeNumber"),
       notAnOption: t("notAnOption"),
       mustBeDate: t("mustBeDate"),
+      notAnEmail: t("notAnEmail"),
     }),
     [t],
   );

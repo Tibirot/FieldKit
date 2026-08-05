@@ -155,7 +155,16 @@
     "failed": "The outlet could not be saved.",
     "notFound": "That outlet does not exist.",
     "betweenLat": "Must be between -90 and 90.",
-    "betweenLon": "Must be between -180 and 180."
+    "betweenLon": "Must be between -180 and 180.",
+    "contacts": "Contacts",
+    "noContacts": "No contacts recorded for this outlet.",
+    "contactName": "Name",
+    "contactRole": "Role",
+    "contactPhone": "Phone",
+    "contactEmail": "Email",
+    "addContact": "Add contact",
+    "removeContact": "Remove",
+    "removeContactNumbered": "Remove contact {number}"
   },
   "Validation": {
     "required": "This field is required.",
@@ -165,6 +174,8 @@
     "mustBeNumber": "Must be a number.",
     "notAnOption": "Not one of the options.",
     "mustBeDate": "Must be a date as YYYY-MM-DD.",
-    "between": "Must be between {min} and {max}."
+    "between": "Must be between {min} and {max}.",
+    "notAnEmail": "Must be an email address."
   }
 }
+

@@ -155,7 +155,16 @@
     "failed": "Punctul de vânzare nu a putut fi salvat.",
     "notFound": "Acest punct de vânzare nu există.",
     "betweenLat": "Trebuie să fie între -90 și 90.",
-    "betweenLon": "Trebuie să fie între -180 și 180."
+    "betweenLon": "Trebuie să fie între -180 și 180.",
+    "contacts": "Persoane de contact",
+    "noContacts": "Niciun contact înregistrat pentru acest punct de vânzare.",
+    "contactName": "Nume",
+    "contactRole": "Funcție",
+    "contactPhone": "Telefon",
+    "contactEmail": "E-mail",
+    "addContact": "Adaugă contact",
+    "removeContact": "Șterge",
+    "removeContactNumbered": "Șterge contactul {number}"
   },
   "Validation": {
     "required": "Acest câmp este obligatoriu.",
@@ -165,6 +174,8 @@
     "mustBeNumber": "Trebuie să fie un număr.",
     "notAnOption": "Nu este una dintre opțiuni.",
     "mustBeDate": "Trebuie să fie o dată în formatul AAAA-LL-ZZ.",
-    "between": "Trebuie să fie între {min} și {max}."
+    "between": "Trebuie să fie între {min} și {max}.",
+    "notAnEmail": "Trebuie să fie o adresă de e-mail."
   }
 }
+

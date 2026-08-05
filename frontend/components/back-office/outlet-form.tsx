@@ -9,6 +9,7 @@ import { z } from "zod";
 
 import { useAuth } from "@/components/auth-provider";
 import { CustomFields } from "@/components/back-office/custom-fields";
+import { OutletContacts } from "@/components/back-office/outlet-contacts";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "@/i18n/navigation";
 import { ApiError } from "@/lib/api/client";
@@ -18,6 +19,7 @@ import {
   createOutlet,
   updateOutlet,
   type CreateOutlet,
+  type OutletContact,
   type OutletDetail,
   type OutletWrite,
 } from "@/lib/api/outlets";
@@ -43,6 +45,9 @@ function zones(): string[] {
 /** Trimmed, and empty becomes absent — the shape every optional string on the API expects. */
 /** How the API nests custom fields — the one place its naming and this form's disagree. */
 const CustomFieldPrefix = "customFields.";
+
+/** How the API indexes a contact: `contacts[1].email`. */
+const ContactPath = /^contacts\[(\d+)\]\./;
 
 /** A path into this form, as react-hook-form names them. */
 type FieldPath = RhfFieldPath<Record<string, unknown>>;
@@ -89,7 +94,32 @@ function fixedSchema(t: ReturnType<typeof useTranslations<"OutletForm">>, m: Val
     // as "expected number" for a field nobody filled in on purpose.
     latitude: coordinate(-90, 90, t("betweenLat")),
     longitude: coordinate(-180, 180, t("betweenLon")),
+
+    // The lengths are the API's columns, checked here so a name one character too long is a message
+    // under that name rather than a refusal from the server about a list.
+    contacts: z.array(
+      z.object({
+        name: text(200),
+        role: optionalText,
+        phone: optionalText,
+        email: optionalText.refine((value) => value === null || looksLikeAnAddress(value), {
+          message: m.notAnEmail,
+        }),
+      }),
+    ),
   });
+}
+
+/**
+ * Whether this could be an email address at all.
+ *
+ * The same shallow rule the API applies, and deliberately so: something either side of exactly one
+ * `@` and no whitespace. It catches a phone number pasted into the wrong box, which is the mistake
+ * that actually happens; deliverability is only ever settled by sending mail, and a stricter pattern
+ * rejects addresses that work.
+ */
+function looksLikeAnAddress(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+$/.test(value);
 }
 
 function coordinate(min: number, max: number, message: string) {
@@ -197,6 +227,10 @@ export function OutletForm({ outlet }: { outlet?: OutletDetail }) {
       countryCode: outlet?.address?.countryCode ?? "",
       latitude: outlet?.location?.latitude?.toString() ?? "",
       longitude: outlet?.location?.longitude?.toString() ?? "",
+
+      // What the outlet already has, so a save round-trips them. Omitting this field is not
+      // "leave them alone" — see the note where the body is built.
+      contacts: outlet?.contacts ?? [],
       custom: outlet?.customFields ?? {},
     },
   });
@@ -255,6 +289,17 @@ export function OutletForm({ outlet }: { outlet?: OutletDetail }) {
   function formPath(field: string | null): FieldPath | undefined {
     if (!field) return undefined;
 
+    // `contacts[1].email` is how the request named it; react-hook-form spells the same path
+    // `contacts.1.email`. Bounds-checked against the rows on screen, because an index past the end
+    // is a control that does not exist and `setError` would swallow the message.
+    if (ContactPath.test(field)) {
+      const path = field.replace(ContactPath, "contacts.$1.");
+
+      return Number(ContactPath.exec(field)![1]) < form.getValues("contacts").length
+        ? (path as FieldPath)
+        : undefined;
+    }
+
     if (field.startsWith(CustomFieldPrefix)) {
       const key = field.slice(CustomFieldPrefix.length);
 
@@ -294,6 +339,18 @@ export function OutletForm({ outlet }: { outlet?: OutletDetail }) {
         values.latitude !== null && values.longitude !== null
           ? { latitude: values.latitude, longitude: values.longitude }
           : null,
+
+      // Always sent, even untouched. The API replaces the list wholesale, so an absent `contacts`
+      // is an emptied one — which is correct for a PUT and was quietly deleting every contact on
+      // every outlet this form saved, because the form neither read them nor sent them back.
+      contacts: values.contacts.map(
+        (contact): OutletContact => ({
+          name: contact.name,
+          role: contact.role,
+          phone: contact.phone,
+          email: contact.email,
+        }),
+      ),
 
       customFields: values.custom,
     };
@@ -422,6 +479,12 @@ export function OutletForm({ outlet }: { outlet?: OutletDetail }) {
         </Field>
       </fieldset>
 
+      <OutletContacts
+        control={form.control as never}
+        register={form.register as never}
+        errors={errors}
+      />
+
       <CustomFields
         definitions={definitions.data ?? []}
         control={form.control as never}
@@ -439,3 +502,4 @@ export function OutletForm({ outlet }: { outlet?: OutletDetail }) {
     </form>
   );
 }
+

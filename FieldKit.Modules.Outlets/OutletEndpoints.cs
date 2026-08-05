@@ -183,6 +183,8 @@ internal static class OutletEndpoints
                 return fieldProblem;
             }
 
+            if (ContactProblem(request.Contacts) is { } contactProblem) return contactProblem;
+
             if (await db.Outlets.AnyAsync(outlet => outlet.Code.ToLower() == request.Code.ToLower(), ct))
             {
                 return Problems.Conflict("code", $"An outlet with code '{request.Code}' already exists.");
@@ -235,6 +237,8 @@ internal static class OutletEndpoints
             {
                 return fieldProblem;
             }
+
+            if (ContactProblem(request.Contacts) is { } contactProblem) return contactProblem;
 
             outlet.Update(
                 request.Name,
@@ -343,6 +347,19 @@ internal static class OutletEndpoints
 
         return problems.Count == 0 ? null : Problems.BadRequest(problems);
     }
+
+    /// <summary>
+    /// Refuses contacts that would not survive the write, or that name nobody.
+    /// </summary>
+    /// <remarks>
+    /// Before this, the column widths were the only check — so a name one character too long left
+    /// the database to raise it, which the API reported as a <c>500</c>. Sized limits belong in
+    /// front of the write, where the answer can name the contact it is about.
+    /// </remarks>
+    private static IResult? ContactProblem(IReadOnlyList<OutletContact>? contacts) =>
+        ContactValidator.Validate(contacts) is { Count: > 0 } problems
+            ? Problems.BadRequest(problems)
+            : null;
 
     /// <summary>
     /// Rejects an unknown time zone, or coordinates that are not a place on the earth.

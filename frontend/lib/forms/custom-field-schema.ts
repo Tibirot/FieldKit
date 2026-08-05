@@ -26,6 +26,7 @@ export type ValidationMessages = {
   mustBeNumber: string;
   notAnOption: string;
   mustBeDate: string;
+  notAnEmail: string;
 };
 
 /**

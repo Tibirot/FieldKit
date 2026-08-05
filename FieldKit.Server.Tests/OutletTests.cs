@@ -5,6 +5,8 @@ using FieldKit.Web;
 
 namespace FieldKit.Server.Tests;
 
+using static Refusals;
+
 /// <summary>
 /// The outlet base and the vocabulary it is classified by (<c>OUT-01</c>, <c>OUT-04</c>).
 /// </summary>
@@ -126,6 +128,86 @@ public class OutletTests(ServerFixture fixture)
             outlet.Name, channel.Id, null, null, Zone, Contacts: []));
 
         Assert.Empty((await erased.Content.ReadFromJsonAsync<OutletResponse>())!.Contacts);
+    }
+
+    [Fact]
+    public async Task A_contact_with_no_name_is_refused_rather_than_stored()
+    {
+        // A row saying a person exists without saying who. Nothing refused it before, so it stored:
+        // the name is the whole point of the record, since it is what a rep says at the counter.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+        var channel = await ChannelAsync(client);
+
+        var response = await client.PostAsJsonAsync("/api/outlets", new CreateOutletRequest(
+            Unique("OUT"), "Corner Shop", channel.Id, null, null, Zone,
+            Contacts: [new OutletContact("   ", "Buyer", null, null)]));
+
+        var problem = Assert.Single(await ProblemsOf(response));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("contacts[0].name", problem.Field);
+    }
+
+    [Fact]
+    public async Task A_contact_too_long_for_its_column_is_a_400_and_not_a_500()
+    {
+        // The column widths used to be the only check, so one character over left the database to
+        // raise it and the API reported the caller's payload as a server fault. Every sized field,
+        // because getting one of them right proves nothing about the others.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+        var channel = await ChannelAsync(client);
+
+        var response = await client.PostAsJsonAsync("/api/outlets", new CreateOutletRequest(
+            Unique("OUT"), "Corner Shop", channel.Id, null, null, Zone,
+            Contacts:
+            [
+                new OutletContact(new string('n', 201), null, null, null),
+                new OutletContact("Ana", new string('r', 101), null, null),
+                new OutletContact("Bogdan", null, new string('7', 51), null),
+                new OutletContact("Carmen", null, null, new string('e', 313) + "@x.example"),
+            ]));
+
+        var fields = (await ProblemsOf(response)).Select(problem => problem.Field).ToList();
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            ["contacts[0].name", "contacts[1].role", "contacts[2].phone", "contacts[3].email"], fields);
+    }
+
+    [Fact]
+    public async Task A_contact_problem_names_which_contact_it_is_about()
+    {
+        // The index is as much of the answer as the field is. A form showing three people cannot
+        // work out from "not an email address" which of them it should highlight.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+        var channel = await ChannelAsync(client);
+
+        var response = await client.PostAsJsonAsync("/api/outlets", new CreateOutletRequest(
+            Unique("OUT"), "Corner Shop", channel.Id, null, null, Zone,
+            Contacts:
+            [
+                new OutletContact("Ana", "Buyer", null, "ana@example.com"),
+                new OutletContact("Bogdan", null, null, "0721 555 111"),
+            ]));
+
+        var problem = Assert.Single(await ProblemsOf(response));
+
+        Assert.Equal("contacts[1].email", problem.Field);
+    }
+
+    [Fact]
+    public async Task An_address_is_only_checked_for_being_one_at_all()
+    {
+        // Shallow on purpose: something either side of one @, and no whitespace. Deliverability is
+        // only ever answered by sending mail, and a stricter rule rejects addresses that work.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+        var channel = await ChannelAsync(client);
+
+        var response = await client.PostAsJsonAsync("/api/outlets", new CreateOutletRequest(
+            Unique("OUT"), "Corner Shop", channel.Id, null, null, Zone,
+            Contacts: [new OutletContact("Ana", null, null, "ana+shop@sub.example-store.co.uk")]));
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     }
 
     [Fact]
@@ -496,3 +578,4 @@ public class OutletTests(ServerFixture fixture)
         Assert.Equal(HttpStatusCode.BadRequest, stolenChannel.StatusCode);
     }
 }
+
