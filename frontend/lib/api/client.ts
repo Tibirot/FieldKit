@@ -72,9 +72,9 @@ export async function apiGet<T>(path: string, accessToken: string, signal?: Abor
 /**
  * Sends a write, and returns whatever came back.
  *
- * One function for POST and PUT because the difference is a verb, not a shape. `DELETE` and the
- * 204s will land here too when something needs them — the return type is generic rather than
- * `void`, since a create answers with the thing it created and a form wants to show it.
+ * One function for POST and PUT because the difference is a verb, not a shape. The return type is
+ * generic rather than `void`, since a create answers with the thing it created and a form wants to
+ * show it — which is also why `DELETE` is separate: it answers `204`, and there is nothing to parse.
  */
 export async function apiSend<T>(
   method: "POST" | "PUT",
@@ -99,4 +99,26 @@ export async function apiSend<T>(
   }
 
   return (await response.json()) as T;
+}
+
+/**
+ * Removes something, and returns nothing because that is what the API returns.
+ *
+ * A refusal is still a refusal and still carries its problems: deleting a territory that still holds
+ * outlets is a `409` with a message worth showing, not a silent no-op.
+ */
+export async function apiDelete(
+  path: string,
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(path, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
+    signal,
+  });
+
+  if (!response.ok) {
+    await refuse(response);
+  }
 }

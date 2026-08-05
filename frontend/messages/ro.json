@@ -215,5 +215,33 @@
     "excluded": "{count, plural, one {# rând este debifat și nu va fi importat} few {# rânduri sunt debifate și nu vor fi importate} other {# de rânduri sunt debifate și nu vor fi importate}}.",
     "wereExcluded": "{count, plural, one {# rând a fost debifat și lăsat în afara acestei rulări} few {# rânduri au fost debifate și lăsate în afara acestei rulări} other {# de rânduri au fost debifate și lăsate în afara acestei rulări}}.",
     "stale": "Fișierul s-a modificat de la ultima verificare. Verifică-l din nou înainte de a aplica."
+  },
+  "Territories": {
+    "crumb": "Date de bază / Teritorii",
+    "title": "Teritorii",
+    "caption": "Teritoriile, unitatea organizatorică din care fac parte și câte puncte de vânzare conțin.",
+    "loading": "Se încarcă teritoriile…",
+    "failed": "Teritoriile nu au putut fi încărcate.",
+    "forbidden": "Nu ai permisiunea de a vedea teritoriile.",
+    "empty": "Niciun teritoriu încă. Creează primul.",
+    "noMatches": "Niciun teritoriu în această unitate organizatorică.",
+    "filterLabel": "Filtrează după unitate organizatorică",
+    "allOrgUnits": "Toate unitățile",
+    "newTerritory": "Teritoriu nou",
+    "newTitle": "Teritoriu nou",
+    "renameTitle": "Editează teritoriul",
+    "name": "Denumire",
+    "orgUnit": "Unitate organizatorică",
+    "outlets": "Puncte de vânzare",
+    "actions": "Acțiuni",
+    "rename": "Editează",
+    "renameNamed": "Editează {name}",
+    "delete": "Șterge",
+    "deleteNamed": "Șterge {name}",
+    "deleteFailed": "Teritoriul nu a putut fi șters.",
+    "saveFailed": "Teritoriul nu a putut fi salvat.",
+    "save": "Salvează",
+    "saving": "Se salvează…",
+    "cancel": "Anulează"
   }
 }
