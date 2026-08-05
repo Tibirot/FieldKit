@@ -324,5 +324,28 @@
     "save": "Save",
     "saving": "Saving…",
     "cancel": "Cancel"
+  },
+  "OrgUnits": {
+    "title": "Sales hierarchy",
+    "newUnit": "New org unit",
+    "newTitle": "New org unit",
+    "editTitle": "Edit org unit",
+    "name": "Name",
+    "parent": "Sits under",
+    "noParent": "Nothing — this is a top level",
+    "loading": "Loading the hierarchy…",
+    "failed": "The hierarchy could not be loaded.",
+    "forbidden": "You do not have permission to view the sales hierarchy.",
+    "empty": "No org units yet. Create the top level first — a territory has to hang off one.",
+    "edit": "Edit",
+    "editNamed": "Edit {name}",
+    "delete": "Delete",
+    "deleteNamed": "Delete {name}",
+    "deleteFailed": "This org unit could not be deleted.",
+    "saveFailed": "This org unit could not be saved.",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "under": ", in {path}"
   }
 }

@@ -235,7 +235,15 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
   A built-in template can be **recomposed but not deleted**: it is the way back to a working set
   (`IAM-06`), and the refusal explains that rather than the button quietly not being there.
 
-**Done when:** an admin logs in, models a small org, and loads outlets — matches the [wireframes](ux/README.md), all tenant-scoped. **▶ Phase 1 demo.** Every screen W5 promised now exists.
+- **Sales hierarchy** (`ORG-01`) — above the territories on the same page, because a territory
+  hangs off an org unit and a workspace with no hierarchy cannot have one. **Not in the original W5
+  list**, and its absence was found by walking the demo: every screen existed, the nav was complete,
+  and a fresh tenant still could not create its first territory. Depth and labels are the tenant's,
+  so it renders as an indented tree rather than fixed columns for levels that may not exist. A unit
+  is not offered its own subtree as a parent — the API refuses the cycle, but unlike a name collision
+  this is never what somebody meant.
+
+**Done when:** an admin logs in, models a small org, and loads outlets — matches the [wireframes](ux/README.md), all tenant-scoped. **▶ Phase 1 demo.**
 
 ---
 

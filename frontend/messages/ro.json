@@ -324,5 +324,28 @@
     "save": "Salvează",
     "saving": "Se salvează…",
     "cancel": "Anulează"
+  },
+  "OrgUnits": {
+    "title": "Structura organizatorică",
+    "newUnit": "Unitate nouă",
+    "newTitle": "Unitate organizatorică nouă",
+    "editTitle": "Editează unitatea organizatorică",
+    "name": "Denumire",
+    "parent": "Aparține de",
+    "noParent": "Nimic — este nivelul de sus",
+    "loading": "Se încarcă structura…",
+    "failed": "Structura nu a putut fi încărcată.",
+    "forbidden": "Nu ai permisiunea de a vedea structura organizatorică.",
+    "empty": "Nicio unitate încă. Creează întâi nivelul de sus — un teritoriu trebuie să aparțină de una.",
+    "edit": "Editează",
+    "editNamed": "Editează {name}",
+    "delete": "Șterge",
+    "deleteNamed": "Șterge {name}",
+    "deleteFailed": "Unitatea nu a putut fi ștearsă.",
+    "saveFailed": "Unitatea nu a putut fi salvată.",
+    "save": "Salvează",
+    "saving": "Se salvează…",
+    "cancel": "Anulează",
+    "under": ", în {path}"
   }
 }
