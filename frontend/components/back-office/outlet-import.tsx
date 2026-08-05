@@ -14,20 +14,24 @@ import {
   importOutlets,
   type OutletImportMode,
   type OutletImportResult,
+  type OutletImportRow,
 } from "@/lib/api/outlet-import";
-import { parseCsv, withCell, writeCsv, type Csv } from "@/lib/csv";
+import { roughRowCount, writeCsv } from "@/lib/csv";
 import { cn } from "@/lib/utils";
 
 const MODES: readonly OutletImportMode[] = ["AllOrNothing", "Partial"];
 
+/** A file the browser has read, held for as long as this screen is open. */
+type Chosen = { name: string; text: string };
+
 /**
- * A file the browser has read, held in memory for as long as this screen is open.
+ * The file as the server read it, and what has been corrected in it.
  *
- * Both the bytes and the parse. `text` is what was uploaded, untouched, and is what gets sent until
- * someone edits a cell — "check the file I gave you" should mean the file they gave us. From the
- * first edit onwards the parsed copy is the truth and is written back out.
+ * The rows come from the response, never from parsing the upload here — see `OutletImportRow`. So
+ * this screen holds no opinion about which row is row 7, which is the one thing it could get wrong
+ * in a way nobody would notice.
  */
-type Chosen = { name: string; text: string; csv: Csv; edited: boolean };
+type Corrections = { columns: string[]; rows: OutletImportRow[] };
 
 /**
  * Bulk import of the outlet base (`OUT-05`).
@@ -39,8 +43,8 @@ type Chosen = { name: string; text: string; csv: Csv; edited: boolean };
  * The file stays in the browser between the two calls. It is sent twice rather than parked on the
  * server behind a token, because a synchronous import has no result to outlive its response, and
  * keeping one would mean a table, a retention rule and a cleanup job for a file the admin already
- * has open. It is also what the editable grid needs next: correcting a cell means re-serialising the
- * file that is already here and checking it again.
+ * has open. It is also what makes the grid possible: correcting a cell means writing the file back
+ * out from rows the server itself read, and checking it again.
  */
 export function OutletImport() {
   const t = useTranslations("OutletImport");
@@ -57,30 +61,35 @@ export function OutletImport() {
   });
 
   const [chosen, setChosen] = useState<Chosen | null>(null);
+  const [file, setFile] = useState<Corrections | null>(null);
+
+  /**
+   * Whether anything has been corrected since this file was chosen.
+   *
+   * Sticky until a different file is picked, and deliberately not cleared by a dry run. It was, and
+   * that made Apply send the original upload again — because the run that proved the corrections
+   * good was also the run that forgot about them. Nothing on screen said so: the check reported
+   * three rows ready and the apply imported none.
+   */
+  const [corrected, setCorrected] = useState(false);
   const [mode, setMode] = useState<OutletImportMode>("AllOrNothing");
   const [result, setResult] = useState<OutletImportResult | null>(null);
   const [refused, setRefused] = useState<readonly string[]>([]);
 
   const maxRows = capabilities.data?.maxRows;
-  const rows = chosen?.csv.rows.length;
-  const tooBig = maxRows !== undefined && rows !== undefined && rows > maxRows;
-
-  /**
-   * Whether this browser read the file the same way the server did.
-   *
-   * Two CSV readers, one in C# and one here, and the grid depends on them agreeing about which row
-   * is row 7. If they do not, every flag would land on the wrong shop — so the counts are compared
-   * and the grid is simply not offered when they disagree. The rejected-rows download is the answer
-   * then, which is what it is for.
-   */
-  const aligned = result !== null && rows === result.totalRows;
+  const rows = chosen === undefined ? undefined : chosen && roughRowCount(chosen.text);
+  const tooBig = maxRows !== undefined && rows != null && rows > maxRows;
 
   const run = useMutation({
     mutationFn: (dryRun: boolean) =>
       importOutlets(
         accessToken!,
         {
-          text: chosen!.edited ? writeCsv(chosen!.csv) : chosen!.text,
+          // The uploaded bytes until a cell is edited: "check the file I gave you" should mean the
+          // file they gave us. After that it is the server's own rows, written back out.
+          text: corrected && file
+            ? writeCsv(file.columns, file.rows.map((row) => row.values))
+            : chosen!.text,
           mediaType: capabilities.data!.mediaTypes[0],
         },
         { mode, dryRun },
@@ -89,6 +98,11 @@ export function OutletImport() {
     onSuccess: async (outcome) => {
       setRefused([]);
       setResult(outcome);
+
+      // A dry run re-reads whatever was sent, so its rows supersede the ones being corrected — a
+      // correction that landed is now simply part of the file. A real run sends none, and there is
+      // nothing left to correct anyway.
+      if (outcome.dryRun) setFile({ columns: outcome.columns, rows: outcome.rows });
 
       // Only a real run changed anything. Invalidating after a dry run would refetch every list to
       // find them exactly as they were.
@@ -105,25 +119,29 @@ export function OutletImport() {
     },
   });
 
-  async function choose(file: File | undefined) {
+  async function choose(picked: File | undefined) {
     setResult(null);
     setRefused([]);
+    setFile(null);
+    setCorrected(false);
 
-    if (!file) {
-      setChosen(null);
-      return;
-    }
-
-    const text = await file.text();
-
-    setChosen({ name: file.name, text, csv: parseCsv(text), edited: false });
+    setChosen(picked ? { name: picked.name, text: await picked.text() } : null);
   }
 
   function edit(row: number, column: number, value: string) {
-    setChosen((current) =>
+    setCorrected(true);
+
+    setFile((current) =>
       current === null
         ? null
-        : { ...current, csv: withCell(current.csv, row, column, value), edited: true },
+        : {
+            ...current,
+            rows: current.rows.map((candidate) =>
+              candidate.row === row
+                ? { row, values: candidate.values.map((cell, at) => (at === column ? value : cell)) }
+                : candidate,
+            ),
+          },
     );
   }
 
@@ -210,9 +228,10 @@ export function OutletImport() {
 
       {result ? <Outcome result={result} fileName={chosen?.name ?? "outlets.csv"} /> : null}
 
-      {result && chosen && aligned && result.problems.length > 0 ? (
+      {result && file && result.problems.length > 0 ? (
         <OutletImportGrid
-          file={chosen.csv}
+          columns={file.columns}
+          rows={file.rows}
           problems={result.problems}
           onEdit={edit}
           onRecheck={() => run.mutate(true)}

@@ -1295,4 +1295,28 @@ GET {{Server_HostAddress}}/api/outlets/import
 Accept: application/json
 Authorization: Bearer {{viewerToken.response.body.access_token}}
 
+
+### A dry run hands the file back as it read it — `columns`, and `rows` of { row, values } aligned to
+### them. That is what lets the import screen correct a row without parsing the upload a second time:
+### two CSV readers only have to disagree about which row is row 7 for every flagged cell to land on
+### the wrong shop, and nothing would say so. Note the quoted comma and the newline inside a field —
+### the two cases a hand-rolled reader gets wrong, and why rows are counted as records, not lines.
+POST {{Server_HostAddress}}/api/outlets/import?dryRun=true
+Content-Type: text/csv
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+code,name,channel,time_zone
+RO-GRID-1,"Smith, Jones & Co",Modern Trade,Europe/Bucharest
+RO-GRID-2,"Two
+Lines Shop",Modren Trade,Europe/Bucharest
+
+### A real run sends none of that back — nothing is left to correct, and the caller is holding the
+### rows already. Expect `columns` and `rows` empty.
+POST {{Server_HostAddress}}/api/outlets/import
+Content-Type: text/csv
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+code,name,channel,time_zone
+RO-GRID-3,Corner Shop,Modern Trade,Europe/Bucharest
+
 ###

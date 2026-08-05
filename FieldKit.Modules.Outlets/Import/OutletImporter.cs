@@ -129,8 +129,40 @@ internal static class OutletImporter
             IgnoredColumns: [.. file.Columns.Where(column =>
                 !Column.All.Contains(column)
                 && !definedKeys.Contains(column)
-                && !column.Equals(OutletImportFormat.ReasonColumn, StringComparison.OrdinalIgnoreCase))]);
+                && !column.Equals(OutletImportFormat.ReasonColumn, StringComparison.OrdinalIgnoreCase))],
+
+            // Only on a dry run: a real run has nothing left to correct, and the caller is holding
+            // these already. See OutletImportRowValues for why they are sent at all.
+            Columns: dryRun ? file.Columns : [],
+            Rows: dryRun ? [.. file.Rows.Select(row => Values(file.Columns, row))] : []);
     }
+
+    /// <summary>
+    /// One row's cells, in the file's own column order.
+    /// </summary>
+    /// <remarks>
+    /// A blank cell is absent from <see cref="OutletImportRow.Values"/> — the reader drops it, so an
+    /// optional field left empty is not judged as an empty string — and comes back as one here. The
+    /// two say the same thing to the import, and a screen needs a cell to put in the grid.
+    /// </remarks>
+    private static OutletImportRowValues Values(IReadOnlyList<string> columns, OutletImportRow row) =>
+        new(row.Number, [.. columns.Select(column => Cell(row, column))]);
+
+    /// <summary>
+    /// One cell as a screen should show it — the value, or empty where the file had nothing.
+    /// </summary>
+    /// <remarks>
+    /// Distinct from <see cref="Text"/>, which answers null for an absent cell because the rules
+    /// need "not supplied" and "supplied as empty" kept apart. A grid has only a box to fill.
+    ///
+    /// Not <c>GetRawText</c> unconditionally: a CSV-read value is a JSON string, and raw text would
+    /// hand it back wrapped in quotes it never had. The other branch is for the formats after CSV,
+    /// where a number cell really is a number.
+    /// </remarks>
+    private static string Cell(OutletImportRow row, string column) =>
+        !row.Values.TryGetValue(column, out var value) ? string.Empty
+            : value.ValueKind == JsonValueKind.String ? value.GetString() ?? string.Empty
+            : value.GetRawText();
 
     /// <summary>
     /// Builds one outlet, adding to <paramref name="issues"/> everything wrong with the row.

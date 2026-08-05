@@ -112,6 +112,12 @@ public sealed record OutletImportProblem(int Row, string? Column, string Message
 /// <c>legacy_id</c> and <c>last_modified_by</c>, so refusing the file over them would be hostile,
 /// but a mistyped custom-field header is exactly the same shape and must not pass unmentioned.
 /// </param>
+/// <param name="Columns">
+/// The file's own columns, in its own order — empty outside a dry run. See <paramref name="Rows"/>.
+/// </param>
+/// <param name="Rows">
+/// The file as this import read it, on a dry run only.
+/// </param>
 public sealed record OutletImportResponse(
     int TotalRows,
     int Accepted,
@@ -121,7 +127,33 @@ public sealed record OutletImportResponse(
     [property: JsonConverter(typeof(JsonStringEnumConverter<OutletImportMode>))] OutletImportMode Mode,
     IReadOnlyList<OutletImportProblem> Problems,
     string? RejectedRowsCsv,
-    IReadOnlyList<string> IgnoredColumns);
+    IReadOnlyList<string> IgnoredColumns,
+    IReadOnlyList<string> Columns,
+    IReadOnlyList<OutletImportRowValues> Rows);
+
+/// <summary>
+/// One row of the file, as this import read it (<c>OUT-05</c>).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>So a screen can correct a row without parsing the file itself.</b> A client that re-read the
+/// upload would be a second CSV reader, and the two only have to disagree about which row is row 7
+/// for every flagged cell to land on the wrong shop — a failure with no symptom until someone
+/// corrects data that was fine. The reader that produced <see cref="OutletImportProblem.Row"/> is
+/// the one that should say what is in that row.
+/// </para>
+/// <para>
+/// Only on a dry run, and bounded by <see cref="OutletImportFormat.MaxRows"/>. A real run has
+/// nothing to correct, and the caller is holding these already.
+/// </para>
+/// </remarks>
+/// <param name="Row">The file's own row number, matching <see cref="OutletImportProblem.Row"/>.</param>
+/// <param name="Values">
+/// Aligned to <see cref="OutletImportResponse.Columns"/> — an array rather than an object, because
+/// repeating eight keys five thousand times is most of the payload and none of the information. A
+/// blank cell is an empty string here; the import reads it as absent either way.
+/// </param>
+public sealed record OutletImportRowValues(int Row, IReadOnlyList<string> Values);
 
 /// <summary>One row as the reader found it, and the line it was on.</summary>
 /// <remarks>

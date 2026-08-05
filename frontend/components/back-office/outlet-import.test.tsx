@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -22,6 +22,20 @@ vi.mock("@/lib/api/outlet-import", async (importOriginal) => ({
   importOutlets: (...args: unknown[]) => importOutlets(...args),
 }));
 
+const COLUMNS = ["code", "name", "channel", "time_zone"];
+
+/**
+ * The rows a dry run of {@link csv} comes back with.
+ *
+ * From the server, always — the screen holds no reader of its own, so a test that did not supply
+ * these would be testing a grid with nothing to show rather than a grid.
+ */
+const serverRows = (count: number) =>
+  Array.from({ length: count }, (_, index) => ({
+    row: index + 2,
+    values: [`OUT-${index + 1}`, `Shop ${index + 1}`, "Modern Trade", "Europe/Bucharest"],
+  }));
+
 const CLEAN: OutletImportResult = {
   totalRows: 2,
   accepted: 2,
@@ -32,11 +46,13 @@ const CLEAN: OutletImportResult = {
   problems: [],
   rejectedRowsCsv: null,
   ignoredColumns: [],
+  columns: COLUMNS,
+  rows: serverRows(2),
 };
 
 /** A file the browser has read, as the input's change handler will see it. */
 function csv(rows: number, name = "outlets.csv") {
-  const lines = ["code,name,channel,time_zone"];
+  const lines = [COLUMNS.join(",")];
   for (let row = 1; row <= rows; row++) lines.push(`OUT-${row},Shop ${row},Modern Trade,Europe/Bucharest`);
 
   return new File([lines.join("\n")], name, { type: "text/csv" });
@@ -144,8 +160,10 @@ describe("<OutletImport>", () => {
     // spreadsheet shows rather than an index into something they cannot see.
     importOutlets.mockResolvedValue({
       ...CLEAN,
-      accepted: 1,
+      totalRows: 8,
+      accepted: 6,
       rejected: 2,
+      rows: serverRows(8),
       problems: [
         { row: 2, column: "time_zone", message: "'Europe/Bucuresti' is not a known time zone." },
         { row: 7, column: null, message: "This row has no code." },
@@ -158,7 +176,8 @@ describe("<OutletImport>", () => {
     await userEvent.upload(screen.getByLabelText(/^file/i), csv(8));
     await userEvent.click(screen.getByRole("button", { name: "Check file" }));
 
-    const rows = await screen.findAllByRole("row");
+    const table = await screen.findByRole("table", { name: /Rows the import refused/ });
+    const rows = within(table).getAllByRole("row");
     const cells = rows.slice(1).map((row) => [...row.querySelectorAll("td")].map((c) => c.textContent));
 
     expect(cells).toEqual([
@@ -231,6 +250,7 @@ describe("<OutletImport>", () => {
       totalRows: 3,
       accepted: 2,
       rejected: 1,
+      rows: serverRows(3),
       problems: [{ row: 3, column: "channel", message: "'Modren Trade' is not a channel." }],
     });
 
@@ -264,6 +284,7 @@ describe("<OutletImport>", () => {
       totalRows: 2,
       accepted: 1,
       rejected: 1,
+      rows: serverRows(2),
       problems: [{ row: 2, column: "channel", message: "'Modren Trade' is not a channel." }],
     });
 
@@ -285,6 +306,60 @@ describe("<OutletImport>", () => {
     expect(sent()).not.toContain("Shop 1");
   });
 
+  it("applies the corrected file, not the one that was uploaded", async () => {
+    // The bug this test exists for: a dry run of the corrected file used to clear the flag that said
+    // anything had been corrected, so Apply sent the original upload again. Nothing on screen said
+    // so — the check reported three rows ready and the apply imported none.
+    // The typo has to be in the uploaded file, or "it sent the original" and "it sent the
+    // correction" are indistinguishable — which is how the first version of this test passed against
+    // the bug it was written for.
+    const file = new File(
+      ["code,name,channel,time_zone\nOUT-1,Shop 1,Modren Trade,Europe/Bucharest\n"],
+      "outlets.csv",
+      { type: "text/csv" },
+    );
+
+    importOutlets.mockResolvedValue({
+      ...CLEAN,
+      totalRows: 1,
+      accepted: 0,
+      rejected: 1,
+      rows: [{ row: 2, values: ["OUT-1", "Shop 1", "Modren Trade", "Europe/Bucharest"] }],
+      problems: [{ row: 2, column: "channel", message: "'Modren Trade' is not a channel." }],
+    });
+
+    render(<OutletImport />);
+    await waitFor(() => expect(fetchImportCapabilities).toHaveBeenCalled());
+
+    await userEvent.upload(screen.getByLabelText(/^file/i), file);
+    await userEvent.click(screen.getByRole("button", { name: "Check file" }));
+
+    const cell = await screen.findByLabelText("channel, row 2");
+
+    await userEvent.clear(cell);
+    await userEvent.type(cell, "Modern Trade");
+
+    // The corrected file now checks clean, which is what leaves nothing to correct on screen.
+    importOutlets.mockResolvedValue({
+      ...CLEAN,
+      totalRows: 1,
+      accepted: 1,
+      rejected: 0,
+      problems: [],
+      rows: [{ row: 2, values: ["OUT-1", "Shop 1", "Modern Trade", "Europe/Bucharest"] }],
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Check again" }));
+    await waitFor(() => expect(importOutlets).toHaveBeenCalledTimes(2));
+
+    await userEvent.click(screen.getByRole("button", { name: "Apply" }));
+    await waitFor(() => expect(importOutlets).toHaveBeenCalledTimes(3));
+
+    expect(options().dryRun).toBe(false);
+    expect(sent()).toContain("Modern Trade");
+    expect(sent()).not.toContain("Modren Trade");
+  });
+
   it("sends the file exactly as uploaded until something is edited", async () => {
     // "Check the file I gave you" should mean the file they gave us — re-serialising an untouched
     // file would quietly send bytes nobody chose.
@@ -301,31 +376,6 @@ describe("<OutletImport>", () => {
     expect(sent()).toBe(await file.text());
   });
 
-  it("will not offer the grid when it read a different number of rows than the server", async () => {
-    // Two CSV readers, one in C# and one here, and the grid depends on them agreeing about which row
-    // is row 7. A flag on the wrong shop is worse than no grid, so the counts are compared first and
-    // the download stays as the answer.
-    importOutlets.mockResolvedValue({
-      ...CLEAN,
-      totalRows: 99,
-      accepted: 0,
-      rejected: 1,
-      problems: [{ row: 2, column: "code", message: "This row has no code." }],
-      rejectedRowsCsv: "code,name,import_error\n",
-    });
-
-    render(<OutletImport />);
-    await waitFor(() => expect(fetchImportCapabilities).toHaveBeenCalled());
-
-    await userEvent.upload(screen.getByLabelText(/^file/i), csv(2));
-    await userEvent.click(screen.getByRole("button", { name: "Check file" }));
-
-    await screen.findByRole("button", { name: /refused rows/i });
-
-    expect(screen.queryByRole("button", { name: "Check again" })).toBeNull();
-    expect(screen.queryByLabelText("code, row 2")).toBeNull();
-  });
-
   it("shows a problem about no column in particular beside its row", async () => {
     // "This row has no code" is about the row, and pinning it to a box at random would send someone
     // looking at the wrong cell.
@@ -334,6 +384,7 @@ describe("<OutletImport>", () => {
       totalRows: 2,
       accepted: 1,
       rejected: 1,
+      rows: serverRows(2),
       problems: [{ row: 2, column: null, message: "This row is empty." }],
     });
 
@@ -362,6 +413,8 @@ describe("<OutletImport>", () => {
       totalRows: 1,
       accepted: 0,
       rejected: 1,
+      columns: ["code", "name", "address"],
+      rows: [{ row: 2, values: ["OUT-1", "Two\nLine Shop", "Str. Dorobanti 1\nBucharest"] }],
       problems: [{ row: 2, column: "code", message: "This code already exists." }],
     });
 

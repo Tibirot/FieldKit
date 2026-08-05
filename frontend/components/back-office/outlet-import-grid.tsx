@@ -3,8 +3,7 @@
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
-import { fileRow, type Csv } from "@/lib/csv";
-import type { OutletImportProblem } from "@/lib/api/outlet-import";
+import type { OutletImportProblem, OutletImportRow } from "@/lib/api/outlet-import";
 import { cn } from "@/lib/utils";
 
 /**
@@ -30,21 +29,24 @@ type RowProblems = {
  * editing outlets, which is the Outlets screen's job — and the difference is between an admin fixing
  * a typo and an admin fixing a typo that is now a shop other people can already see.
  *
- * It needs no API of its own, which is the evidence the response shape was right: `problems` already
- * carry `{row, column, message}`, `row` already matches the file's own numbering, and re-checking is
- * the same dry run again. The file has been in the browser the whole time.
+ * **The rows are the server's, not a second reading of the upload.** They arrive on the dry run
+ * alongside the problems, numbered by the same reader that numbered those — so this component never
+ * decides which row is row 7, and cannot flag a cell in the wrong shop. Writing the corrected file
+ * back out is the only CSV work left here, and a writer emits what it is given.
  *
  * Only the refused rows are shown. The rest are correct, and 3,988 of them scrolling past is a way
  * of hiding the twelve that need attention.
  */
 export function OutletImportGrid({
-  file,
+  columns,
+  rows,
   problems,
   onEdit,
   onRecheck,
   busy,
 }: {
-  file: Csv;
+  columns: string[];
+  rows: OutletImportRow[];
   problems: OutletImportProblem[];
   onEdit: (row: number, column: number, value: string) => void;
   onRecheck: () => void;
@@ -53,11 +55,8 @@ export function OutletImportGrid({
   const t = useTranslations("OutletImport");
 
   const byRow = group(problems);
-  const rows = file.rows
-    .map((_, index) => index)
-    .filter((index) => byRow.has(fileRow(index)));
-
-  const shown = rows.slice(0, MaxRows);
+  const refused = rows.filter((row) => byRow.has(row.row));
+  const shown = refused.slice(0, MaxRows);
 
   if (shown.length === 0) return null;
 
@@ -76,7 +75,7 @@ export function OutletImportGrid({
               <th scope="col" className="px-3 py-2 text-left font-medium">
                 {t("row")}
               </th>
-              {file.columns.map((column) => (
+              {columns.map((column) => (
                 <th key={column} scope="col" className="px-3 py-2 text-left font-mono font-medium">
                   {column}
                 </th>
@@ -87,8 +86,7 @@ export function OutletImportGrid({
             </tr>
           </thead>
           <tbody>
-            {shown.map((index) => {
-              const number = fileRow(index);
+            {shown.map(({ row: number, values }) => {
               const row = byRow.get(number)!;
               const problemId = `row-${number}-problems`;
 
@@ -98,10 +96,10 @@ export function OutletImportGrid({
                     {number}
                   </th>
 
-                  {file.columns.map((column, at) => {
+                  {columns.map((column, at) => {
                     const flagged = row.columns.has(column);
 
-                    const value = file.rows[index][at];
+                    const value = values[at] ?? "";
 
                     // A textarea only where one is needed. `<input value>` is sanitised by the DOM —
                     // it drops newlines — so a quoted cell holding an address over two lines would
@@ -114,7 +112,7 @@ export function OutletImportGrid({
                         <Control
                           value={value}
                           rows={Control === "textarea" ? 2 : undefined}
-                          onChange={(event) => onEdit(index, at, event.target.value)}
+                          onChange={(event) => onEdit(number, at, event.target.value)}
                           // Named for the cell, because a grid of inputs is otherwise a grid of
                           // unlabelled boxes to anything that is not looking at it.
                           aria-label={t("cellLabel", { column, row: number })}
@@ -145,9 +143,9 @@ export function OutletImportGrid({
         </table>
       </div>
 
-      {rows.length > shown.length ? (
+      {refused.length > shown.length ? (
         <p className="text-xs text-muted-foreground">
-          {t("tooManyToFix", { shown: shown.length, total: rows.length })}
+          {t("tooManyToFix", { shown: shown.length, total: refused.length })}
         </p>
       ) : null}
 

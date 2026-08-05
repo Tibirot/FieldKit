@@ -307,22 +307,34 @@ carry `{row, column, message}`, `row` already matches the file's own numbering, 
 the same dry run again. The grid holds the file in the browser the whole time and serializes back to
 CSV once something has been edited.
 
-Three things it turned out to need saying:
+**A dry run hands the file back as it read it** — `columns`, and a `rows` array of
+`{ row, values }` with `values` aligned to `columns`. That is what makes the grid possible without a
+second CSV reader.
+
+The alternative was for the screen to parse the upload itself, and it is worth being explicit about
+why that is wrong. The client would then be deciding, independently, which row is row 7 — a decision
+the server has already made and reported in every `problems[].row`. Two readers agreeing about quoted
+delimiters, embedded newlines, blank lines and record-versus-line counting is a standing obligation,
+and the failure has no symptom: the grid flags a cell in the wrong shop, and someone corrects data
+that was fine. The reader that numbered the problems is the one that should say what is in the row.
+
+What the browser keeps is a **writer**, which cannot make that mistake — it emits the rows it was
+given, in order. A first pass at this shipped the reader plus a guard comparing row counts, which
+detected the disagreement instead of preventing it; removing the reader removed the need for the
+guard.
+
+Sent on dry runs only, and bounded by the row cap: a real run has nothing left to correct and the
+caller is holding the rows already.
+
+Two smaller things:
 
 - **Only the refused rows are editable.** The rest are correct, and 3,988 of them scrolling past is a
   way of hiding the twelve that need attention. Past a hundred refused rows the grid stops and says
   so, because 4,000 rows is 24,000 inputs and a browser asked to build them stops being a browser —
   `rejectedRowsCsv` is the answer at that size, which is what it is for.
 - **The uploaded bytes are sent untouched until someone edits a cell.** "Check the file I gave you"
-  should mean the file they gave us; re-serialising an untouched file would quietly send bytes nobody
-  chose. From the first edit onwards the browser's copy is the truth.
-- **Row numbers are counted as records, not lines** — a quoted field containing a newline is one row.
-  That is what the server counts (`csv.Parser.Row`) and what a spreadsheet shows. It also means two
-  CSV readers now exist, one per language, and the grid is wrong in the worst way if they disagree
-  about which row is row 7: every flag lands on the wrong shop. So **the screen compares its own row
-  count against the response's `totalRows` and does not offer the grid when they differ**, falling
-  back to the download. A disagreement becomes visible rather than becoming a correction to the wrong
-  row.
+  should mean the file they gave us. From the first edit onwards the file is written back out from
+  the server's own rows.
 
 Deliberately **before** the write rather than after it:
 
