@@ -204,6 +204,24 @@ describe("<UserBrowser>", () => {
     expect(updateUser).toHaveBeenCalledWith("token", "u-1", expect.objectContaining({ locale: "ro-RO" }));
   });
 
+  it("accepts the tags a real profile carries", async () => {
+    // A UN M.49 region (`es-419`) and a script subtag (`zh-Hant-TW`) are both ordinary BCP-47 and
+    // both would be rejected by a pattern that only allows two letters and two letters. The one that
+    // shipped in the first draft of this file did exactly that, because an escape was lost.
+    render(<UserBrowser />);
+    await screen.findByRole("table");
+
+    for (const tag of ["es-419", "zh-Hant-TW", "en-GB"]) {
+      await userEvent.click(screen.getByRole("button", { name: "Edit Ana Ionescu" }));
+      await userEvent.clear(screen.getByLabelText(/^locale/i));
+      await userEvent.type(screen.getByLabelText(/^locale/i), tag);
+      await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+      await waitFor(() => expect(updateUser).toHaveBeenCalled());
+      expect(updateUser).toHaveBeenLastCalledWith("token", "u-1", expect.objectContaining({ locale: tag }));
+    }
+  });
+
   it("refuses something that is not a language tag", async () => {
     render(<UserBrowser />);
     await screen.findByRole("table");

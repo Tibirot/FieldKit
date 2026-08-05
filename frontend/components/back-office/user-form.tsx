@@ -50,7 +50,7 @@ const SUGGESTED_LOCALES = ["ro-RO", "en-GB", "en-US", "de-DE", "fr-FR", "es-ES",
  * <i>predefined</i> culture, which is a question this pattern cannot ask. What it catches is a name
  * typed into the box instead of a tag.
  */
-const LOCALE_TAG = /^[a-z]{2,3}(-[A-Za-z]{4})?(-([A-Z]{2}|d{3}))?$/;
+const LOCALE_TAG = /^[a-z]{2,3}(-[A-Za-z]{4})?(-([A-Z]{2}|\d{3}))?$/;
 
 /**
  * A user profile and the roles it holds (`IAM-03`).
