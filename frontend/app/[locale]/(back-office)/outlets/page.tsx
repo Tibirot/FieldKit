@@ -1,6 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
-import { OutletTable } from "@/components/back-office/outlet-table";
+import { OutletBrowser } from "@/components/back-office/outlet-browser";
 import { resolveLocale } from "@/i18n/locale";
 
 /**
@@ -23,7 +23,7 @@ export default async function OutletsPage({ params }: { params: Promise<{ locale
         <p className="font-mono text-[11.5px] text-muted-foreground">{t("crumb")}</p>
         <h1 className="text-lg font-semibold tracking-tight">{t("title")}</h1>
       </header>
-      <OutletTable />
+      <OutletBrowser />
     </div>
   );
 }

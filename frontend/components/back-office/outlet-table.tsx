@@ -10,8 +10,10 @@ import {
   fetchOutlets,
   outletsKey,
   type OutletQuery,
+  type OutletSort,
   type OutletStatus,
 } from "@/lib/api/outlets";
+import { cn } from "@/lib/utils";
 
 /**
  * Status reads as a colour as well as a word.
@@ -25,7 +27,32 @@ const STATUS_VARIANT: Record<OutletStatus, "default" | "secondary" | "destructiv
   Closed: "destructive",
 };
 
-export function OutletTable({ query = {} }: { query?: OutletQuery }) {
+/**
+ * Which columns can be ordered, and by what.
+ *
+ * Territory is absent because the server cannot sort by it — it is resolved from Organization
+ * after the page is fetched (`ORG-05`), so ordering on it would order the fifty rows already
+ * chosen. Segment is absent because the API does not offer it; a header that sorted nothing would
+ * be worse than one that never invited the click.
+ */
+const COLUMNS = ["code", "name", "channel", "segment", "territory", "status"] as const;
+
+type Column = (typeof COLUMNS)[number];
+
+const SORTABLE: Partial<Record<Column, OutletSort>> = {
+  code: "Code",
+  name: "Name",
+  channel: "Channel",
+  status: "Status",
+};
+
+export function OutletTable({
+  query = {},
+  onSort,
+}: {
+  query?: OutletQuery;
+  onSort?: (sort: OutletSort) => void;
+}) {
   const t = useTranslations("Outlets");
   const { user } = useAuth();
 
@@ -64,26 +91,51 @@ export function OutletTable({ query = {} }: { query?: OutletQuery }) {
   }
 
   if (outlets.data.total === 0) {
-    return <p className="text-sm text-muted-foreground">{t("empty")}</p>;
+    // Two different facts. "No outlets yet" invites an import, which is the wrong thing to say to
+    // someone who has four thousand and mistyped a search — it makes a filtered table look broken.
+    const narrowed = Boolean(query.search || query.channelId || query.status);
+
+    return (
+      <p className="text-sm text-muted-foreground">{narrowed ? t("noMatches") : t("empty")}</p>
+    );
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-border">
+    <div className="overflow-x-auto">
       <table className="w-full border-collapse text-sm">
         <caption className="sr-only">{t("caption")}</caption>
         <thead>
           <tr className="bg-muted/50 text-left">
-            {(["code", "name", "channel", "segment", "territory", "status"] as const).map(
-              (column) => (
+            {COLUMNS.map((column) => {
+              const sortable = SORTABLE[column];
+              const active = sortable !== undefined && (query.sort ?? "Code") === sortable;
+
+              return (
                 <th
                   key={column}
                   scope="col"
+                  // aria-sort on the header cell is what a screen reader announces, and the only
+                  // signal a caret alone does not carry.
+                  aria-sort={active ? (query.descending ? "descending" : "ascending") : undefined}
                   className="border-b border-border px-3.5 py-2.5 font-mono text-[10.5px] font-bold tracking-[0.05em] text-muted-foreground uppercase"
                 >
-                  {t(`columns.${column}`)}
+                  {sortable && onSort ? (
+                    <button
+                      type="button"
+                      onClick={() => onSort(sortable)}
+                      className="flex items-center gap-1 uppercase hover:text-foreground"
+                    >
+                      {t(`columns.${column}`)}
+                      <span aria-hidden="true" className={cn(!active && "opacity-0")}>
+                        {query.descending ? "\u2193" : "\u2191"}
+                      </span>
+                    </button>
+                  ) : (
+                    t(`columns.${column}`)
+                  )}
                 </th>
-              ),
-            )}
+              );
+            })}
           </tr>
         </thead>
         <tbody>
@@ -109,13 +161,6 @@ export function OutletTable({ query = {} }: { query?: OutletQuery }) {
         </tbody>
       </table>
 
-      <p className="border-t border-border px-3.5 py-2.5 text-xs text-muted-foreground">
-        {t("showing", {
-          from: (outlets.data.page - 1) * outlets.data.pageSize + 1,
-          to: (outlets.data.page - 1) * outlets.data.pageSize + outlets.data.items.length,
-          total: outlets.data.total,
-        })}
-      </p>
     </div>
   );
 }
