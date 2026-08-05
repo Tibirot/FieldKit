@@ -301,5 +301,28 @@
     "cancel": "Cancel",
     "localeHint": "A BCP-47 tag such as ro-RO. Drives number, money and date formatting, not just translation.",
     "localeShape": "Use a BCP-47 tag, such as ro-RO."
+  },
+  "Roles": {
+    "title": "Roles",
+    "loading": "Loading roles…",
+    "failed": "Roles could not be loaded.",
+    "forbidden": "You do not have permission to view roles.",
+    "newRole": "New role",
+    "newTitle": "New role",
+    "editTitle": "Edit role",
+    "name": "Name",
+    "permissions": "Permissions",
+    "grantsNothing": "Grants nothing yet.",
+    "systemRole": "Built in",
+    "systemRoleHint": "A built-in role can be recomposed, but not deleted — it is how a workspace gets back to a working set.",
+    "edit": "Edit",
+    "editNamed": "Edit the {name} role",
+    "delete": "Delete",
+    "deleteNamed": "Delete the {name} role",
+    "deleteFailed": "This role could not be deleted.",
+    "saveFailed": "This role could not be saved.",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel"
   }
 }

@@ -226,10 +226,16 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
   should not be reachable by an unrelated edit to somebody's timezone. Deactivated accounts stay on
   the list — "why can't Ana log in" is answered there or nowhere. The **subject id** is typed in and
   read-only after creation, which is honest about `IAM-10` not existing yet; the **Device** column
-  stays deferred to `IAM-07`. **Roles and their permission toggles** (`IAM-04`) are the slice that
-  remains.
+  stays deferred to `IAM-07`.
+  ✓ **Roles and their permission toggles** (`IAM-04`) — on the same page below the users, because
+  they are one decision taken from two directions: an admin arrives asking "what may Ana do", and
+  the answer is a role. Every permission the system enforces is a checkbox with **its description
+  beside it**, grouped by resource — the catalogue is code, so the form cannot offer a grant nothing
+  checks, and `outlet:write` is a shape rather than a capability until something says what it does.
+  A built-in template can be **recomposed but not deleted**: it is the way back to a working set
+  (`IAM-06`), and the refusal explains that rather than the button quietly not being there.
 
-**Done when:** an admin logs in, models a small org, and loads outlets — matches the [wireframes](ux/README.md), all tenant-scoped. **▶ Phase 1 demo.**
+**Done when:** an admin logs in, models a small org, and loads outlets — matches the [wireframes](ux/README.md), all tenant-scoped. **▶ Phase 1 demo.** Every screen W5 promised now exists.
 
 ---
 
