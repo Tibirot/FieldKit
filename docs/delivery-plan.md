@@ -177,6 +177,11 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
 - **Outlets** screen (table, filters, create/edit incl. custom-field form) + **import screen** —
   upload, dry-run, fix the flagged cells in an **editable grid**, apply (`OUT-05`). Correcting before
   the write rather than after is the point; the rejected-rows download stays as the escape hatch.
+  ✓ **Paged, searchable, sortable table** (`OUT-01`) — offset paging with a total, search over code
+  and name, filters by channel and status, and sortable headers. **The query lives in the URL**, per
+  the client-state decision in [ADR-0004](architecture/adr/0004-nextjs-offline-first-frontend.md#state-three-kinds-and-only-one-library):
+  a filtered view is shareable, survives a reload, and is what a colleague can be sent. Create/edit
+  and the import screen are what remain.
 - **Territories** screen (list + rep assignment).
 - **Users & roles** screen (list + role permission toggles).
 

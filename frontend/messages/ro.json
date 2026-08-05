@@ -117,6 +117,15 @@
       "Inactive": "Inactiv",
       "Closed": "Închis"
     },
-    "showing": "Se afișează {from}–{to} din {total}"
+    "showing": "Se afișează {from}–{to} din {total}",
+    "searchPlaceholder": "Caută după cod sau nume…",
+    "searchLabel": "Caută puncte de vânzare",
+    "allChannels": "Toate canalele",
+    "allStatuses": "Toate stările",
+    "clearFilters": "Șterge",
+    "noMatches": "Niciun punct de vânzare nu corespunde acestor filtre.",
+    "pageOf": "Pagina {page} din {pages}",
+    "previousPage": "Pagina anterioară",
+    "nextPage": "Pagina următoare"
   }
 }

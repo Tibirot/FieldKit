@@ -117,6 +117,15 @@
       "Inactive": "Inactive",
       "Closed": "Closed"
     },
-    "showing": "Showing {from}–{to} of {total}"
+    "showing": "Showing {from}–{to} of {total}",
+    "searchPlaceholder": "Search code or name…",
+    "searchLabel": "Search outlets",
+    "allChannels": "All channels",
+    "allStatuses": "All statuses",
+    "clearFilters": "Clear",
+    "noMatches": "No outlets match these filters.",
+    "pageOf": "Page {page} of {pages}",
+    "previousPage": "Previous page",
+    "nextPage": "Next page"
   }
 }

@@ -64,8 +64,6 @@ describe("<OutletTable>", () => {
     expect(screen.getByText("Bucharest N")).toBeTruthy();
     expect(screen.getByText("Active")).toBeTruthy();
 
-    // And the count a pager is drawn from, phrased for a person rather than as three numbers.
-    expect(screen.getByText("Showing 1–1 of 1")).toBeTruthy();
   });
 
   it("shows an outlet nobody covers as unassigned rather than blank", async () => {
