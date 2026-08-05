@@ -218,6 +218,16 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
   Overlap stays the server's rule: two people can be editing the same territory, so a client-side
   check is a guess about a set it does not own.
 - **Users & roles** screen (list + role permission toggles).
+  ✓ **The user list** (`IAM-03`) — name, email, the roles each holds *named* rather than counted,
+  and whether the account is on. Create and edit, with roles as checkboxes because `BR-IAM-3` says
+  the answer cannot end up empty and a multi-select where ctrl-click silently drops the rest is the
+  wrong control for that. Deactivation is its own verb, not a field on the profile update: it
+  publishes `UserDeactivated` so Sync releases the bound device (`A8`), and a consequence that size
+  should not be reachable by an unrelated edit to somebody's timezone. Deactivated accounts stay on
+  the list — "why can't Ana log in" is answered there or nowhere. The **subject id** is typed in and
+  read-only after creation, which is honest about `IAM-10` not existing yet; the **Device** column
+  stays deferred to `IAM-07`. **Roles and their permission toggles** (`IAM-04`) are the slice that
+  remains.
 
 **Done when:** an admin logs in, models a small org, and loads outlets — matches the [wireframes](ux/README.md), all tenant-scoped. **▶ Phase 1 demo.**
 
