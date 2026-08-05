@@ -49,6 +49,10 @@ const OUTLET: OutletDetail = {
   timeZoneId: "Europe/Bucharest",
   address: { street: "Str. Dorobanți 1", city: "Bucharest", postalCode: "010001", countryCode: "RO" },
   location: { latitude: 44.4682, longitude: 26.0921 },
+  contacts: [
+    { name: "Ana Ionescu", role: "Buyer", phone: "0721 555 111", email: "ana@example.com" },
+    { name: "Bogdan Pop", role: null, phone: null, email: null },
+  ],
   customFields: { chillers: 4 },
 };
 
@@ -263,6 +267,90 @@ describe("<OutletForm>", () => {
     expect(alert.textContent).toContain("not a defined custom field");
   });
 
+  it("sends the contacts it was given back, untouched", async () => {
+    // The regression this whole section exists for. Contacts are replaced wholesale, so an absent
+    // `contacts` is an emptied one — and this form neither read them nor sent them, which meant
+    // fixing a typo in a name silently deleted every person recorded at that outlet. Nothing said
+    // so, and the screen never showed them, so nobody would find out until someone went looking.
+    render(<OutletForm outlet={OUTLET} />);
+
+    await userEvent.clear(screen.getByLabelText(/outlet name/i));
+    await userEvent.type(screen.getByLabelText(/outlet name/i), "Renamed Market");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(updateOutlet).toHaveBeenCalled());
+
+    expect(sent(updateOutlet).contacts).toEqual(OUTLET.contacts);
+  });
+
+  it("adds and removes a contact, and what it sends says so", async () => {
+    render(<OutletForm outlet={OUTLET} />);
+
+    // Removing the first of two: the row that shifts up must keep its own values. Keyed by index
+    // instead of by react-hook-form's row id, React reuses the removed row's input for it and the
+    // wrong person appears to have been deleted.
+    await userEvent.click(screen.getByRole("button", { name: "Remove contact 1" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add contact" }));
+
+    const names = screen.getAllByLabelText(/^name/i);
+    await userEvent.type(names[names.length - 1], "Carmen Dinu");
+
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(updateOutlet).toHaveBeenCalled());
+
+    expect(sent(updateOutlet).contacts).toEqual([
+      { name: "Bogdan Pop", role: null, phone: null, email: null },
+      { name: "Carmen Dinu", role: null, phone: null, email: null },
+    ]);
+  });
+
+  it("will not save a contact with no name", async () => {
+    // The one required part of the record: it is what a rep says at the counter. The rest is how to
+    // reach the person and may simply not be known yet.
+    render(<OutletForm outlet={OUTLET} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Add contact" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    const names = screen.getAllByLabelText(/^name/i);
+    const message = await screen.findByText("This field is required.");
+
+    expect(names[names.length - 1].getAttribute("aria-describedby")).toBe(message.id);
+    expect(updateOutlet).not.toHaveBeenCalled();
+  });
+
+  it("attaches a refusal about one contact to that contact's control", async () => {
+    // `contacts[1].email` is how the request named it; react-hook-form spells the same path
+    // `contacts.1.email`. The index is as much of the answer as the field is — a form showing two
+    // people cannot work out which of them the server meant.
+    updateOutlet.mockRejectedValue(
+      new ApiError(400, [
+        { field: "contacts[1].email", message: "'0721 555 111' is not an email address." },
+      ]),
+    );
+
+    render(<OutletForm outlet={OUTLET} />);
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    const message = await screen.findByText(/not an email address/);
+
+    expect(screen.getAllByLabelText(/^email/i)[1].getAttribute("aria-describedby")).toBe(message.id);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("keeps a refusal about a contact that is not on screen at the top", async () => {
+    // An index past the last row is a control that does not exist, and `setError` on a path with no
+    // control attached swallows the message without a word.
+    updateOutlet.mockRejectedValue(
+      new ApiError(400, [{ field: "contacts[7].name", message: "A contact needs a name." }]),
+    );
+
+    render(<OutletForm outlet={OUTLET} />);
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("A contact needs a name.");
+  });
+
   it("goes to the outlet it just saved", async () => {
     render(<OutletForm outlet={OUTLET} />);
 
@@ -271,3 +359,4 @@ describe("<OutletForm>", () => {
     await waitFor(() => expect(push).toHaveBeenCalledWith("/outlets/019f-1"));
   });
 });
+

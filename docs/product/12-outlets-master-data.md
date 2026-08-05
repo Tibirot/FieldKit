@@ -84,6 +84,34 @@ state, and two people editing one outlet would interleave silently. It also give
 shape: an empty list removes every contact, and the rows are deleted rather than flagged. A dedicated
 erasure workflow is `OUT-10`.
 
+> **Wholesale means a client has to send the list back on every save.** Omitting `contacts` from a
+> `PUT` is not "leave them alone" — it is a full replacement with nothing, which is correct for a
+> `PUT` and is exactly how the back-office form deleted every contact on every outlet it saved. The
+> form rendered no contacts and sent none, so fixing a typo in a name erased the people recorded at
+> that shop, with nothing on screen to say so. The note stays after the fix, because the trap is a
+> property of the design and the next client will meet it too.
+
+**Only the name is required**, and the sizes are checked in front of the write rather than at the
+column:
+
+| Field | Rule |
+|---|---|
+| `name` | Required; at most 200 characters |
+| `role` | At most 100 |
+| `phone` | At most 50 |
+| `email` | At most 320 (RFC 5321), and something either side of exactly one `@` |
+
+The name, because it is what a rep says at the counter. The rest is how to reach the person and any
+of it may simply not be known yet. **The email check is deliberately shallow** — it catches a phone
+number pasted into the wrong box, which is the mistake that actually happens, while deliverability is
+only ever settled by sending mail and a stricter pattern rejects addresses that work.
+
+The lengths matter more than they look. Before this the column widths were the only check, so a name
+one character too long reached the database and came back as a `500` — the API reporting a caller's
+correct-looking payload as a server fault. Every problem names the contact it is about
+(`contacts[1].email`), because a form showing three people cannot work out which one "not an email
+address" refers to.
+
 ### F2 · Classify & assign
 - Assign an outlet to a **channel** (mandatory — it drives assortment/pricing/workflow) and to
   a **territory** (via Organization).
@@ -305,3 +333,4 @@ review queue on the server). This keeps outlets conflict-free ([B7](decisions-an
 - Do banners/chains need modeling in v1, or defer? (Assumed: optional field, no chain-level
   logic in v1.)
 - Approval SLA/roles for the review queue. (Assumed: any Sales Ops user.)
+

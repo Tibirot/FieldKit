@@ -1201,4 +1201,83 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
 
 code,name,channel,time_zone
 
+### ─── The people at an outlet (OUT-01) ──────────────────────────────────────────────────────────
+
+### Contacts are personal data (B8) and are replaced wholesale, never patched — a delta needs the
+### caller to know the current state, and two people editing one outlet would interleave silently.
+POST {{Server_HostAddress}}/api/outlets
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "code": "RO-BUC-0100",
+  "name": "Contact Shop",
+  "channelId": "{{channel.response.body.id}}",
+  "timeZoneId": "Europe/Bucharest",
+  "contacts": [
+    { "name": "Ana Ionescu", "role": "Buyer", "phone": "0721 555 111", "email": "ana@example.com" },
+    { "name": "Bogdan Pop" }
+  ]
+}
+
+### A contact with no name — expect 400 naming `contacts[0].name`. The name is the whole point of the
+### record, since it is what a rep says at the counter; the rest is how to reach the person and any
+### of it may not be known yet. Nothing refused this before, so it stored a row saying somebody
+### exists without saying who.
+POST {{Server_HostAddress}}/api/outlets
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "code": "RO-BUC-0101",
+  "name": "Nameless Contact",
+  "channelId": "{{channel.response.body.id}}",
+  "timeZoneId": "Europe/Bucharest",
+  "contacts": [{ "name": "   ", "role": "Buyer" }]
+}
+
+### The index is part of the answer — expect `contacts[1].email`. A form showing two people cannot
+### work out from "not an email address" which of them it should highlight.
+POST {{Server_HostAddress}}/api/outlets
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "code": "RO-BUC-0102",
+  "name": "Phone In The Email Box",
+  "channelId": "{{channel.response.body.id}}",
+  "timeZoneId": "Europe/Bucharest",
+  "contacts": [
+    { "name": "Ana Ionescu", "email": "ana@example.com" },
+    { "name": "Bogdan Pop", "email": "0721 555 111" }
+  ]
+}
+
+### Erasure: an empty list deletes every contact, and the rows are gone rather than flagged. This is
+### the only deletion path today — the dedicated workflow is OUT-10.
+PUT {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "{{outlet.response.body.name}}",
+  "channelId": "{{channel.response.body.id}}",
+  "timeZoneId": "Europe/Bucharest",
+  "contacts": []
+}
+
+### Which is also why a client must send the list back on every save. Omitting `contacts` from a PUT
+### is not "leave them alone" — it is the same as sending `[]`, and it is how a form that renders an
+### outlet without its contacts quietly deletes them.
+PUT {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "{{outlet.response.body.name}}",
+  "channelId": "{{channel.response.body.id}}",
+  "timeZoneId": "Europe/Bucharest"
+}
+
 ###
+

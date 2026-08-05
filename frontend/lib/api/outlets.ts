@@ -110,6 +110,20 @@ export type Coordinates = {
 };
 
 /**
+ * A person at the outlet — the store manager, the buyer.
+ *
+ * **Personal data** under [B8](../../../docs/product/decisions-and-assumptions.md). Only the name is
+ * required; the rest is how to reach them and any of it may simply not be known yet. Sent and
+ * returned as a whole list, never patched — an empty list is how every contact is erased.
+ */
+export type OutletContact = {
+  name: string;
+  role: string | null;
+  phone: string | null;
+  email: string | null;
+};
+
+/**
  * What the form sends.
  *
  * `code` is absent from the update shape because an outlet's code is not editable — it is the
@@ -124,6 +138,15 @@ export type OutletWrite = {
   timeZoneId: string;
   address: Address | null;
   location: Coordinates | null;
+
+  /**
+   * Always sent, even unchanged.
+   *
+   * The API replaces the list wholesale, so an omitted `contacts` is an emptied one — this is a
+   * PUT, and leaving a field out of a PUT means clearing it. A form that renders the outlet but
+   * forgets to send this part back deletes every contact on it, silently, on any save.
+   */
+  contacts: OutletContact[];
   customFields: Record<string, unknown>;
 };
 
@@ -142,6 +165,7 @@ export type OutletDetail = Outlet & {
   timeZoneId: string;
   address: Address | null;
   location: Coordinates | null;
+  contacts: OutletContact[];
   customFields: Record<string, unknown>;
 };
 
@@ -158,3 +182,4 @@ export function updateOutlet(
 ): Promise<OutletDetail> {
   return apiSend<OutletDetail>("PUT", `/api/outlets/${id}`, accessToken, outlet);
 }
+

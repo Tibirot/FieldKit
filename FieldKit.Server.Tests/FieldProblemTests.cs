@@ -9,6 +9,8 @@ using FieldKit.Web;
 
 namespace FieldKit.Server.Tests;
 
+using static Refusals;
+
 /// <summary>
 /// What a refused write says about <i>where</i> it went wrong (api-contracts §3).
 /// </summary>
@@ -23,12 +25,6 @@ public class FieldProblemTests(ServerFixture fixture)
     private const string Zone = "Europe/Bucharest";
 
     private static string Unique(string label) => $"{label}-{Guid.NewGuid():N}"[..18];
-
-    private sealed record Refusal(IReadOnlyList<FieldProblem> Errors);
-
-    /// <summary>The problems a response carried, whatever its status.</summary>
-    private static async Task<IReadOnlyList<FieldProblem>> ProblemsOf(HttpResponseMessage response) =>
-        (await response.Content.ReadFromJsonAsync<Refusal>())?.Errors ?? [];
 
     private async Task<Guid> ChannelAsync(HttpClient client)
     {
@@ -151,3 +147,4 @@ public class FieldProblemTests(ServerFixture fixture)
         Assert.Contains("roleIds", fields);
     }
 }
+
