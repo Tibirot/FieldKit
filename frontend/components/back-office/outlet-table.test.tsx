@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthContextValue } from "@/components/auth-provider";
 import { OutletTable } from "@/components/back-office/outlet-table";
 import { ApiError } from "@/lib/api/client";
-import type { Outlet } from "@/lib/api/outlets";
+import type { Outlet, PagedList } from "@/lib/api/outlets";
 import { render } from "@/test/render";
 
 const auth = vi.hoisted(() => ({ current: {} as AuthContextValue }));
@@ -20,6 +20,14 @@ vi.mock("@/lib/api/outlets", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/outlets")>()),
   fetchOutlets: (...args: unknown[]) => fetchOutlets(...args),
 }));
+
+/** One page holding whatever rows a test cares about — the envelope is not what is under test. */
+const page = (items: Outlet[]): PagedList<Outlet> => ({
+  items,
+  total: items.length,
+  page: 1,
+  pageSize: 50,
+});
 
 const OUTLET: Outlet = {
   id: "019f-1",
@@ -47,7 +55,7 @@ describe("<OutletTable>", () => {
   });
 
   it("shows the outlet base, with the territory that covers each shop", async () => {
-    fetchOutlets.mockResolvedValue([OUTLET]);
+    fetchOutlets.mockResolvedValue(page([OUTLET]));
 
     render(<OutletTable />);
 
@@ -55,12 +63,15 @@ describe("<OutletTable>", () => {
     expect(screen.getByText("OUT-2214")).toBeTruthy();
     expect(screen.getByText("Bucharest N")).toBeTruthy();
     expect(screen.getByText("Active")).toBeTruthy();
+
+    // And the count a pager is drawn from, phrased for a person rather than as three numbers.
+    expect(screen.getByText("Showing 1–1 of 1")).toBeTruthy();
   });
 
   it("shows an outlet nobody covers as unassigned rather than blank", async () => {
     // Blank would read as missing data. It is an ordinary state — outlets exist before anyone
     // decides who covers them (BR-OUT-1).
-    fetchOutlets.mockResolvedValue([{ ...OUTLET, territory: null }]);
+    fetchOutlets.mockResolvedValue(page([{ ...OUTLET, territory: null }]));
 
     render(<OutletTable />);
 
@@ -89,7 +100,7 @@ describe("<OutletTable>", () => {
   });
 
   it("invites the first import rather than showing an empty table", async () => {
-    fetchOutlets.mockResolvedValue([]);
+    fetchOutlets.mockResolvedValue(page([]));
 
     render(<OutletTable />);
 

@@ -1082,3 +1082,50 @@ Accept: application/json
 Authorization: Bearer {{adminToken.response.body.access_token}}
 
 ###
+
+### ─── Paging, search and sort over the outlet base (OUT-01) ──────────────────────────────────────
+
+### One page, with the total to draw a pager from. Offset rather than a cursor: a back office wants
+### a total and the ability to jump; Sync keeps its own cursor feed for the job that needs one.
+GET {{Server_HostAddress}}/api/outlets?page=1&pageSize=5
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Page 2 of the same list. Every row appears on exactly one page because the sort always ends on
+### a unique column — without that tiebreak, equal sort keys have no defined order in SQL and a row
+### can land on both pages while another lands on neither.
+GET {{Server_HostAddress}}/api/outlets?page=2&pageSize=5&sort=Status
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Search matches code or name, ignoring case. Not channel or segment — that is what the filters
+### are for, and folding them in would make "Modern" match every outlet in Modern Trade.
+GET {{Server_HostAddress}}/api/outlets?search=corner
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### A search containing a wildcard searches for that character. Unescaped, `%` matches everything
+### while looking like a search that simply found a lot.
+GET {{Server_HostAddress}}/api/outlets?search=50%25
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Sorted by channel — by its *name*, through a subquery. Ordering by the id would sort by GUID:
+### stable, repeatable, and meaningless to whoever clicked the header.
+GET {{Server_HostAddress}}/api/outlets?sort=Channel&descending=true&pageSize=5
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Filters and search narrow the total together — "1-50 of 812" has to be true of the filtered set,
+### or the pager offers pages that are always empty.
+GET {{Server_HostAddress}}/api/outlets?search=RO&status=Active&pageSize=5
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### A page size nobody should ask for is clamped, not refused — the response echoes the size used,
+### so a caller can see what happened without parsing an error. Expect `pageSize: 200`.
+GET {{Server_HostAddress}}/api/outlets?pageSize=100000
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+###

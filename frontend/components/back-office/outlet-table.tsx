@@ -6,7 +6,12 @@ import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { ApiError } from "@/lib/api/client";
-import { fetchOutlets, outletsKey, type OutletStatus } from "@/lib/api/outlets";
+import {
+  fetchOutlets,
+  outletsKey,
+  type OutletQuery,
+  type OutletStatus,
+} from "@/lib/api/outlets";
 
 /**
  * Status reads as a colour as well as a word.
@@ -20,7 +25,7 @@ const STATUS_VARIANT: Record<OutletStatus, "default" | "secondary" | "destructiv
   Closed: "destructive",
 };
 
-export function OutletTable() {
+export function OutletTable({ query = {} }: { query?: OutletQuery }) {
   const t = useTranslations("Outlets");
   const { user } = useAuth();
 
@@ -32,8 +37,12 @@ export function OutletTable() {
     // a token can expire between renders and the query must simply not run rather than send
     // `Bearer undefined`.
     enabled: Boolean(accessToken && subject),
-    queryKey: outletsKey(subject ?? ""),
-    queryFn: ({ signal }) => fetchOutlets(accessToken!, signal),
+    queryKey: outletsKey(subject ?? "", query),
+    queryFn: ({ signal }) => fetchOutlets(accessToken!, query, signal),
+
+    // Keeps the previous page on screen while the next one loads, instead of collapsing the table
+    // to a spinner and back. Without it, every page change makes the whole layout jump.
+    placeholderData: (previous) => previous,
   });
 
   if (outlets.isPending) {
@@ -54,7 +63,7 @@ export function OutletTable() {
     );
   }
 
-  if (outlets.data.length === 0) {
+  if (outlets.data.total === 0) {
     return <p className="text-sm text-muted-foreground">{t("empty")}</p>;
   }
 
@@ -78,7 +87,7 @@ export function OutletTable() {
           </tr>
         </thead>
         <tbody>
-          {outlets.data.map((outlet) => (
+          {outlets.data.items.map((outlet) => (
             <tr key={outlet.id} className="border-b border-border last:border-b-0">
               <td className="px-3.5 py-2.5 font-mono tabular-nums">{outlet.code}</td>
               <td className="px-3.5 py-2.5 font-semibold">{outlet.name}</td>
@@ -99,6 +108,14 @@ export function OutletTable() {
           ))}
         </tbody>
       </table>
+
+      <p className="border-t border-border px-3.5 py-2.5 text-xs text-muted-foreground">
+        {t("showing", {
+          from: (outlets.data.page - 1) * outlets.data.pageSize + 1,
+          to: (outlets.data.page - 1) * outlets.data.pageSize + outlets.data.items.length,
+          total: outlets.data.total,
+        })}
+      </p>
     </div>
   );
 }

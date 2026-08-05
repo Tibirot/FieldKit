@@ -116,6 +116,7 @@
       "Active": "Activ",
       "Inactive": "Inactiv",
       "Closed": "Închis"
-    }
+    },
+    "showing": "Se afișează {from}–{to} din {total}"
   }
 }

@@ -116,6 +116,7 @@
       "Active": "Active",
       "Inactive": "Inactive",
       "Closed": "Closed"
-    }
+    },
+    "showing": "Showing {from}–{to} of {total}"
   }
 }

@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { outletsKey } from "@/lib/api/outlets";
+import { fetchOutlets, outletsKey } from "@/lib/api/outlets";
 
 describe("outlet cache key", () => {
   it("separates one signed-in subject from the next", () => {
@@ -14,5 +14,66 @@ describe("outlet cache key", () => {
 
   it("is stable for the same subject, so a re-render reuses the cache", () => {
     expect(outletsKey("subject-a")).toEqual(outletsKey("subject-a"));
+  });
+});
+
+describe("outlet query", () => {
+  const captured: string[] = [];
+
+  beforeEach(() => {
+    captured.length = 0;
+
+    vi.stubGlobal("fetch", (url: string) => {
+      captured.push(url);
+      return Promise.resolve(
+        new Response(JSON.stringify({ items: [], total: 0, page: 1, pageSize: 50 }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("sends only what was asked for", async () => {
+    // An empty search box must not become `search=`. The server escapes and matches whatever it is
+    // given, so an empty pattern is a filter that narrows nothing while making the query harder to
+    // plan — and it makes the URL, which the screen keeps in sync with, misrepresent the state.
+    await fetchOutlets("token", { page: 2, search: "" });
+
+    expect(captured[0]).toBe("/api/outlets?page=2");
+  });
+
+  it("asks for nothing at all when there is nothing to ask", async () => {
+    await fetchOutlets("token", {});
+
+    expect(captured[0]).toBe("/api/outlets");
+  });
+
+  it("carries every filter it was given", async () => {
+    await fetchOutlets("token", {
+      search: "cluj",
+      status: "Closed",
+      sort: "Name",
+      descending: true,
+      page: 3,
+    });
+
+    const query = new URLSearchParams(captured[0].split("?")[1]);
+
+    expect(query.get("search")).toBe("cluj");
+    expect(query.get("status")).toBe("Closed");
+    expect(query.get("sort")).toBe("Name");
+    expect(query.get("descending")).toBe("true");
+    expect(query.get("page")).toBe("3");
+  });
+
+  it("keys the cache by the query, so page 2 is not page 1's cache entry", () => {
+    // Without this, paging overwrites one entry: going back to page 1 refetches, and a slow
+    // response for page 2 can land after page 3 and render the wrong rows under the right pager.
+    expect(outletsKey("subject-a", { page: 1 })).not.toEqual(outletsKey("subject-a", { page: 2 }));
   });
 });
