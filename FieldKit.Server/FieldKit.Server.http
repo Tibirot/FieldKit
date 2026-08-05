@@ -1279,5 +1279,20 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
   "timeZoneId": "Europe/Bucharest"
 }
 
-###
 
+### What the import accepts, asked before a file is sent. The row cap lives here and nowhere else —
+### a screen holding its own copy of 5,000 would drift silently, since nothing fails when the two
+### disagree; the screen simply starts lying about the limit. `mediaTypes` widens on its own the day
+### JSON and Excel land.
+GET {{Server_HostAddress}}/api/outlets/import
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Held to outlet:write, like the import it describes. Expect 403 with a read-only token — a
+### capability document is only about a capability, and someone with no import to configure is not
+### owed the facts about one.
+GET {{Server_HostAddress}}/api/outlets/import
+Accept: application/json
+Authorization: Bearer {{viewerToken.response.body.access_token}}
+
+###

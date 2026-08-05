@@ -263,9 +263,11 @@ is defensible (every spreadsheet opens it) but is not the shape it was sent in.
 
 ### 6.2 The import screen (Week 5)
 
-The API is shaped for a screen that does not exist yet and lands with the rest of the back office in
-[Week 5](../delivery-plan.md#week-5--back-office-shell--admin-screens), alongside the Outlets table.
-What the response already provides for it:
+**Upload, check, apply** is built. Correcting a flagged cell in place — the editable grid below — is
+the slice after it; until then the refused rows come back as a file to fix and re-send, which stays
+regardless as the escape hatch for files too big to review by eye.
+
+What the response already provided for it, and what the screen does with each:
 
 - `accepted` / `rejected` / `imported` are **three separate numbers** because the screen has three
   different sentences to say: what is valid, what is wrong, and what is now in the database. After a
@@ -275,7 +277,25 @@ What the response already provides for it:
   admin's spreadsheet shows.
 - `rejectedRowsCsv` is a download button.
 - `ignoredColumns` is the warning banner that catches a mistyped custom-field header.
-- `OutletImportFormat.MaxRows` is public so the screen can refuse an oversized file before uploading it.
+- `OutletImportFormat.MaxRows` is public so the screen can refuse an oversized file before uploading
+  it — which works for a C# caller and not at all for the one client that needs it. So the facts are
+  also served: **`GET /api/outlets/import`** answers `{ maxRows, mediaTypes, reasonColumn }`, held to
+  `outlet:write` like the import it describes. A front end hard-coding 5,000 would hold a second copy
+  of a rule only the server enforces, and that copy drifts without anything failing — nothing breaks
+  when the two disagree, the screen simply starts lying about the limit. `mediaTypes` is there for
+  the same reason: the file picker widens on its own the day JSON and Excel land.
+
+Two things the screen adds that the API did not have to:
+
+- **Check and apply are two presses, and Apply is unavailable until Check has run.** The dry run
+  costs nothing and returns exactly what the real run would, so there is no reason to offer a path
+  that skips it — and "import this file I have not looked at" is the mode this endpoint deliberately
+  does not have. Re-adding it on screen would put it back.
+- **The file stays in the browser between the two calls** and is sent twice, rather than parked
+  server-side behind a token. A synchronous import has no result to outlive its response, and keeping
+  one would mean a table, a retention rule and a cleanup job for a file the admin already has open.
+  It is also what the grid needs next: correcting a cell means re-serialising the file that is
+  already here and checking it again.
 
 **The review step is an editable grid.** Upload, dry-run, and the file comes back as a table with the
 bad cells flagged — fix them in place, re-check, apply. Mistakes get corrected *before* anything is

@@ -128,7 +128,8 @@
     "previousPage": "Previous page",
     "nextPage": "Next page",
     "newOutlet": "New outlet",
-    "edit": "Edit"
+    "edit": "Edit",
+    "importOutlets": "Import"
   },
   "OutletForm": {
     "crumbNew": "Master data / Outlets / New",
@@ -176,6 +177,31 @@
     "mustBeDate": "Must be a date as YYYY-MM-DD.",
     "between": "Must be between {min} and {max}.",
     "notAnEmail": "Must be an email address."
+  },
+  "OutletImport": {
+    "crumb": "Master data / Outlets / Import",
+    "title": "Import outlets",
+    "intro": "Upload a CSV, check what it would do, then apply it. Checking runs every rule and writes nothing.",
+    "file": "File",
+    "atMost": "At most {max, number} rows per file.",
+    "tooBig": "This file has {rows, number} rows; at most {max, number} can be imported at a time. Split it and import the parts.",
+    "mode": "When some rows are bad",
+    "modeAllOrNothing": "Import nothing",
+    "modeAllOrNothingHint": "One bad row and the whole file is refused. Best for a short list someone typed.",
+    "modePartial": "Import the good rows",
+    "modePartialHint": "The refused rows come back as a file to fix and send again. Best for a large export.",
+    "check": "Check file",
+    "checking": "Checking…",
+    "apply": "Apply",
+    "checked": "{accepted, plural, =0 {No rows are} one {# row is} other {# rows are}} ready to import, {rejected, plural, =0 {none were} one {# was} other {# were}} refused. Nothing has been written yet.",
+    "applied": "{imported, plural, =0 {No outlets} one {# outlet} other {# outlets}} imported, {rejected, plural, =0 {no rows} one {# row} other {# rows}} refused.",
+    "nothingWritten": "Nothing was written, because this file was set to import nothing when a row is bad.",
+    "ignoredColumns": "These columns were ignored: {columns}. Check for a mistyped custom-field header.",
+    "problemsCaption": "Rows the import refused, with the reason for each.",
+    "row": "Row",
+    "column": "Column",
+    "problem": "Problem",
+    "downloadRejected": "Download the refused rows",
+    "failed": "The file could not be imported."
   }
 }
-
