@@ -215,5 +215,33 @@
     "excluded": "{count, plural, one {# row is} other {# rows are}} unchecked and will not be imported.",
     "wereExcluded": "{count, plural, one {# row was} other {# rows were}} unchecked and left out of this run.",
     "stale": "The file has changed since it was checked. Check it again before applying."
+  },
+  "Territories": {
+    "crumb": "Master data / Territories",
+    "title": "Territories",
+    "caption": "Territories, the org unit they sit in, and how many outlets each holds.",
+    "loading": "Loading territories…",
+    "failed": "Territories could not be loaded.",
+    "forbidden": "You do not have permission to view territories.",
+    "empty": "No territories yet. Create the first one.",
+    "noMatches": "No territories in this org unit.",
+    "filterLabel": "Filter by org unit",
+    "allOrgUnits": "All org units",
+    "newTerritory": "New territory",
+    "newTitle": "New territory",
+    "renameTitle": "Edit territory",
+    "name": "Name",
+    "orgUnit": "Org unit",
+    "outlets": "Outlets",
+    "actions": "Actions",
+    "rename": "Edit",
+    "renameNamed": "Edit {name}",
+    "delete": "Delete",
+    "deleteNamed": "Delete {name}",
+    "deleteFailed": "This territory could not be deleted.",
+    "saveFailed": "This territory could not be saved.",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel"
   }
 }

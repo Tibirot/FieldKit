@@ -204,6 +204,13 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
   symptom until someone corrected data that was fine
   ([spec §6.2](product/12-outlets-master-data.md#62-the-import-screen-week-5)).
 - **Territories** screen (list + rep assignment).
+  ✓ **The list** (`ORG-03`) — name, org unit and outlet count, filtered by org unit through the URL,
+  with create, rename and delete. The count is the server's; counting it here would mean fetching
+  every membership of every territory to render a column of numbers. Deleting a territory that still
+  holds outlets is refused rather than cascaded, and the screen shows the server's own sentence —
+  those outlets are a rep's offline scope (`BR-ORG-3`), so a cascade is a set of shops vanishing from
+  a device tomorrow morning. **Rep assignment** (`ORG-04`) is the slice that remains, in the detail
+  panel the wireframe draws.
 - **Users & roles** screen (list + role permission toggles).
 
 **Done when:** an admin logs in, models a small org, and loads outlets — matches the [wireframes](ux/README.md), all tenant-scoped. **▶ Phase 1 demo.**

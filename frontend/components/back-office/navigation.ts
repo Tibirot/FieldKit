@@ -56,7 +56,7 @@ export const NAVIGATION: readonly NavGroup[] = [
     items: [
       { key: "outlets", href: "/outlets" },
       { key: "products", soon: "week6" },
-      { key: "territories", soon: "week5" },
+      { key: "territories", href: "/territories" },
     ],
   },
   {
