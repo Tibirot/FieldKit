@@ -302,10 +302,54 @@ bad cells flagged — fix them in place, re-check, apply. Mistakes get corrected
 written rather than after, which is the difference between an admin fixing a typo and an admin fixing
 a typo that is now an outlet other people can already see.
 
-That the grid needs no new API is the evidence the response shape was right: `problems` already
-carry `{row, column, message}`, `row` already matches the file's own line numbers, and re-checking is
+That the grid needed no new API is the evidence the response shape was right: `problems` already
+carry `{row, column, message}`, `row` already matches the file's own numbering, and re-checking is
 the same dry run again. The grid holds the file in the browser the whole time and serializes back to
-CSV on apply.
+CSV once something has been edited.
+
+**A dry run hands the file back as it read it** — `columns`, and a `rows` array of
+`{ row, values }` with `values` aligned to `columns`. That is what makes the grid possible without a
+second CSV reader.
+
+The alternative was for the screen to parse the upload itself, and it is worth being explicit about
+why that is wrong. The client would then be deciding, independently, which row is row 7 — a decision
+the server has already made and reported in every `problems[].row`. Two readers agreeing about quoted
+delimiters, embedded newlines, blank lines and record-versus-line counting is a standing obligation,
+and the failure has no symptom: the grid flags a cell in the wrong shop, and someone corrects data
+that was fine. The reader that numbered the problems is the one that should say what is in the row.
+
+What the browser keeps is a **writer**, which cannot make that mistake — it emits the rows it was
+given, in order. A first pass at this shipped the reader plus a guard comparing row counts, which
+detected the disagreement instead of preventing it; removing the reader removed the need for the
+guard.
+
+Sent on dry runs only, and bounded by the row cap: a real run has nothing left to correct and the
+caller is holding the rows already.
+
+Five smaller things:
+
+- **The grid shows the whole file, filtered by default to the rows with problems.** Showing only
+  what failed hides the two things the good rows are evidence of: that the columns mapped the way the
+  admin expected, and that a problem naming another row — a code duplicated on row 3 — can be read
+  against that row. A filter narrows the view; it does not decide what exists. Past a hundred rows
+  the grid stops and says what it is not showing, because 4,000 rows across eight columns is 32,000
+  inputs and a browser asked to build them stops being a browser. `rejectedRowsCsv` is the answer at
+  that size, which is what it is for.
+- **Every row is checked, and unchecking one leaves it out.** A row that cannot be fixed today is
+  otherwise a dead end: the only ways out are `Partial` mode, which decides for you, and editing the
+  file outside the app. The two compose — the selection picks the set, the mode decides what happens
+  to bad rows still in it. The opposite default, where an empty selection means everything, makes the
+  box mean two things: the click that felt like adding one row would have dropped the other 3,999.
+- **Unchecked rows are dropped from the file that is sent**, so the file that was checked is exactly
+  the file that is applied. Consequence worth knowing: an exclusion renumbers the rows after it, so
+  once someone has excluded a row the numbers stop matching the original spreadsheet. Acceptable
+  because the grid is the reference by then, and preferable to a `skip=` parameter that would keep
+  the numbering at the price of API surface that grows unusable past a few dozen rows.
+- **Any change — a cell or a checkbox — makes Apply unavailable until the file is checked again.**
+  Without it, correcting a cell and pressing Apply writes something nobody has looked at, which is
+  the one thing this screen exists to prevent.
+- **The uploaded bytes are sent untouched until something is changed.** "Check the file I gave you"
+  should mean the file they gave us.
 
 Deliberately **before** the write rather than after it:
 

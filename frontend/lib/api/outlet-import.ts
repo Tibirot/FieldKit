@@ -19,6 +19,22 @@ export type OutletImportProblem = {
   message: string;
 };
 
+/**
+ * One row of the file, as the import read it.
+ *
+ * **So a screen can correct a row without parsing the file itself.** A client that re-read the
+ * upload would be a second CSV reader, and the two only have to disagree about which row is row 7
+ * for every flagged cell to land on the wrong shop — a failure with no symptom until someone
+ * corrects data that was fine. The reader that numbered the problems is the one that says what is in
+ * the row.
+ */
+export type OutletImportRow = {
+  /** The file's own row number, matching `OutletImportProblem.row`. */
+  row: number;
+  /** Aligned to `OutletImportResult.columns`. A blank cell is an empty string. */
+  values: string[];
+};
+
 export type OutletImportResult = {
   totalRows: number;
   /** Rows that passed every rule. */
@@ -32,6 +48,12 @@ export type OutletImportResult = {
   /** The refused rows in the shape they arrived, plus a reason column. Null when nothing failed. */
   rejectedRowsCsv: string | null;
   ignoredColumns: string[];
+
+  /** The file's own columns, in its own order. Empty outside a dry run. */
+  columns: string[];
+
+  /** The file as the import read it — on a dry run only, since a real run has nothing to correct. */
+  rows: OutletImportRow[];
 };
 
 /**

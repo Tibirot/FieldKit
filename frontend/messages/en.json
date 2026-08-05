@@ -202,6 +202,18 @@
     "column": "Column",
     "problem": "Problem",
     "downloadRejected": "Download the refused rows",
-    "failed": "The file could not be imported."
+    "failed": "The file could not be imported.",
+    "fixTitle": "Fix the refused rows",
+    "fixHint": "Edit the flagged cells, then check again.",
+    "fixCaption": "The refused rows, editable, with the reason each was refused.",
+    "cellLabel": "{column}, row {row}",
+    "recheck": "Check again",
+    "tooManyToFix": "Showing {shown, number} of {total, number} refused rows. For the rest, download them and fix the file.",
+    "onlyProblems": "Only rows with problems",
+    "includeRow": "Import row {row}",
+    "includeAll": "Import every row",
+    "excluded": "{count, plural, one {# row is} other {# rows are}} unchecked and will not be imported.",
+    "wereExcluded": "{count, plural, one {# row was} other {# rows were}} unchecked and left out of this run.",
+    "stale": "The file has changed since it was checked. Check it again before applying."
   }
 }

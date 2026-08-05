@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -22,6 +22,20 @@ vi.mock("@/lib/api/outlet-import", async (importOriginal) => ({
   importOutlets: (...args: unknown[]) => importOutlets(...args),
 }));
 
+const COLUMNS = ["code", "name", "channel", "time_zone"];
+
+/**
+ * The rows a dry run of {@link csv} comes back with.
+ *
+ * From the server, always — the screen holds no reader of its own, so a test that did not supply
+ * these would be testing a grid with nothing to show rather than a grid.
+ */
+const serverRows = (count: number) =>
+  Array.from({ length: count }, (_, index) => ({
+    row: index + 2,
+    values: [`OUT-${index + 1}`, `Shop ${index + 1}`, "Modern Trade", "Europe/Bucharest"],
+  }));
+
 const CLEAN: OutletImportResult = {
   totalRows: 2,
   accepted: 2,
@@ -32,15 +46,20 @@ const CLEAN: OutletImportResult = {
   problems: [],
   rejectedRowsCsv: null,
   ignoredColumns: [],
+  columns: COLUMNS,
+  rows: serverRows(2),
 };
 
 /** A file the browser has read, as the input's change handler will see it. */
 function csv(rows: number, name = "outlets.csv") {
-  const lines = ["code,name,channel,time_zone"];
+  const lines = [COLUMNS.join(",")];
   for (let row = 1; row <= rows; row++) lines.push(`OUT-${row},Shop ${row},Modern Trade,Europe/Bucharest`);
 
   return new File([lines.join("\n")], name, { type: "text/csv" });
 }
+
+/** The file text the last import call uploaded. */
+const sent = () => (importOutlets.mock.calls.at(-1)?.[1] as { text: string }).text;
 
 /** What the last import call was asked to do. */
 const options = () => importOutlets.mock.calls.at(-1)?.[2] as { mode: string; dryRun: boolean };
@@ -141,8 +160,10 @@ describe("<OutletImport>", () => {
     // spreadsheet shows rather than an index into something they cannot see.
     importOutlets.mockResolvedValue({
       ...CLEAN,
-      accepted: 1,
+      totalRows: 8,
+      accepted: 6,
       rejected: 2,
+      rows: serverRows(8),
       problems: [
         { row: 2, column: "time_zone", message: "'Europe/Bucuresti' is not a known time zone." },
         { row: 7, column: null, message: "This row has no code." },
@@ -155,7 +176,8 @@ describe("<OutletImport>", () => {
     await userEvent.upload(screen.getByLabelText(/^file/i), csv(8));
     await userEvent.click(screen.getByRole("button", { name: "Check file" }));
 
-    const rows = await screen.findAllByRole("row");
+    const table = await screen.findByRole("table", { name: /Rows the import refused/ });
+    const rows = within(table).getAllByRole("row");
     const cells = rows.slice(1).map((row) => [...row.querySelectorAll("td")].map((c) => c.textContent));
 
     expect(cells).toEqual([
@@ -218,6 +240,337 @@ describe("<OutletImport>", () => {
 
     await waitFor(() => expect(importOutlets).toHaveBeenCalledTimes(2));
     expect(options().mode).toBe("Partial");
+  });
+
+  it("offers the refused rows for correction, flagging the cell each problem names", async () => {
+    // No API of its own, which is the evidence the response shape was right: `problems` already
+    // carry {row, column, message} and `row` already matches the file's own numbering.
+    importOutlets.mockResolvedValue({
+      ...CLEAN,
+      totalRows: 3,
+      accepted: 2,
+      rejected: 1,
+      rows: serverRows(3),
+      problems: [{ row: 3, column: "channel", message: "'Modren Trade' is not a channel." }],
+    });
+
+    render(<OutletImport />);
+    await waitFor(() => expect(fetchImportCapabilities).toHaveBeenCalled());
+
+    await userEvent.upload(screen.getByLabelText(/^file/i), csv(3));
+    await userEvent.click(screen.getByRole("button", { name: "Check file" }));
+
+    // Only the refused row. The other two are correct, and scrolling past them is a way of hiding
+    // the one that needs attention.
+    const cells = await screen.findAllByLabelText(/, row 3$/);
+
+    expect(cells.map((cell) => (cell as HTMLInputElement).value)).toEqual([
+      "OUT-2",
+      "Shop 2",
+      "Modern Trade",
+      "Europe/Bucharest",
+    ]);
+
+    expect(screen.getByLabelText("channel, row 3").getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByLabelText("code, row 3").getAttribute("aria-invalid")).toBe("false");
+    expect(screen.queryByLabelText("code, row 2")).toBeNull();
+  });
+
+  it("sends the corrected file when it checks again", async () => {
+    // The whole point. Correcting a cell means re-serialising the file that has been in the browser
+    // the whole time, and checking that — not the one that was uploaded.
+    importOutlets.mockResolvedValue({
+      ...CLEAN,
+      totalRows: 2,
+      accepted: 1,
+      rejected: 1,
+      rows: serverRows(2),
+      problems: [{ row: 2, column: "channel", message: "'Modren Trade' is not a channel." }],
+    });
+
+    render(<OutletImport />);
+    await waitFor(() => expect(fetchImportCapabilities).toHaveBeenCalled());
+
+    await userEvent.upload(screen.getByLabelText(/^file/i), csv(2));
+    await userEvent.click(screen.getByRole("button", { name: "Check file" }));
+
+    const cell = await screen.findByLabelText("name, row 2");
+
+    await userEvent.clear(cell);
+    await userEvent.type(cell, "Corrected Shop");
+    await userEvent.click(screen.getByRole("button", { name: "Check again" }));
+
+    await waitFor(() => expect(importOutlets).toHaveBeenCalledTimes(2));
+
+    expect(sent()).toContain("Corrected Shop");
+    expect(sent()).not.toContain("Shop 1");
+  });
+
+  it("applies the corrected file, not the one that was uploaded", async () => {
+    // The bug this test exists for: a dry run of the corrected file used to clear the flag that said
+    // anything had been corrected, so Apply sent the original upload again. Nothing on screen said
+    // so — the check reported three rows ready and the apply imported none.
+    // The typo has to be in the uploaded file, or "it sent the original" and "it sent the
+    // correction" are indistinguishable — which is how the first version of this test passed against
+    // the bug it was written for.
+    const file = new File(
+      ["code,name,channel,time_zone\nOUT-1,Shop 1,Modren Trade,Europe/Bucharest\n"],
+      "outlets.csv",
+      { type: "text/csv" },
+    );
+
+    importOutlets.mockResolvedValue({
+      ...CLEAN,
+      totalRows: 1,
+      accepted: 0,
+      rejected: 1,
+      rows: [{ row: 2, values: ["OUT-1", "Shop 1", "Modren Trade", "Europe/Bucharest"] }],
+      problems: [{ row: 2, column: "channel", message: "'Modren Trade' is not a channel." }],
+    });
+
+    render(<OutletImport />);
+    await waitFor(() => expect(fetchImportCapabilities).toHaveBeenCalled());
+
+    await userEvent.upload(screen.getByLabelText(/^file/i), file);
+    await userEvent.click(screen.getByRole("button", { name: "Check file" }));
+
+    const cell = await screen.findByLabelText("channel, row 2");
+
+    await userEvent.clear(cell);
+    await userEvent.type(cell, "Modern Trade");
+
+    // The corrected file now checks clean, which is what leaves nothing to correct on screen.
+    importOutlets.mockResolvedValue({
+      ...CLEAN,
+      totalRows: 1,
+      accepted: 1,
+      rejected: 0,
+      problems: [],
+      rows: [{ row: 2, values: ["OUT-1", "Shop 1", "Modern Trade", "Europe/Bucharest"] }],
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Check again" }));
+    await waitFor(() => expect(importOutlets).toHaveBeenCalledTimes(2));
+
+    await userEvent.click(screen.getByRole("button", { name: "Apply" }));
+    await waitFor(() => expect(importOutlets).toHaveBeenCalledTimes(3));
+
+    expect(options().dryRun).toBe(false);
+    expect(sent()).toContain("Modern Trade");
+    expect(sent()).not.toContain("Modren Trade");
+  });
+
+  it("sends the file exactly as uploaded until something is edited", async () => {
+    // "Check the file I gave you" should mean the file they gave us — re-serialising an untouched
+    // file would quietly send bytes nobody chose.
+    render(<OutletImport />);
+    await waitFor(() => expect(fetchImportCapabilities).toHaveBeenCalled());
+
+    const file = csv(2);
+
+    await userEvent.upload(screen.getByLabelText(/^file/i), file);
+    await userEvent.click(screen.getByRole("button", { name: "Check file" }));
+
+    await waitFor(() => expect(importOutlets).toHaveBeenCalled());
+
+    expect(sent()).toBe(await file.text());
+  });
+
+  it("shows a problem about no column in particular beside its row", async () => {
+    // "This row has no code" is about the row, and pinning it to a box at random would send someone
+    // looking at the wrong cell.
+    importOutlets.mockResolvedValue({
+      ...CLEAN,
+      totalRows: 2,
+      accepted: 1,
+      rejected: 1,
+      rows: serverRows(2),
+      problems: [{ row: 2, column: null, message: "This row is empty." }],
+    });
+
+    render(<OutletImport />);
+    await waitFor(() => expect(fetchImportCapabilities).toHaveBeenCalled());
+
+    await userEvent.upload(screen.getByLabelText(/^file/i), csv(2));
+    await userEvent.click(screen.getByRole("button", { name: "Check file" }));
+
+    expect(await screen.findByLabelText("code, row 2")).toBeTruthy();
+    expect(screen.getAllByText("This row is empty.").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("code, row 2").getAttribute("aria-invalid")).toBe("false");
+  });
+
+  it("does not flatten a cell that holds more than one line", async () => {
+    // `<input value>` is sanitised by the DOM: it drops newlines. A quoted address over two lines
+    // would show as one and flatten for real the moment anyone typed in that row.
+    const file = new File(
+      ['code,name,address\nOUT-1,"Two\nLine Shop","Str. Dorobanti 1\nBucharest"\n'],
+      "outlets.csv",
+      { type: "text/csv" },
+    );
+
+    importOutlets.mockResolvedValue({
+      ...CLEAN,
+      totalRows: 1,
+      accepted: 0,
+      rejected: 1,
+      columns: ["code", "name", "address"],
+      rows: [{ row: 2, values: ["OUT-1", "Two\nLine Shop", "Str. Dorobanti 1\nBucharest"] }],
+      problems: [{ row: 2, column: "code", message: "This code already exists." }],
+    });
+
+    render(<OutletImport />);
+    await waitFor(() => expect(fetchImportCapabilities).toHaveBeenCalled());
+
+    await userEvent.upload(screen.getByLabelText(/^file/i), file);
+    await userEvent.click(screen.getByRole("button", { name: "Check file" }));
+
+    const cell = await screen.findByLabelText("address, row 2");
+
+    expect(cell.tagName).toBe("TEXTAREA");
+    expect((cell as HTMLTextAreaElement).value).toBe("Str. Dorobanti 1\nBucharest");
+
+    // And it survives a correction elsewhere, which is when the file gets written back out.
+    await userEvent.type(screen.getByLabelText("code, row 2"), "-A");
+    await userEvent.click(screen.getByRole("button", { name: "Check again" }));
+
+    await waitFor(() => expect(importOutlets).toHaveBeenCalledTimes(2));
+    expect(sent()).toContain('"Str. Dorobanti 1\nBucharest"');
+  });
+
+  it("shows the whole file, filtered to the rows that need attention", async () => {
+    // Only showing what failed hides the two things the good rows are evidence of: that the columns
+    // mapped the way the admin expected, and that a problem naming another row can be read against
+    // it. The filter narrows; it does not decide what exists.
+    importOutlets.mockResolvedValue({
+      ...CLEAN,
+      totalRows: 3,
+      accepted: 2,
+      rejected: 1,
+      rows: serverRows(3),
+      problems: [{ row: 3, column: "channel", message: "'Modren Trade' is not a channel." }],
+    });
+
+    render(<OutletImport />);
+    await waitFor(() => expect(fetchImportCapabilities).toHaveBeenCalled());
+
+    await userEvent.upload(screen.getByLabelText(/^file/i), csv(3));
+    await userEvent.click(screen.getByRole("button", { name: "Check file" }));
+
+    await screen.findByLabelText("code, row 3");
+    expect(screen.queryByLabelText("code, row 2")).toBeNull();
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Only rows with problems" }));
+
+    expect(screen.getByLabelText("code, row 2")).toBeTruthy();
+    expect(screen.getByLabelText("code, row 4")).toBeTruthy();
+  });
+
+  it("imports every row unless one is unchecked", async () => {
+    // The default is every row in, and unchecking takes one out. The opposite — nothing checked
+    // meaning everything — makes the box mean two different things: the click that felt like adding
+    // one row would have dropped the other 3,999.
+    importOutlets.mockResolvedValue({
+      ...CLEAN,
+      totalRows: 3,
+      accepted: 2,
+      rejected: 1,
+      rows: serverRows(3),
+      problems: [{ row: 3, column: "channel", message: "'Modren Trade' is not a channel." }],
+    });
+
+    render(<OutletImport />);
+    await waitFor(() => expect(fetchImportCapabilities).toHaveBeenCalled());
+
+    await userEvent.upload(screen.getByLabelText(/^file/i), csv(3));
+    await userEvent.click(screen.getByRole("button", { name: "Check file" }));
+
+    const box = await screen.findByRole("checkbox", { name: "Import row 3" });
+    expect((box as HTMLInputElement).checked).toBe(true);
+
+    await userEvent.click(box);
+    await userEvent.click(screen.getByRole("button", { name: "Check again" }));
+
+    await waitFor(() => expect(importOutlets).toHaveBeenCalledTimes(2));
+
+    expect(sent()).toContain("OUT-1");
+    expect(sent()).not.toContain("OUT-2");
+    expect(sent()).toContain("OUT-3");
+  });
+
+  it("will not apply a file that has changed since it was checked", async () => {
+    // What makes "check, then apply" exact rather than nearly true. Correcting a cell and pressing
+    // Apply would otherwise write something nobody has looked at.
+    importOutlets.mockResolvedValue({
+      ...CLEAN,
+      totalRows: 3,
+      accepted: 2,
+      rejected: 1,
+      rows: serverRows(3),
+      problems: [{ row: 3, column: "channel", message: "'Modren Trade' is not a channel." }],
+    });
+
+    render(<OutletImport />);
+    await waitFor(() => expect(fetchImportCapabilities).toHaveBeenCalled());
+
+    await userEvent.upload(screen.getByLabelText(/^file/i), csv(3));
+    await userEvent.click(screen.getByRole("button", { name: "Check file" }));
+
+    const cell = await screen.findByLabelText("channel, row 3");
+
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Apply" }).disabled).toBe(false);
+
+    await userEvent.type(cell, "x");
+
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Apply" }).disabled).toBe(true);
+    expect(screen.getByText(/changed since it was checked/)).toBeTruthy();
+  });
+
+  it("says how many rows it left out", async () => {
+    // A file of 40 rows reporting 37 accepted is a question, and this is the answer to it rather
+    // than arithmetic the admin has to do.
+    importOutlets.mockResolvedValue({
+      ...CLEAN,
+      totalRows: 3,
+      accepted: 2,
+      rejected: 1,
+      rows: serverRows(3),
+      problems: [{ row: 3, column: "channel", message: "'Modren Trade' is not a channel." }],
+    });
+
+    render(<OutletImport />);
+    await waitFor(() => expect(fetchImportCapabilities).toHaveBeenCalled());
+
+    await userEvent.upload(screen.getByLabelText(/^file/i), csv(3));
+    await userEvent.click(screen.getByRole("button", { name: "Check file" }));
+
+    await userEvent.click(await screen.findByRole("checkbox", { name: "Import row 3" }));
+    await userEvent.click(screen.getByRole("button", { name: "Check again" }));
+
+    expect(await screen.findByText(/1 row was unchecked and left out of this run/)).toBeTruthy();
+  });
+
+  it("will not check a file with every row unchecked", async () => {
+    // A header and nothing else is refused as a file with no rows — wiping the grid, and the
+    // corrections in it, to say so.
+    importOutlets.mockResolvedValue({
+      ...CLEAN,
+      totalRows: 3,
+      accepted: 2,
+      rejected: 1,
+      rows: serverRows(3),
+      problems: [{ row: 3, column: "channel", message: "'Modren Trade' is not a channel." }],
+    });
+
+    render(<OutletImport />);
+    await waitFor(() => expect(fetchImportCapabilities).toHaveBeenCalled());
+
+    await userEvent.upload(screen.getByLabelText(/^file/i), csv(3));
+    await userEvent.click(screen.getByRole("button", { name: "Check file" }));
+
+    await userEvent.click(await screen.findByRole("checkbox", { name: "Import every row" }));
+
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Check again" }).disabled).toBe(true);
+    expect(screen.getByText(/3 rows are unchecked/)).toBeTruthy();
   });
 
   it("keeps what the server said when it refuses the file outright", async () => {

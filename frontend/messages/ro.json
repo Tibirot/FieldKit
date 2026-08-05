@@ -202,6 +202,18 @@
     "column": "Coloană",
     "problem": "Problemă",
     "downloadRejected": "Descarcă rândurile respinse",
-    "failed": "Fișierul nu a putut fi importat."
+    "failed": "Fișierul nu a putut fi importat.",
+    "fixTitle": "Corectează rândurile respinse",
+    "fixHint": "Editează celulele marcate, apoi verifică din nou.",
+    "fixCaption": "Rândurile respinse, editabile, cu motivul respingerii fiecăruia.",
+    "cellLabel": "{column}, rândul {row}",
+    "recheck": "Verifică din nou",
+    "tooManyToFix": "Se afișează {shown, number} din {total, number} rânduri respinse. Pentru restul, descarcă-le și corectează fișierul.",
+    "onlyProblems": "Doar rândurile cu probleme",
+    "includeRow": "Importă rândul {row}",
+    "includeAll": "Importă toate rândurile",
+    "excluded": "{count, plural, one {# rând este debifat și nu va fi importat} few {# rânduri sunt debifate și nu vor fi importate} other {# de rânduri sunt debifate și nu vor fi importate}}.",
+    "wereExcluded": "{count, plural, one {# rând a fost debifat și lăsat în afara acestei rulări} few {# rânduri au fost debifate și lăsate în afara acestei rulări} other {# de rânduri au fost debifate și lăsate în afara acestei rulări}}.",
+    "stale": "Fișierul s-a modificat de la ultima verificare. Verifică-l din nou înainte de a aplica."
   }
 }

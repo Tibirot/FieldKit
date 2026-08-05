@@ -84,6 +84,73 @@ public class OutletImportTests(ServerFixture fixture)
     }
 
     [Fact]
+    public async Task A_dry_run_hands_back_the_file_as_it_read_it()
+    {
+        // So a screen can correct a row without re-reading the upload. A second CSV reader only has
+        // to disagree about which row is row 7 for every flagged cell to land on the wrong shop —
+        // and nothing would say so. The reader that numbered the problems is the one that should say
+        // what is in that row.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+        var channel = await ChannelAsync(client);
+
+        // The two cases a hand-rolled reader gets wrong: a quoted delimiter, and a newline inside a
+        // field. The second is why rows are counted as records — read as lines, every number after
+        // it is off by one.
+        var result = await ImportAsync(
+            client,
+            "code,name,channel,time_zone\n"
+                + $"{Unique("A")},\"Smith, Jones & Co\",{channel},Europe/Bucharest\n"
+                + $"{Unique("B")},\"Two\nLines Shop\",{channel},Europe/Bucharest\n",
+            dryRun: true);
+
+        Assert.Equal(["code", "name", "channel", "time_zone"], result.Columns);
+        Assert.Equal(2, result.Rows.Count);
+
+        Assert.Equal([2, 3], [.. result.Rows.Select(row => row.Row)]);
+        Assert.Equal("Smith, Jones & Co", result.Rows[0].Values[1]);
+        Assert.Equal("Two\nLines Shop", result.Rows[1].Values[1]);
+    }
+
+    [Fact]
+    public async Task A_row_number_in_a_problem_indexes_the_rows_it_sent()
+    {
+        // The point of sending them. A client should be able to find the row a problem is about by
+        // its number, without counting anything itself.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+        var channel = await ChannelAsync(client);
+        var code = Unique("C");
+
+        var result = await ImportAsync(
+            client,
+            "code,name,channel,time_zone\n"
+                + $"{Unique("D")},\"Multi\nline\",{channel},Europe/Bucharest\n"
+                + $"{code},Bad Zone,{channel},Europe/Bucuresti\n",
+            dryRun: true);
+
+        var problem = Assert.Single(result.Problems);
+        var row = Assert.Single(result.Rows, candidate => candidate.Row == problem.Row);
+
+        Assert.Equal(code, row.Values[0]);
+    }
+
+    [Fact]
+    public async Task A_real_run_sends_no_rows_back()
+    {
+        // Nothing left to correct, and the caller is holding them already — 5,000 rows of JSON for
+        // a screen that has moved on is payload nobody reads.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+        var channel = await ChannelAsync(client);
+
+        var result = await ImportAsync(
+            client,
+            $"code,name,channel,time_zone\n{Unique("E")},Corner Shop,{channel},Europe/Bucharest\n");
+
+        Assert.Equal(1, result.Imported);
+        Assert.Empty(result.Rows);
+        Assert.Empty(result.Columns);
+    }
+
+    [Fact]
     public async Task A_clean_file_becomes_outlets()
     {
         using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
