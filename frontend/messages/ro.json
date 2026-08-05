@@ -128,7 +128,8 @@
     "previousPage": "Pagina anterioară",
     "nextPage": "Pagina următoare",
     "newOutlet": "Punct de vânzare nou",
-    "edit": "Editează"
+    "edit": "Editează",
+    "importOutlets": "Import"
   },
   "OutletForm": {
     "crumbNew": "Date de bază / Puncte de vânzare / Nou",
@@ -176,6 +177,31 @@
     "mustBeDate": "Trebuie să fie o dată în formatul AAAA-LL-ZZ.",
     "between": "Trebuie să fie între {min} și {max}.",
     "notAnEmail": "Trebuie să fie o adresă de e-mail."
+  },
+  "OutletImport": {
+    "crumb": "Date de bază / Puncte de vânzare / Import",
+    "title": "Import puncte de vânzare",
+    "intro": "Încarcă un fișier CSV, verifică ce ar face, apoi aplică-l. Verificarea rulează toate regulile și nu scrie nimic.",
+    "file": "Fișier",
+    "atMost": "Cel mult {max, number} de rânduri per fișier.",
+    "tooBig": "Acest fișier are {rows, number} rânduri; se pot importa cel mult {max, number} odată. Împarte-l și importă părțile.",
+    "mode": "Când unele rânduri sunt greșite",
+    "modeAllOrNothing": "Nu importa nimic",
+    "modeAllOrNothingHint": "Un singur rând greșit și tot fișierul este respins. Potrivit pentru o listă scurtă, scrisă manual.",
+    "modePartial": "Importă rândurile bune",
+    "modePartialHint": "Rândurile respinse revin ca fișier, de corectat și retrimis. Potrivit pentru un export mare.",
+    "check": "Verifică fișierul",
+    "checking": "Se verifică…",
+    "apply": "Aplică",
+    "checked": "{accepted, plural, =0 {Niciun rând nu este gata de import} one {# rând este gata de import} few {# rânduri sunt gata de import} other {# de rânduri sunt gata de import}}, {rejected, plural, =0 {niciunul nu a fost respins} one {# a fost respins} few {# au fost respinse} other {# au fost respinse}}. Încă nu s-a scris nimic.",
+    "applied": "{imported, plural, =0 {Niciun punct de vânzare importat} one {# punct de vânzare importat} few {# puncte de vânzare importate} other {# de puncte de vânzare importate}}, {rejected, plural, =0 {niciun rând respins} one {# rând respins} few {# rânduri respinse} other {# de rânduri respinse}}.",
+    "nothingWritten": "Nu s-a scris nimic, pentru că fișierul a fost setat să nu importe nimic când un rând este greșit.",
+    "ignoredColumns": "Aceste coloane au fost ignorate: {columns}. Verifică dacă un antet de câmp personalizat este scris greșit.",
+    "problemsCaption": "Rândurile respinse la import, cu motivul fiecăruia.",
+    "row": "Rând",
+    "column": "Coloană",
+    "problem": "Problemă",
+    "downloadRejected": "Descarcă rândurile respinse",
+    "failed": "Fișierul nu a putut fi importat."
   }
 }
-

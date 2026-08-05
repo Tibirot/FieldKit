@@ -31,6 +31,22 @@ internal static class OutletImportEndpoints
 
     public static void MapOutletImportEndpoints(this IEndpointRouteBuilder endpoints)
     {
+        // What this endpoint accepts, asked before anything is sent.
+        //
+        // `OutletImportFormat` is public so a screen can refuse an oversized file before uploading
+        // twelve megabytes of it — which works for a C# caller and not at all for the one client
+        // that actually needs it. Copying 5,000 into the front end would be a second declaration of
+        // a number the server enforces, and the copies drift silently: nothing fails when they
+        // disagree, the screen simply starts lying about a limit.
+        //
+        // `mediaTypes` is here for the same reason. Today it is CSV alone, and the day JSON and
+        // Excel land the screen's file picker widens on its own instead of in a second commit.
+        endpoints.MapGet("/api/outlets/import", () => Results.Ok(new OutletImportCapabilities(
+                OutletImportFormat.MaxRows,
+                [Csv],
+                OutletImportFormat.ReasonColumn)))
+            .RequirePermission(OutletsPermissions.OutletWrite);
+
         endpoints.MapPost("/api/outlets/import", async (
                 HttpRequest http,
                 OutletImportMode? mode,

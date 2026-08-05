@@ -186,8 +186,16 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
   set once and read-only after. The custom-field section is rendered from the tenant's catalogue
   (`CFG-01`), and its **Zod schema is generated from the same descriptor** rather than written by
   hand — so the client cannot drift from the rules `BR-CFG-3` says the server owns. React Hook Form
-  carries it, which is what puts each message beside the control that caused it. Contacts and the
-  import screen are what remain.
+  carries it, which is what puts each message beside the control that caused it.
+  ✓ **Contacts** (`OUT-01`) — a field array, and the fix for a form that deleted every contact on
+  every outlet it saved: contacts are replaced wholesale, so a client omitting them from a `PUT` is
+  a client erasing them. The API now validates them too, in front of the write rather than at the
+  column widths.
+  ✓ **Import screen — upload, check, apply** (`OUT-05`) — the dry run costs nothing and returns
+  exactly what the real run would, so Apply stays unavailable until Check has run. The row cap and
+  the readable formats come from **`GET /api/outlets/import`** rather than a copy in the front end,
+  because a drifted copy fails silently. The **editable grid** is the slice that remains
+  ([spec §6.2](product/12-outlets-master-data.md#62-the-import-screen-week-5)).
 - **Territories** screen (list + rep assignment).
 - **Users & roles** screen (list + role permission toggles).
 

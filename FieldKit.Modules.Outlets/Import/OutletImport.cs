@@ -11,6 +11,7 @@ namespace FieldKit.Modules.Outlets.Import;
 /// tell someone their file is too big <i>before</i> uploading twelve megabytes, and the reason column
 /// is a header in a file the admin downloads, edits and sends back.
 /// </remarks>
+/// <seealso cref="OutletImportCapabilities"/>
 public static class OutletImportFormat
 {
     /// <summary>
@@ -35,6 +36,27 @@ public static class OutletImportFormat
     /// </remarks>
     public const string ReasonColumn = "import_error";
 }
+
+/// <summary>
+/// What the import accepts, answered before a file is sent (<c>OUT-05</c>).
+/// </summary>
+/// <remarks>
+/// The same facts as <see cref="OutletImportFormat"/>, over HTTP, because the client that needs them
+/// is not a C# one. A screen that hard-coded the row cap would hold a second copy of a number only
+/// the server enforces — and a drifted copy fails silently, since nothing breaks when the screen
+/// merely starts lying about the limit.
+/// </remarks>
+/// <param name="MediaTypes">
+/// The formats read today. CSV alone; JSON and Excel are follow-ups that add a reader, and this is
+/// how a file picker learns about them without a second commit.
+/// </param>
+/// <param name="ReasonColumn">
+/// The column appended to the rejected-rows file — the screen names it when explaining the download.
+/// </param>
+public sealed record OutletImportCapabilities(
+    int MaxRows,
+    IReadOnlyList<string> MediaTypes,
+    string ReasonColumn);
 
 /// <summary>What an import does when some rows are bad (<c>OUT-05</c>).</summary>
 /// <remarks>

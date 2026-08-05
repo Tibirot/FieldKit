@@ -56,6 +56,34 @@ public class OutletImportTests(ServerFixture fixture)
     }
 
     [Fact]
+    public async Task The_import_says_what_it_accepts_before_a_file_is_sent()
+    {
+        // So the screen can refuse an oversized file without uploading twelve megabytes of it, and
+        // so the row cap lives in one place. A front end holding its own copy of 5,000 would drift
+        // silently: nothing breaks when the two disagree, the screen simply starts lying.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var capabilities =
+            await client.GetFromJsonAsync<OutletImportCapabilities>("/api/outlets/import");
+
+        Assert.Equal(OutletImportFormat.MaxRows, capabilities!.MaxRows);
+        Assert.Equal(OutletImportFormat.ReasonColumn, capabilities.ReasonColumn);
+        Assert.Equal("text/csv", Assert.Single(capabilities.MediaTypes));
+    }
+
+    [Fact]
+    public async Task Reading_what_the_import_accepts_needs_the_permission_to_import()
+    {
+        // A capability document is only about a capability. Someone who may read outlets but not
+        // write them has no import to configure, so this is not a fact they are owed.
+        using var client = fixture.CreateAuthenticatedClient(fixture.ReadOnlyAccessToken);
+
+        var response = await client.GetAsync("/api/outlets/import");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
     public async Task A_clean_file_becomes_outlets()
     {
         using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
