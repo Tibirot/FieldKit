@@ -77,10 +77,11 @@ describe("<OutletForm>", () => {
     // The code is the identifier every territory membership and import file already refers to, so
     // `Outlet.Update` has no parameter for it. A form that let someone type into it would be
     // offering an edit the server will not make.
-    const { rerender } = render(<OutletForm />);
+    const creating = render(<OutletForm />);
     expect((screen.getByLabelText(/^code/i) as HTMLInputElement).readOnly).toBe(false);
+    creating.unmount();
 
-    rerender(<OutletForm outlet={OUTLET} />);
+    render(<OutletForm outlet={OUTLET} />);
     const code = screen.getByLabelText(/^code/i) as HTMLInputElement;
 
     expect(code.readOnly).toBe(true);
@@ -159,6 +160,8 @@ describe("<OutletForm>", () => {
     expect((chillers as HTMLInputElement).value).toBe("4");
 
     await userEvent.clear(chillers);
+    expect((chillers as HTMLInputElement).value).toBe("");
+
     await userEvent.type(chillers, "7");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
 

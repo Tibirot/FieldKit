@@ -184,11 +184,10 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
   and the import screen are what remain.
   ✓ **Create / edit, with the tenant's own fields** (`OUT-01`, `OUT-02`) — one form for both, code
   set once and read-only after. The custom-field section is rendered from the tenant's catalogue
-  (`CFG-01`) and validated by the **browser**, from the same definition: `maxLength` becomes
-  `maxlength`, a number's bounds become `min`/`max`, a choice becomes a `<select>`. `BR-CFG-3`
-  already says the server validates authoritatively and the client only mirrors for UX, so a form
-  library plus a runtime schema would be a second implementation of rules the server owns.
-  Contacts and the import screen are what remain.
+  (`CFG-01`), and its **Zod schema is generated from the same descriptor** rather than written by
+  hand — so the client cannot drift from the rules `BR-CFG-3` says the server owns. React Hook Form
+  carries it, which is what puts each message beside the control that caused it. Contacts and the
+  import screen are what remain.
 - **Territories** screen (list + rep assignment).
 - **Users & roles** screen (list + role permission toggles).
 

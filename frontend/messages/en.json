@@ -153,6 +153,18 @@
     "cancel": "Cancel",
     "loading": "Loading outlet…",
     "failed": "The outlet could not be saved.",
-    "notFound": "That outlet does not exist."
+    "notFound": "That outlet does not exist.",
+    "betweenLat": "Must be between -90 and 90.",
+    "betweenLon": "Must be between -180 and 180."
+  },
+  "Validation": {
+    "required": "This field is required.",
+    "tooLong": "Must be at most {max} characters.",
+    "atMost": "Must be at most {max}.",
+    "atLeast": "Must be at least {min}.",
+    "mustBeNumber": "Must be a number.",
+    "notAnOption": "Not one of the options.",
+    "mustBeDate": "Must be a date as YYYY-MM-DD.",
+    "between": "Must be between {min} and {max}."
   }
 }

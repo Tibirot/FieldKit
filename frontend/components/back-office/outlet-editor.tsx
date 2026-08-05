@@ -59,7 +59,14 @@ export function OutletEditor() {
         </p>
         <h1 className="text-lg font-semibold tracking-tight">{outlet.data.name}</h1>
       </header>
-      <OutletForm outlet={outlet.data} />
+      {/*
+        Keyed, so navigating from one outlet to another remounts the form.
+
+        React Hook Form captures its defaults on first render — without this, this component stays
+        mounted while the query swaps underneath it, and the second outlet is shown with the first
+        one’s values in every field. Found by a test that re-rendered with a different outlet.
+      */}
+      <OutletForm key={outlet.data.id} outlet={outlet.data} />
     </div>
   );
 }

@@ -153,6 +153,18 @@
     "cancel": "Anulează",
     "loading": "Se încarcă punctul de vânzare…",
     "failed": "Punctul de vânzare nu a putut fi salvat.",
-    "notFound": "Acest punct de vânzare nu există."
+    "notFound": "Acest punct de vânzare nu există.",
+    "betweenLat": "Trebuie să fie între -90 și 90.",
+    "betweenLon": "Trebuie să fie între -180 și 180."
+  },
+  "Validation": {
+    "required": "Acest câmp este obligatoriu.",
+    "tooLong": "Cel mult {max} caractere.",
+    "atMost": "Cel mult {max}.",
+    "atLeast": "Cel puțin {min}.",
+    "mustBeNumber": "Trebuie să fie un număr.",
+    "notAnOption": "Nu este una dintre opțiuni.",
+    "mustBeDate": "Trebuie să fie o dată în formatul AAAA-LL-ZZ.",
+    "between": "Trebuie să fie între {min} și {max}."
   }
 }

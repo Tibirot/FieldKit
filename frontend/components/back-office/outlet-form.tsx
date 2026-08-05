@@ -1,8 +1,11 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useForm, type FieldErrors } from "react-hook-form";
+import { z } from "zod";
 
 import { useAuth } from "@/components/auth-provider";
 import { CustomFields } from "@/components/back-office/custom-fields";
@@ -18,6 +21,9 @@ import {
   type OutletDetail,
   type OutletWrite,
 } from "@/lib/api/outlets";
+import { customFieldSchema, type ValidationMessages } from "@/lib/forms/custom-field-schema";
+import { useValidationMessages } from "@/lib/forms/use-validation-messages";
+import { cn } from "@/lib/utils";
 
 const CONTROL =
   "h-9 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground"
@@ -34,16 +40,74 @@ function zones(): string[] {
   return typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
 }
 
+/** Trimmed, and empty becomes absent — the shape every optional string on the API expects. */
+const optionalText = z
+  .string()
+  .trim()
+  .transform((value) => (value === "" ? null : value))
+  .nullable();
+
+/**
+ * The fields every outlet has, whatever a tenant added to them.
+ *
+ * Written out rather than derived, because unlike custom fields there is no descriptor to derive
+ * from — the API's own request record is the declaration, and this is the closest a TypeScript
+ * client gets to it. The lengths match its column limits; the coordinate bounds match the shared
+ * `GeoPoint`.
+ *
+ * Every message is supplied, never left to Zod. Its defaults are developer text — *"Too small:
+ * expected string to have >=1 characters"* — which is unreadable to a user and English-only in an
+ * app that ships two languages.
+ */
+function fixedSchema(t: ReturnType<typeof useTranslations<"OutletForm">>, m: ValidationMessages) {
+  const text = (max: number) =>
+    z
+      .string()
+      .trim()
+      .min(1, { message: m.required })
+      .max(max, { message: m.tooLong(max) });
+
+  return z.object({
+    code: text(50),
+    name: text(200),
+    channelId: z.string().min(1, { message: m.required }),
+    timeZoneId: z.string().min(1, { message: m.required }),
+    segment: optionalText,
+    banner: optionalText,
+    street: optionalText,
+    city: optionalText,
+    postalCode: optionalText,
+    countryCode: optionalText,
+
+    // Text in, number out. An emptied number input holds `""`, and `z.number()` would reject that
+    // as "expected number" for a field nobody filled in on purpose.
+    latitude: coordinate(-90, 90, t("betweenLat")),
+    longitude: coordinate(-180, 180, t("betweenLon")),
+  });
+}
+
+function coordinate(min: number, max: number, message: string) {
+  return z
+    .string()
+    .trim()
+    .transform((value) => (value === "" ? null : Number(value)))
+    .refine((value) => value === null || (Number.isFinite(value) && value >= min && value <= max), {
+      message,
+    });
+}
+
 function Field({
   label,
   htmlFor,
-  children,
   required,
+  error,
+  children,
 }: {
   label: string;
   htmlFor: string;
-  children: React.ReactNode;
   required?: boolean;
+  error?: string;
+  children: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -56,6 +120,11 @@ function Field({
         ) : null}
       </label>
       {children}
+      {error ? (
+        <p id={`${htmlFor}-error`} className="text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -92,7 +161,40 @@ export function OutletForm({ outlet }: { outlet?: OutletDetail }) {
     queryFn: ({ signal }) => fetchFieldDefinitions(accessToken!, "Outlet", signal),
   });
 
-  const [custom, setCustom] = useState<Record<string, unknown>>(outlet?.customFields ?? {});
+  const messages = useValidationMessages();
+
+  // Rebuilt when the catalogue arrives, and only then. The resolver closes over this, so a schema
+  // recreated every render would revalidate on every keystroke against a brand-new object.
+  const schema = useMemo(
+    () => fixedSchema(t, messages).extend({ custom: customFieldSchema(definitions.data ?? [], messages) }),
+    [definitions.data, t, messages],
+  );
+
+  const form = useForm({
+    resolver: zodResolver(schema),
+
+    // On blur rather than on change: telling someone their code is too short while they are typing
+    // the second character is noise, and `onSubmit` alone means finding out about four problems one
+    // page-scroll away from the field that caused each.
+    mode: "onBlur",
+
+    defaultValues: {
+      code: outlet?.code ?? "",
+      name: outlet?.name ?? "",
+      channelId: outlet?.channelId ?? "",
+      timeZoneId: outlet?.timeZoneId ?? "",
+      segment: outlet?.segment ?? "",
+      banner: outlet?.banner ?? "",
+      street: outlet?.address?.street ?? "",
+      city: outlet?.address?.city ?? "",
+      postalCode: outlet?.address?.postalCode ?? "",
+      countryCode: outlet?.address?.countryCode ?? "",
+      latitude: outlet?.location?.latitude?.toString() ?? "",
+      longitude: outlet?.location?.longitude?.toString() ?? "",
+      custom: outlet?.customFields ?? {},
+    },
+  });
+
   const [refused, setRefused] = useState<readonly string[]>([]);
 
   const save = useMutation({
@@ -108,61 +210,66 @@ export function OutletForm({ outlet }: { outlet?: OutletDetail }) {
       router.push(`/outlets/${saved.id}`);
     },
 
-    onError: (error) =>
-      setRefused(error instanceof ApiError ? error.problems : [t("failed")]),
+    onError: (error) => setRefused(error instanceof ApiError ? error.problems : [t("failed")]),
   });
 
-  function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const submit = form.handleSubmit((values) => {
     setRefused([]);
 
-    const form = new FormData(event.currentTarget);
-    const text = (name: string) => {
-      const value = form.get(name);
-      return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
-    };
-
-    const latitude = text("latitude");
-    const longitude = text("longitude");
-
     const body: OutletWrite = {
-      name: text("name") ?? "",
-      channelId: text("channelId") ?? "",
-      segment: text("segment"),
-      banner: text("banner"),
-      timeZoneId: text("timeZoneId") ?? "",
+      name: values.name,
+      channelId: values.channelId,
+      timeZoneId: values.timeZoneId,
+      segment: values.segment,
+      banner: values.banner,
 
       // An address of all-nulls is no address. Sending one would store a row of empties that reads
       // as "we know nothing about where this is" in exactly the way `null` already does.
       address:
-        text("street") || text("city") || text("postalCode") || text("countryCode")
+        values.street || values.city || values.postalCode || values.countryCode
           ? {
-              street: text("street"),
-              city: text("city"),
-              postalCode: text("postalCode"),
-              countryCode: text("countryCode"),
+              street: values.street,
+              city: values.city,
+              postalCode: values.postalCode,
+              countryCode: values.countryCode,
             }
           : null,
 
       // Both or neither — the server refuses half a coordinate, and sending one would be asking to
       // be told so.
       location:
-        latitude && longitude
-          ? { latitude: Number(latitude), longitude: Number(longitude) }
+        values.latitude !== null && values.longitude !== null
+          ? { latitude: values.latitude, longitude: values.longitude }
           : null,
 
-      customFields: custom,
+      customFields: values.custom,
     };
 
-    save.mutate(outlet ? body : ({ ...body, code: text("code") ?? "" } satisfies CreateOutlet));
-  }
+    save.mutate(outlet ? body : ({ ...body, code: values.code } satisfies CreateOutlet));
+  });
+
+  const errors = form.formState.errors as FieldErrors;
+  const message = (name: keyof typeof form.formState.errors) =>
+    errors[name]?.message as string | undefined;
+
+  /** The props every plain input shares: registration, and the error wiring around it. */
+  const bind = (name: Parameters<typeof form.register>[0]) => ({
+    ...form.register(name),
+    id: name,
+    "aria-invalid": Boolean(errors[name]),
+    "aria-describedby": errors[name] ? `${name}-error` : undefined,
+    className: cn(CONTROL, errors[name] && "border-destructive"),
+  });
 
   return (
-    <form onSubmit={submit} className="flex max-w-2xl flex-col gap-4">
+    // noValidate: the browser's own bubbles would fire before the resolver runs and show a second,
+    // differently-worded refusal for the same field. The constraints stay on the controls for the
+    // keyboard they choose on a phone; the messages come from one place.
+    <form onSubmit={submit} noValidate className="flex max-w-2xl flex-col gap-4">
       {refused.length > 0 ? (
-        // The server's own words. A form that replaces them with "something went wrong" throws away
-        // the only description of what is actually wrong — including rules this client cannot know,
-        // like a code another tenant user took a second ago.
+        // The server's own words. It knows things this form cannot — a code taken a second ago, a
+        // rule only the catalogue holds — and replacing those with "something went wrong" throws
+        // away the only description of what is actually wrong.
         <ul role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {refused.map((problem) => (
             <li key={problem}>{problem}</li>
@@ -171,26 +278,23 @@ export function OutletForm({ outlet }: { outlet?: OutletDetail }) {
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label={t("code")} htmlFor="code" required={!outlet}>
+        <Field label={t("code")} htmlFor="code" required={!outlet} error={message("code")}>
           <input
-            id="code"
-            name="code"
-            required={!outlet}
-            defaultValue={outlet?.code}
+            {...bind("code")}
             maxLength={50}
             // Not editable after creation: it is the identifier territory memberships and import
             // files already refer to, so a rename would orphan every one of them.
             readOnly={Boolean(outlet)}
-            className={CONTROL + (outlet ? " cursor-not-allowed text-muted-foreground" : "")}
+            className={cn(bind("code").className, outlet && "cursor-not-allowed text-muted-foreground")}
           />
         </Field>
 
-        <Field label={t("name")} htmlFor="name" required>
-          <input id="name" name="name" required maxLength={200} defaultValue={outlet?.name} className={CONTROL} />
+        <Field label={t("name")} htmlFor="name" required error={message("name")}>
+          <input {...bind("name")} maxLength={200} />
         </Field>
 
-        <Field label={t("channel")} htmlFor="channelId" required>
-          <select id="channelId" name="channelId" required defaultValue={outlet?.channelId ?? ""} className={CONTROL}>
+        <Field label={t("channel")} htmlFor="channelId" required error={message("channelId")}>
+          <select {...bind("channelId")}>
             <option value="" disabled />
             {(channels.data ?? []).map((channel) => (
               <option key={channel.id} value={channel.id}>
@@ -200,14 +304,8 @@ export function OutletForm({ outlet }: { outlet?: OutletDetail }) {
           </select>
         </Field>
 
-        <Field label={t("timeZone")} htmlFor="timeZoneId" required>
-          <select
-            id="timeZoneId"
-            name="timeZoneId"
-            required
-            defaultValue={outlet?.timeZoneId ?? ""}
-            className={CONTROL}
-          >
+        <Field label={t("timeZone")} htmlFor="timeZoneId" required error={message("timeZoneId")}>
+          <select {...bind("timeZoneId")}>
             <option value="" disabled />
             {zones().map((zone) => (
               <option key={zone} value={zone}>
@@ -217,12 +315,12 @@ export function OutletForm({ outlet }: { outlet?: OutletDetail }) {
           </select>
         </Field>
 
-        <Field label={t("segment")} htmlFor="segment">
-          <input id="segment" name="segment" maxLength={50} defaultValue={outlet?.segment ?? ""} className={CONTROL} />
+        <Field label={t("segment")} htmlFor="segment" error={message("segment")}>
+          <input {...bind("segment")} maxLength={50} />
         </Field>
 
-        <Field label={t("banner")} htmlFor="banner">
-          <input id="banner" name="banner" maxLength={100} defaultValue={outlet?.banner ?? ""} className={CONTROL} />
+        <Field label={t("banner")} htmlFor="banner" error={message("banner")}>
+          <input {...bind("banner")} maxLength={100} />
         </Field>
       </div>
 
@@ -231,48 +329,36 @@ export function OutletForm({ outlet }: { outlet?: OutletDetail }) {
           {t("location")}
         </legend>
 
-        <Field label={t("street")} htmlFor="street">
-          <input id="street" name="street" maxLength={200} defaultValue={outlet?.address?.street ?? ""} className={CONTROL} />
+        <Field label={t("street")} htmlFor="street" error={message("street")}>
+          <input {...bind("street")} maxLength={200} />
         </Field>
 
-        <Field label={t("city")} htmlFor="city">
-          <input id="city" name="city" maxLength={100} defaultValue={outlet?.address?.city ?? ""} className={CONTROL} />
+        <Field label={t("city")} htmlFor="city" error={message("city")}>
+          <input {...bind("city")} maxLength={100} />
         </Field>
 
-        <Field label={t("postalCode")} htmlFor="postalCode">
-          <input id="postalCode" name="postalCode" maxLength={20} defaultValue={outlet?.address?.postalCode ?? ""} className={CONTROL} />
+        <Field label={t("postalCode")} htmlFor="postalCode" error={message("postalCode")}>
+          <input {...bind("postalCode")} maxLength={20} />
         </Field>
 
-        <Field label={t("countryCode")} htmlFor="countryCode">
-          <input id="countryCode" name="countryCode" maxLength={2} defaultValue={outlet?.address?.countryCode ?? ""} className={CONTROL} />
+        <Field label={t("countryCode")} htmlFor="countryCode" error={message("countryCode")}>
+          <input {...bind("countryCode")} maxLength={2} />
         </Field>
 
-        <Field label={t("latitude")} htmlFor="latitude">
-          {/* The bounds the shared GeoPoint enforces, so the browser refuses 91 before a request. */}
-          <input id="latitude" name="latitude" type="number" step="any" min={-90} max={90} defaultValue={outlet?.location?.latitude ?? ""} className={CONTROL} />
+        <Field label={t("latitude")} htmlFor="latitude" error={message("latitude")}>
+          {/* The bounds the shared GeoPoint enforces, mirrored in the schema for the message. */}
+          <input {...bind("latitude")} type="number" step="any" min={-90} max={90} />
         </Field>
 
-        <Field label={t("longitude")} htmlFor="longitude">
-          <input id="longitude" name="longitude" type="number" step="any" min={-180} max={180} defaultValue={outlet?.location?.longitude ?? ""} className={CONTROL} />
+        <Field label={t("longitude")} htmlFor="longitude" error={message("longitude")}>
+          <input {...bind("longitude")} type="number" step="any" min={-180} max={180} />
         </Field>
       </fieldset>
 
       <CustomFields
         definitions={definitions.data ?? []}
-        values={custom}
-        onChange={(key, value) =>
-          setCustom((current) => {
-            const next = { ...current };
-
-            // Deleted rather than set to undefined: the whole map is sent, and an explicit
-            // `"ownership": undefined` serialises to nothing while `{}` and a missing key are the
-            // same thing to the server. Removing it keeps the payload honest.
-            if (value === undefined) delete next[key];
-            else next[key] = value;
-
-            return next;
-          })
-        }
+        control={form.control as never}
+        errors={errors}
       />
 
       <div className="flex gap-2">

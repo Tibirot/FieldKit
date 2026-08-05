@@ -72,6 +72,14 @@ never needs one** — which is worth saying, because the failure mode is not a m
 second copy of an outlet in a store, disagreeing with the query cache about which one is current, and
 no rule about which wins.
 
+**Form state is React Hook Form's**, with [Zod](https://zod.dev) schemas. It is the conventional
+pairing, which matters more than it sounds: a contributor opening this repo recognises it without
+reading a rationale, and an unconventional hand-rolled equivalent has to be justified to every
+reader. Two rules keep it honest — **schemas for config-driven fields are generated from the
+descriptor**, never typed out, so they cannot drift from the server that owns the rules
+([CFG-02](../../product/14-configuration.md)); and **every message comes from the message catalogue**,
+because Zod's defaults are developer text in one language.
+
 Two things follow from having no store. **Cross-route state gets a URL** — a filter or a selected row
 belongs in search params, where it is shareable, restorable and back-button-correct for free. And
 **auth stays a context**, because it is genuinely global, genuinely small, and has exactly one writer.
