@@ -301,5 +301,28 @@
     "cancel": "Anulează",
     "localeHint": "Un cod BCP-47, de exemplu ro-RO. Determină formatarea numerelor, sumelor și datelor, nu doar traducerea.",
     "localeShape": "Folosește un cod BCP-47, de exemplu ro-RO."
+  },
+  "Roles": {
+    "title": "Roluri",
+    "loading": "Se încarcă rolurile…",
+    "failed": "Rolurile nu au putut fi încărcate.",
+    "forbidden": "Nu ai permisiunea de a vedea rolurile.",
+    "newRole": "Rol nou",
+    "newTitle": "Rol nou",
+    "editTitle": "Editează rolul",
+    "name": "Denumire",
+    "permissions": "Permisiuni",
+    "grantsNothing": "Nu acordă încă nimic.",
+    "systemRole": "Predefinit",
+    "systemRoleHint": "Un rol predefinit poate fi recompus, dar nu șters — este calea prin care un spațiu de lucru revine la un set funcțional.",
+    "edit": "Editează",
+    "editNamed": "Editează rolul {name}",
+    "delete": "Șterge",
+    "deleteNamed": "Șterge rolul {name}",
+    "deleteFailed": "Rolul nu a putut fi șters.",
+    "saveFailed": "Rolul nu a putut fi salvat.",
+    "save": "Salvează",
+    "saving": "Se salvează…",
+    "cancel": "Anulează"
   }
 }

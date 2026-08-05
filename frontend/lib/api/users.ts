@@ -1,4 +1,4 @@
-import { apiGet, apiSend } from "@/lib/api/client";
+import { apiDelete, apiGet, apiSend } from "@/lib/api/client";
 
 /**
  * A user profile (`IAM-01`).
@@ -70,4 +70,60 @@ export function setUserActive(accessToken: string, id: string, active: boolean):
     accessToken,
     {},
   );
+}
+
+/**
+ * A permission a module owns — `resource:action` — and what it lets someone do.
+ *
+ * **The catalogue is code, not data.** There is no endpoint to add one, because a permission nothing
+ * enforces is not a permission; this list is contributed by the modules that check it. The
+ * description is the only thing standing between "grant everything that sounds plausible" and an
+ * informed choice.
+ */
+export type Permission = {
+  name: string;
+  description: string;
+};
+
+export type RoleWrite = {
+  name: string;
+  permissions: string[];
+};
+
+export const permissionsKey = (subject: string) => ["permissions", subject] as const;
+
+export function fetchPermissions(accessToken: string, signal?: AbortSignal): Promise<Permission[]> {
+  return apiGet<Permission[]>("/api/iam/permissions", accessToken, signal);
+}
+
+export function createRole(accessToken: string, role: RoleWrite): Promise<Role> {
+  return apiSend<Role>("POST", "/api/iam/roles", accessToken, role);
+}
+
+export function updateRole(accessToken: string, id: string, role: RoleWrite): Promise<Role> {
+  return apiSend<Role>("PUT", `/api/iam/roles/${id}`, accessToken, role);
+}
+
+/**
+ * Removes a role.
+ *
+ * Refused for a system template — it is the way back to a working set of roles (`IAM-06`) — and for
+ * one users still hold, because `BR-IAM-3` says a user must keep at least one and silently
+ * reassigning them would be inventing an admin decision.
+ */
+export function deleteRole(accessToken: string, id: string): Promise<void> {
+  return apiDelete(`/api/iam/roles/${id}`, accessToken);
+}
+
+/**
+ * The resource a permission is about — the part before the colon.
+ *
+ * Grouping the toggles by it turns a flat list of thirty checkboxes into a handful of decisions
+ * about outlets, users, territories. Derived from the name rather than sent, because the name is
+ * already `resource:action` by convention and a second field would be a second thing to keep true.
+ */
+export function resourceOf(permission: string): string {
+  const colon = permission.indexOf(":");
+
+  return colon > 0 ? permission.slice(0, colon) : permission;
 }
