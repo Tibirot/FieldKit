@@ -1,32 +1,43 @@
 /**
- * Raised for a response the caller should act on differently — chiefly 401, 403 and 400.
+ * One thing the API said was wrong, and which part of the request it was about.
  *
- * `problems` carries what the API said was wrong, when it said anything: our endpoints answer a
- * rejected write with `{ error }` or `{ errors: [...] }`, and a form that discards those has to
- * invent its own explanation for a refusal it did not predict. Empty for the statuses that have
- * nothing to add — a 403 is about the caller, not about the payload.
+ * `field` is the JSON path the caller sent — `code`, `channelId`,
+ * `customFields.chiller_count` — or null when the problem is about the request as a whole. A form
+ * puts the first kind beside a control and the second at the top.
+ */
+export type FieldProblem = {
+  field: string | null;
+  message: string;
+};
+
+/**
+ * Raised for a response the caller should act on differently — chiefly 400, 401, 403 and 409.
+ *
+ * `problems` carries what the API said was wrong, when it said anything. A form that discards them
+ * has to invent its own explanation for a refusal it could not have predicted — a code taken a
+ * second ago, or a rule that only exists in a tenant's catalogue. Empty for the statuses with
+ * nothing to add: a 403 is about the caller, not the payload.
  */
 export class ApiError extends Error {
   constructor(
     readonly status: number,
-    readonly problems: readonly string[] = [],
+    readonly problems: readonly FieldProblem[] = [],
   ) {
-    super(problems[0] ?? `The API responded ${status}.`);
+    super(problems[0]?.message ?? `The API responded ${status}.`);
     this.name = "ApiError";
   }
 }
 
-/** The two shapes our endpoints refuse a write with. */
-type Refusal = { error?: string; errors?: string[] };
+/** Every refusal uses one envelope, whatever its status (api-contracts §3). */
+type Refusal = { errors?: FieldProblem[] };
 
 async function refuse(response: Response): Promise<never> {
-  let problems: string[] = [];
+  let problems: FieldProblem[] = [];
 
   // A refusal without a readable body is still a refusal — the status is the part that must not be
   // lost, so parsing failures are swallowed rather than replacing one error with another.
   try {
-    const body = (await response.json()) as Refusal;
-    problems = body.errors ?? (body.error ? [body.error] : []);
+    problems = ((await response.json()) as Refusal).errors ?? [];
   } catch {
     problems = [];
   }

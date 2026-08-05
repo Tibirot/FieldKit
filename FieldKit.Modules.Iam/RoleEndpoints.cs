@@ -46,7 +46,7 @@ internal static class RoleEndpoints
 
             if (await db.Roles.AnyAsync(role => role.Name == request.Name, ct))
             {
-                return Results.Conflict(new { error = $"A role named '{request.Name}' already exists." });
+                return Problems.Conflict("name", $"A role named '{request.Name}' already exists.");
             }
 
             var created = Role.Create(request.Name, request.Permissions);
@@ -69,7 +69,7 @@ internal static class RoleEndpoints
 
             if (await db.Roles.AnyAsync(r => r.Name == request.Name && r.Id != id, ct))
             {
-                return Results.Conflict(new { error = $"A role named '{request.Name}' already exists." });
+                return Problems.Conflict("name", $"A role named '{request.Name}' already exists.");
             }
 
             role.Rename(request.Name, clock);
@@ -89,7 +89,7 @@ internal static class RoleEndpoints
             // re-seed from.
             if (role.IsSystemTemplate)
             {
-                return Results.Conflict(new { error = "A system role template cannot be deleted. Edit it instead." });
+                return Problems.Conflict("A system role template cannot be deleted. Edit it instead.");
             }
 
             // BR-IAM-3: a user must hold at least one role, so deleting a role that is still assigned
@@ -98,10 +98,8 @@ internal static class RoleEndpoints
             var assigned = await db.Users.CountAsync(user => user.Roles.Any(r => r.RoleId == id), ct);
             if (assigned > 0)
             {
-                return Results.Conflict(new
-                {
-                    error = $"{assigned} user(s) still hold this role. Reassign them before deleting it.",
-                });
+                return Problems.Conflict(
+                    $"{assigned} user(s) still hold this role. Reassign them before deleting it.");
             }
 
             db.Roles.Remove(role);
@@ -123,7 +121,7 @@ internal static class RoleEndpoints
     {
         if (string.IsNullOrWhiteSpace(request.Name))
         {
-            return Results.BadRequest(new { error = "A role needs a name." });
+            return Problems.BadRequest("name", "A role needs a name.");
         }
 
         var unknown = request.Permissions
@@ -132,10 +130,8 @@ internal static class RoleEndpoints
 
         return unknown.Count == 0
             ? null
-            : Results.BadRequest(new
-            {
-                error = "Unknown permissions — no module enforces these.",
-                unknown,
-            });
+            : Problems.BadRequest(
+                "permissions",
+                $"Unknown permissions — no module enforces these: {string.Join(", ", unknown)}.");
     }
 }

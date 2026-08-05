@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
-import { useForm, type FieldErrors } from "react-hook-form";
+import { useForm, type FieldErrors, type FieldPath as RhfFieldPath } from "react-hook-form";
 import { z } from "zod";
 
 import { useAuth } from "@/components/auth-provider";
@@ -41,6 +41,12 @@ function zones(): string[] {
 }
 
 /** Trimmed, and empty becomes absent — the shape every optional string on the API expects. */
+/** How the API nests custom fields — the one place its naming and this form's disagree. */
+const CustomFieldPrefix = "customFields.";
+
+/** A path into this form, as react-hook-form names them. */
+type FieldPath = RhfFieldPath<Record<string, unknown>>;
+
 const optionalText = z
   .string()
   .trim()
@@ -210,8 +216,55 @@ export function OutletForm({ outlet }: { outlet?: OutletDetail }) {
       router.push(`/outlets/${saved.id}`);
     },
 
-    onError: (error) => setRefused(error instanceof ApiError ? error.problems : [t("failed")]),
+    onError: (error) => {
+      if (!(error instanceof ApiError)) {
+        setRefused([t("failed")]);
+        return;
+      }
+
+      // A problem the API attached to a field goes under that control, exactly like a client-side
+      // one — which is the whole reason the API names fields now. Anything it could not attribute
+      // stays at the top, because a message pinned to a guessed control is worse than one that
+      // admits it is about the request.
+      const unattributed: string[] = [];
+
+      for (const problem of error.problems) {
+        const path = formPath(problem.field);
+
+        // Cast because the path is a string the API chose, and TypeScript can only accept the
+        // schema's literal names. `formPath` is what makes it safe — it checks against the form's
+        // actual values, so a name this form has no control for never reaches here.
+        if (path) form.setError(path as never, { type: "server", message: problem.message });
+        else unattributed.push(problem.message);
+      }
+
+      setRefused(unattributed);
+    },
   });
+
+  /**
+   * The API's field path, as this form names it, or undefined if it renders no such control.
+   *
+   * The two agree everywhere except custom fields: the request nests them under `customFields`
+   * while the form holds them under `custom`, so that one prefix is translated. Everything else is
+   * checked against what is actually on screen — the fixed fields against the form's own values, a
+   * custom key against the catalogue the inputs were built from — because `setError` on a path with
+   * no control attached swallows the message silently, and an unknown field is a rule the API grew
+   * rather than a reason to lose what it said.
+   */
+  function formPath(field: string | null): FieldPath | undefined {
+    if (!field) return undefined;
+
+    if (field.startsWith(CustomFieldPrefix)) {
+      const key = field.slice(CustomFieldPrefix.length);
+
+      return definitions.data?.some((definition) => definition.key === key)
+        ? (`custom.${key}` as FieldPath)
+        : undefined;
+    }
+
+    return field in form.getValues() ? (field as FieldPath) : undefined;
+  }
 
   const submit = form.handleSubmit((values) => {
     setRefused([]);
@@ -248,7 +301,21 @@ export function OutletForm({ outlet }: { outlet?: OutletDetail }) {
     save.mutate(outlet ? body : ({ ...body, code: values.code } satisfies CreateOutlet));
   });
 
-  const errors = form.formState.errors as FieldErrors;
+  /**
+   * The form's errors, rebuilt into a new object every render.
+   *
+   * Not a flourish — without it a server refusal reaches this component and never reaches the
+   * screen. `setError` writes into the `formState.errors` object that already exists, and the React
+   * Compiler (`reactCompiler: true` in next.config.ts) memoises the markup below on that object's
+   * identity: the component re-renders, reads the same reference, and reuses the inputs it rendered
+   * last time — no message, no `aria-invalid`. Client-side errors escape this because the resolver
+   * hands back a whole new errors object each time it runs.
+   *
+   * Found by submitting a duplicate code against the running API. Every component test passed
+   * without this line, because vitest transforms with esbuild and never runs the compiler —
+   * see frontend-toolchain.md.
+   */
+  const errors = { ...form.formState.errors } as FieldErrors;
   const message = (name: keyof typeof form.formState.errors) =>
     errors[name]?.message as string | undefined;
 

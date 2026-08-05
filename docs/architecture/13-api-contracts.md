@@ -31,23 +31,41 @@ deltas) than the back-office path.
 
 ## 3. Error model — RFC 7807 Problem Details
 
-All errors return **`application/problem+json`** ([`AddProblemDetails`](../../FieldKit.Server/Program.cs)
-already wired), with a stable, machine-readable `code`:
+### A refused write
+
+**One envelope, whatever the status** — `400`, `409`, `415`. A client reads every refusal the same
+way rather than sniffing between shapes:
 
 ```jsonc
 {
-  "type": "https://fieldkit/errors/outlet-closed",
-  "title": "Outlet is closed",
-  "status": 409,
-  "code": "OUTLET_CLOSED",
-  "detail": "Outlet 0f1c… closed 2026-07-30",
-  "traceId": "00-…"                // correlates to the trace (observability)
+  "errors": [
+    { "field": "code",                      "message": "An outlet with code 'OUT-1' already exists." },
+    { "field": "customFields.chiller_count", "message": "'chiller_count' must be at most 50." },
+    { "field": null,                        "message": "The file has a header but no rows." }
+  ]
 }
 ```
 
-- **`code`** is the contract (clients switch on it); `title`/`detail` are human text.
-- Validation failures (FluentValidation) → `400` with per-field errors.
-- `traceId` ties every error to a distributed trace ([observability](15-observability.md)).
+- **`field` is the JSON path the caller sent** — `code`, `channelId`,
+  `customFields.chiller_count`. Not a column, not a form control: the API can only promise something
+  about the request it received. A form maps it to its own naming, which is one line when the two
+  agree and one prefix when they do not.
+- **`null` when the problem is about the request as a whole**, so a form shows it at the top rather
+  than highlighting a control at random.
+- **Every problem at once**, not the first. Someone filling a form wants to fix everything in one
+  pass; returning one at a time turns a six-field form into six round trips.
+
+This replaced prose — `{ "error": "A territory needs a name." }` — which reads perfectly and tells a
+form nothing about *where* to put it. A screen could only list sentences above a page of inputs, or
+re-declare the rules client-side to produce its own field keys, which is a second copy of what the
+server owns. The bulk import had already answered this way (`{ row, column, message }`); this is the
+same idea for a request with no rows.
+
+### Unhandled failures
+
+Everything not deliberately refused returns **`application/problem+json`**
+([`AddProblemDetails`](../../FieldKit.Server/Program.cs)), with `traceId` tying it to a distributed
+trace ([observability](15-observability.md)).
 
 ### 3.1 A body the server cannot read
 

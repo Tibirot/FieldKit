@@ -1,5 +1,6 @@
 using System.Text.Json;
 using FieldKit.Modules.Configuration.Contracts;
+using FieldKit.Web;
 
 namespace FieldKit.Modules.Outlets;
 
@@ -27,11 +28,11 @@ internal static class CustomFieldValidator
     /// All of them, not the first: an admin filling a form wants to fix everything in one pass, and
     /// returning one error at a time turns a six-field form into six round trips.
     /// </remarks>
-    public static IReadOnlyList<string> Validate(
+    public static IReadOnlyList<FieldProblem> Validate(
         IReadOnlyDictionary<string, JsonElement>? values,
         IReadOnlyList<FieldDefinitionDescriptor> definitions)
     {
-        var problems = new List<string>();
+        var problems = new List<FieldProblem>();
         var supplied = values ?? new Dictionary<string, JsonElement>();
         var known = definitions.ToDictionary(definition => definition.Key, StringComparer.Ordinal);
 
@@ -40,22 +41,39 @@ internal static class CustomFieldValidator
         // is describable.
         foreach (var key in supplied.Keys.Where(key => !known.ContainsKey(key)))
         {
-            problems.Add($"'{key}' is not a defined custom field for outlets.");
+            problems.Add(Problem(key, $"'{key}' is not a defined custom field for outlets."));
         }
 
         foreach (var definition in definitions)
         {
             if (!supplied.TryGetValue(definition.Key, out var value) || value.ValueKind is JsonValueKind.Null)
             {
-                if (definition.Required) problems.Add($"'{definition.Key}' is required.");
+                if (definition.Required)
+                {
+                    problems.Add(Problem(definition.Key, $"'{definition.Key}' is required."));
+                }
+
                 continue;
             }
 
-            problems.AddRange(Check(definition, value));
+            problems.AddRange(
+                Check(definition, value).Select(message => Problem(definition.Key, message)));
         }
 
         return problems;
     }
+
+    /// <summary>
+    /// Names the field by the path the caller sent it under.
+    /// </summary>
+    /// <remarks>
+    /// <c>customFields.chiller_count</c>, not <c>chiller_count</c> — the request has a
+    /// <c>customFields</c> object, so that is where a client looking for this problem will expect to
+    /// find it. Naming it by the bare key would collide with a fixed field the day a tenant defines
+    /// one called <c>name</c>.
+    /// </remarks>
+    private static FieldProblem Problem(string key, string message) =>
+        new($"customFields.{key}", message);
 
     private static IEnumerable<string> Check(FieldDefinitionDescriptor definition, JsonElement value)
     {

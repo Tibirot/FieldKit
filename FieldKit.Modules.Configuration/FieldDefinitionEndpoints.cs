@@ -100,10 +100,8 @@ internal static class FieldDefinitionEndpoints
 
             if (taken)
             {
-                return Results.Conflict(new
-                {
-                    error = $"'{request.Key}' is already defined for {request.Entity}.",
-                });
+                return Problems.Conflict(
+                    "key", $"'{request.Key}' is already defined for {request.Entity}.");
             }
 
             var created = FieldDefinition.Create(
@@ -175,31 +173,34 @@ internal static class FieldDefinitionEndpoints
         double? minimum,
         double? maximum)
     {
-        var errors = new List<string>();
+        var errors = new List<FieldProblem>();
 
-        if (!Enum.IsDefined(entity)) errors.Add("Unknown entity.");
-        if (!Enum.IsDefined(type)) errors.Add("Unknown field type.");
+        if (!Enum.IsDefined(entity)) errors.Add(new("entity", "Unknown entity."));
+        if (!Enum.IsDefined(type)) errors.Add(new("type", "Unknown field type."));
 
         if (!System.Text.RegularExpressions.Regex.IsMatch(key ?? "", KeyPattern))
         {
-            errors.Add("A key must be lowercase letters, digits and underscores, starting with a letter.");
+            errors.Add(new(
+                "key",
+                "A key must be lowercase letters, digits and underscores, starting with a letter."));
         }
 
-        if (string.IsNullOrWhiteSpace(label)) errors.Add("A field needs a label.");
+        if (string.IsNullOrWhiteSpace(label)) errors.Add(new("label", "A field needs a label."));
 
         if (type == CustomFieldType.Choice && (options is null || options.Count == 0))
         {
-            errors.Add("A choice field needs at least one option.");
+            errors.Add(new("options", "A choice field needs at least one option."));
         }
 
-        if (maxLength is <= 0) errors.Add("MaxLength must be positive.");
+        if (maxLength is <= 0) errors.Add(new("maxLength", "MaxLength must be positive."));
 
         if (minimum is { } min && maximum is { } max && min > max)
         {
-            errors.Add("Minimum cannot be greater than maximum.");
+            // Named for the bound that is too high, since that is the one an admin lowers.
+            errors.Add(new("minimum", "Minimum cannot be greater than maximum."));
         }
 
-        return errors.Count == 0 ? null : Results.BadRequest(new { errors });
+        return errors.Count == 0 ? null : Problems.BadRequest(errors);
     }
 
     private static FieldDefinitionResponse ToResponse(FieldDefinition definition) =>

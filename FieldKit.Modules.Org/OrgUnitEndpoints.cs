@@ -40,7 +40,7 @@ internal static class OrgUnitEndpoints
         {
             if (string.IsNullOrWhiteSpace(request.Name))
             {
-                return Results.BadRequest(new { error = "An org unit needs a name." });
+                return Problems.BadRequest("name", "An org unit needs a name.");
             }
 
             if (await ParentProblem(db, request.ParentId, ct) is { } parentProblem) return parentProblem;
@@ -63,7 +63,7 @@ internal static class OrgUnitEndpoints
         {
             if (string.IsNullOrWhiteSpace(request.Name))
             {
-                return Results.BadRequest(new { error = "An org unit needs a name." });
+                return Problems.BadRequest("name", "An org unit needs a name.");
             }
 
             var unit = await db.OrgUnits.SingleOrDefaultAsync(u => u.Id == id, ct);
@@ -71,7 +71,7 @@ internal static class OrgUnitEndpoints
 
             if (request.ParentId == id)
             {
-                return Results.BadRequest(new { error = "An org unit cannot be its own parent." });
+                return Problems.BadRequest("parentId", "An org unit cannot be its own parent.");
             }
 
             if (await ParentProblem(db, request.ParentId, ct) is { } parentProblem) return parentProblem;
@@ -100,10 +100,8 @@ internal static class OrgUnitEndpoints
             var children = await db.OrgUnits.CountAsync(u => u.ParentId == id, ct);
             if (children > 0)
             {
-                return Results.Conflict(new
-                {
-                    error = $"'{unit.Name}' still has {children} child unit(s). Move or delete them first.",
-                });
+                return Problems.Conflict(
+                    $"'{unit.Name}' still has {children} child unit(s). Move or delete them first.");
             }
 
             // Same reasoning one level down: deleting the unit someone occupies would silently
@@ -112,10 +110,8 @@ internal static class OrgUnitEndpoints
             var staffed = await db.Positions.CountAsync(position => position.OrgUnitId == id, ct);
             if (staffed > 0)
             {
-                return Results.Conflict(new
-                {
-                    error = $"{staffed} person(s) still hold positions in '{unit.Name}'. Move them first.",
-                });
+                return Problems.Conflict(
+                    $"{staffed} person(s) still hold positions in '{unit.Name}'. Move them first.");
             }
 
             // Third of the same kind. A territory is what makes a unit's outlets visible to the
@@ -124,10 +120,8 @@ internal static class OrgUnitEndpoints
             var territories = await db.Territories.CountAsync(territory => territory.OrgUnitId == id, ct);
             if (territories > 0)
             {
-                return Results.Conflict(new
-                {
-                    error = $"'{unit.Name}' still holds {territories} territory(ies). Move them first.",
-                });
+                return Problems.Conflict(
+                    $"'{unit.Name}' still holds {territories} territory(ies). Move them first.");
             }
 
             db.OrgUnits.Remove(unit);
@@ -151,7 +145,7 @@ internal static class OrgUnitEndpoints
 
         return await db.OrgUnits.AnyAsync(unit => unit.Id == id, ct)
             ? null
-            : Results.BadRequest(new { error = "The parent org unit does not exist." });
+            : Problems.BadRequest("parentId", "The parent org unit does not exist.");
     }
 
     /// <summary>Rejects a name already taken by a sibling — see <see cref="OrgDbContext"/> for why siblings.</summary>
@@ -165,7 +159,7 @@ internal static class OrgUnitEndpoints
             ct);
 
         return taken
-            ? Results.Conflict(new { error = $"A sibling unit is already named '{request.Name}'." })
+            ? Problems.Conflict("name", $"A sibling unit is already named '{request.Name}'.")
             : null;
     }
 
@@ -180,7 +174,7 @@ internal static class OrgUnitEndpoints
         var parentOf = await db.OrgUnits.ToDictionaryAsync(unit => unit.Id, unit => unit.ParentId, ct);
 
         return OrgHierarchy.WouldCreateCycle(id, newParentId, parentOf)
-            ? Results.Conflict(new { error = "That move would put the unit inside its own branch." })
+            ? Problems.Conflict("parentId", "That move would put the unit inside its own branch.")
             : null;
     }
 }

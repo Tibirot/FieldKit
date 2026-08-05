@@ -125,22 +125,33 @@ internal static class UserEndpoints
     private static async Task<IResult?> ValidateAsync(
         UserRequest request, IamDbContext db, Guid? existingUserId, CancellationToken ct)
     {
-        var errors = new List<string>();
+        var errors = new List<FieldProblem>();
 
-        if (string.IsNullOrWhiteSpace(request.SubjectId)) errors.Add("SubjectId is required.");
-        if (string.IsNullOrWhiteSpace(request.Email)) errors.Add("Email is required.");
-        if (string.IsNullOrWhiteSpace(request.DisplayName)) errors.Add("DisplayName is required.");
+        if (string.IsNullOrWhiteSpace(request.SubjectId)) errors.Add(new("subjectId", "SubjectId is required."));
+        if (string.IsNullOrWhiteSpace(request.Email)) errors.Add(new("email", "Email is required."));
 
-        if (!IsKnownLocale(request.Locale)) errors.Add($"'{request.Locale}' is not a known locale (BCP-47).");
+        if (string.IsNullOrWhiteSpace(request.DisplayName))
+        {
+            errors.Add(new("displayName", "DisplayName is required."));
+        }
+
+        if (!IsKnownLocale(request.Locale))
+        {
+            errors.Add(new("locale", $"'{request.Locale}' is not a known locale (BCP-47)."));
+        }
+
         if (!TimeZoneInfo.TryFindSystemTimeZoneById(request.TimeZone, out _))
         {
-            errors.Add($"'{request.TimeZone}' is not a known IANA time zone.");
+            errors.Add(new("timeZone", $"'{request.TimeZone}' is not a known IANA time zone."));
         }
 
         // BR-IAM-3 is enforced in the domain too; checking here turns a 500 into a 400 that says why.
-        if (request.RoleIds.Count == 0) errors.Add("A user must hold at least one role (BR-IAM-3).");
+        if (request.RoleIds.Count == 0)
+        {
+            errors.Add(new("roleIds", "A user must hold at least one role (BR-IAM-3)."));
+        }
 
-        if (errors.Count > 0) return Results.BadRequest(new { errors });
+        if (errors.Count > 0) return Problems.BadRequest(errors);
 
         // Roles are tenant-scoped and so is this query — a role id from another tenant simply does
         // not resolve, which is the query filter doing the work rather than a hand-written check.
@@ -152,16 +163,16 @@ internal static class UserEndpoints
         var unknownRoles = request.RoleIds.Except(known).ToList();
         if (unknownRoles.Count > 0)
         {
-            return Results.BadRequest(new { error = "Unknown roles for this tenant.", unknown = unknownRoles });
+            return Problems.BadRequest("roleIds", $"Unknown roles for this tenant: {string.Join(", ", unknownRoles)}.");
         }
 
         var subjectTaken = await db.Users.AnyAsync(
             user => user.SubjectId == request.SubjectId && user.Id != existingUserId, ct);
-        if (subjectTaken) return Results.Conflict(new { error = "That subject already has a profile." });
+        if (subjectTaken) return Problems.Conflict("subjectId", "That subject already has a profile.");
 
         var emailTaken = await db.Users.AnyAsync(
             user => user.Email == request.Email && user.Id != existingUserId, ct);
-        if (emailTaken) return Results.Conflict(new { error = $"'{request.Email}' is already in use." });
+        if (emailTaken) return Problems.Conflict("email", $"'{request.Email}' is already in use.");
 
         return null;
     }

@@ -33,12 +33,12 @@ internal static class ChannelEndpoints
         {
             if (string.IsNullOrWhiteSpace(request.Name))
             {
-                return Results.BadRequest(new { error = "A channel needs a name." });
+                return Problems.BadRequest("name", "A channel needs a name.");
             }
 
             if (await db.Channels.AnyAsync(channel => channel.Name.ToLower() == request.Name.ToLower(), ct))
             {
-                return Results.Conflict(new { error = $"A channel named '{request.Name}' already exists." });
+                return Problems.Conflict("name", $"A channel named '{request.Name}' already exists.");
             }
 
             var created = Channel.Create(request.Name);
@@ -54,7 +54,7 @@ internal static class ChannelEndpoints
         {
             if (string.IsNullOrWhiteSpace(request.Name))
             {
-                return Results.BadRequest(new { error = "A channel needs a name." });
+                return Problems.BadRequest("name", "A channel needs a name.");
             }
 
             var channel = await db.Channels.SingleOrDefaultAsync(c => c.Id == id, ct);
@@ -62,7 +62,7 @@ internal static class ChannelEndpoints
 
             if (await db.Channels.AnyAsync(c => c.Name.ToLower() == request.Name.ToLower() && c.Id != id, ct))
             {
-                return Results.Conflict(new { error = $"A channel named '{request.Name}' already exists." });
+                return Problems.Conflict("name", $"A channel named '{request.Name}' already exists.");
             }
 
             // Renaming is safe in a way deleting is not: everything that keys off a channel keys off
@@ -84,10 +84,8 @@ internal static class ChannelEndpoints
             var inUse = await db.Outlets.CountAsync(outlet => outlet.ChannelId == id, ct);
             if (inUse > 0)
             {
-                return Results.Conflict(new
-                {
-                    error = $"{inUse} outlet(s) are classified as '{channel.Name}'. Reclassify them first.",
-                });
+                return Problems.Conflict(
+                    $"{inUse} outlet(s) are classified as '{channel.Name}'. Reclassify them first.");
             }
 
             db.Channels.Remove(channel);

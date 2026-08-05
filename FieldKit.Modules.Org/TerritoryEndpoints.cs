@@ -82,10 +82,8 @@ internal static class TerritoryEndpoints
             var outlets = await db.TerritoryOutlets.CountAsync(m => m.TerritoryId == id, ct);
             if (outlets > 0)
             {
-                return Results.Conflict(new
-                {
-                    error = $"'{territory.Name}' still holds {outlets} outlet(s). Move them first.",
-                });
+                return Problems.Conflict(
+                    $"'{territory.Name}' still holds {outlets} outlet(s). Move them first.");
             }
 
             db.Territories.Remove(territory);
@@ -127,7 +125,7 @@ internal static class TerritoryEndpoints
             if (!await db.Territories.AnyAsync(t => t.Id == id, ct)) return Results.NotFound();
 
             var requested = request.OutletIds.Distinct().ToList();
-            if (requested.Count == 0) return Results.BadRequest(new { error = "No outlets given." });
+            if (requested.Count == 0) return Problems.BadRequest("outletIds", "No outlets given.");
 
             // Validated through the contract, not by reading the outlets schema. Another tenant's
             // outlet id simply does not resolve, which is the query filter inside Outlets doing the
@@ -137,7 +135,7 @@ internal static class TerritoryEndpoints
 
             if (unknown.Count > 0)
             {
-                return Results.BadRequest(new { error = "Unknown outlets in this tenant.", unknown });
+                return Problems.BadRequest("outletIds", $"Unknown outlets in this tenant: {string.Join(", ", unknown)}.");
             }
 
             // ORG-05: an outlet belongs to exactly one territory. Reassignment is refused rather
@@ -152,11 +150,12 @@ internal static class TerritoryEndpoints
 
             if (taken.Count > 0)
             {
-                return Results.Conflict(new
-                {
-                    error = "Some outlets already belong to another territory. Remove them from it first.",
-                    outlets = taken,
-                });
+                // The ids are in the message rather than a side-channel field: a client that only
+                // renders messages still tells someone which outlets to free up first.
+                return Problems.Conflict(
+                    "outletIds",
+                    "Some outlets already belong to another territory. Remove them from it first: "
+                        + string.Join(", ", taken) + ".");
             }
 
             var already = await db.TerritoryOutlets
@@ -197,19 +196,19 @@ internal static class TerritoryEndpoints
     {
         if (string.IsNullOrWhiteSpace(request.Name))
         {
-            return Results.BadRequest(new { error = "A territory needs a name." });
+            return Problems.BadRequest("name", "A territory needs a name.");
         }
 
         if (!await db.OrgUnits.AnyAsync(unit => unit.Id == request.OrgUnitId, ct))
         {
-            return Results.BadRequest(new { error = "The org unit does not exist." });
+            return Problems.BadRequest("orgUnitId", "The org unit does not exist.");
         }
 
         var taken = await db.Territories.AnyAsync(
             territory => territory.Name == request.Name && (excluding == null || territory.Id != excluding), ct);
 
         return taken
-            ? Results.Conflict(new { error = $"A territory named '{request.Name}' already exists." })
+            ? Problems.Conflict("name", $"A territory named '{request.Name}' already exists.")
             : null;
     }
 }
