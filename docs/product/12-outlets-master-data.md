@@ -326,15 +326,30 @@ guard.
 Sent on dry runs only, and bounded by the row cap: a real run has nothing left to correct and the
 caller is holding the rows already.
 
-Two smaller things:
+Five smaller things:
 
-- **Only the refused rows are editable.** The rest are correct, and 3,988 of them scrolling past is a
-  way of hiding the twelve that need attention. Past a hundred refused rows the grid stops and says
-  so, because 4,000 rows is 24,000 inputs and a browser asked to build them stops being a browser —
-  `rejectedRowsCsv` is the answer at that size, which is what it is for.
-- **The uploaded bytes are sent untouched until someone edits a cell.** "Check the file I gave you"
-  should mean the file they gave us. From the first edit onwards the file is written back out from
-  the server's own rows.
+- **The grid shows the whole file, filtered by default to the rows with problems.** Showing only
+  what failed hides the two things the good rows are evidence of: that the columns mapped the way the
+  admin expected, and that a problem naming another row — a code duplicated on row 3 — can be read
+  against that row. A filter narrows the view; it does not decide what exists. Past a hundred rows
+  the grid stops and says what it is not showing, because 4,000 rows across eight columns is 32,000
+  inputs and a browser asked to build them stops being a browser. `rejectedRowsCsv` is the answer at
+  that size, which is what it is for.
+- **Every row is checked, and unchecking one leaves it out.** A row that cannot be fixed today is
+  otherwise a dead end: the only ways out are `Partial` mode, which decides for you, and editing the
+  file outside the app. The two compose — the selection picks the set, the mode decides what happens
+  to bad rows still in it. The opposite default, where an empty selection means everything, makes the
+  box mean two things: the click that felt like adding one row would have dropped the other 3,999.
+- **Unchecked rows are dropped from the file that is sent**, so the file that was checked is exactly
+  the file that is applied. Consequence worth knowing: an exclusion renumbers the rows after it, so
+  once someone has excluded a row the numbers stop matching the original spreadsheet. Acceptable
+  because the grid is the reference by then, and preferable to a `skip=` parameter that would keep
+  the numbering at the price of API surface that grows unusable past a few dozen rows.
+- **Any change — a cell or a checkbox — makes Apply unavailable until the file is checked again.**
+  Without it, correcting a cell and pressing Apply writes something nobody has looked at, which is
+  the one thing this screen exists to prevent.
+- **The uploaded bytes are sent untouched until something is changed.** "Check the file I gave you"
+  should mean the file they gave us.
 
 Deliberately **before** the write rather than after it:
 

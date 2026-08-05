@@ -63,46 +63,73 @@ export function OutletImport() {
   const [chosen, setChosen] = useState<Chosen | null>(null);
   const [file, setFile] = useState<Corrections | null>(null);
 
+  /** Rows the admin has unchecked, by file row number. Emptied by a check, which drops them. */
+  const [excluded, setExcluded] = useState<ReadonlySet<number>>(new Set());
+
   /**
-   * Whether anything has been corrected since this file was chosen.
+   * Whether the uploaded bytes are still what this screen would send.
    *
    * Sticky until a different file is picked, and deliberately not cleared by a dry run. It was, and
    * that made Apply send the original upload again — because the run that proved the corrections
    * good was also the run that forgot about them. Nothing on screen said so: the check reported
    * three rows ready and the apply imported none.
    */
-  const [corrected, setCorrected] = useState(false);
+  const [pristine, setPristine] = useState(true);
+
+  /**
+   * Whether the file has changed since the last check.
+   *
+   * What makes "check, then apply" exact rather than nearly true: an edit or an exclusion after a
+   * check means the result on screen describes a file that no longer exists, so Apply is unavailable
+   * until it has been checked again. Without it, correcting a cell and pressing Apply writes
+   * something nobody has looked at.
+   */
+  const [dirty, setDirty] = useState(false);
   const [mode, setMode] = useState<OutletImportMode>("AllOrNothing");
   const [result, setResult] = useState<OutletImportResult | null>(null);
   const [refused, setRefused] = useState<readonly string[]>([]);
+
+  /** How many rows the run behind `result` left out — the admin's own exclusions, not the server's. */
+  const [skipped, setSkipped] = useState(0);
+
+  const everyRowExcluded = file !== null && excluded.size === file.rows.length && file.rows.length > 0;
 
   const maxRows = capabilities.data?.maxRows;
   const rows = chosen === undefined ? undefined : chosen && roughRowCount(chosen.text);
   const tooBig = maxRows !== undefined && rows != null && rows > maxRows;
 
   const run = useMutation({
-    mutationFn: (dryRun: boolean) =>
+    mutationFn: ({ dryRun }: { dryRun: boolean; skipped: number }) =>
       importOutlets(
         accessToken!,
         {
-          // The uploaded bytes until a cell is edited: "check the file I gave you" should mean the
-          // file they gave us. After that it is the server's own rows, written back out.
-          text: corrected && file
-            ? writeCsv(file.columns, file.rows.map((row) => row.values))
-            : chosen!.text,
+          // The uploaded bytes until something is changed: "check the file I gave you" should mean
+          // the file they gave us. After that it is the server's own rows, minus the ones unchecked,
+          // written back out.
+          text: pristine || !file
+            ? chosen!.text
+            : writeCsv(
+                file.columns,
+                file.rows.filter((row) => !excluded.has(row.row)).map((row) => row.values),
+              ),
           mediaType: capabilities.data!.mediaTypes[0],
         },
         { mode, dryRun },
       ),
 
-    onSuccess: async (outcome) => {
+    onSuccess: async (outcome, sent) => {
       setRefused([]);
       setResult(outcome);
+      setSkipped(sent.skipped);
+      setDirty(false);
 
       // A dry run re-reads whatever was sent, so its rows supersede the ones being corrected — a
-      // correction that landed is now simply part of the file. A real run sends none, and there is
-      // nothing left to correct anyway.
-      if (outcome.dryRun) setFile({ columns: outcome.columns, rows: outcome.rows });
+      // correction that landed is now simply part of the file, and an unchecked row is no longer in
+      // it at all. A real run sends none, and there is nothing left to correct anyway.
+      if (outcome.dryRun) {
+        setFile({ columns: outcome.columns, rows: outcome.rows });
+        setExcluded(new Set());
+      }
 
       // Only a real run changed anything. Invalidating after a dry run would refetch every list to
       // find them exactly as they were.
@@ -123,13 +150,21 @@ export function OutletImport() {
     setResult(null);
     setRefused([]);
     setFile(null);
-    setCorrected(false);
+    setExcluded(new Set());
+    setPristine(true);
+    setDirty(false);
 
     setChosen(picked ? { name: picked.name, text: await picked.text() } : null);
   }
 
+  /** Any change to the file: it is no longer the upload, and no longer what was checked. */
+  function changed() {
+    setPristine(false);
+    setDirty(true);
+  }
+
   function edit(row: number, column: number, value: string) {
-    setCorrected(true);
+    changed();
 
     setFile((current) =>
       current === null
@@ -143,6 +178,28 @@ export function OutletImport() {
             ),
           },
     );
+  }
+
+  function toggle(row: number, include: boolean) {
+    changed();
+
+    setExcluded((current) => {
+      const next = new Set(current);
+
+      if (include) next.delete(row);
+      else next.add(row);
+
+      return next;
+    });
+  }
+
+  function toggleAll(include: boolean) {
+    changed();
+    setExcluded(include ? new Set() : new Set(file?.rows.map((row) => row.row) ?? []));
+  }
+
+  function check() {
+    run.mutate({ dryRun: true, skipped: excluded.size });
   }
 
   return (
@@ -196,11 +253,21 @@ export function OutletImport() {
           </p>
         ) : null}
 
+        {excluded.size > 0 ? (
+          <p className="text-sm">{t("excluded", { count: excluded.size })}</p>
+        ) : null}
+
+        {dirty && result ? (
+          // The result on screen describes a file that no longer exists. Saying so is better than
+          // quietly leaving Apply available and writing something nobody has looked at.
+          <p className="text-sm text-muted-foreground">{t("stale")}</p>
+        ) : null}
+
         <div className="flex flex-wrap gap-2">
           <Button
             type="button"
-            disabled={!chosen || tooBig || run.isPending}
-            onClick={() => run.mutate(true)}
+            disabled={!chosen || tooBig || run.isPending || everyRowExcluded}
+            onClick={() => check()}
           >
             {run.isPending ? t("checking") : t("check")}
           </Button>
@@ -208,10 +275,11 @@ export function OutletImport() {
           <Button
             type="button"
             variant="outline"
-            // Only after a dry run, and only one that found something to write. "Apply" on a file
-            // nobody has checked is the mode this endpoint deliberately does not have.
-            disabled={!result?.dryRun || result.accepted === 0 || run.isPending}
-            onClick={() => run.mutate(false)}
+            // Only after a dry run, only one that found something to write, and only while the file
+            // is still the one that run described. "Apply" on a file nobody has checked is the mode
+            // this endpoint deliberately does not have.
+            disabled={!result?.dryRun || result.accepted === 0 || dirty || run.isPending}
+            onClick={() => run.mutate({ dryRun: false, skipped: excluded.size })}
           >
             {t("apply")}
           </Button>
@@ -226,15 +294,25 @@ export function OutletImport() {
         </ul>
       ) : null}
 
-      {result ? <Outcome result={result} fileName={chosen?.name ?? "outlets.csv"} /> : null}
+      {result ? (
+        <Outcome result={result} skipped={skipped} fileName={chosen?.name ?? "outlets.csv"} />
+      ) : null}
 
-      {result && file && result.problems.length > 0 ? (
+      {/*
+        Kept on screen through a failed run: the corrections in it are the admin's work, and losing
+        them to a network error would be worse than showing a grid whose problems are one request
+        out of date.
+      */}
+      {file ? (
         <OutletImportGrid
           columns={file.columns}
           rows={file.rows}
-          problems={result.problems}
+          problems={result?.problems ?? []}
+          excluded={excluded}
           onEdit={edit}
-          onRecheck={() => run.mutate(true)}
+          onToggle={toggle}
+          onToggleAll={toggleAll}
+          onRecheck={check}
           busy={run.isPending}
         />
       ) : null}
@@ -242,7 +320,15 @@ export function OutletImport() {
   );
 }
 
-function Outcome({ result, fileName }: { result: OutletImportResult; fileName: string }) {
+function Outcome({
+  result,
+  skipped,
+  fileName,
+}: {
+  result: OutletImportResult;
+  skipped: number;
+  fileName: string;
+}) {
   const t = useTranslations("OutletImport");
 
   return (
@@ -263,6 +349,12 @@ function Outcome({ result, fileName }: { result: OutletImportResult; fileName: s
           ? t("checked", { accepted: result.accepted, rejected: result.rejected })
           : t("applied", { imported: result.imported, rejected: result.rejected })}
       </p>
+
+      {skipped > 0 ? (
+        // Stated rather than left to be inferred from the arithmetic: a file of 40 rows reporting 37
+        // accepted is a question, and "3 were excluded" is the answer to it.
+        <p className="text-sm text-muted-foreground">{t("wereExcluded", { count: skipped })}</p>
+      ) : null}
 
       {!result.dryRun && result.imported === 0 && result.accepted > 0 ? (
         <p className="text-sm text-muted-foreground">{t("nothingWritten")}</p>

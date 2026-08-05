@@ -1,18 +1,19 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { OutletImportProblem, OutletImportRow } from "@/lib/api/outlet-import";
 import { cn } from "@/lib/utils";
 
 /**
- * How many rows the grid will render.
+ * How many rows the grid will render at once.
  *
- * A cap rather than a scroll: 4,000 refused rows is 24,000 inputs, and a browser asked to build them
- * stops being a browser. Past this the rejected-rows download is the honest answer — the spec keeps
- * it precisely as the escape hatch for files too big to review by eye — and the screen says so
- * rather than showing the first hundred as if that were all of them.
+ * A cap rather than a scroll: 4,000 rows across eight columns is 32,000 inputs, and a browser asked
+ * to build them stops being a browser. The screen says what it is not showing rather than presenting
+ * the first hundred as if that were the file — and `rejectedRowsCsv` stays the answer at that size,
+ * which is what the spec keeps it for.
  */
 const MaxRows = 100;
 
@@ -23,7 +24,7 @@ type RowProblems = {
 };
 
 /**
- * The refused rows, corrected in place (`OUT-05`).
+ * The uploaded file, corrected in place (`OUT-05`).
  *
  * **Before the write rather than after it.** A grid that appeared once the import had run would be
  * editing outlets, which is the Outlets screen's job — and the difference is between an admin fixing
@@ -34,31 +35,42 @@ type RowProblems = {
  * decides which row is row 7, and cannot flag a cell in the wrong shop. Writing the corrected file
  * back out is the only CSV work left here, and a writer emits what it is given.
  *
- * Only the refused rows are shown. The rest are correct, and 3,988 of them scrolling past is a way
- * of hiding the twelve that need attention.
+ * **The whole file, not just the refused rows.** Showing only what failed hides the two things the
+ * good rows are evidence of: that the columns mapped the way the admin expected, and that a problem
+ * naming another row (a code duplicated on row 3) can be read against that row. The filter above the
+ * table narrows it to the rows that need attention, which is the default when there are any.
  */
 export function OutletImportGrid({
   columns,
   rows,
   problems,
+  excluded,
   onEdit,
+  onToggle,
+  onToggleAll,
   onRecheck,
   busy,
 }: {
   columns: string[];
   rows: OutletImportRow[];
   problems: OutletImportProblem[];
+  /** Rows the admin has unchecked, by their file row number. */
+  excluded: ReadonlySet<number>;
   onEdit: (row: number, column: number, value: string) => void;
+  onToggle: (row: number, include: boolean) => void;
+  onToggleAll: (include: boolean) => void;
   onRecheck: () => void;
   busy: boolean;
 }) {
   const t = useTranslations("OutletImport");
 
   const byRow = group(problems);
-  const refused = rows.filter((row) => byRow.has(row.row));
-  const shown = refused.slice(0, MaxRows);
+  const [onlyProblems, setOnlyProblems] = useState(true);
 
-  if (shown.length === 0) return null;
+  const filtered = onlyProblems && byRow.size > 0 ? rows.filter((row) => byRow.has(row.row)) : rows;
+  const shown = filtered.slice(0, MaxRows);
+
+  if (rows.length === 0) return null;
 
   return (
     <section className="flex flex-col gap-3">
@@ -67,11 +79,37 @@ export function OutletImportGrid({
         <p className="text-xs text-muted-foreground">{t("fixHint")}</p>
       </div>
 
+      {byRow.size > 0 ? (
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={onlyProblems}
+            onChange={(event) => setOnlyProblems(event.target.checked)}
+            className="size-4 accent-primary"
+          />
+          {t("onlyProblems")}
+        </label>
+      ) : null}
+
       <div className="overflow-x-auto rounded-xl border border-border">
         <table className="w-full text-sm">
           <caption className="sr-only">{t("fixCaption")}</caption>
           <thead className="bg-muted/50 text-xs uppercase">
             <tr>
+              <th scope="col" className="px-3 py-2 text-left font-medium">
+                <input
+                  type="checkbox"
+                  // Indeterminate is the honest state for a partial selection, and it is a property
+                  // rather than an attribute — React will not set it from JSX.
+                  ref={(box) => {
+                    if (box) box.indeterminate = excluded.size > 0 && excluded.size < rows.length;
+                  }}
+                  checked={excluded.size === 0}
+                  onChange={(event) => onToggleAll(event.target.checked)}
+                  aria-label={t("includeAll")}
+                  className="size-4 accent-primary"
+                />
+              </th>
               <th scope="col" className="px-3 py-2 text-left font-medium">
                 {t("row")}
               </th>
@@ -87,18 +125,31 @@ export function OutletImportGrid({
           </thead>
           <tbody>
             {shown.map(({ row: number, values }) => {
-              const row = byRow.get(number)!;
+              const row = byRow.get(number);
               const problemId = `row-${number}-problems`;
+              const skipped = excluded.has(number);
 
               return (
-                <tr key={number} className="border-t border-border align-top">
+                <tr
+                  key={number}
+                  className={cn("border-t border-border align-top", skipped && "opacity-50")}
+                >
+                  <td className="px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={!skipped}
+                      onChange={(event) => onToggle(number, event.target.checked)}
+                      aria-label={t("includeRow", { row: number })}
+                      className="size-4 accent-primary"
+                    />
+                  </td>
+
                   <th scope="row" className="px-3 py-2 text-left font-normal tabular-nums">
                     {number}
                   </th>
 
                   {columns.map((column, at) => {
-                    const flagged = row.columns.has(column);
-
+                    const flagged = row?.columns.has(column) ?? false;
                     const value = values[at] ?? "";
 
                     // A textarea only where one is needed. `<input value>` is sanitised by the DOM —
@@ -130,11 +181,13 @@ export function OutletImportGrid({
                   })}
 
                   <td id={problemId} className="px-3 py-2 text-xs text-destructive">
-                    <ul className="flex flex-col gap-1">
-                      {[...row.columns.values(), row.whole].flat().map((message) => (
-                        <li key={message}>{message}</li>
-                      ))}
-                    </ul>
+                    {row ? (
+                      <ul className="flex flex-col gap-1">
+                        {[...row.columns.values(), row.whole].flat().map((message) => (
+                          <li key={message}>{message}</li>
+                        ))}
+                      </ul>
+                    ) : null}
                   </td>
                 </tr>
               );
@@ -143,14 +196,20 @@ export function OutletImportGrid({
         </table>
       </div>
 
-      {refused.length > shown.length ? (
+      {filtered.length > shown.length ? (
         <p className="text-xs text-muted-foreground">
-          {t("tooManyToFix", { shown: shown.length, total: refused.length })}
+          {t("tooManyToFix", { shown: shown.length, total: filtered.length })}
         </p>
       ) : null}
 
       <div>
-        <Button type="button" onClick={onRecheck} disabled={busy}>
+        <Button
+          type="button"
+          onClick={onRecheck}
+          // Unchecking every row would send a header and nothing else, which the import refuses as a
+          // file with no rows — wiping the grid, and the corrections in it, to say so.
+          disabled={busy || excluded.size === rows.length}
+        >
           {busy ? t("checking") : t("recheck")}
         </Button>
       </div>

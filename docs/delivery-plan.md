@@ -195,8 +195,10 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
   exactly what the real run would, so Apply stays unavailable until Check has run. The row cap and
   the readable formats come from **`GET /api/outlets/import`** rather than a copy in the front end,
   because a drifted copy fails silently.
-  ✓ **The editable grid** (`OUT-05`) — the refused rows come back as a table with the flagged cells
-  editable; fix them, check again, apply. A dry run now hands the file back **as the server read it**,
+  ✓ **The editable grid** (`OUT-05`) — the file comes back as a table with the flagged cells editable
+  and a checkbox per row; fix what can be fixed, uncheck what cannot, check again, apply. Any change
+  makes Apply unavailable until it has been re-checked, so the file that was checked is exactly the
+  file that is written. A dry run hands the file back **as the server read it**,
   so the screen corrects rows the server numbered rather than parsing the upload a second time: two
   CSV readers disagreeing about which row is row 7 would flag a cell in the wrong shop, with no
   symptom until someone corrected data that was fine

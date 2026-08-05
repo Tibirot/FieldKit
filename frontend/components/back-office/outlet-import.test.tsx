@@ -437,6 +437,142 @@ describe("<OutletImport>", () => {
     expect(sent()).toContain('"Str. Dorobanti 1\nBucharest"');
   });
 
+  it("shows the whole file, filtered to the rows that need attention", async () => {
+    // Only showing what failed hides the two things the good rows are evidence of: that the columns
+    // mapped the way the admin expected, and that a problem naming another row can be read against
+    // it. The filter narrows; it does not decide what exists.
+    importOutlets.mockResolvedValue({
+      ...CLEAN,
+      totalRows: 3,
+      accepted: 2,
+      rejected: 1,
+      rows: serverRows(3),
+      problems: [{ row: 3, column: "channel", message: "'Modren Trade' is not a channel." }],
+    });
+
+    render(<OutletImport />);
+    await waitFor(() => expect(fetchImportCapabilities).toHaveBeenCalled());
+
+    await userEvent.upload(screen.getByLabelText(/^file/i), csv(3));
+    await userEvent.click(screen.getByRole("button", { name: "Check file" }));
+
+    await screen.findByLabelText("code, row 3");
+    expect(screen.queryByLabelText("code, row 2")).toBeNull();
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Only rows with problems" }));
+
+    expect(screen.getByLabelText("code, row 2")).toBeTruthy();
+    expect(screen.getByLabelText("code, row 4")).toBeTruthy();
+  });
+
+  it("imports every row unless one is unchecked", async () => {
+    // The default is every row in, and unchecking takes one out. The opposite — nothing checked
+    // meaning everything — makes the box mean two different things: the click that felt like adding
+    // one row would have dropped the other 3,999.
+    importOutlets.mockResolvedValue({
+      ...CLEAN,
+      totalRows: 3,
+      accepted: 2,
+      rejected: 1,
+      rows: serverRows(3),
+      problems: [{ row: 3, column: "channel", message: "'Modren Trade' is not a channel." }],
+    });
+
+    render(<OutletImport />);
+    await waitFor(() => expect(fetchImportCapabilities).toHaveBeenCalled());
+
+    await userEvent.upload(screen.getByLabelText(/^file/i), csv(3));
+    await userEvent.click(screen.getByRole("button", { name: "Check file" }));
+
+    const box = await screen.findByRole("checkbox", { name: "Import row 3" });
+    expect((box as HTMLInputElement).checked).toBe(true);
+
+    await userEvent.click(box);
+    await userEvent.click(screen.getByRole("button", { name: "Check again" }));
+
+    await waitFor(() => expect(importOutlets).toHaveBeenCalledTimes(2));
+
+    expect(sent()).toContain("OUT-1");
+    expect(sent()).not.toContain("OUT-2");
+    expect(sent()).toContain("OUT-3");
+  });
+
+  it("will not apply a file that has changed since it was checked", async () => {
+    // What makes "check, then apply" exact rather than nearly true. Correcting a cell and pressing
+    // Apply would otherwise write something nobody has looked at.
+    importOutlets.mockResolvedValue({
+      ...CLEAN,
+      totalRows: 3,
+      accepted: 2,
+      rejected: 1,
+      rows: serverRows(3),
+      problems: [{ row: 3, column: "channel", message: "'Modren Trade' is not a channel." }],
+    });
+
+    render(<OutletImport />);
+    await waitFor(() => expect(fetchImportCapabilities).toHaveBeenCalled());
+
+    await userEvent.upload(screen.getByLabelText(/^file/i), csv(3));
+    await userEvent.click(screen.getByRole("button", { name: "Check file" }));
+
+    const cell = await screen.findByLabelText("channel, row 3");
+
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Apply" }).disabled).toBe(false);
+
+    await userEvent.type(cell, "x");
+
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Apply" }).disabled).toBe(true);
+    expect(screen.getByText(/changed since it was checked/)).toBeTruthy();
+  });
+
+  it("says how many rows it left out", async () => {
+    // A file of 40 rows reporting 37 accepted is a question, and this is the answer to it rather
+    // than arithmetic the admin has to do.
+    importOutlets.mockResolvedValue({
+      ...CLEAN,
+      totalRows: 3,
+      accepted: 2,
+      rejected: 1,
+      rows: serverRows(3),
+      problems: [{ row: 3, column: "channel", message: "'Modren Trade' is not a channel." }],
+    });
+
+    render(<OutletImport />);
+    await waitFor(() => expect(fetchImportCapabilities).toHaveBeenCalled());
+
+    await userEvent.upload(screen.getByLabelText(/^file/i), csv(3));
+    await userEvent.click(screen.getByRole("button", { name: "Check file" }));
+
+    await userEvent.click(await screen.findByRole("checkbox", { name: "Import row 3" }));
+    await userEvent.click(screen.getByRole("button", { name: "Check again" }));
+
+    expect(await screen.findByText(/1 row was unchecked and left out of this run/)).toBeTruthy();
+  });
+
+  it("will not check a file with every row unchecked", async () => {
+    // A header and nothing else is refused as a file with no rows — wiping the grid, and the
+    // corrections in it, to say so.
+    importOutlets.mockResolvedValue({
+      ...CLEAN,
+      totalRows: 3,
+      accepted: 2,
+      rejected: 1,
+      rows: serverRows(3),
+      problems: [{ row: 3, column: "channel", message: "'Modren Trade' is not a channel." }],
+    });
+
+    render(<OutletImport />);
+    await waitFor(() => expect(fetchImportCapabilities).toHaveBeenCalled());
+
+    await userEvent.upload(screen.getByLabelText(/^file/i), csv(3));
+    await userEvent.click(screen.getByRole("button", { name: "Check file" }));
+
+    await userEvent.click(await screen.findByRole("checkbox", { name: "Import every row" }));
+
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Check again" }).disabled).toBe(true);
+    expect(screen.getByText(/3 rows are unchecked/)).toBeTruthy();
+  });
+
   it("keeps what the server said when it refuses the file outright", async () => {
     // A file that is not CSV has nothing to say per row, and replacing the one fact that matters
     // with "something went wrong" throws away the only description of what is actually wrong.
