@@ -39,6 +39,28 @@ public sealed class Product : AggregateRoot, ITenantOwned, IAuditable
     /// <summary>How this is taxed. See the note above about what null means at order time.</summary>
     public Guid? TaxClassId { get; private set; }
 
+    /// <summary>
+    /// What one of these is — <c>EA</c>, <c>CS</c>, <c>KG</c>, <c>L</c>.
+    /// </summary>
+    /// <remarks>
+    /// A plain string rather than reference data, for the reason Outlets gives for keeping segment
+    /// and banner as strings: nothing branches on it. Pricing is per unit, orders are in units, and
+    /// no rule in this module matches on the measure itself — it labels a quantity rather than
+    /// deciding anything. The moment something does key off it, it becomes a vocabulary the way
+    /// <see cref="Brand"/> is, and that is an additive migration plus a backfill.
+    /// </remarks>
+    public string? UnitOfMeasure { get; private set; }
+
+    /// <summary>How many selling units are in one of these, when that is a meaningful number.</summary>
+    /// <remarks>
+    /// Null for anything sold loose or by weight, where "how many are in it" has no answer. When
+    /// present it must be positive — a pack of zero is not a small pack, it is a typo, and the
+    /// endpoint refuses it.
+    /// </remarks>
+    public int? PackSize { get; private set; }
+
+    public ProductStatus Status { get; private set; }
+
     // Set by infrastructure interceptors (tenant / audit).
     public TenantId TenantId { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
@@ -49,19 +71,26 @@ public sealed class Product : AggregateRoot, ITenantOwned, IAuditable
     private Product() { } // EF
 
     public static Product Create(
-        string sku, string name, ProductClassification classification, IClock clock)
+        string sku,
+        string name,
+        ProductClassification classification,
+        ProductAttributes attributes,
+        IClock clock)
     {
         var product = new Product { Id = Guid.CreateVersion7(), Sku = sku, Name = name };
         product.Classify(classification);
+        product.Describe(attributes);
         product.Raise(new ProductCreated(Guid.CreateVersion7(), clock.UtcNow, product.Id, sku, name));
         return product;
     }
 
-    /// <summary>Renames and reclassifies in one call, the way a form saves.</summary>
-    public void Update(string name, ProductClassification classification, IClock clock)
+    /// <summary>Renames, reclassifies and re-describes in one call, the way a form saves.</summary>
+    public void Update(
+        string name, ProductClassification classification, ProductAttributes attributes, IClock clock)
     {
         Name = name;
         Classify(classification);
+        Describe(attributes);
         ModifiedAtUtc = clock.UtcNow;
     }
 
@@ -76,7 +105,39 @@ public sealed class Product : AggregateRoot, ITenantOwned, IAuditable
         CategoryId = classification.CategoryId;
         TaxClassId = classification.TaxClassId;
     }
+
+    private void Describe(ProductAttributes attributes)
+    {
+        UnitOfMeasure = string.IsNullOrWhiteSpace(attributes.UnitOfMeasure)
+            ? null
+            : attributes.UnitOfMeasure.Trim();
+        PackSize = attributes.PackSize;
+        Status = attributes.Status;
+    }
 }
+
+/// <summary>Whether a product is still sold.</summary>
+/// <remarks>
+/// <b>Discontinued is not terminal</b>, and that is the difference from <c>OutletStatus.Closed</c>.
+/// A shop that has shut down does not reopen, so closing one is a one-way door worth enforcing. A
+/// product comes back: seasonal lines return every year, a supplier resumes, a range is reinstated.
+/// Making this terminal would mean re-creating the SKU to sell it again — a new id that every
+/// historical order line fails to point at, to model something that is genuinely reversible.
+/// </remarks>
+public enum ProductStatus
+{
+    Active = 0,
+    Discontinued = 1,
+}
+
+/// <summary>What a product is, as opposed to how it is classified.</summary>
+/// <remarks>
+/// Grouped for a weaker reason than <see cref="ProductClassification"/>: these three have different
+/// types, so no caller can transpose them the way three consecutive <c>Guid?</c>s invite. This is
+/// about keeping <see cref="Product.Create"/> from taking seven positional parameters — worth doing,
+/// but do not read it as the same safety argument.
+/// </remarks>
+public sealed record ProductAttributes(string? UnitOfMeasure, int? PackSize, ProductStatus Status);
 
 /// <summary>How a product is classified — the three optional pointers, passed together.</summary>
 /// <remarks>

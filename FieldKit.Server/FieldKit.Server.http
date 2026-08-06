@@ -152,7 +152,8 @@ Authorization: Bearer {{token.response.body.access_token}}
   "name": "Veridian Still 0.5L"
 }
 
-### Products — create a classified product, using the brand created above.
+### Products — create a classified, described product, using the brand created above.
+### `status` defaults to "Active"; `unitOfMeasure` and `packSize` are absent for anything sold loose.
 # @name classified
 POST {{Server_HostAddress}}/api/products
 Content-Type: application/json
@@ -161,7 +162,37 @@ Authorization: Bearer {{token.response.body.access_token}}
 {
   "sku": "VRD-STL-100",
   "name": "Veridian Still 1L",
-  "brandId": "{{veridian.response.body.id}}"
+  "brandId": "{{veridian.response.body.id}}",
+  "unitOfMeasure": "CS",
+  "packSize": 12
+}
+
+### A pack size below 1 — expect 400 `product.packSize.notPositive`.
+### Refused rather than normalised to null: a pack of zero is not "no pack size", it is a typo, and
+### quietly dropping it would let a bad import look like a deliberate omission.
+POST {{Server_HostAddress}}/api/products
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "sku": "VRD-BAD-002",
+  "name": "Pack of nothing",
+  "packSize": 0
+}
+
+### Discontinue a product — and note it can be set back to "Active".
+### Unlike an outlet closing, this is not a one-way door: seasonal lines come back, and forcing a new
+### SKU to sell one again would orphan every order line that already points at this id.
+PUT {{Server_HostAddress}}/api/products/{{classified.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Veridian Still 1L",
+  "brandId": "{{veridian.response.body.id}}",
+  "unitOfMeasure": "CS",
+  "packSize": 12,
+  "status": "Discontinued"
 }
 
 ### Three unknown classification ids — expect 400 with **three** problems, not one:
