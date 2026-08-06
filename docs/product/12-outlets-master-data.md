@@ -146,6 +146,14 @@ closed in March and renamed in April reads as though nobody ever closed it. The 
 "no history" can never be mistaken for "the history was lost". There is no API to write, edit or
 delete an entry — an audit log with a write path is one that can be arranged after the fact.
 
+The back office reaches this through a **lifecycle panel below the outlet edit form and outside it**
+(W5). Outside, because a control inside the form would undo the separation the endpoint exists to
+create — one Save covering both "this store is shut" and "the name was spelled wrong". A closed
+outlet gets no control at all rather than a select whose every option the API would refuse; it gets
+the paragraph above instead. The trail renders under both, readable by anyone with `outlet:read`:
+reading why a shop was closed is not the same authority as closing one, and "why can't I order for
+this outlet" is answered there or nowhere.
+
 **A reason is required to close, and optional otherwise.** Closing is irreversible and removes the
 outlet from every future journey, so *why* is the question an auditor will ask about it, and the
 person who knows the answer is the one doing it. Demanding a reason for a routine

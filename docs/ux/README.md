@@ -72,6 +72,11 @@ is better *specified* than drawn, because what it looks like depends entirely on
 defined ([Configuration §6.1](../product/14-configuration.md#61-what-is-built-phase-1) has the five
 field types and their rules).
 
+The screen that *authors* that catalogue is a third case: never wireframed, and shipped in W5
+anyway. It went unnoticed for the same reason it was easy to miss in review — the wireframe set was
+drawn around what a tenant's data looks like, and this is the screen that decides what a tenant's
+data *is*. Its own list is fixed: a label, a key, a type, and the one rule that type can carry.
+
 ## What Week 5 actually builds
 
 These wireframes are **design intent, drawn against the finished product**. Several screens show data
@@ -84,6 +89,8 @@ here rather than silently dropping columns: the gap is a schedule, not a change 
 | Shell + nav | Full nav per the wireframe, **unbuilt destinations visibly disabled**; lands on Outlets | Dashboard **W12**, Journeys **W7**, Visits/audits **W9**, Products **W6** |
 | Outlets | Table with code, name, channel, segment, status, **primary territory**; filters by channel and status; create/edit incl. the dynamic custom-field form | **Frequency** (`F2 · weekly`) — journey planning, **W7**. **Field proposals** count and the `Proposed` chip — `OUT-06`/`OUT-07`, **Phase 3** |
 | Outlets — import | The whole flow: upload, dry run, editable grid, apply | — |
+| Outlets — custom fields | The catalogue for `Outlet`: define, edit, delete, with the type's own rule | Products, orders and visits get their own catalogues **W6+**, with the screens that render them |
+| Outlets — lifecycle | Status panel below the edit form: the transitions still open, a reason, and the append-only trail | — |
 | Territories | List, outlet counts, rep assignment in the detail panel | **Coverage %** — reporting, **W12**. **Channel mix** bars — computable but has no endpoint; lands with the dashboard's read side |
 | Users & roles | User list, role bundles, permission toggles | **Device** column — `IAM-07`; no device concept exists in the IAM module yet |
 

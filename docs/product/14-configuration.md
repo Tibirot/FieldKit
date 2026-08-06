@@ -102,6 +102,34 @@ Consequences worth stating:
 - **An undescribed key is rejected, not dropped.** Silently discarding it would lose an import's data
   with no signal — and the catalogue exists precisely so that what is stored can be described.
 
+### 6.2 Authoring the catalogue (Week 5)
+
+`F1` reaches a screen at `/outlets/custom-fields`, linked from the outlet header and gated on
+`config:read` / `config:write`. One entity per screen rather than an entity picker: outlets are the
+only entity with custom fields wired through today, and products bring their own catalogue and their
+own screen in W6.
+
+Three things the screen has to say out loud, because they are all consequences the API cannot undo:
+
+- **The key is derived from the label, and fixed once saved.** Left to themselves an admin types
+  "Chiller count" into both boxes and the second is refused, so the key is filled in from the label
+  — diacritics folded rather than treated as separators, since "Suprafață de raft" must not become
+  `suprafa_de_raft`. It stops deriving the moment someone types a key of their own.
+- **Deleting is confirmed, and the confirmation names the cost.** Unlike a channel, which the API
+  refuses to delete while outlets use it, this cannot be refused: the values live in another module's
+  rows and Configuration may not read them
+  ([ADR-0005](../architecture/adr/0005-postgres-schema-per-module.md)).
+  They stay where they are, undescribed, until each outlet is next saved — and then they are gone.
+- **Only the constraints the chosen type carries are sent.** The API clears options on a non-choice
+  itself but keeps `maxLength` and the bounds, so a field briefly typed as a number would otherwise
+  hold bounds that render nowhere, validate nothing, and become authoritative again the moment
+  someone switched it back.
+
+Everything else stays the server's to decide. A choice with no options and a minimum above its
+maximum are both refused with the offending control named, and the API's problem fields are already
+the form's field names — so a refusal lands beside the control that caused it without a mapping table
+that could drift ([api-contracts §3](../architecture/13-api-contracts.md)).
+
 ## 7. Offline behavior
 
 All config is **reference data**: pulled (territory/tenant-scoped) and read-only on device, applied

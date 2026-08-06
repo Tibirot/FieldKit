@@ -25,7 +25,12 @@ export function render(ui: React.ReactNode) {
 
   function Providers({ children }: { children: React.ReactNode }) {
     return (
-      <NextIntlClientProvider locale="en" messages={en}>
+      // `timeZone` mirrors `i18n/request.ts`, and has to. Without it next-intl formats in the
+      // machine's zone while the app formats in UTC — so `2025-11-04T08:00:00Z` rendered as
+      // "10:00 AM" here and "8:00 AM" in the browser, and a test asserting the wrong one would
+      // pass. `vitest.config.ts` pins `TZ` to Europe/Bucharest precisely so that a formatter
+      // reaching for the system zone is visibly wrong rather than accidentally right on CI.
+      <NextIntlClientProvider locale="en" timeZone="UTC" messages={en}>
         <QueryClientProvider client={client}>{children}</QueryClientProvider>
       </NextIntlClientProvider>
     );

@@ -258,6 +258,28 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
   revisited. `channel:write` is separate from `outlet:write` on purpose — it is the permission the
   importer pointedly lacks, so a typo in one cell cannot mint a permanent classification.
 
+- **Outlet custom fields** (`CFG-01`) — behind `/outlets/custom-fields`, linked from the outlet
+  header. **Not in the original W5 list**, and the fourth instance of the same pattern, found by the
+  pre-Phase-2 audit rather than by the demo walk: the outlet form has rendered a tenant's own fields
+  since W4 and the import validates against them, but nothing could put anything *in* the catalogue.
+  Every definition on the dev database existed because an integration test had made one — so the
+  module that carries the product's "highly customizable per tenant" claim shipped read-only.
+  The **key is derived from the label** and fixed after creation, because it is the JSONB property
+  name already written into every row. Deleting a definition is **confirmed**, unlike deleting a
+  channel: a channel still in use is refused by the API with a count, while this cannot be — the
+  values live in another module's rows (ADR-0005) and stay there, undescribed, until each outlet is
+  next saved and then vanish.
+
+- **Outlet lifecycle** (`OUT-04`) — a panel below the edit form, **outside it**. The API gave status
+  its own endpoint so that closing a shop could not ride along on an unrelated edit, and a control
+  inside the form would hand that back: one Save, two decisions. The fifth API-with-no-caller the
+  audit found — the outlet table has shown a Status column since W5 that could only ever read
+  `Active`, and the append-only trail behind it was written by integration tests and read by nobody.
+  `Closed` is terminal, so a closed outlet is offered **no control at all** rather than a select the
+  API will refuse; what it gets instead is the spec's own guidance, that a location which trades
+  again is a new outlet with its own code. The trail is readable by anyone with `outlet:read` —
+  "why can't I order for this shop" is answered there or nowhere.
+
 **Done when:** an admin logs in, models a small org, and loads outlets — matches the [wireframes](ux/README.md), all tenant-scoped. **▶ Phase 1 demo.**
 
 ---
