@@ -19,8 +19,11 @@ namespace FieldKit.Modules.Outlets;
 /// arrived in.
 /// </para>
 /// <para>
-/// These problems still carry prose only. Migrating them to <c>ADR-0012</c> codes is Outlets' own
-/// change, and doing it here would have hidden a behavioural difference inside a refactor.
+/// <b>These carry <c>ADR-0012</c> codes; the rest of Outlets does not yet.</b> That is deliberate
+/// rather than half-finished work left lying around. When Products became a second caller of
+/// <see cref="CustomFieldRules"/>, one shared rule set had two callers answering differently — the
+/// same violation coded in one module and bare prose in the other. Closing that is what this is;
+/// migrating <c>OutletEndpoints</c>' other seventeen refusals is ADR-0012 stage 3 and its own change.
 /// </para>
 /// </remarks>
 internal static class CustomFieldValidator
@@ -32,18 +35,40 @@ internal static class CustomFieldValidator
         [
             .. CustomFieldRules
                 .Validate(values, definitions, CustomFieldEntity.Outlet)
-                .Select(violation => Problem(violation.Key, violation.Message)),
+                .Select(violation => new FieldProblem(
+                    // `customFields.chiller_count`, not `chiller_count` — the request has a
+                    // `customFields` object, so that is where a client looking for this problem
+                    // expects to find it. Naming it by the bare key would collide with a fixed field
+                    // the day a tenant defines one called `name`.
+                    $"customFields.{violation.Key}",
+                    violation.Message,
+                    Code(violation.Kind),
+                    violation.Args)),
         ];
 
-    /// <summary>
-    /// Names the field by the path the caller sent it under.
-    /// </summary>
+    /// <summary>Maps a rule violation to this module's <c>ADR-0012</c> code.</summary>
     /// <remarks>
-    /// <c>customFields.chiller_count</c>, not <c>chiller_count</c> — the request has a
-    /// <c>customFields</c> object, so that is where a client looking for this problem will expect to
-    /// find it. Naming it by the bare key would collide with a fixed field the day a tenant defines
-    /// one called <c>name</c>.
+    /// <para>
+    /// Literals in a switch, not interpolation over the enum name. Codes are API surface, and
+    /// <c>grep outlet.customField</c> has to find the module that answers for them — which is the
+    /// reason <see cref="CustomFieldRules"/> returns a <see cref="CustomFieldViolationKind"/> rather
+    /// than a ready-made code.
+    /// </para>
+    /// <para>
+    /// Deliberately a near-copy of the switch in Products' <c>ProductEndpoints</c>. The duplication
+    /// is the point: these are two modules' independent naming of their own surface, and a shared
+    /// helper deriving both would mean neither module's codes appear in its own source.
+    /// </para>
     /// </remarks>
-    private static FieldProblem Problem(string key, string message) =>
-        new($"customFields.{key}", message);
+    private static string Code(CustomFieldViolationKind kind) => kind switch
+    {
+        CustomFieldViolationKind.Unknown => "outlet.customField.unknown",
+        CustomFieldViolationKind.Required => "outlet.customField.required",
+        CustomFieldViolationKind.WrongType => "outlet.customField.wrongType",
+        CustomFieldViolationKind.TooLong => "outlet.customField.tooLong",
+        CustomFieldViolationKind.NotAnOption => "outlet.customField.notAnOption",
+        CustomFieldViolationKind.TooSmall => "outlet.customField.tooSmall",
+        CustomFieldViolationKind.TooLarge => "outlet.customField.tooLarge",
+        _ => "outlet.customField.invalid",
+    };
 }

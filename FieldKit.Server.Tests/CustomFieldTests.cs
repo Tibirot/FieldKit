@@ -162,6 +162,14 @@ public class CustomFieldTests(ServerFixture fixture)
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        // Named by the request path, and coded as Outlets' own (ADR-0012). The same violation from
+        // the same shared rules is `product.customField.unknown` in Products — which is the point of
+        // each module owning its codes rather than the rules deriving them.
+        var problem = Assert.Single(await Refusals.ProblemsOf(response));
+        Assert.Equal("customFields.not_a_defined_field", problem.Field);
+        Assert.Equal("outlet.customField.unknown", problem.Code);
+        Assert.Contains("for outlets.", problem.Message);
     }
 
     [Fact]

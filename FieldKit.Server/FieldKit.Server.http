@@ -1427,6 +1427,11 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
 ### bare key. The request has a `customFields` object, so that is where a client looks; the bare key
 ### would also collide with a fixed field the day a tenant defines one called `name`. Define
 ### `chiller_count` (0-50) above first.
+###
+### Expect 400 `outlet.customField.tooLarge`, with the bound in `args`. The same violation from the
+### same shared rules is `product.customField.tooLarge` on `/api/products` — each module names its
+### own codes (ADR-0012). Outlets' *other* refusals still carry prose only; migrating them is
+### ADR-0012 stage 3.
 POST {{Server_HostAddress}}/api/outlets
 Content-Type: application/json
 Authorization: Bearer {{adminToken.response.body.access_token}}
