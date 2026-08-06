@@ -4,7 +4,6 @@
   <Project Path="FieldKit.BuildingBlocks/FieldKit.BuildingBlocks.csproj" />
   <Project Path="FieldKit.Infrastructure.Tests/FieldKit.Infrastructure.Tests.csproj" />
   <Project Path="FieldKit.Infrastructure/FieldKit.Infrastructure.csproj" />
-  <Project Path="FieldKit.Modules.Catalog/FieldKit.Modules.Catalog.csproj" />
   <Project Path="FieldKit.Modules.Configuration.Contracts/FieldKit.Modules.Configuration.Contracts.csproj" />
   <Project Path="FieldKit.Modules.Configuration/FieldKit.Modules.Configuration.csproj" />
   <Project Path="FieldKit.Modules.Iam.Contracts/FieldKit.Modules.Iam.Contracts.csproj" />
@@ -13,6 +12,7 @@
   <Project Path="FieldKit.Modules.Org/FieldKit.Modules.Org.csproj" />
   <Project Path="FieldKit.Modules.Outlets.Contracts/FieldKit.Modules.Outlets.Contracts.csproj" />
   <Project Path="FieldKit.Modules.Outlets/FieldKit.Modules.Outlets.csproj" />
+  <Project Path="FieldKit.Modules.Products/FieldKit.Modules.Products.csproj" />
   <Project Path="FieldKit.Server.Tests/FieldKit.Server.Tests.csproj" />
   <Project Path="FieldKit.Server/FieldKit.Server.csproj" />
   <Project Path="FieldKit.SharedKernel.Tests/FieldKit.SharedKernel.Tests.csproj" />

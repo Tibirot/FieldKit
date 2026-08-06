@@ -2,13 +2,13 @@ using FieldKit.BuildingBlocks;
 using FieldKit.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
-namespace FieldKit.Modules.Catalog;
+namespace FieldKit.Modules.Products;
 
-/// <summary>The Catalog module's context — owns the <c>catalog</c> schema (schema-per-module).</summary>
-public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options, ITenantContext tenantContext)
+/// <summary>The Products module's context — owns the <c>products</c> schema (schema-per-module).</summary>
+public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> options, ITenantContext tenantContext)
     : ModuleDbContext(options, tenantContext)
 {
-    public const string SchemaName = "catalog";
+    public const string SchemaName = "products";
 
     protected override string Schema => SchemaName;
 

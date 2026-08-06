@@ -27,7 +27,7 @@ public class RoleAdministrationTests(ServerFixture fixture)
         var names = catalogue!.Select(entry => entry.Name).ToList();
 
         // Contributed by two different modules — which is the property that matters. A catalogue
-        // built from one assembly would list IAM's and quietly omit Catalog's.
+        // built from one assembly would list IAM's and quietly omit Products'.
         Assert.Contains("product:write", names);
         Assert.Contains("role:write", names);
 
