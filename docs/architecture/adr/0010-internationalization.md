@@ -5,6 +5,9 @@
 - **Deciders:** Tiberiu Socea
 - **Related:** decision [A3](../../product/decisions-and-assumptions.md#a3--internationalization-full-multi-currency--multi-language-ui),
   [SharedKernel / domain model](../11-domain-model.md)
+- **Extended by:** [ADR-0012](0012-server-message-localization.md) — this ADR settles the *UI*
+  catalogs and leaves server-produced messages unaddressed; 0012 closes that gap. Nothing here is
+  reversed.
 
 ## Context
 
