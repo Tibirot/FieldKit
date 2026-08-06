@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Tags, Upload } from "lucide-react";
+import { Plus, SlidersHorizontal, Tags, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -18,15 +18,32 @@ import { usePermissions } from "@/lib/auth/use-permissions";
  * pointedly does not hold, so that a typo in one cell cannot mint "Modren Trade" as a permanent
  * classification that assortment and pricing key off. Someone may well maintain outlets without
  * being trusted to invent the vocabulary they are filed under.
+ *
+ * **Custom fields are a third**, held by Configuration rather than Outlets, and the separation says
+ * the same thing one level up: maintaining outlets is not the same authority as deciding what an
+ * outlet *is*. A definition added here changes what every outlet must carry and what the import
+ * will refuse.
  */
 export function OutletActions() {
   const t = useTranslations("Outlets");
   const { has } = usePermissions();
 
-  if (!has("outlet:write") && !has("channel:read")) return null;
+  if (!has("outlet:write") && !has("channel:read") && !has("config:read")) return null;
 
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap gap-2">
+      {has("config:read") ? (
+        <Button
+          render={<Link href="/outlets/custom-fields" />}
+          nativeButton={false}
+          size="sm"
+          variant="outline"
+        >
+          <SlidersHorizontal className="size-4" />
+          {t("manageCustomFields")}
+        </Button>
+      ) : null}
+
       {has("channel:read") ? (
         <Button
           render={<Link href="/outlets/channels" />}
