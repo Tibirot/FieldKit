@@ -1,5 +1,4 @@
 using System.Reflection;
-using FieldKit.Modules.Catalog;
 using FieldKit.Modules.Iam;
 using FieldKit.Modules.Iam.Contracts;
 using FieldKit.Modules.Org;
@@ -8,6 +7,7 @@ using FieldKit.Modules.Configuration.Contracts;
 using FieldKit.Modules.Org.Contracts;
 using FieldKit.Modules.Outlets;
 using FieldKit.Modules.Outlets.Contracts;
+using FieldKit.Modules.Products;
 using NetArchTest.Rules;
 
 namespace FieldKit.ArchitectureTests;
@@ -28,7 +28,7 @@ public class ModuleBoundaryTests
 {
     private static readonly Assembly Iam = typeof(IamModule).Assembly;
     private static readonly Assembly IamContracts = typeof(IUserDirectory).Assembly;
-    private static readonly Assembly Catalog = typeof(CatalogModule).Assembly;
+    private static readonly Assembly ProductsModuleAssembly = typeof(ProductsModule).Assembly;
     private static readonly Assembly OrgModuleAssembly = typeof(OrgModule).Assembly;
     private static readonly Assembly OutletsModuleAssembly = typeof(OutletsModule).Assembly;
     private static readonly Assembly OutletsContracts = typeof(IOutletCatalog).Assembly;
@@ -40,7 +40,7 @@ public class ModuleBoundaryTests
     private static readonly string[] ModuleImplementations =
     [
         "FieldKit.Modules.Iam",
-        "FieldKit.Modules.Catalog",
+        "FieldKit.Modules.Products",
         "FieldKit.Modules.Org",
         "FieldKit.Modules.Outlets",
         "FieldKit.Modules.Configuration",
@@ -49,7 +49,7 @@ public class ModuleBoundaryTests
     [Fact] // AT-1 — the core boundary.
     public void A_module_never_references_another_modules_implementation()
     {
-        AssertReferencesNoOtherModule(Catalog);
+        AssertReferencesNoOtherModule(ProductsModuleAssembly);
         AssertReferencesNoOtherModule(Iam);
         AssertReferencesNoOtherModule(OrgModuleAssembly);
         AssertReferencesNoOtherModule(OutletsModuleAssembly);
@@ -212,7 +212,7 @@ public class ModuleBoundaryTests
     /// <summary>Every module implementation assembly, for the reflection-based checks.</summary>
     private static readonly Assembly[] ModuleAssemblies =
     [
-        Iam, Catalog, OrgModuleAssembly, OutletsModuleAssembly, ConfigurationModuleAssembly,
+        Iam, ProductsModuleAssembly, OrgModuleAssembly, OutletsModuleAssembly, ConfigurationModuleAssembly,
     ];
 
     private static void AssertReferencesNoOtherModule(Assembly module) =>

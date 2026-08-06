@@ -45,7 +45,9 @@ against a protocol that does not exist yet. It lands with the W8 sync slices.
   same transaction (interceptor) → `OutboxProcessor` claims with `FOR UPDATE SKIP LOCKED` and
   delivers to handlers, idempotently. Verified on real Postgres — *[messaging slice]*
 - [x] **Module hosting** (`IModule` self-registration in `FieldKit.Web`) + the **first real module
-  (`Catalog`)** replacing the sample `WeatherForecast`. The AppHost boots the whole thing on
+  (`Catalog`, renamed `Products` before W6 — see
+  [module boundaries §7](architecture/10-module-boundaries.md#7-module-registry))** replacing the
+  sample `WeatherForecast`. The AppHost boots the whole thing on
   Postgres and `POST/GET /api/products` answers from the module — verified end-to-end with
   `WebApplicationFactory<Program>` + real Postgres. A temporary `DevTenantContext` stood in until
   Keycloak landed (below). — *[module-hosting slice]* **← the modular monolith now runs.**

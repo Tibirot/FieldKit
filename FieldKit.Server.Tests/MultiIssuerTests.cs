@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
-using FieldKit.Modules.Catalog;
+using FieldKit.Modules.Products;
 
 namespace FieldKit.Server.Tests;
 

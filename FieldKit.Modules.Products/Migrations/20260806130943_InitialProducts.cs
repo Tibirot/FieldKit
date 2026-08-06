@@ -3,20 +3,20 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace FieldKit.Modules.Catalog.Migrations
+namespace FieldKit.Modules.Products.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCatalog : Migration
+    public partial class InitialProducts : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.EnsureSchema(
-                name: "catalog");
+                name: "products");
 
             migrationBuilder.CreateTable(
                 name: "outbox_message",
-                schema: "catalog",
+                schema: "products",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -33,7 +33,7 @@ namespace FieldKit.Modules.Catalog.Migrations
 
             migrationBuilder.CreateTable(
                 name: "product",
-                schema: "catalog",
+                schema: "products",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -52,13 +52,13 @@ namespace FieldKit.Modules.Catalog.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_outbox_message_ProcessedOnUtc",
-                schema: "catalog",
+                schema: "products",
                 table: "outbox_message",
                 column: "ProcessedOnUtc");
 
             migrationBuilder.CreateIndex(
                 name: "IX_product_TenantId_Sku",
-                schema: "catalog",
+                schema: "products",
                 table: "product",
                 columns: new[] { "TenantId", "Sku" },
                 unique: true);
@@ -69,11 +69,11 @@ namespace FieldKit.Modules.Catalog.Migrations
         {
             migrationBuilder.DropTable(
                 name: "outbox_message",
-                schema: "catalog");
+                schema: "products");
 
             migrationBuilder.DropTable(
                 name: "product",
-                schema: "catalog");
+                schema: "products");
         }
     }
 }

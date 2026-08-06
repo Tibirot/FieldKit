@@ -323,7 +323,7 @@ public class RepAssignmentTests(ServerFixture fixture)
 
         // Filtered by type in SQL and matched on the payload in memory: the content column is jsonb,
         // and a `Contains` against it translates to `jsonb ~~ jsonb`, which Postgres has no operator
-        // for. Learned the hard way in the outbox tests for Catalog.
+        // for. Learned the hard way in the outbox tests for Products (then still called Catalog).
         //
         // `Type` holds the *assembly-qualified* name, so this matches on the type name rather than
         // comparing to `FullName` — which silently returns nothing, as it did on the first run.
