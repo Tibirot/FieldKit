@@ -1,4 +1,43 @@
-import { afterEach } from "vitest";
+import { afterEach, vi } from "vitest";
+
+/**
+ * Every component test runs as someone who may do everything.
+ *
+ * Screens hide controls the signed-in user lacks the permission for, which is right — and would
+ * otherwise mean every existing test asserting a button had to first prove it was allowed to see
+ * one. That is noise in a test about deleting a territory.
+ *
+ * Mocked at the fetch boundary rather than by stubbing `usePermissions`, so the hook, its query and
+ * its "pending counts as denied" rule all still run. A test about permissions overrides
+ * `fetchIdentity` for itself and gets a narrower caller.
+ */
+vi.mock("@/lib/api/identity", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api/identity")>()),
+  fetchIdentity: vi.fn().mockResolvedValue({
+    subject: "subject-a",
+    tenant: "fieldkit-dev",
+    permissions: [
+      "outlet:read",
+      "outlet:write",
+      "channel:read",
+      "channel:write",
+      "territory:read",
+      "territory:write",
+      "orgunit:read",
+      "orgunit:write",
+      "position:read",
+      "position:write",
+      "user:read",
+      "user:write",
+      "role:read",
+      "role:write",
+      "config:read",
+      "config:write",
+      "product:read",
+      "product:write",
+    ],
+  }),
+}));
 
 /**
  * Unmounts anything a component test rendered, between tests.

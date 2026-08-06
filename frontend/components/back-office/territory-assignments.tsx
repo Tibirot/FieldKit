@@ -19,6 +19,7 @@ import {
 import { fetchUsers, usersKey } from "@/lib/api/users";
 import { useBusinessDay } from "@/lib/dates";
 import { cn } from "@/lib/utils";
+import { usePermissions } from "@/lib/auth/use-permissions";
 
 /**
  * Who covers a territory, and when (`ORG-04`).
@@ -37,6 +38,7 @@ export function TerritoryAssignments({ territory }: { territory: Territory }) {
   const day = useBusinessDay();
   const { user } = useAuth();
   const client = useQueryClient();
+  const { has } = usePermissions();
 
   const accessToken = user?.access_token;
   const subject = user?.profile.sub;
@@ -82,10 +84,12 @@ export function TerritoryAssignments({ territory }: { territory: Territory }) {
     <section className="flex flex-col gap-3 rounded-xl border border-border p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold">{t("assignmentsFor", { name: territory.name })}</h2>
-        <Button type="button" size="sm" onClick={() => setEditing("new")}>
-          <Plus className="size-4" />
-          {t("assignRep")}
-        </Button>
+        {has("territory:write") ? (
+          <Button type="button" size="sm" onClick={() => setEditing("new")}>
+            <Plus className="size-4" />
+            {t("assignRep")}
+          </Button>
+        ) : null}
       </div>
 
       {editing !== null ? (
@@ -140,6 +144,8 @@ export function TerritoryAssignments({ territory }: { territory: Territory }) {
               ) : null}
 
               <div className="ml-auto flex gap-2">
+                {has("territory:write") ? (
+                  <>
                 <Button
                   type="button"
                   size="sm"
@@ -163,6 +169,8 @@ export function TerritoryAssignments({ territory }: { territory: Territory }) {
                 >
                   {t("remove")}
                 </Button>
+                  </>
+                ) : null}
               </div>
             </li>
           ))}

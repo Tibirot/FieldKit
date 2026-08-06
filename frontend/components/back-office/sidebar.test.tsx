@@ -3,8 +3,19 @@
 import { screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import type { AuthContextValue } from "@/components/auth-provider";
 import { Sidebar } from "@/components/back-office/sidebar";
+import { fetchIdentity } from "@/lib/api/identity";
 import { render } from "@/test/render";
+
+// The nav asks the API what this caller may do, which needs somebody signed in to ask about.
+vi.mock("@/components/auth-provider", () => ({
+  useAuth: () =>
+    ({
+      status: "authenticated",
+      user: { access_token: "token", profile: { sub: "subject-a" } },
+    }) as unknown as AuthContextValue,
+}));
 
 // next-intl's navigation needs Next's router context, which a bare jsdom render does not have.
 // Stubbed to plain DOM equivalents so the assertions below are about the sidebar's own decisions —
@@ -18,16 +29,62 @@ vi.mock("@/i18n/navigation", () => ({
   usePathname: () => "/outlets",
 }));
 
+/** Signs the caller in with exactly these permissions and nothing else. */
+function allow(...permissions: string[]) {
+  vi.mocked(fetchIdentity).mockResolvedValue({
+    subject: "subject-a",
+    tenant: "fieldkit-dev",
+    permissions,
+  });
+}
+
 describe("<Sidebar>", () => {
-  it("links to what is built", () => {
+  it("links to what is built", async () => {
     render(<Sidebar workspace="fieldkit-dev" />);
 
-    const outlets = screen.getByRole("link", { name: /outlets/i });
+    // Awaited, because a built item waits for the API's answer about who is asking. Pending counts
+    // as denied, so the nav grows into place rather than showing links and taking them away.
+    const outlets = await screen.findByRole("link", { name: /outlets/i });
 
     // Plain DOM assertions rather than jest-dom matchers: one fewer dependency, and nothing here
     // is expressive enough to need them.
     expect(outlets.getAttribute("href")).toBe("/outlets");
     expect(outlets.getAttribute("aria-current")).toBe("page");
+  });
+
+  it("hides a screen this caller may not read", async () => {
+    // A fact about the caller, not about the product — constant for their session, and no click will
+    // change it. So it is hidden rather than disabled: "arrives in W7" is worth showing everyone,
+    // "you may not see this" is a dead control that explains nothing.
+    allow("outlet:read");
+
+    render(<Sidebar workspace="fieldkit-dev" />);
+
+    await screen.findByRole("link", { name: /outlets/i });
+
+    expect(screen.queryByRole("link", { name: /territories/i })).toBeNull();
+    expect(screen.queryByRole("link", { name: /users/i })).toBeNull();
+  });
+
+  it("shows a page holding a section this caller may read", async () => {
+    // Users & roles holds two sections behind different permissions. Someone who may read roles has
+    // a reason to open it, and the section they may not read refuses itself in the API's own words —
+    // which is what the demo walk actually saw in tenant B.
+    allow("role:read");
+
+    render(<Sidebar workspace="fieldkit-dev" />);
+
+    expect(await screen.findByRole("link", { name: /users/i })).toBeTruthy();
+  });
+
+  it("shows a scheduled screen to everyone, whatever they may read", async () => {
+    // The disabled-with-a-week-badge item is about the product's shape, so it does not depend on the
+    // caller at all.
+    allow();
+
+    render(<Sidebar workspace="fieldkit-dev" />);
+
+    expect(screen.getByTitle("W7").textContent).toContain("Journeys");
   });
 
   it("does not offer a link to a screen that does not exist", () => {

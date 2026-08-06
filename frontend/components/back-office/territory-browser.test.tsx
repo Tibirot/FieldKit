@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthContextValue } from "@/components/auth-provider";
 import { TerritoryBrowser } from "@/components/back-office/territory-browser";
 import { ApiError } from "@/lib/api/client";
+import { fetchIdentity } from "@/lib/api/identity";
 import type { OrgUnit, Territory } from "@/lib/api/org";
 import { render } from "@/test/render";
 
@@ -230,6 +231,27 @@ describe("<TerritoryBrowser>", () => {
     render(<TerritoryBrowser />);
 
     expect(await screen.findByText("Reps covering Iași")).toBeTruthy();
+  });
+
+  it("offers no way to change anything to a caller who may only read", async () => {
+    // Found by walking the Phase 1 demo: tenant B was shown "New user" on a screen that had just
+    // refused to show them users. Hidden rather than disabled — a permission is constant for the
+    // session, so a dead control is a question with no answer.
+    vi.mocked(fetchIdentity).mockResolvedValue({
+      subject: "subject-a",
+      tenant: "fieldkit-dev",
+      permissions: ["territory:read", "orgunit:read"],
+    });
+
+    render(<TerritoryBrowser />);
+    await screen.findByRole("table");
+
+    expect(screen.queryByRole("button", { name: "New territory" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit București Nord" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Delete București Nord" })).toBeNull();
+
+    // …and the list itself is still there, because reading is what they may do.
+    expect(screen.getByText("București Nord")).toBeTruthy();
   });
 
   it("says so when there is nothing to show, and why", async () => {
