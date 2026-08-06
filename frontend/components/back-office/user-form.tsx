@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api/client";
 import { createUser, updateUser, type Role, type User, type UserWrite } from "@/lib/api/users";
 import { useValidationMessages } from "@/lib/forms/use-validation-messages";
+import { zonesIncluding } from "@/lib/time-zones";
 import { cn } from "@/lib/utils";
 
 const CONTROL =
@@ -29,17 +30,13 @@ type Values = {
 
 type FieldPath = RhfFieldPath<Values>;
 
-/** The IANA zones this browser knows — the same source the API validates against. */
-function zones(): string[] {
-  return typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
-}
-
 /**
  * Tags worth suggesting, not the set of allowed ones.
  *
  * A `<datalist>` offers without restricting, which is the only honest control here: the server
- * validates against the runtime's culture database and there is no browser API that enumerates it —
- * unlike time zones, where `Intl.supportedValuesOf` exists and the select is exhaustive.
+ * validates against the runtime's culture database and there is no browser API that enumerates it.
+ * Time zones have `Intl.supportedValuesOf` and are closer, but not exhaustive either — see
+ * `zonesIncluding` for the record that proved it.
  */
 const SUGGESTED_LOCALES = ["ro-RO", "en-GB", "en-US", "de-DE", "fr-FR", "es-ES", "pl-PL", "hu-HU"];
 
@@ -255,7 +252,7 @@ export function UserForm({
           </label>
           <select {...bind("timeZone")}>
             <option value="" disabled />
-            {zones().map((zone) => (
+            {zonesIncluding(user?.timeZone).map((zone) => (
               <option key={zone} value={zone}>
                 {zone}
               </option>

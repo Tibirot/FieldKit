@@ -351,7 +351,24 @@ describe("<OutletForm>", () => {
     expect((await screen.findByRole("alert")).textContent).toContain("A contact needs a name.");
   });
 
+  it("keeps a time zone the browser does not list", async () => {
+    // Found in the Phase 1 demo. `UTC` is a zone the API accepts and stores, and one
+    // `Intl.supportedValuesOf` does not enumerate — so the required select rendered empty, and
+    // saving would have forced a different zone onto the outlet, moving its business day and the
+    // validity window of every promotion on it.
+    render(<OutletForm outlet={{ ...OUTLET, timeZoneId: "UTC" }} />);
+    await waitFor(() => expect(fetchChannels).toHaveBeenCalled());
+
+    expect((screen.getByLabelText(/time zone/i) as HTMLSelectElement).value).toBe("UTC");
+
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(updateOutlet).toHaveBeenCalled());
+
+    expect(sent(updateOutlet).timeZoneId).toBe("UTC");
+  });
+
   it("goes to the outlet it just saved", async () => {
+
     render(<OutletForm outlet={OUTLET} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Save" }));

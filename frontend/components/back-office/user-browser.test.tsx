@@ -222,6 +222,24 @@ describe("<UserBrowser>", () => {
     }
   });
 
+  it("keeps a time zone the browser does not list", async () => {
+    // Same shape as the locale bug above, and the same remedy: the picker's value set is narrower
+    // than what the API accepts, so whatever is stored is always an option.
+    fetchUsers.mockResolvedValue([{ ...USERS[0], timeZone: "UTC" }]);
+
+    render(<UserBrowser />);
+    await screen.findByRole("table");
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit Ana Ionescu" }));
+
+    expect((screen.getByLabelText(/time zone/i) as HTMLSelectElement).value).toBe("UTC");
+
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(updateUser).toHaveBeenCalled());
+
+    expect(updateUser).toHaveBeenCalledWith("token", "u-1", expect.objectContaining({ timeZone: "UTC" }));
+  });
+
   it("refuses something that is not a language tag", async () => {
     render(<UserBrowser />);
     await screen.findByRole("table");
