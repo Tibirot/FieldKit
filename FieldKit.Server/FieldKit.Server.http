@@ -167,6 +167,59 @@ Authorization: Bearer {{token.response.body.access_token}}
   "packSize": 12
 }
 
+### Products — define a custom field for products, then set it on one.
+### Same catalogue Outlets uses; `entity` is what keeps the two apart, so a field defined for
+### outlets is an unknown key here rather than a valid value.
+# @name productField
+POST {{Server_HostAddress}}/api/config/field-definitions
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "entity": "Product",
+  "key": "shelf_life_days",
+  "label": "Shelf life (days)",
+  "type": "Number",
+  "required": false,
+  "minimum": 1
+}
+
+### Create a product carrying that value.
+POST {{Server_HostAddress}}/api/products
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "sku": "VRD-STL-330",
+  "name": "Veridian Still 330ml",
+  "customFields": { "shelf_life_days": 540 }
+}
+
+### A key nobody defined — expect 400 `product.customField.unknown`, named
+### `customFields.not_a_field`. Rejected rather than dropped: silently discarding it means an
+### import loses data with no signal.
+POST {{Server_HostAddress}}/api/products
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "sku": "VRD-BAD-003",
+  "name": "Undefined field",
+  "customFields": { "not_a_field": "x" }
+}
+
+### A value below the definition's minimum — expect 400 `product.customField.tooSmall`,
+### with the bound in `args`.
+POST {{Server_HostAddress}}/api/products
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "sku": "VRD-BAD-004",
+  "name": "Out of bounds",
+  "customFields": { "shelf_life_days": 0 }
+}
+
 ### A pack size below 1 — expect 400 `product.packSize.notPositive`.
 ### Refused rather than normalised to null: a pack of zero is not "no pack size", it is a typo, and
 ### quietly dropping it would let a bad import look like a deliberate omission.
