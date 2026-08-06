@@ -16,6 +16,10 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
 
     public DbSet<Category> Categories => Set<Category>();
 
+    public DbSet<Brand> Brands => Set<Brand>();
+
+    public DbSet<TaxClass> TaxClasses => Set<TaxClass>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -85,6 +89,26 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
             // The list endpoint reads every category for a tenant, and the delete path asks whether
             // one has children. Both are parent lookups.
             category.HasIndex(c => new { c.TenantId, c.ParentId });
+        });
+
+        // Brand and TaxClass are flat named vocabularies with the same shape, so they are configured
+        // the same way: unique on (TenantId, Name), which — unlike Category's sibling rule — has no
+        // nullable column in it and therefore needs no in-code companion check. Postgres's
+        // NULL-distinctness only bites when a key column can be null.
+        modelBuilder.Entity<Brand>(brand =>
+        {
+            brand.ToTable("brand");
+            brand.HasKey(b => b.Id);
+            brand.Property(b => b.Name).HasMaxLength(120).IsRequired();
+            brand.HasIndex(b => new { b.TenantId, b.Name }).IsUnique();
+        });
+
+        modelBuilder.Entity<TaxClass>(taxClass =>
+        {
+            taxClass.ToTable("tax_class");
+            taxClass.HasKey(t => t.Id);
+            taxClass.Property(t => t.Name).HasMaxLength(120).IsRequired();
+            taxClass.HasIndex(t => new { t.TenantId, t.Name }).IsUnique();
         });
     }
 }
