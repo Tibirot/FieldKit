@@ -5,6 +5,8 @@ using FieldKit.Modules.Outlets;
 
 namespace FieldKit.Server.Tests;
 
+using static Refusals;
+
 /// <summary>
 /// Territories and the outlets in them (<c>ORG-03</c>, <c>ORG-05</c>).
 /// </summary>
@@ -41,7 +43,7 @@ public class TerritoryTests(ServerFixture fixture)
         return (await response.Content.ReadFromJsonAsync<TerritoryResponse>())!;
     }
 
-    private async Task<Guid> OutletAsync(HttpClient client)
+    private async Task<Guid> OutletAsync(HttpClient client, string? code = null)
     {
         var channel = await client.PostAsJsonAsync(
             "/api/outlets/channels", new ChannelRequest(Unique("Channel")));
@@ -56,7 +58,7 @@ public class TerritoryTests(ServerFixture fixture)
 
         var response = await client.PostAsJsonAsync(
             "/api/outlets",
-            new CreateOutletRequest(Unique("OUT"), "Corner Shop", channelId, null, null, Zone));
+            new CreateOutletRequest(code ?? Unique("OUT"), "Corner Shop", channelId, null, null, Zone));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<OutletResponse>())!.Id;
@@ -134,6 +136,32 @@ public class TerritoryTests(ServerFixture fixture)
                 .StatusCode);
     }
 
+    [Fact]
+    public async Task The_outlets_already_taken_are_named_by_code()
+    {
+        // The message is the whole answer — a client that only renders messages still has to be able
+        // to say which outlets to free up first. A list of GUIDs satisfies that shape and tells a
+        // human nothing; the code is what is on the outlet list, in their spreadsheet, and above the
+        // door.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var first = await TerritoryAsync(client);
+        var second = await TerritoryAsync(client);
+        var code = Unique("TAKEN");
+        var outletId = await OutletAsync(client, code);
+
+        await client.PostAsJsonAsync(
+            $"/api/org/territories/{first.Id}/outlets", new AssignOutletsRequest([outletId]));
+
+        var contested = await client.PostAsJsonAsync(
+            $"/api/org/territories/{second.Id}/outlets", new AssignOutletsRequest([outletId]));
+
+        var problem = Assert.Single(await ProblemsOf(contested));
+
+        Assert.Equal("outletIds", problem.Field);
+        Assert.Contains(code, problem.Message);
+        Assert.DoesNotContain(outletId.ToString(), problem.Message);
+    }
     [Fact]
     public async Task Assigning_the_same_outlet_twice_is_not_an_error()
     {

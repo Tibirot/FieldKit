@@ -74,7 +74,12 @@ export async function apiGet<T>(path: string, accessToken: string, signal?: Abor
  *
  * One function for POST and PUT because the difference is a verb, not a shape. The return type is
  * generic rather than `void`, since a create answers with the thing it created and a form wants to
- * show it — which is also why `DELETE` is separate: it answers `204`, and there is nothing to parse.
+ * show it — which is also why `DELETE` is separate: a delete always answers `204`.
+ *
+ * **A `204` from a POST is a success with nothing to read**, and some of them are: assigning outlets
+ * to a territory answers one. Parsing a body that is empty by definition throws
+ * `Unexpected end of JSON input`, which surfaces as a failed mutation for a write that actually
+ * happened — the worst shape of error, since a retry then does the thing twice.
  */
 export async function apiSend<T>(
   method: "POST" | "PUT",
@@ -98,7 +103,7 @@ export async function apiSend<T>(
     await refuse(response);
   }
 
-  return (await response.json()) as T;
+  return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
 }
 
 /**

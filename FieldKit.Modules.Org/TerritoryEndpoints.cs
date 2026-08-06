@@ -130,8 +130,8 @@ internal static class TerritoryEndpoints
             // Validated through the contract, not by reading the outlets schema. Another tenant's
             // outlet id simply does not resolve, which is the query filter inside Outlets doing the
             // work rather than a hand-written check here.
-            var known = (await outlets.FindManyAsync(requested, ct)).Select(o => o.OutletId).ToHashSet();
-            var unknown = requested.Where(outletId => !known.Contains(outletId)).ToList();
+            var resolved = (await outlets.FindManyAsync(requested, ct)).ToDictionary(o => o.OutletId);
+            var unknown = requested.Where(outletId => !resolved.ContainsKey(outletId)).ToList();
 
             if (unknown.Count > 0)
             {
@@ -150,12 +150,16 @@ internal static class TerritoryEndpoints
 
             if (taken.Count > 0)
             {
-                // The ids are in the message rather than a side-channel field: a client that only
-                // renders messages still tells someone which outlets to free up first.
+                // Named by code, not by id. The message is in it rather than in a side-channel field
+                // so a client that only renders messages still says which outlets to free up first —
+                // and a list of GUIDs would satisfy that shape while telling a human nothing, since
+                // the code is what is on the outlet list, in their spreadsheet and above the door.
+                var codes = taken.Select(outletId => resolved[outletId].Code).Order(StringComparer.Ordinal);
+
                 return Problems.Conflict(
                     "outletIds",
                     "Some outlets already belong to another territory. Remove them from it first: "
-                        + string.Join(", ", taken) + ".");
+                        + string.Join(", ", codes) + ".");
             }
 
             var already = await db.TerritoryOutlets
