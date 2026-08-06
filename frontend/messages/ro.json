@@ -129,7 +129,8 @@
     "nextPage": "Pagina următoare",
     "newOutlet": "Punct de vânzare nou",
     "edit": "Editează",
-    "importOutlets": "Import"
+    "importOutlets": "Import",
+    "manageChannels": "Canale"
   },
   "OutletForm": {
     "crumbNew": "Date de bază / Puncte de vânzare / Nou",
@@ -365,5 +366,28 @@
     "saving": "Se salvează…",
     "cancel": "Anulează",
     "under": ", în {path}"
+  },
+  "Channels": {
+    "crumb": "Date de bază / Puncte de vânzare / Canale",
+    "title": "Canale de distribuție",
+    "intro": "Fiecare punct de vânzare este clasificat într-unul. Canalul determină sortimentul, prețurile și fluxul vizitei, deci un spațiu de lucru are nevoie de cel puțin unul înainte de a avea puncte de vânzare.",
+    "newChannel": "Canal nou",
+    "newTitle": "Canal nou",
+    "editTitle": "Redenumește canalul",
+    "name": "Denumire",
+    "nameHint": "Unic în acest spațiu de lucru, indiferent de majuscule — „Modern Trade” și „modern trade” sunt același canal.",
+    "loading": "Se încarcă canalele…",
+    "failed": "Canalele nu au putut fi încărcate.",
+    "forbidden": "Nu ai permisiunea de a vedea canalele.",
+    "empty": "Niciun canal încă. Creează primul — un punct de vânzare nu poate fi creat fără unul.",
+    "edit": "Redenumește",
+    "editNamed": "Redenumește {name}",
+    "delete": "Șterge",
+    "deleteNamed": "Șterge {name}",
+    "deleteFailed": "Canalul nu a putut fi șters.",
+    "saveFailed": "Canalul nu a putut fi salvat.",
+    "save": "Salvează",
+    "saving": "Se salvează…",
+    "cancel": "Anulează"
   }
 }

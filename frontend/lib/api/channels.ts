@@ -1,4 +1,4 @@
-import { apiGet } from "@/lib/api/client";
+import { apiDelete, apiGet, apiSend } from "@/lib/api/client";
 
 /** A trade classification, as the filter needs it (`OUT-03`). */
 export type Channel = {
@@ -18,3 +18,29 @@ export function fetchChannels(accessToken: string, signal?: AbortSignal): Promis
  * per outlet, which is a data problem rather than a paging one.
  */
 export const channelsKey = (subject: string) => ["channels", subject] as const;
+
+export type ChannelWrite = { name: string };
+
+export function createChannel(accessToken: string, channel: ChannelWrite): Promise<Channel> {
+  return apiSend<Channel>("POST", "/api/outlets/channels", accessToken, channel);
+}
+
+export function updateChannel(
+  accessToken: string,
+  id: string,
+  channel: ChannelWrite,
+): Promise<Channel> {
+  return apiSend<Channel>("PUT", `/api/outlets/channels/${id}`, accessToken, channel);
+}
+
+/**
+ * Removes a channel.
+ *
+ * Refused while any outlet is classified as it. `BR-OUT-1` says every outlet has a channel, so there
+ * is no such thing as removing one from underneath the outlets using it — and a channel drives
+ * assortment, pricing and the visit workflow, so a silent reclassification would change what a rep
+ * may sell there.
+ */
+export function deleteChannel(accessToken: string, id: string): Promise<void> {
+  return apiDelete(`/api/outlets/channels/${id}`, accessToken);
+}
