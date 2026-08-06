@@ -270,6 +270,16 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
   values live in another module's rows (ADR-0005) and stay there, undescribed, until each outlet is
   next saved and then vanish.
 
+- **Outlet lifecycle** (`OUT-04`) — a panel below the edit form, **outside it**. The API gave status
+  its own endpoint so that closing a shop could not ride along on an unrelated edit, and a control
+  inside the form would hand that back: one Save, two decisions. The fifth API-with-no-caller the
+  audit found — the outlet table has shown a Status column since W5 that could only ever read
+  `Active`, and the append-only trail behind it was written by integration tests and read by nobody.
+  `Closed` is terminal, so a closed outlet is offered **no control at all** rather than a select the
+  API will refuse; what it gets instead is the spec's own guidance, that a location which trades
+  again is a new outlet with its own code. The trail is readable by anyone with `outlet:read` —
+  "why can't I order for this shop" is answered there or nowhere.
+
 **Done when:** an admin logs in, models a small org, and loads outlets — matches the [wireframes](ux/README.md), all tenant-scoped. **▶ Phase 1 demo.**
 
 ---

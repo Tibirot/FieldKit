@@ -437,5 +437,27 @@
     "save": "Save",
     "saving": "Saving…",
     "cancel": "Cancel"
+  },
+  "OutletLifecycle": {
+    "title": "Lifecycle",
+    "moveTo": "Move to",
+    "statuses": {
+      "Active": "Active",
+      "Inactive": "Inactive",
+      "Closed": "Closed"
+    },
+    "reason": "Reason",
+    "reasonHint": "Optional. Recorded on the trail below.",
+    "reasonRequiredHint": "Required. This is the answer to “why was this shop closed”, and the person who knows it is you, now.",
+    "closingWarning": "Closing is permanent. A closed outlet cannot be reopened — a location that trades again is a new outlet with its own code, so its history as a different business does not silently continue.",
+    "terminal": "This outlet is closed, and closed is final. If the location trades again, create a new outlet with its own code — its history as a different business should not continue under this one.",
+    "apply": "Change status",
+    "saving": "Changing…",
+    "failed": "The status could not be changed.",
+    "history": "History",
+    "historyLoading": "Loading history…",
+    "historyFailed": "The history could not be loaded.",
+    "created": "Created as {to}",
+    "moved": "{from} → {to}"
   }
 }

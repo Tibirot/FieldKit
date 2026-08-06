@@ -90,6 +90,7 @@ here rather than silently dropping columns: the gap is a schedule, not a change 
 | Outlets | Table with code, name, channel, segment, status, **primary territory**; filters by channel and status; create/edit incl. the dynamic custom-field form | **Frequency** (`F2 · weekly`) — journey planning, **W7**. **Field proposals** count and the `Proposed` chip — `OUT-06`/`OUT-07`, **Phase 3** |
 | Outlets — import | The whole flow: upload, dry run, editable grid, apply | — |
 | Outlets — custom fields | The catalogue for `Outlet`: define, edit, delete, with the type's own rule | Products, orders and visits get their own catalogues **W6+**, with the screens that render them |
+| Outlets — lifecycle | Status panel below the edit form: the transitions still open, a reason, and the append-only trail | — |
 | Territories | List, outlet counts, rep assignment in the detail panel | **Coverage %** — reporting, **W12**. **Channel mix** bars — computable but has no endpoint; lands with the dashboard's read side |
 | Users & roles | User list, role bundles, permission toggles | **Device** column — `IAM-07`; no device concept exists in the IAM module yet |
 
