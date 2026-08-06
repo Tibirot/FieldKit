@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using FieldKit.Modules.Org;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FieldKit.Server.Tests;
 
@@ -181,5 +183,50 @@ public class OrgUnitTests(ServerFixture fixture)
         // assertion would pass with no isolation at all.
         var byId = await tenantB.PutAsJsonAsync($"/api/org/units/{mine.Id}", new OrgUnitRequest("Hijacked", null));
         Assert.Equal(HttpStatusCode.NotFound, byId.StatusCode);
+    }
+
+    [Fact]
+    public async Task The_database_refuses_a_parent_belonging_to_another_tenant()
+    {
+        // The test above proves the *endpoint* refuses a cross-tenant parent. This one proves the
+        // table does, which until now it did not: the foreign key was keyed on `ParentId` alone, and
+        // a single-column self-key is tenant-agnostic — satisfied by any tenant's org unit. The
+        // isolation guarantee rested entirely on `ParentProblem` remembering to filter, one
+        // forgotten `where` away from being wrong.
+        //
+        // The parent below is real. Only the tenant is wrong, which is precisely the case the old
+        // key could not see — `ParentId -> Id` would be satisfied by this row.
+        //
+        // Raw SQL on purpose: going through the API would only hit the endpoint check again and say
+        // nothing about the constraint. Test projects are exempt from the raw-SQL ban for this
+        // reason — see Directory.Build.props.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+        var realParent = await CreateAsync(client, Unique("Real"));
+
+        using var scope = fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<OrgDbContext>();
+
+        var trespasser = await Record.ExceptionAsync(() => db.Database.ExecuteSqlAsync(
+            $"""
+            INSERT INTO org.org_unit ("Id", "Name", "ParentId", "TenantId", "CreatedAtUtc")
+            VALUES ({Guid.CreateVersion7()}, 'Trespasser', {realParent.Id}, {Guid.NewGuid()}, now())
+            """));
+
+        Assert.NotNull(trespasser);
+        Assert.Contains("FK_org_unit_org_unit_TenantId_ParentId", trespasser.ToString());
+    }
+
+    [Fact]
+    public async Task A_root_is_exempt_from_the_parent_constraint()
+    {
+        // Postgres uses MATCH SIMPLE: a composite foreign key with any NULL column is not checked.
+        // `ParentId` is null exactly for roots, so they skip it — correct, since a root has no
+        // parent to verify. Pinned because it is the one behaviour that changed when the key gained
+        // the tenant column, and getting it wrong would make every root un-creatable.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var root = await CreateAsync(client, Unique("Root"));
+
+        Assert.Null(root.ParentId);
     }
 }
