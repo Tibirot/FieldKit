@@ -29,6 +29,61 @@ Authorization: Bearer {{token.response.body.access_token}}
 GET {{Server_HostAddress}}/api/auth/whoami
 Accept: application/json
 
+### Products — the classification tree, flat. The shape is built from `parentId`. Requires `product:read`.
+GET {{Server_HostAddress}}/api/products/categories
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### Products — create a root category. Requires `product:write`.
+# @name beverages
+POST {{Server_HostAddress}}/api/products/categories
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Beverages",
+  "parentId": null
+}
+
+### Products — create a child of it.
+# @name water
+POST {{Server_HostAddress}}/api/products/categories
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Water",
+  "parentId": "{{beverages.response.body.id}}"
+}
+
+### The same name under a *different* parent is fine — a tree disambiguates by position.
+### Repeating it under Beverages is a 409 `product.category.nameTaken`.
+POST {{Server_HostAddress}}/api/products/categories
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Water",
+  "parentId": "{{beverages.response.body.id}}"
+}
+
+### Moving a category inside its own branch — expect 409 `product.category.cycle`.
+### The first refusals in the API to carry an ADR-0012 `code` + `args` alongside the English
+### `message`; everything else still answers with `message` only.
+PUT {{Server_HostAddress}}/api/products/categories/{{beverages.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Beverages",
+  "parentId": "{{water.response.body.id}}"
+}
+
+### Deleting a category that still has children — expect 409 `product.category.hasChildren`,
+### with the count in `args`. Nothing cascades.
+DELETE {{Server_HostAddress}}/api/products/categories/{{beverages.response.body.id}}
+Authorization: Bearer {{token.response.body.access_token}}
+
 ### Products — list products. Requires `product:read`.
 GET {{Server_HostAddress}}/api/products
 Accept: application/json

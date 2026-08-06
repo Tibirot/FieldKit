@@ -42,11 +42,26 @@ public sealed class OrgDbContext(DbContextOptions<OrgDbContext> options, ITenant
             // visible on the one screen that lists them.
             unit.HasIndex(u => new { u.TenantId, u.ParentId, u.Name }).IsUnique();
 
-            // Self-referencing, restricted. A cascade here would delete a whole branch because
-            // someone removed the node above it; the endpoint refuses instead and says why.
+            // Self-referencing, restricted, and keyed on the tenant as well as the id. A cascade
+            // here would delete a whole branch because someone removed the node above it; the
+            // endpoint refuses instead and says why.
+            //
+            // **The tenant belongs in the key.** This was `ParentId -> Id` until Products hit the
+            // same question for its category tree. A single-column self-key is tenant-agnostic: it
+            // is satisfied by *any* tenant's org unit, so the database would accept a unit whose
+            // parent belongs to someone else. The tenant-filtered lookup in `ParentProblem` is what
+            // refuses that today — which means the isolation guarantee rested entirely on
+            // application code, one forgotten filter away from being wrong. Keyed
+            // `(TenantId, ParentId) -> (TenantId, Id)`, the rule is in the table.
+            //
+            // Postgres uses MATCH SIMPLE, so a composite foreign key with any NULL column is not
+            // checked at all. `ParentId` is null exactly for roots and `TenantId` never is, so roots
+            // skip the constraint — which is what should happen, since a root has no parent to
+            // verify.
             unit.HasOne<OrgUnit>()
                 .WithMany()
-                .HasForeignKey(u => u.ParentId)
+                .HasForeignKey(u => new { u.TenantId, u.ParentId })
+                .HasPrincipalKey(u => new { u.TenantId, u.Id })
                 .OnDelete(DeleteBehavior.Restrict);
 
             // The tree endpoint reads every unit for a tenant, and the delete path asks whether a
