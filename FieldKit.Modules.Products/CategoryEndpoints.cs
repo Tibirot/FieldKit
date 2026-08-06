@@ -118,6 +118,24 @@ internal static class CategoryEndpoints
                     });
             }
 
+            // And now that products can be filed under a category, the same refusal for them.
+            // Checked after children so the message names the more structural obstacle first: an
+            // admin clearing a branch has to deal with the sub-categories regardless, and being told
+            // about products under a category they cannot delete yet is noise.
+            var filed = await db.Products.CountAsync(p => p.CategoryId == id, ct);
+            if (filed > 0)
+            {
+                return Problems.Conflict(
+                    field: null,
+                    $"{filed} product(s) are filed under '{category.Name}'. Reclassify them first.",
+                    "product.category.inUse",
+                    new Dictionary<string, string>
+                    {
+                        ["name"] = category.Name,
+                        ["count"] = filed.ToString(),
+                    });
+            }
+
             db.Categories.Remove(category);
             await db.SaveChangesAsync(ct);
 

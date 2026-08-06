@@ -68,8 +68,21 @@ internal static class TaxClassEndpoints
             var taxClass = await db.TaxClasses.SingleOrDefaultAsync(t => t.Id == id, ct);
             if (taxClass is null) return Results.NotFound();
 
-            // As with brands: nothing references a tax class until `Product` gains `TaxClassId` in
-            // slice 2, which is where the in-use guard belongs.
+            // As with brands, now that `Product` can reference one.
+            var inUse = await db.Products.CountAsync(p => p.TaxClassId == id, ct);
+            if (inUse > 0)
+            {
+                return Problems.Conflict(
+                    field: null,
+                    $"{inUse} product(s) are taxed as '{taxClass.Name}'. Reclassify them first.",
+                    "product.taxClass.inUse",
+                    new Dictionary<string, string>
+                    {
+                        ["name"] = taxClass.Name,
+                        ["count"] = inUse.ToString(),
+                    });
+            }
+
             db.TaxClasses.Remove(taxClass);
             await db.SaveChangesAsync(ct);
 

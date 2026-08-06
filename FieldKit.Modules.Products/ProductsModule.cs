@@ -51,28 +51,7 @@ public sealed class ProductsModule : IModule
         endpoints.MapCategoryEndpoints();
         endpoints.MapBrandEndpoints();
         endpoints.MapTaxClassEndpoints();
-
-        var products = endpoints.MapGroup("/api/products").WithTags("Products");
-
-        products.MapPost("/", async (
-            CreateProductRequest request, ProductsDbContext db, IClock clock, CancellationToken cancellationToken) =>
-        {
-            var product = Product.Create(request.Sku, request.Name, clock);
-            db.Add(product);
-            await db.SaveChangesAsync(cancellationToken);
-            return Results.Created(
-                $"/api/products/{product.Id}",
-                new ProductResponse(product.Id, product.Sku, product.Name));
-        }).RequirePermission(ProductsPermissions.Write);
-
-        products.MapGet("/", async (ProductsDbContext db, CancellationToken cancellationToken) =>
-        {
-            var all = await db.Products
-                .OrderBy(p => p.Sku)
-                .Select(p => new ProductResponse(p.Id, p.Sku, p.Name))
-                .ToListAsync(cancellationToken);
-            return Results.Ok(all);
-        }).RequirePermission(ProductsPermissions.Read);
+        endpoints.MapProductEndpoints();
     }
 }
 
@@ -92,5 +71,3 @@ public static class ProductsPermissions
     public const string Write = "product:write";
 }
 
-public sealed record CreateProductRequest(string Sku, string Name);
-public sealed record ProductResponse(Guid Id, string Sku, string Name);

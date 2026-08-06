@@ -31,6 +31,37 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
             product.Property(p => p.Sku).HasMaxLength(64).IsRequired();
             product.Property(p => p.Name).HasMaxLength(200).IsRequired();
             product.HasIndex(p => new { p.TenantId, p.Sku }).IsUnique(); // SKU unique within a tenant
+
+            // The three classification pointers, each keyed on the tenant as well as the id — the
+            // pattern established for Category's parent and since applied to OrgUnit. A plain
+            // `BrandId -> Id` key is tenant-agnostic and would accept another tenant's brand; with
+            // the tenant in the key the rule is in the table rather than only in the endpoint.
+            //
+            // Restrict, so a vocabulary entry cannot be deleted out from under the products using
+            // it. The endpoints refuse first with a count and a code; this is what catches anything
+            // that reaches the table another way.
+            //
+            // Postgres MATCH SIMPLE means a composite key with any NULL column is not checked, so an
+            // unclassified product — all three null — skips all three constraints. That is the
+            // behaviour the optional classification needs, and it falls out rather than being
+            // arranged.
+            product.HasOne<Brand>()
+                .WithMany()
+                .HasForeignKey(p => new { p.TenantId, p.BrandId })
+                .HasPrincipalKey(b => new { b.TenantId, b.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+
+            product.HasOne<Category>()
+                .WithMany()
+                .HasForeignKey(p => new { p.TenantId, p.CategoryId })
+                .HasPrincipalKey(c => new { c.TenantId, c.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+
+            product.HasOne<TaxClass>()
+                .WithMany()
+                .HasForeignKey(p => new { p.TenantId, p.TaxClassId })
+                .HasPrincipalKey(t => new { t.TenantId, t.Id })
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Category>(category =>
