@@ -136,6 +136,11 @@ This ADR is the decision; the migration is deliberately not one change.
 messages should not be written in the old shape and migrated a month later.
 
 Until a module is migrated, its refusals carry `message` only and the client falls back to English —
-the behaviour that exists today, unchanged. **Nothing in this ADR is implemented yet**; the envelope
-in [API contracts §3](../13-api-contracts.md#3-error-model--rfc-7807-problem-details) describes what
-ships today, with the target shape marked as such.
+the behaviour that exists today, unchanged.
+
+**Stage 1 has landed.** `FieldProblem` carries `Code` and `Args`, and `Problems.*` has overloads that
+accept them; both fields are omitted from the JSON when absent, so every existing endpoint's response
+is byte-identical to before. **Stages 2–4 have not**: no endpoint emits a code, and the client does
+not yet resolve one. The envelope in
+[API contracts §3](../13-api-contracts.md#3-error-model--rfc-7807-problem-details) still describes
+what ships today, with the target shape marked as such.
