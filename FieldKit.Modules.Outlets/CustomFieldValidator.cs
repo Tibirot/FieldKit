@@ -5,63 +5,35 @@ using FieldKit.Web;
 namespace FieldKit.Modules.Outlets;
 
 /// <summary>
-/// Checks an outlet's custom-field values against the tenant's definitions (<c>CFG-02</c>).
+/// Names an outlet's custom-field violations the way this API reports problems (<c>CFG-02</c>).
 /// </summary>
 /// <remarks>
 /// <para>
-/// The validation lives here rather than in Configuration because the rule belongs where the data is
-/// written: Outlets owns the values, so Outlets decides they are acceptable and can say so in terms
-/// of an outlet. Configuration supplies the definitions and nothing else.
+/// The rules themselves moved to <see cref="CustomFieldRules"/> in Configuration's contracts when
+/// Products became a second writer (<c>PRD-01</c>). Keeping them here would have meant a second
+/// 143-line copy differing by one sentence, and two copies of real branching logic drift.
 /// </para>
 /// <para>
-/// Pure and static — it takes values and definitions and returns problems. That keeps the one part
-/// of this feature with real branching testable without a database, and stops it accreting the
-/// request context.
+/// What stays is the part that is genuinely Outlets': the request path a problem is named by. The
+/// shared rules cannot know that — they see a definition key, not the shape of the request it
+/// arrived in.
+/// </para>
+/// <para>
+/// These problems still carry prose only. Migrating them to <c>ADR-0012</c> codes is Outlets' own
+/// change, and doing it here would have hidden a behavioural difference inside a refactor.
 /// </para>
 /// </remarks>
 internal static class CustomFieldValidator
 {
-    /// <summary>
-    /// Returns every problem with <paramref name="values"/>, or an empty list.
-    /// </summary>
-    /// <remarks>
-    /// All of them, not the first: an admin filling a form wants to fix everything in one pass, and
-    /// returning one error at a time turns a six-field form into six round trips.
-    /// </remarks>
+    /// <summary>Returns every problem with <paramref name="values"/>, or an empty list.</summary>
     public static IReadOnlyList<FieldProblem> Validate(
         IReadOnlyDictionary<string, JsonElement>? values,
-        IReadOnlyList<FieldDefinitionDescriptor> definitions)
-    {
-        var problems = new List<FieldProblem>();
-        var supplied = values ?? new Dictionary<string, JsonElement>();
-        var known = definitions.ToDictionary(definition => definition.Key, StringComparer.Ordinal);
-
-        // Unknown keys are rejected rather than ignored. Silently dropping them means an import or a
-        // typo loses data with no signal — and the catalogue exists precisely so that what is stored
-        // is describable.
-        foreach (var key in supplied.Keys.Where(key => !known.ContainsKey(key)))
-        {
-            problems.Add(Problem(key, $"'{key}' is not a defined custom field for outlets."));
-        }
-
-        foreach (var definition in definitions)
-        {
-            if (!supplied.TryGetValue(definition.Key, out var value) || value.ValueKind is JsonValueKind.Null)
-            {
-                if (definition.Required)
-                {
-                    problems.Add(Problem(definition.Key, $"'{definition.Key}' is required."));
-                }
-
-                continue;
-            }
-
-            problems.AddRange(
-                Check(definition, value).Select(message => Problem(definition.Key, message)));
-        }
-
-        return problems;
-    }
+        IReadOnlyList<FieldDefinitionDescriptor> definitions) =>
+        [
+            .. CustomFieldRules
+                .Validate(values, definitions, CustomFieldEntity.Outlet)
+                .Select(violation => Problem(violation.Key, violation.Message)),
+        ];
 
     /// <summary>
     /// Names the field by the path the caller sent it under.
@@ -74,70 +46,4 @@ internal static class CustomFieldValidator
     /// </remarks>
     private static FieldProblem Problem(string key, string message) =>
         new($"customFields.{key}", message);
-
-    private static IEnumerable<string> Check(FieldDefinitionDescriptor definition, JsonElement value)
-    {
-        switch (definition.Type)
-        {
-            case CustomFieldType.Text or CustomFieldType.Choice when value.ValueKind is not JsonValueKind.String:
-                yield return $"'{definition.Key}' must be text.";
-                break;
-
-            case CustomFieldType.Text:
-                if (definition.MaxLength is { } max && value.GetString()!.Length > max)
-                {
-                    yield return $"'{definition.Key}' must be at most {max} characters.";
-                }
-
-                break;
-
-            case CustomFieldType.Choice:
-                var chosen = value.GetString()!;
-
-                // Ordinal: these are stored identifiers, and accepting "Yes" for "yes" would make the
-                // permitted set depend on how a caller happened to type it.
-                if (!definition.Options.Contains(chosen, StringComparer.Ordinal))
-                {
-                    yield return
-                        $"'{definition.Key}' must be one of: {string.Join(", ", definition.Options)}.";
-                }
-
-                break;
-
-            case CustomFieldType.Number when value.ValueKind is not JsonValueKind.Number:
-                yield return $"'{definition.Key}' must be a number.";
-                break;
-
-            case CustomFieldType.Number:
-                var number = value.GetDouble();
-
-                if (definition.Minimum is { } min && number < min)
-                {
-                    yield return $"'{definition.Key}' must be at least {min}.";
-                }
-
-                if (definition.Maximum is { } ceiling && number > ceiling)
-                {
-                    yield return $"'{definition.Key}' must be at most {ceiling}.";
-                }
-
-                break;
-
-            case CustomFieldType.Boolean when value.ValueKind is not (JsonValueKind.True or JsonValueKind.False):
-                yield return $"'{definition.Key}' must be true or false.";
-                break;
-
-            case CustomFieldType.Date:
-                // A date, as text, in the one format that sorts and parses the same everywhere.
-                // Accepting a timestamp here would store an instant for something the tenant means
-                // as a day — the same distinction the outlet's own time zone exists to protect.
-                if (value.ValueKind is not JsonValueKind.String
-                    || !DateOnly.TryParseExact(value.GetString(), "yyyy-MM-dd", out _))
-                {
-                    yield return $"'{definition.Key}' must be a date as yyyy-MM-dd.";
-                }
-
-                break;
-        }
-    }
 }
