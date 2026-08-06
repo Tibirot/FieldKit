@@ -26,6 +26,12 @@ export type Territory = {
   outletCount: number;
 };
 
+export type OrgUnitWrite = {
+  name: string;
+  /** Null makes it a root. */
+  parentId: string | null;
+};
+
 export type TerritoryWrite = {
   name: string;
   orgUnitId: string;
@@ -38,6 +44,35 @@ export const territoriesKey = (subject: string, orgUnitId?: string) =>
 
 export function fetchOrgUnits(accessToken: string, signal?: AbortSignal): Promise<OrgUnit[]> {
   return apiGet<OrgUnit[]>("/api/org/units", accessToken, signal);
+}
+
+export function createOrgUnit(accessToken: string, unit: OrgUnitWrite): Promise<OrgUnit> {
+  return apiSend<OrgUnit>("POST", "/api/org/units", accessToken, unit);
+}
+
+/**
+ * Renames and reparents in one call, because they are one edit on one screen.
+ *
+ * Splitting them would make "rename this team and move it under the new region" two requests that
+ * can half-succeed — which the API avoided, and this should not reintroduce.
+ */
+export function updateOrgUnit(
+  accessToken: string,
+  id: string,
+  unit: OrgUnitWrite,
+): Promise<OrgUnit> {
+  return apiSend<OrgUnit>("PUT", `/api/org/units/${id}`, accessToken, unit);
+}
+
+/**
+ * Removes an org unit.
+ *
+ * Refused rather than cascaded while it still has children, staffed positions, or territories.
+ * Deleting a region should not silently take its areas, the people in them, and the outlets those
+ * territories made visible — the admin says what happens to each.
+ */
+export function deleteOrgUnit(accessToken: string, id: string): Promise<void> {
+  return apiDelete(`/api/org/units/${id}`, accessToken);
 }
 
 export function fetchTerritories(
@@ -81,6 +116,83 @@ export function deleteTerritory(accessToken: string, id: string): Promise<void> 
  */
 export function byId(units: readonly OrgUnit[]): Map<string, OrgUnit> {
   return new Map(units.map((unit) => [unit.id, unit]));
+}
+
+/** A unit and how deep it sits, in the order a tree is read. */
+export type OrgUnitRow = { unit: OrgUnit; depth: number };
+
+/**
+ * Flattens the hierarchy into rows, parents before their children.
+ *
+ * A flat list sorted by name puts a team next to a country and says nothing about which contains
+ * which — and depth is the whole point of `ORG-01`, where the levels are the tenant's own.
+ *
+ * **Siblings are sorted here, not inherited from the argument.** The API happens to return units
+ * ordered by name, but a tree whose sibling order depends on the order a caller assembled its input
+ * is a tree that reorders itself when something upstream changes for unrelated reasons.
+ *
+ * **Orphans are appended rather than dropped.** A unit whose parent this caller cannot see, or which
+ * arrived out of order, is still a unit; losing it from the screen would look like data missing
+ * rather than a tree it could not place. The visited set makes a cycle finite for the same reason
+ * `pathOf` guards against one: this walks data the API returns.
+ */
+export function treeOf(units: readonly OrgUnit[]): OrgUnitRow[] {
+  const children = new Map<string | null, OrgUnit[]>();
+
+  for (const unit of units) {
+    const key = unit.parentId;
+
+    children.set(key, [...(children.get(key) ?? []), unit]);
+  }
+
+  const rows: OrgUnitRow[] = [];
+  const visited = new Set<string>();
+
+  const byName = (left: OrgUnit, right: OrgUnit) => left.name.localeCompare(right.name);
+
+  const walk = (parentId: string | null, depth: number) => {
+    for (const unit of [...(children.get(parentId) ?? [])].sort(byName)) {
+      if (visited.has(unit.id)) continue;
+
+      visited.add(unit.id);
+      rows.push({ unit, depth });
+      walk(unit.id, depth + 1);
+    }
+  };
+
+  walk(null, 0);
+
+  for (const unit of units) {
+    if (!visited.has(unit.id)) rows.push({ unit, depth: 0 });
+  }
+
+  return rows;
+}
+
+/**
+ * Whether `candidate` is inside `unit`'s own subtree.
+ *
+ * Used to keep a unit out of its own parent picker: choosing a descendant would make a cycle, which
+ * the API refuses — better to not offer the choice than to explain it afterwards, since unlike a
+ * name collision this one is never what somebody meant.
+ */
+export function isDescendantOf(
+  candidate: OrgUnit,
+  unitId: string,
+  units: Map<string, OrgUnit>,
+): boolean {
+  const seen = new Set<string>();
+
+  let current: OrgUnit | undefined = candidate;
+
+  while (current && !seen.has(current.id)) {
+    if (current.id === unitId) return true;
+
+    seen.add(current.id);
+    current = current.parentId ? units.get(current.parentId) : undefined;
+  }
+
+  return false;
 }
 
 /**
