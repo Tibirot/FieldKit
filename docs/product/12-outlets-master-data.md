@@ -146,6 +146,21 @@ closed in March and renamed in April reads as though nobody ever closed it. The 
 "no history" can never be mistaken for "the history was lost". There is no API to write, edit or
 delete an entry — an audit log with a write path is one that can be arranged after the fact.
 
+**"Who" is two facts, not one.** The trail is keyed on the Keycloak subject, and the response carries
+that subject beside the display name resolved from it (`changedBy` and `changedByName`). Both,
+because a display name is a mutable label on an account while the subject is the identity: storing
+the name would let a rename rewrite who did what in March, and showing only the name would make two
+colleagues who share one indistinguishable. The name is joined **at read time** through IAM's
+`IUserDirectory` rather than by reading its tables ([ADR-0005](../architecture/adr/0005-postgres-schema-per-module.md)),
+which also means a profile created after the fact still explains work already done.
+
+It is resolved **server-side, not by the caller**, and that is the deciding constraint rather than a
+convenience: reading this trail needs only `outlet:read`, while the user list needs `user:read`. A
+front end doing the join would show raw subject GUIDs to exactly the readers least able to resolve
+them. `changedByName` is null whenever the subject matches no user in this tenant — a deleted
+account, an import service principal, a subject predating the user record — and the entry still
+renders, falling back to the subject. Dropping such rows would be an audit trail editing itself.
+
 The back office reaches this through a **lifecycle panel below the outlet edit form and outside it**
 (W5). Outside, because a control inside the form would undo the separation the endpoint exists to
 create — one Save covering both "this store is shut" and "the name was spelled wrong". A closed

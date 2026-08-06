@@ -13,6 +13,7 @@ import {
   outletStatusHistoryKey,
   type OutletDetail,
   type OutletStatus,
+  type OutletStatusChange,
 } from "@/lib/api/outlets";
 import { usePermissions } from "@/lib/auth/use-permissions";
 import { cn } from "@/lib/utils";
@@ -264,7 +265,7 @@ export function OutletLifecycle({ outlet }: { outlet: OutletDetail }) {
                       dateStyle: "medium",
                       timeStyle: "short",
                     })}
-                    {entry.changedBy ? ` · ${entry.changedBy}` : ""}
+                    {actor(entry) ? ` · ${actor(entry)}` : ""}
                   </span>
                 </div>
                 {entry.reason ? (
@@ -277,6 +278,22 @@ export function OutletLifecycle({ outlet }: { outlet: OutletDetail }) {
       </div>
     </section>
   );
+}
+
+/**
+ * Who to credit an entry to.
+ *
+ * The name when the API could resolve one, and **the subject when it could not** — rather than
+ * nothing. A subject is a poor label, but it is the only handle on an entry whose author no longer
+ * has a profile: a deleted account, an import principal, someone from before the user record. An
+ * entry that says only "Active → Inactive, 6 Aug" has quietly lost the attribution the trail exists
+ * to keep, and that loss would look identical to a transition nobody was ever recorded for.
+ *
+ * Not a fallback the API should have applied itself: it returns the two facts it has, and the
+ * decision about what to show when one is missing belongs to the thing doing the showing.
+ */
+function actor(entry: OutletStatusChange): string | null {
+  return entry.changedByName ?? entry.changedBy;
 }
 
 function StatusBadge({ status, label }: { status: OutletStatus; label: string }) {

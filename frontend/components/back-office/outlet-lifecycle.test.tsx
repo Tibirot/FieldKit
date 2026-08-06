@@ -48,14 +48,18 @@ const HISTORY: OutletStatusChange[] = [
     to: "Inactive",
     reason: "Refurbishment until March",
     changedAtUtc: "2026-02-01T09:15:00Z",
-    changedBy: "ana",
+    changedBy: "0a8a83f5-77ee-4229-8cda-5b2b27f65cd8",
+    changedByName: "Ana Popescu",
   },
   {
     from: null,
     to: "Active",
+    // The subject the API could not name — a deleted account, an import principal, or someone from
+    // before the user record. Ordinary, and the entry still has to render.
     reason: null,
     changedAtUtc: "2025-11-04T08:00:00Z",
-    changedBy: "import",
+    changedBy: "bbc56709-dbc2-49cf-bab5-75736a7f5be9",
+    changedByName: null,
   },
 ];
 
@@ -203,6 +207,20 @@ describe("<OutletLifecycle>", () => {
     // Europe/Bucharest, where 08:00Z is 10:00 — so this assertion fails if the formatter ever
     // reaches for the system zone, which is how the last date bug got in.
     expect(entries[1].textContent).toContain("8:00 AM");
+  });
+
+  it("credits a transition to a person, and falls back to the subject when there is no name", async () => {
+    // Before this, the trail rendered `changedBy` verbatim and an admin read
+    // "0a8a83f5-77ee-4229-8cda-5b2b27f65cd8" where a name belonged. The subject still shows when
+    // nothing resolves, though — dropping it would leave an entry with no attribution at all, which
+    // looks exactly like a transition nobody was ever recorded for.
+    render(<OutletLifecycle outlet={outlet("Inactive")} />);
+
+    const entries = await screen.findAllByRole("listitem");
+
+    expect(entries[0].textContent).toContain("Ana Popescu");
+    expect(entries[0].textContent).not.toContain("0a8a83f5");
+    expect(entries[1].textContent).toContain("bbc56709-dbc2-49cf-bab5-75736a7f5be9");
   });
 
   it("shows the trail to a caller who may not change anything", async () => {

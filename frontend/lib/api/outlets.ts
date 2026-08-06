@@ -213,7 +213,27 @@ export type OutletStatusChange = {
   to: OutletStatus;
   reason: string | null;
   changedAtUtc: string;
+
+  /**
+   * The Keycloak subject — the identity, and what the trail is keyed on.
+   *
+   * Kept alongside the name rather than replaced by it. A display name is a mutable label on an
+   * account, so resolving it into the trail would let a rename rewrite who did what in March, and
+   * would make two colleagues sharing a name indistinguishable.
+   */
   changedBy: string | null;
+
+  /**
+   * That subject's display name, resolved by the API at read time.
+   *
+   * **Null is ordinary, not an error** — a deleted account, an import service principal, or a
+   * subject predating the user record all land here, and the entry still has to render.
+   *
+   * Resolved server-side deliberately: reading this trail needs only `outlet:read` while the user
+   * list needs `user:read`, so a join done here would show raw GUIDs to exactly the readers least
+   * able to avoid them.
+   */
+  changedByName: string | null;
 };
 
 /**
