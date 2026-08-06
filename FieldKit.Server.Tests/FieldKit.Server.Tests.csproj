@@ -34,7 +34,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FieldKit.Server\FieldKit.Server.csproj" />
-    <ProjectReference Include="..\FieldKit.Modules.Catalog\FieldKit.Modules.Catalog.csproj" />
+    <ProjectReference Include="..\FieldKit.Modules.Products\FieldKit.Modules.Products.csproj" />
     <ProjectReference Include="..\FieldKit.Modules.Iam\FieldKit.Modules.Iam.csproj" />
     <ProjectReference Include="..\FieldKit.Modules.Org\FieldKit.Modules.Org.csproj" />
     <ProjectReference Include="..\FieldKit.Modules.Outlets\FieldKit.Modules.Outlets.csproj" />

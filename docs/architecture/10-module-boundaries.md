@@ -221,7 +221,29 @@ module contract sections — the functional "what" and the technical "how" stay 
 
 **Each module is two assemblies:** `FieldKit.Modules.X` (implementation, private) and
 `FieldKit.Modules.X.Contracts` (its only public surface). IAM is the first built this way and sets
-the pattern; **Catalog predates it and is still a single assembly** — a retrofit, not a second rule.
+the pattern; **Products is still a single assembly**, for the same reason Organization was until W5
+— it has no consumer yet, and `IProductCatalog` designed before Journey, Visit or Order asks for
+anything is a guess three modules would have to live with. It grows its `.Contracts` in W6.
+
+**Products was called `Catalog` until it wasn't.** It was W1's proof that the modular monolith runs
+— the module that replaced the Aspire template's `WeatherForecast` — and it was never in this
+registry. That was survivable while it stayed scaffolding, but it was scaffolding *standing on W6's
+ground*: it already owned `/api/products`, already declared `product:read` and `product:write`, and
+the permission catalogue is built from `IModule.Permissions`, so a second module declaring those
+names is not a merge conflict but a startup failure. W6 would have opened with that collision and
+resolved it while someone was mid-pricing-engine, which is how the wrong answer gets picked. It was
+renamed instead, on its own, before the week began: same route, same permission strings, `catalog`
+schema → `products`. What is behind it is still a stub — an SKU and a name — and the shape a product
+actually has arrives with `PRD-01`.
+
+The permission *strings* did not change, and that is the load-bearing part. `product:read` and
+`product:write` are named for the resource, not for whichever module introduced them; they are
+already written into `SystemRoleTemplates`, both dev realms, and any role a tenant has composed
+since. Renaming the C# constants cost nothing. Renaming the permissions would have been a migration
+across all three. **The schema move leaves the old `catalog` schema behind** in any database that
+predates it — the migration creates `products` and deliberately does not drop anything, because a
+migration that drops a schema is a data-loss statement running unattended at startup. Aspire's
+Postgres keeps a data volume, so clear it once, by hand: `DROP SCHEMA catalog CASCADE;`
 **Organization's `.Contracts` assembly arrived with its first real contract**, `ITerritoryDirectory`
 (W5), exactly as planned — it stayed single-assembly until then because an interface designed before
 its consumer is a guess other modules have to live with. `IRepScope` and `IOrgHierarchy` are still

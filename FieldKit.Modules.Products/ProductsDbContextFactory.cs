@@ -3,23 +3,23 @@ using FieldKit.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
-namespace FieldKit.Modules.Catalog;
+namespace FieldKit.Modules.Products;
 
 /// <summary>
 /// Lets <c>dotnet ef</c> build the model to generate migrations. The connection string is a
 /// placeholder — <c>migrations add</c> does not connect to a database.
 /// </summary>
-public sealed class CatalogDbContextFactory : IDesignTimeDbContextFactory<CatalogDbContext>
+public sealed class ProductsDbContextFactory : IDesignTimeDbContextFactory<ProductsDbContext>
 {
-    public CatalogDbContext CreateDbContext(string[] args)
+    public ProductsDbContext CreateDbContext(string[] args)
     {
-        var options = new DbContextOptionsBuilder<CatalogDbContext>()
+        var options = new DbContextOptionsBuilder<ProductsDbContext>()
             .UseNpgsql(
                 "Host=localhost;Database=fieldkit_design;Username=postgres;Password=postgres",
-                npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", CatalogDbContext.SchemaName))
+                npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", ProductsDbContext.SchemaName))
             .Options;
 
-        return new CatalogDbContext(options, new DesignTimeTenantContext());
+        return new ProductsDbContext(options, new DesignTimeTenantContext());
     }
 
     private sealed class DesignTimeTenantContext : ITenantContext

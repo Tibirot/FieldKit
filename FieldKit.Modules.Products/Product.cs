@@ -1,9 +1,14 @@
 using FieldKit.BuildingBlocks;
 using FieldKit.SharedKernel;
 
-namespace FieldKit.Modules.Catalog;
+namespace FieldKit.Modules.Products;
 
-/// <summary>A product in the catalog. The first real aggregate — minimal, to prove the stack end to end.</summary>
+/// <summary>A product. The first real aggregate — minimal, to prove the stack end to end.</summary>
+/// <remarks>
+/// Deliberately still a stub: an SKU and a name. W6 (<c>PRD-01</c>) gives it the shape the specs
+/// describe — brand, category, pack size, UoM, status — and that is the change worth reviewing on
+/// its merits, not one to smuggle into a rename.
+/// </remarks>
 public sealed class Product : AggregateRoot, ITenantOwned, IAuditable
 {
     public Guid Id { get; private set; }
