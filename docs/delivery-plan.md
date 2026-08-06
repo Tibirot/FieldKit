@@ -296,6 +296,57 @@ promo types + tax + the resolver + a decimal-parity vector suite) in one week; b
 
 **Done when:** pricing resolves deterministically; the vector suite passes.
 
+#### Decomposition
+
+A week is many PRs ([pull-requests §2](engineering/pull-requests.md)), and this one is the heaviest
+in the plan. Sliced below in stacking order — contracts/schema → domain → application → API → UI.
+Sizes are hand-written diff estimates against the ~400-line budget; generated migrations are excluded.
+
+| # | Slice | Requirements | ~Size |
+|---|---|---|---|
+| 1 | **Classification vocabulary** — `Category` (hierarchical), `Brand`, `TaxClass` | `PRD-01` | 350 |
+| 2 | **Product grows up** — brand, category, UoM, pack size, tax class, status, custom fields | `PRD-01` | 400 |
+| 3 | **Assortment + MSL** — channel assortment, MSL flags, per-outlet overrides; `IAssortmentService` | `PRD-02`, `BR-PRD-4` | 400 |
+| 4 | **Price lists** — currency + effective window, product prices, channel/outlet assignment; publishes `PriceListPublished` | `PRD-03`, `BR-PRD-1` | 400 |
+| 5 | **`IOutletClassification`** — Outlets grows the contract slice 6 needs (see below) | — | 120 |
+| 6 | **Price resolution** — specificity + effective date; `IPricingService` (price half) | `PRD-04`, `BR-PRD-2` | 350 |
+| 7 | **Promotion authoring** — %-off and fixed-amount, then volume/tiered and BOGO/bundle | `PRD-05` | 400 ×2 |
+| 8 | **Promotion resolution** — priority selection, validity window in the outlet's timezone | `PRD-06`, `BR-PRD-3/6` | 350 |
+| 9 | **Tax** — tax class × tenant/country, on the rounded net line | `PRD-07`, `BR-PRD-5` | 250 |
+| 10 | **Parity vector suite** — generated vectors as a committed artifact; the C# engine proves against them | `PRD-08`, `BR-PRD-8/9` | 350 |
+| 11+ | **Back-office screens** — products, assortment, price lists, promotions (3–4 PRs) | — | — |
+
+**Slice 5 is a prerequisite, and it is deliberately late.** `BR-PRD-2` resolves a price by *outlet
+override → channel → default*, so the engine must map an outlet to its channel. `Outlet.ChannelId`
+exists but is internal to Outlets, and [AT-1](architecture/10-module-boundaries.md#5-enforcement--architecture-tests)
+forbids Products reading it; `IOutletCatalog.OutletSummary` carries no channel. So Outlets must grow
+a public contract — **channel only**, nothing else, designed against the resolver as its actual
+caller. That placement is the registry's own discipline: `IOutletCatalog` and `ITerritoryDirectory`
+both waited for a real consumer rather than being guessed at up front
+([module boundaries §7](architecture/10-module-boundaries.md#7-module-registry)).
+
+**The vector format is a W7 contract, not a slice-10 detail.** W7's TypeScript mirror consumes the
+same file, so the format is decided in **slice 6**, with the first engine code — not invented at
+slice 10, where it would be shaped by whatever C# found convenient to emit.
+
+**`Money` crosses the wire as a string** amount + currency (`BR-PRD-8`,
+[api-contracts §1](architecture/13-api-contracts.md#1-shape--conventions)), which constrains every
+DTO from slice 4 onward. Retrofitting it later is a breaking API change.
+
+**Refusals carry codes from the first slice** ([ADR-0012](architecture/adr/0012-server-message-localization.md)).
+This module is refusal-heavy — no price list for this currency, product not in assortment, promotion
+outside its window — and writing them as English prose now would mean migrating a module's worth of
+messages a month later. Deciding that before W6 rather than during it was the point.
+
+**Not in W6:** `IReferenceChangeFeed` for Products, which lands with the W8 sync slices for the same
+reason row-version stamping does — a primitive designed against a protocol that does not exist yet is
+a guess. `PRD-09` (localized product names) and `PRD-10` (off-assortment ordering) are Phase 4
+*Coulds* and stay there.
+
+The `📝 ASSUMPTION` answers in the [spec's open questions](product/13-products-and-pricing.md#10-open-questions)
+are taken as settled: no promotion stacking beyond one line-level plus order-level, volume tiers
+per-line, currency per price list rather than per tenant.
+
 ### Week 7 · Journey · Visit · TS pricing mirror ⚠︎
 **Goal:** the field domain (online) + the cross-language pricing guarantee.
 - Journey: frequency config, working calendar, generation; `IJourneyQuery` ([Journey spec](product/20-journey-planning.md)) — `JRN-01…06`.
