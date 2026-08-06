@@ -258,6 +258,18 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
   revisited. `channel:write` is separate from `outlet:write` on purpose — it is the permission the
   importer pointedly lacks, so a typo in one cell cannot mint a permanent classification.
 
+- **Outlet custom fields** (`CFG-01`) — behind `/outlets/custom-fields`, linked from the outlet
+  header. **Not in the original W5 list**, and the fourth instance of the same pattern, found by the
+  pre-Phase-2 audit rather than by the demo walk: the outlet form has rendered a tenant's own fields
+  since W4 and the import validates against them, but nothing could put anything *in* the catalogue.
+  Every definition on the dev database existed because an integration test had made one — so the
+  module that carries the product's "highly customizable per tenant" claim shipped read-only.
+  The **key is derived from the label** and fixed after creation, because it is the JSONB property
+  name already written into every row. Deleting a definition is **confirmed**, unlike deleting a
+  channel: a channel still in use is refused by the API with a count, while this cannot be — the
+  values live in another module's rows (ADR-0005) and stay there, undescribed, until each outlet is
+  next saved and then vanish.
+
 **Done when:** an admin logs in, models a small org, and loads outlets — matches the [wireframes](ux/README.md), all tenant-scoped. **▶ Phase 1 demo.**
 
 ---
