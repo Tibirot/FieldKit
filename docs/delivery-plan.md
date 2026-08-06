@@ -243,6 +243,13 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
   is not offered its own subtree as a parent — the API refuses the cycle, but unlike a name collision
   this is never what somebody meant.
 
+- **Outlet ↔ territory membership** (`ORG-05`) — in the territory detail panel, and **not** on the
+  outlet form: membership is Organization's fact, and having Outlets write it for convenience is what
+  module boundaries exist to prevent. The outlet list *reads* it through `ITerritoryDirectory`; this
+  is the only thing that writes it. The second gap the demo walk found — the Territory column had
+  read `Unassigned` for every outlet since it was built, because nothing could populate it, which
+  also meant every rep assignment covered nothing.
+
 **Done when:** an admin logs in, models a small org, and loads outlets — matches the [wireframes](ux/README.md), all tenant-scoped. **▶ Phase 1 demo.**
 
 ---

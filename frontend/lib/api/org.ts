@@ -288,3 +288,60 @@ export function updateAssignment(
 export function deleteAssignment(accessToken: string, id: string): Promise<void> {
   return apiDelete(`/api/org/assignments/${id}`, accessToken);
 }
+
+/**
+ * An outlet in a territory, named through the Outlets contract (`ORG-05`).
+ *
+ * Every field but the id is nullable because the membership is the fact Organization owns — an
+ * outlet that no longer resolves keeps its row rather than disappearing, which would make a
+ * territory quietly smaller than the count on the list screen says.
+ */
+export type TerritoryOutlet = {
+  outletId: string;
+  code: string | null;
+  name: string | null;
+  isOpen: boolean | null;
+};
+
+export const territoryOutletsKey = (subject: string, territoryId: string) =>
+  ["territory-outlets", subject, territoryId] as const;
+
+export function fetchTerritoryOutlets(
+  accessToken: string,
+  territoryId: string,
+  signal?: AbortSignal,
+): Promise<TerritoryOutlet[]> {
+  return apiGet<TerritoryOutlet[]>(
+    `/api/org/territories/${territoryId}/outlets`,
+    accessToken,
+    signal,
+  );
+}
+
+/**
+ * Puts outlets in a territory.
+ *
+ * A list rather than one at a time, because that is the shape of the decision — an admin carving up
+ * a region assigns a handful at once. Idempotent, and refused as a set: one unknown id rejects the
+ * whole request rather than half-applying.
+ */
+export function assignOutlets(
+  accessToken: string,
+  territoryId: string,
+  outletIds: string[],
+): Promise<void> {
+  return apiSend<void>(
+    "POST",
+    `/api/org/territories/${territoryId}/outlets`,
+    accessToken,
+    { outletIds },
+  );
+}
+
+export function removeOutlet(
+  accessToken: string,
+  territoryId: string,
+  outletId: string,
+): Promise<void> {
+  return apiDelete(`/api/org/territories/${territoryId}/outlets/${outletId}`, accessToken);
+}

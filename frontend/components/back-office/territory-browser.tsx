@@ -7,6 +7,7 @@ import { useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
 import { TerritoryAssignments } from "@/components/back-office/territory-assignments";
+import { TerritoryOutlets } from "@/components/back-office/territory-outlets";
 import { TerritoryForm } from "@/components/back-office/territory-form";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api/client";
@@ -242,7 +243,17 @@ export function TerritoryBrowser() {
         Below the table rather than beside it: the detail is wider than a sidebar wants to be once it
         holds a date-range form, and stacking is what the layout does on a phone anyway.
       */}
-      {selected ? <TerritoryAssignments territory={selected} /> : null}
+      {/*
+        Outlets before reps, because that is the order the questions come in: what does this
+        territory cover, and then who covers it. A rep assigned to a territory holding nothing is an
+        assignment to nothing.
+      */}
+      {selected ? (
+        <>
+          <TerritoryOutlets territory={selected} />
+          <TerritoryAssignments territory={selected} />
+        </>
+      ) : null}
     </div>
   );
 }
