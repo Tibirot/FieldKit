@@ -46,6 +46,10 @@ public sealed class ProductsModule : IModule
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
+        // Categories first: `/api/products/categories` must be registered before the `/{id}` shapes
+        // this group will grow in slice 2, or "categories" would be routed as a product id.
+        endpoints.MapCategoryEndpoints();
+
         var products = endpoints.MapGroup("/api/products").WithTags("Products");
 
         products.MapPost("/", async (
