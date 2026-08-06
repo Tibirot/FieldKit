@@ -23,6 +23,7 @@ Format: [Michael Nygard's template](https://cognitect.com/blog/2011/11/15/docume
 | [0009](0009-config-driven-customization.md) | Config-driven customization model | Accepted |
 | [0010](0010-internationalization.md) | Internationalization (currency & language) | Accepted |
 | [0011](0011-deployment-azure-container-apps.md) | Deployment target: Azure Container Apps | Accepted |
+| [0012](0012-server-message-localization.md) | Server messages are codes, not prose | Accepted |
 
 **Statuses:** Proposed · Accepted · Planned (intended, not yet fully specified) ·
 Superseded by ADR-XXXX · Deprecated.
