@@ -56,7 +56,8 @@ several small PRs.
   per-module `outbox_message` (same-tx interceptor) → `OutboxProcessor` claims (`FOR UPDATE SKIP
   LOCKED`) and delivers idempotently ([ADR-0006](architecture/adr/0006-in-process-messaging-and-outbox.md)); verified on real Postgres.
 - **[✓ module-hosting slice]** `IModule` self-registration (`FieldKit.Web`) + first real module
-  (`Catalog`, `POST/GET /api/products`) replacing `WeatherForecast`; end-to-end verified with
+  (`Catalog`, `POST/GET /api/products`) replacing `WeatherForecast` — renamed `Products` before W6,
+  since it already held that module's route and permissions; end-to-end verified with
   `WebApplicationFactory<Program>` on real Postgres. **The modular monolith runs.**
 - **[✓ migrations slice]** Per-module **EF migrations** (`ModuleMigrator`, per-schema history) replacing `EnsureCreated`.
 - **[✓ W2]** Front end **Vite → Next.js** (App Router) + AppHost re-wired (`AddJavaScriptApp`, standalone output).

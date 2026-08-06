@@ -95,7 +95,7 @@ FieldKit/
 ├─ FieldKit.SharedKernel/    # value objects (Money, GeoPoint, IClock, Result, TenantId)
 ├─ FieldKit.BuildingBlocks/  # pure abstractions (messaging, tenancy, AggregateRoot)
 ├─ FieldKit.Infrastructure/  # EF base (schema-per-module), interceptors, outbox
-├─ FieldKit.Modules.Catalog/ # the first domain module
+├─ FieldKit.Modules.Products/# the first domain module (W1's `Catalog`, grown into Products & Pricing)
 ├─ frontend/                 # Next.js field app + back office
 ├─ docs/                     # functional + technical documentation
 └─ FieldKit.slnx
@@ -117,7 +117,8 @@ and live traces. *(Prerequisites and the current run state are tracked in the
 ## Status
 
 🚧 **Phase 0 — foundation nearly complete.** The modular monolith **runs**: Aspire boots the Server
-on PostgreSQL, and the first module (`Catalog`) answers `POST`/`GET /api/products` end-to-end, with
+on PostgreSQL, and the first module (`Products`, built in W1 as `Catalog`) answers `POST`/`GET
+/api/products` end-to-end, with
 schema-per-module isolation, a transactional outbox, and architecture tests enforcing the
 boundaries — all verified against real Postgres in CI. Remaining Phase 0: per-module EF migrations,
 and the Vite → Next.js front-end migration. See the [roadmap](docs/roadmap.md) and

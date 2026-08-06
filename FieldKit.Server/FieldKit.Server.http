@@ -29,12 +29,12 @@ Authorization: Bearer {{token.response.body.access_token}}
 GET {{Server_HostAddress}}/api/auth/whoami
 Accept: application/json
 
-### Catalog — list products. Requires `product:read`.
+### Products — list products. Requires `product:read`.
 GET {{Server_HostAddress}}/api/products
 Accept: application/json
 Authorization: Bearer {{token.response.body.access_token}}
 
-### Catalog — create a product. Requires `product:write`.
+### Products — create a product. Requires `product:write`.
 ### The tenant is taken from the token's `tenant` claim; nothing in this request can influence it.
 POST {{Server_HostAddress}}/api/products
 Content-Type: application/json
