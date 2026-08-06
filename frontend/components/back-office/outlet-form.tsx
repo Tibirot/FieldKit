@@ -24,23 +24,13 @@ import {
   type OutletWrite,
 } from "@/lib/api/outlets";
 import { customFieldSchema, type ValidationMessages } from "@/lib/forms/custom-field-schema";
+import { zonesIncluding } from "@/lib/time-zones";
 import { useValidationMessages } from "@/lib/forms/use-validation-messages";
 import { cn } from "@/lib/utils";
 
 const CONTROL =
   "h-9 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground"
   + " focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
-
-/**
- * The IANA zones this browser knows.
- *
- * From the platform rather than a bundled list: a hard-coded set goes stale every time a country
- * changes its rules, and the API validates against the *runtime's* database anyway — so taking the
- * options from the same source that will judge them is the only way the list cannot be wrong.
- */
-function zones(): string[] {
-  return typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
-}
 
 /** Trimmed, and empty becomes absent — the shape every optional string on the API expects. */
 /** How the API nests custom fields — the one place its naming and this form's disagree. */
@@ -431,7 +421,7 @@ export function OutletForm({ outlet }: { outlet?: OutletDetail }) {
         <Field label={t("timeZone")} htmlFor="timeZoneId" required error={message("timeZoneId")}>
           <select {...bind("timeZoneId")}>
             <option value="" disabled />
-            {zones().map((zone) => (
+            {zonesIncluding(outlet?.timeZoneId).map((zone) => (
               <option key={zone} value={zone}>
                 {zone}
               </option>
