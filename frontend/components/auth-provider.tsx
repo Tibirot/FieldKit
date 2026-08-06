@@ -10,11 +10,23 @@ import { forgetWorkspace, readWorkspace, rememberWorkspace } from "@/lib/auth/wo
 /**
  * The signed-in session, for the whole app (`IAM-01`).
  *
- * `status` is three-valued rather than a boolean. "We have not looked yet" and "we looked and there
- * is nobody" are different things: collapsing them flashes the sign-in screen at an already
- * signed-in user on every reload, which on a phone reads as being logged out.
+ * `status` is four-valued rather than a boolean, and each split earns its place.
+ *
+ * "We have not looked yet" and "we looked and there is nobody" are different things: collapsing them
+ * flashes the sign-in screen at an already signed-in user on every reload, which on a phone reads as
+ * being logged out.
+ *
+ * `"expired"` and `"anonymous"` are the second split, and the one that was missing. Both mean "no
+ * usable token", but they are different situations for the person holding the device. Anonymous is
+ * someone who has not signed in — send them to sign-in. Expired is someone who *was* signed in and
+ * whose session died underneath them — they know which workspace they belong to, they are probably
+ * mid-task, and the app knows enough to offer them one button back. Treating expired as anonymous
+ * throws away that context; treating it as authenticated is worse, and is what used to happen: the
+ * shell stayed rendered, `/api/auth/whoami` answered 401, permissions came back empty, and every
+ * gated control quietly disappeared. A UI that says "you may do nothing" when it means "prove who
+ * you are again".
  */
-export type AuthStatus = "loading" | "authenticated" | "anonymous";
+export type AuthStatus = "loading" | "authenticated" | "expired" | "anonymous";
 
 export type AuthContextValue = {
   status: AuthStatus;
@@ -25,6 +37,21 @@ export type AuthContextValue = {
   signOut: () => Promise<void>;
   /** Completes the redirect back from Keycloak. Only the callback route calls this. */
   completeSignIn: (settings: OidcSettings) => Promise<void>;
+  /**
+   * Declares the session over without ending it at Keycloak.
+   *
+   * Called by whatever notices first — the token's own expiry event, or a 401 from the API. It is
+   * idempotent and safe to call repeatedly, because both of those fire more than once: a screen with
+   * four queries produces four 401s for one dead token.
+   */
+  expire: () => void;
+  /**
+   * Signs back in to the workspace already on the device, no typing.
+   *
+   * Returns `false` when it cannot — nothing remembered, or the stored Keycloak address is unusable
+   * — which is the caller's cue to fall back to the sign-in screen.
+   */
+  reauthenticate: () => Promise<boolean>;
 };
 
 /**
@@ -115,6 +142,35 @@ export function AuthProvider({
     };
   }, [managerFor]);
 
+  const expire = useCallback(() => {
+    // Only from a live session. Without this guard a 401 arriving after sign-out — an in-flight
+    // query settling a moment late — would drag the app back out of "anonymous" and show a re-auth
+    // prompt to someone who just deliberately signed out.
+    setStatus((current) => (current === "authenticated" ? "expired" : current));
+  }, []);
+
+  // The token dying while the app is open is the case the mount-time expiry check cannot see, and
+  // the one a rep actually hits: the tab was open, `automaticSilentRenew` tried, and the refresh
+  // token was gone or the network was not there.
+  //
+  // Gated on being online, because offline is the one situation where an expired token is not a
+  // question the user can answer. Prompting a rep in a stockroom to re-authenticate offers them a
+  // door that cannot open. If the session really is over, the first 401 after the network returns
+  // says so — and that path costs nothing, since offline there is nothing to 401.
+  useEffect(() => {
+    const manager = managerRef.current?.manager;
+
+    if (status !== "authenticated" || !manager) return;
+
+    const onExpired = () => {
+      if (navigator.onLine) expire();
+    };
+
+    manager.events.addAccessTokenExpired(onExpired);
+
+    return () => manager.events.removeAccessTokenExpired(onExpired);
+  }, [status, expire]);
+
   const signIn = useCallback(
     async (target: string, settings: OidcSettings) => {
       // Remembered *before* the redirect, not after: the browser leaves this origin and comes back
@@ -162,9 +218,21 @@ export function AuthProvider({
     }
   }, [workspace, managerFor]);
 
+  const reauthenticate = useCallback(async () => {
+    const target = workspace ?? readWorkspace();
+    const settings = readSettings();
+
+    // `readSettings` validates what it returns, so a tampered or half-written entry lands here as
+    // null rather than as the authority of a redirect.
+    if (!target || !settings) return false;
+
+    await signIn(target, settings);
+    return true;
+  }, [workspace, signIn]);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ status, user, workspace, signIn, signOut, completeSignIn }),
-    [status, user, workspace, signIn, signOut, completeSignIn],
+    () => ({ status, user, workspace, signIn, signOut, completeSignIn, expire, reauthenticate }),
+    [status, user, workspace, signIn, signOut, completeSignIn, expire, reauthenticate],
   );
 
   return <AuthContext value={value}>{children}</AuthContext>;

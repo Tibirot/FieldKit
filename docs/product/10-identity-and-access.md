@@ -112,6 +112,21 @@ the app tolerates going offline mid-session and refreshes on reconnect. Permissi
 on-device for the session so screens render offline. No user/role *administration* happens
 offline (admin is a back-office, online activity).
 
+**When a session does end, the app says so** (`IAM-01`). Refresh is not guaranteed — the refresh
+token expires too, and a long enough offline stretch outlives it. The app treats "expired" as a
+state of its own, distinct from "never signed in": it stops rendering the shell and asks the user to
+sign in again, offering the workspace already on the device so nothing has to be re-typed.
+
+The failure this rules out is the quiet one. Permissions come from the API, not from the token
+(§8), so an expired token means `/api/auth/whoami` answers `401` and the permission set comes back
+empty — and a screen that hides what the user may not do will then hide *everything*. The app looks
+like it has decided this person may do nothing, when it has only stopped knowing who they are. An
+end-of-session must be a question, never a silently reduced UI.
+
+**Offline is not expiry.** An expired token with no network is not a question the user can answer,
+so the prompt waits: expiry while offline leaves the session alone, and it is the first `401` after
+the network returns that ends it. Unreachable and rejected are different answers.
+
 ## 8. Module contract (exposed to others)
 
 - `ITenantContext` — current `(tenantId, userId, locale, timezone)`.

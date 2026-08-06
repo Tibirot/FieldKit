@@ -93,7 +93,13 @@
   "BackOffice": {
     "restoring": "Se restaurează sesiunea…",
     "redirecting": "Te ducem la autentificare…",
-    "signOut": "Deconectare"
+    "signOut": "Deconectare",
+    "expired": {
+      "title": "Sesiunea a expirat",
+      "body": "Ai fost deconectat din motive de securitate. Autentifică-te din nou pentru a continua de unde ai rămas.",
+      "signIn": "Autentifică-te din nou",
+      "signingIn": "Se autentifică…"
+    }
   },
   "Outlets": {
     "crumb": "Date de bază / Puncte de vânzare",
