@@ -250,6 +250,14 @@ week absorbed the new **Configuration module** (finding S5) on top of Organizati
   read `Unassigned` for every outlet since it was built, because nothing could populate it, which
   also meant every rep assignment covered nothing.
 
+- **Trade channels** (`OUT-01`) — behind `/outlets/channels`, linked from the outlet header.
+  **Not in the original W5 list**, and the third gap the demo walk found: every outlet needs a channel
+  (`BR-OUT-1`), the endpoints existed since W4, and nothing called them — so a fresh tenant could not
+  create its first outlet, and the only channels on the dev database were left by integration tests.
+  Its own route rather than a section on the outlet list, because it is set up once and rarely
+  revisited. `channel:write` is separate from `outlet:write` on purpose — it is the permission the
+  importer pointedly lacks, so a typo in one cell cannot mint a permanent classification.
+
 **Done when:** an admin logs in, models a small org, and loads outlets — matches the [wireframes](ux/README.md), all tenant-scoped. **▶ Phase 1 demo.**
 
 ---

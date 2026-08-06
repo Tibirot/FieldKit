@@ -129,7 +129,8 @@
     "nextPage": "Next page",
     "newOutlet": "New outlet",
     "edit": "Edit",
-    "importOutlets": "Import"
+    "importOutlets": "Import",
+    "manageChannels": "Channels"
   },
   "OutletForm": {
     "crumbNew": "Master data / Outlets / New",
@@ -365,5 +366,28 @@
     "saving": "Saving…",
     "cancel": "Cancel",
     "under": ", in {path}"
+  },
+  "Channels": {
+    "crumb": "Master data / Outlets / Channels",
+    "title": "Trade channels",
+    "intro": "Every outlet is classified as one. A channel drives assortment, pricing and the visit workflow, so a workspace needs at least one before it can have outlets.",
+    "newChannel": "New channel",
+    "newTitle": "New channel",
+    "editTitle": "Rename channel",
+    "name": "Name",
+    "nameHint": "Unique for this workspace, ignoring case — “Modern Trade” and “modern trade” are the same channel.",
+    "loading": "Loading channels…",
+    "failed": "Channels could not be loaded.",
+    "forbidden": "You do not have permission to view channels.",
+    "empty": "No channels yet. Create the first one — an outlet cannot be created without one.",
+    "edit": "Rename",
+    "editNamed": "Rename {name}",
+    "delete": "Delete",
+    "deleteNamed": "Delete {name}",
+    "deleteFailed": "This channel could not be deleted.",
+    "saveFailed": "This channel could not be saved.",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel"
   }
 }
