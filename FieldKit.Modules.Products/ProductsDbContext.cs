@@ -22,6 +22,8 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
 
     public DbSet<TaxClass> TaxClasses => Set<TaxClass>();
 
+    public DbSet<AssortmentItem> AssortmentItems => Set<AssortmentItem>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -171,6 +173,31 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
             taxClass.HasKey(t => t.Id);
             taxClass.Property(t => t.Name).HasMaxLength(120).IsRequired();
             taxClass.HasIndex(t => new { t.TenantId, t.Name }).IsUnique();
+        });
+
+        modelBuilder.Entity<AssortmentItem>(item =>
+        {
+            item.ToTable("assortment_item");
+            item.HasKey(i => i.Id);
+
+            // A product appears at most once per channel. Without this, "add product X to channel Y"
+            // run twice leaves two rows, and every question asked of the assortment — is X in it, how
+            // many must-stock lines are there — starts returning duplicates.
+            item.HasIndex(i => new { i.TenantId, i.ChannelId, i.ProductId }).IsUnique();
+
+            // Tenant-keyed to the product, the pattern established for Category's parent. The
+            // channel gets no key at all: it lives in Outlets, and a foreign key across a module
+            // boundary is precisely the coupling schema-per-module exists to prevent. The endpoint
+            // checks it through IOutletClassification instead.
+            item.HasOne<Product>()
+                .WithMany()
+                .HasForeignKey(i => new { i.TenantId, i.ProductId })
+                .HasPrincipalKey(p => new { p.TenantId, p.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // The read this table exists for: everything in a channel, must-stock first so a
+            // suggested-order list does not have to sort it again.
+            item.HasIndex(i => new { i.TenantId, i.ChannelId, i.IsMustStock });
         });
     }
 }
