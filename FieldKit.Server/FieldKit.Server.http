@@ -84,6 +84,56 @@ Authorization: Bearer {{token.response.body.access_token}}
 DELETE {{Server_HostAddress}}/api/products/categories/{{beverages.response.body.id}}
 Authorization: Bearer {{token.response.body.access_token}}
 
+### Products — the brands a tenant sells. Requires `product:read`.
+GET {{Server_HostAddress}}/api/products/brands
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### Products — create a brand. Requires `product:write`.
+# @name veridian
+POST {{Server_HostAddress}}/api/products/brands
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Veridian"
+}
+
+### The same name in different case — expect 409 `product.brand.nameTaken`.
+### "Veridian" and "VERIDIAN" are one brand typed twice; letting both exist would mean every rule
+### keyed to a brand quietly covers half the products.
+POST {{Server_HostAddress}}/api/products/brands
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "VERIDIAN"
+}
+
+### Products — tax classes. The classification only: the *rate* belongs to (tax class, country)
+### and arrives with tax computation in W6 slice 9 (`PRD-07`).
+GET {{Server_HostAddress}}/api/products/tax-classes
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### Products — create a tax class. Requires `product:write`.
+POST {{Server_HostAddress}}/api/products/tax-classes
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Reduced"
+}
+
+### A blank name — expect 400 `product.taxClass.nameRequired`.
+POST {{Server_HostAddress}}/api/products/tax-classes
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "   "
+}
+
 ### Products — list products. Requires `product:read`.
 GET {{Server_HostAddress}}/api/products
 Accept: application/json
