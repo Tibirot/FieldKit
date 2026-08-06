@@ -107,6 +107,9 @@ Every PR answers *"what does this implement and where is that written down?"*
   steps. (Final squash-on-merge is the human's choice.)
 - **Rebase on `main`, don't merge `main` in,** to keep history linear (unless the team decides
   otherwise).
+- **Stacked PRs target the branch below them,** not `main` — re-target to `main` as each parent
+  merges. CI runs on every PR regardless of base, so a stacked PR is gated exactly like a
+  bottom-of-stack one; a green check on the parent says nothing about the child.
 - **Draft first.** Open as a **draft PR**, self-review, then mark **ready** once CI is green.
 
 ---

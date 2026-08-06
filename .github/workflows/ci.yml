@@ -1,6 +1,6 @@
 name: CI
 
-# Runs on every PR into main and on pushes to main.
+# Runs on every PR — whatever it targets — and on pushes to main.
 # This is the enforcement half of docs/engineering/pull-requests.md — the gates are only real
 # once these checks are marked "required" in branch protection (see the note at the bottom).
 #
@@ -8,8 +8,11 @@ name: CI
 # automatically as Phase 0 lands the test projects — no workflow changes needed.
 
 on:
+  # Deliberately unfiltered. `branches: [main]` here would mean a PR whose base is another PR's
+  # branch never runs — and stacking is exactly what pull-requests.md asks for when work exceeds
+  # the ~400-line budget, so the checks would go quiet on precisely the largest changes. Two such
+  # PRs merged unchecked before this was fixed.
   pull_request:
-    branches: [main]
   push:
     branches: [main]
 
