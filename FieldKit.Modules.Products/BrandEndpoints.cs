@@ -71,10 +71,23 @@ internal static class BrandEndpoints
             var brand = await db.Brands.SingleOrDefaultAsync(b => b.Id == id, ct);
             if (brand is null) return Results.NotFound();
 
-            // No in-use check, because nothing can be using it yet: `Product` gains `BrandId` in
-            // slice 2. That slice must add the guard here — and the FK it adds will refuse the
-            // delete anyway, so the failure mode if it is forgotten is a raw constraint violation
-            // rather than lost data.
+            // The guard slice 1b said belonged here once `Product` could reference a brand. The
+            // foreign key would refuse this anyway; what this adds is an answer an admin can act on
+            // — how many products are in the way — rather than a constraint violation.
+            var inUse = await db.Products.CountAsync(p => p.BrandId == id, ct);
+            if (inUse > 0)
+            {
+                return Problems.Conflict(
+                    field: null,
+                    $"{inUse} product(s) are branded '{brand.Name}'. Reclassify them first.",
+                    "product.brand.inUse",
+                    new Dictionary<string, string>
+                    {
+                        ["name"] = brand.Name,
+                        ["count"] = inUse.ToString(),
+                    });
+            }
+
             db.Brands.Remove(brand);
             await db.SaveChangesAsync(ct);
 

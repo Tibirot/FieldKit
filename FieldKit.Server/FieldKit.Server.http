@@ -139,8 +139,10 @@ GET {{Server_HostAddress}}/api/products
 Accept: application/json
 Authorization: Bearer {{token.response.body.access_token}}
 
-### Products — create a product. Requires `product:write`.
+### Products — create a product, unclassified. Requires `product:write`.
 ### The tenant is taken from the token's `tenant` claim; nothing in this request can influence it.
+### All three classification ids are optional: a tenant can enter products before it has authored a
+### brand list or a category tree.
 POST {{Server_HostAddress}}/api/products
 Content-Type: application/json
 Authorization: Bearer {{token.response.body.access_token}}
@@ -149,6 +151,48 @@ Authorization: Bearer {{token.response.body.access_token}}
   "sku": "VRD-STL-050",
   "name": "Veridian Still 0.5L"
 }
+
+### Products — create a classified product, using the brand created above.
+# @name classified
+POST {{Server_HostAddress}}/api/products
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "sku": "VRD-STL-100",
+  "name": "Veridian Still 1L",
+  "brandId": "{{veridian.response.body.id}}"
+}
+
+### Three unknown classification ids — expect 400 with **three** problems, not one:
+### `product.brand.missing`, `product.category.missing`, `product.taxClass.missing`.
+### A form with three bad ids should be fixable in one pass rather than three round trips.
+POST {{Server_HostAddress}}/api/products
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "sku": "VRD-BAD-001",
+  "name": "Wrong on every count",
+  "brandId": "00000000-0000-0000-0000-000000000001",
+  "categoryId": "00000000-0000-0000-0000-000000000002",
+  "taxClassId": "00000000-0000-0000-0000-000000000003"
+}
+
+### Products — rename and reclassify. PUT replaces: omitting `brandId` *clears* the brand.
+### The SKU is deliberately not editable — changing it is a different product, not a rename.
+PUT {{Server_HostAddress}}/api/products/{{classified.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Veridian Still 1L (renamed)"
+}
+
+### Deleting a brand a product is classified by — expect 409 `product.brand.inUse`,
+### with the count in `args`. The foreign key would refuse it anyway; this says how many.
+DELETE {{Server_HostAddress}}/api/products/brands/{{veridian.response.body.id}}
+Authorization: Bearer {{token.response.body.access_token}}
 
 ### Same create, anonymous — expect 401.
 POST {{Server_HostAddress}}/api/products
