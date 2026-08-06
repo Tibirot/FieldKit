@@ -21,9 +21,13 @@ is the **phase-level** view; the **[delivery plan](delivery-plan.md)** breaks ea
 - **Boundaries from day one.** Architecture tests exist before there are two modules to
   keep apart.
 
-## Phase 0 — Foundation *(in progress)*
+## Phase 0 — Foundation *(complete, one item deferred)*
 
 Turn the scaffold into a clean skeleton the rest hangs off.
+
+The one unticked box is **row-version stamping**, and it is deferred rather than outstanding: its
+only consumer is the sync engine, so building it now would mean shipping a primitive designed
+against a protocol that does not exist yet. It lands with the W8 sync slices.
 
 - [x] Aspire solution scaffolded (AppHost + Server + Redis)
 - [x] **Documentation & design complete** — product specs, [decisions & assumptions](product/decisions-and-assumptions.md),
@@ -82,7 +86,6 @@ Turn the scaffold into a clean skeleton the rest hangs off.
   a step earlier still, at *compile* time, by the banned-API analyzer. The module-boundary rules
   **AT-1…AT-6** land with the second module — there is nothing to keep apart until then
   ([module boundaries §5](architecture/10-module-boundaries.md#5-enforcement--architecture-tests)).
-- [ ] **Seed/demo-data** harness (a believable tenant) so every phase is demoable
 - [x] CI: build + test + arch-test on GitHub Actions — [`ci.yml`](../.github/workflows/ci.yml) runs
   two jobs on every PR and push to `main`: **dotnet** (restore → build → `dotnet test`, which covers
   unit, architecture and the Testcontainers integration suite on real Postgres) and **frontend**
@@ -91,21 +94,28 @@ Turn the scaffold into a clean skeleton the rest hangs off.
 
 **Demo:** the app boots via Aspire, one health-checked module answers, dashboard shows traces.
 
-## Phase 1 — Admin core: identity, org, outlets
+## Phase 1 — Admin core: identity, org, outlets *(complete)*
 
 The back office comes first because the field app has nothing to show without master data.
 
-- [ ] **IAM** — tenants, users, roles, permissions; **Keycloak (OIDC, realm-per-tenant)** login;
+- [x] **IAM** — tenants, users, roles, permissions; **Keycloak (OIDC, realm-per-tenant)** login;
   JWT to the API ([ADR-0008](architecture/adr/0008-authentication-and-multitenancy.md))
-- [ ] **Multi-tenancy** enforced end to end (global query filter + `ITenantContext` + arch-test ban on bypass)
-- [ ] **Organization** — org hierarchy, territories, assign reps to territories
-- [ ] **Outlets** — CRUD the retail universe: channels, segments, geo, contacts
-- [ ] **Configuration module** (10th) — field-definition catalog + JSONB values + validation;
+- [x] **Multi-tenancy** enforced end to end (global query filter + `ITenantContext` + arch-test ban on bypass)
+- [x] **Organization** — org hierarchy, territories, assign reps to territories
+- [x] **Outlets** — CRUD the retail universe: channels, segments, geo, contacts
+- [x] **Configuration module** (10th) — field-definition catalog + JSONB values + validation;
   owns visit-workflow / survey / weight definitions as snapshot-versioned reference config
   ([ADR-0009](architecture/adr/0009-config-driven-customization.md))
-- [ ] Back-office **UI shell** (shadcn) with Outlets, Territories, Users & Roles screens
+- [x] Back-office **UI shell** (shadcn) with Outlets, Territories, Users & Roles screens
 
 **Demo:** an admin logs in, models a small org, and loads a set of outlets — all tenant-scoped.
+
+Demoed, and the demo is what completed it. Walking the phase end to end turned up **five screens
+that did not exist behind endpoints that did** — org units, outlet↔territory membership, trade
+channels, the custom-field catalogue and the outlet lifecycle. Each was built, tested and reachable
+by `.http` request, and each was invisible in review because nothing in the codebase points from an
+endpoint to the screen that ought to call it. The habit that found them — asking what an admin would
+press, in a tenant with no test leftovers — is worth carrying into every phase after this one.
 
 ## Phase 2 — Field ops online: journeys, visits, and the sync engine
 
@@ -145,6 +155,11 @@ offline, reconciled on reconnect.
   ([observability](architecture/15-observability.md))
 - [ ] Security hardening + threat-model verification ([security](architecture/16-security.md))
 - [ ] E2E suite (Playwright) covering the golden path online **and** offline
+- [ ] **Seed/demo-data** harness (a believable tenant) so the live demo has something to show —
+  scheduled with the E2E suite in [W14](delivery-plan.md), which is what needs a deterministic
+  fixture. It sat under Phase 0 until the pre-Phase-2 audit found it listed in two phases at once;
+  every phase through 3 has been demoed on hand-entered data, so it was never the blocker Phase 0
+  implied it was.
 - [ ] Deploy to **Azure Container Apps** via `aspire deploy` ([ADR-0011](architecture/adr/0011-deployment-azure-container-apps.md))
 - [ ] Case-study polish: screenshots/GIFs in the README
 

@@ -197,13 +197,19 @@ we hold the option without paying to exercise it.
 
 ## 7. Module registry
 
+**Built contracts are in bold; the rest are planned** — the shape the design intends, not something
+another module can reference today. The distinction is not cosmetic: this table read as a
+description of what exists until the pre-Phase-2 audit checked it against the assemblies and found
+four of its entries had no interface behind them. A registry that overstates its surface is exactly
+the document a module author trusts when deciding what to depend on.
+
 | Module | Assembly | Schema | Key contracts | Publishes |
 |---|---|---|---|---|
-| IAM | `…Modules.Iam` (+ `.Contracts`) | `iam` | `IUserDirectory`, `ITenantRegistry` | `UserDeactivated` |
-| Organization | `…Modules.Org` (+ `.Contracts`) | `org` | `ITerritoryDirectory`, `IRepScope`, `IOrgHierarchy` | `RepAssignmentChanged` |
-| Outlets | `…Modules.Outlets` (+ `.Contracts`) | `outlets` | `IOutletCatalog`, `IOutletClassification`, `IReferenceChangeFeed`, `IOutletProposalIngest` | `OutletChanged`, `OutletClosed` |
+| IAM | `…Modules.Iam` (+ `.Contracts`) | `iam` | **`IUserDirectory`**, **`ITenantRegistry`** | `UserDeactivated` |
+| Organization | `…Modules.Org` (+ `.Contracts`) | `org` | **`ITerritoryDirectory`**, `IRepScope`, `IOrgHierarchy` | `RepAssignmentChanged` |
+| Outlets | `…Modules.Outlets` (+ `.Contracts`) | `outlets` | **`IOutletCatalog`**, `IOutletClassification`, `IReferenceChangeFeed`, `IOutletProposalIngest` | `OutletChanged`, `OutletClosed` |
 | Products & Pricing | `…Modules.Products` | `products` | `IProductCatalog`, `IAssortmentService`, `IPricingService`, `IReferenceChangeFeed` | `PriceListPublished`, `PromotionActivated` |
-| Configuration | `…Modules.Configuration` | `config` | `IFieldDefinitionCatalog`, `IVisitWorkflow`, `ISurveyForms`, `IScoreWeights`, `IReferenceChangeFeed` | `ConfigurationPublished` |
+| Configuration | `…Modules.Configuration` (+ `.Contracts`) | `config` | **`IFieldDefinitionCatalog`**, `IVisitWorkflow`, `ISurveyForms`, `IScoreWeights`, `IReferenceChangeFeed` | `ConfigurationPublished` |
 | Journey | `…Modules.Journey` | `journey` | `IJourneyQuery`, `IReferenceChangeFeed`, `IJourneyIngest` | `JourneyPublished`, `PlannedVisitMarkedNotVisited` |
 | Visit | `…Modules.Visit` | `visit` | `IVisitContext`, `IVisitQuery`, `IVisitIngest` | `VisitCompleted` |
 | Audit | `…Modules.Audit` | `audit` | `IAuditQuery`, `IPerfectStoreScore`, `IAuditIngest` | `AuditCompleted` |
@@ -216,10 +222,13 @@ module contract sections — the functional "what" and the technical "how" stay 
 **Each module is two assemblies:** `FieldKit.Modules.X` (implementation, private) and
 `FieldKit.Modules.X.Contracts` (its only public surface). IAM is the first built this way and sets
 the pattern; **Catalog predates it and is still a single assembly** — a retrofit, not a second rule.
-**Organization is single-assembly for now on purpose**, which is a different case from Catalog's:
-every contract in its registry row describes something that does not exist yet (the management line
-needs positions, territories need outlets), and an interface designed before its consumer is a guess
-other modules then have to live with. Its `.Contracts` assembly lands with its first contract.
+**Organization's `.Contracts` assembly arrived with its first real contract**, `ITerritoryDirectory`
+(W5), exactly as planned — it stayed single-assembly until then because an interface designed before
+its consumer is a guess other modules have to live with. `IRepScope` and `IOrgHierarchy` are still
+in that state and still unbuilt: the capability behind them exists and is reachable over HTTP
+(`GET /api/org/users/{id}/scope`, backed by an internal `OrgHierarchy` helper), but the in-process
+contract Journey and Visit are specified to consume has no consumer yet. It lands with them in
+Phase 2, shaped by what they actually ask for.
 
 **Outlets grew its `.Contracts` assembly when territories needed it** — `IOutletCatalog`, designed
 against Organization as an actual caller rather than guessed at when the module was created. That is
