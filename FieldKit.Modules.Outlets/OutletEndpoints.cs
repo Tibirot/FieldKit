@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FieldKit.Modules.Configuration.Contracts;
+using FieldKit.Modules.Iam.Contracts;
 using FieldKit.Modules.Org.Contracts;
 using FieldKit.SharedKernel;
 using FieldKit.Web;
@@ -78,12 +79,22 @@ public sealed record OutletStatusRequest(
     string? Reason = null);
 
 /// <summary>One transition in an outlet's life, as recorded (<c>OUT-04</c>).</summary>
+/// <param name="ChangedBy">
+/// The Keycloak subject. The identity itself, and what the trail is keyed on — a display name is a
+/// mutable label, so a rename must not rewrite who did what in March.
+/// </param>
+/// <param name="ChangedByName">
+/// That subject's display name, or null when it resolves to no user in this tenant. Null is
+/// ordinary rather than an error: a deleted account, an import service principal, or a subject that
+/// predates the user record all land here, and the entry still has to render.
+/// </param>
 public sealed record OutletStatusChangeResponse(
     [property: JsonConverter(typeof(JsonStringEnumConverter<OutletStatus>))] OutletStatus? From,
     [property: JsonConverter(typeof(JsonStringEnumConverter<OutletStatus>))] OutletStatus To,
     string? Reason,
     DateTimeOffset ChangedAtUtc,
-    string? ChangedBy);
+    string? ChangedBy,
+    string? ChangedByName);
 
 /// <summary>
 /// What an outlet list may be ordered by.
@@ -305,11 +316,11 @@ internal static class OutletEndpoints
         // trail is written as a side effect of the transitions above or not at all — an audit log
         // with a write API is a log that can be arranged after the fact.
         outlets.MapGet("/{id:guid}/status-history", async (
-            Guid id, OutletsDbContext db, CancellationToken ct) =>
+            Guid id, OutletsDbContext db, IUserDirectory users, CancellationToken ct) =>
         {
             if (!await db.Outlets.AnyAsync(outlet => outlet.Id == id, ct)) return Results.NotFound();
 
-            return Results.Ok(await db.OutletStatusChanges
+            var changes = await db.OutletStatusChanges
                 .Where(change => change.OutletId == id)
                 // Id breaks ties: it is a v7 GUID, so it orders by creation time at a finer
                 // resolution than the timestamp column. Two transitions in the same instant would
@@ -317,10 +328,65 @@ internal static class OutletEndpoints
                 // order is not deterministic is a set of facts with the sequence removed.
                 .OrderByDescending(change => change.CreatedAtUtc)
                 .ThenByDescending(change => change.Id)
-                .Select(change => new OutletStatusChangeResponse(
-                    change.From, change.To, change.Reason, change.CreatedAtUtc, change.CreatedBy))
-                .ToListAsync(ct));
+                .ToListAsync(ct);
+
+            return Results.Ok(await WithActorNamesAsync(changes, users, ct));
         }).RequirePermission(OutletsPermissions.OutletRead);
+    }
+
+    /// <summary>
+    /// Names the person behind each transition, where there is one to name.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The subject stays in the response beside the name, and that is the point rather than
+    /// belt-and-braces: this is an audit trail, and a display name is a mutable label on an account
+    /// while <c>sub</c> is the identity itself. Someone who changes their surname must not
+    /// retroactively become a different person in March's history, and two colleagues who share a
+    /// name must stay distinguishable.
+    /// </para>
+    /// <para>
+    /// Resolved here rather than by the caller, because reading this trail needs only
+    /// <c>outlet:read</c> while the user list needs <c>user:read</c> — a front end doing the join
+    /// would show GUIDs to exactly the people most likely to be reading it. Through
+    /// <see cref="IUserDirectory"/> rather than IAM's tables, which is what keeps schema-per-module
+    /// survivable (ADR-0005), and the same route <c>PositionEndpoints</c> already takes.
+    /// </para>
+    /// <para>
+    /// A name that does not resolve stays null and the entry still renders. Deleted accounts, an
+    /// import service principal, and a subject from before a user record existed are all ordinary —
+    /// dropping those rows would be an audit trail editing itself.
+    /// </para>
+    /// </remarks>
+    private static async Task<IReadOnlyList<OutletStatusChangeResponse>> WithActorNamesAsync(
+        IReadOnlyList<OutletStatusChange> changes, IUserDirectory users, CancellationToken ct)
+    {
+        if (changes.Count == 0) return [];
+
+        var subjects = changes
+            .Select(change => change.CreatedBy)
+            .Where(subject => !string.IsNullOrWhiteSpace(subject))
+            .Select(subject => subject!)
+            .Distinct()
+            .ToList();
+
+        // No round trip when nothing is attributed — a trail written entirely by a migration or a
+        // seed has no subjects to look up.
+        var names = subjects.Count == 0
+            ? []
+            : (await users.FindManyAsync(subjects, ct))
+                .ToDictionary(user => user.UserId, user => user.DisplayName);
+
+        return
+        [
+            .. changes.Select(change => new OutletStatusChangeResponse(
+                change.From,
+                change.To,
+                change.Reason,
+                change.CreatedAtUtc,
+                change.CreatedBy,
+                change.CreatedBy is null ? null : names.GetValueOrDefault(change.CreatedBy))),
+        ];
     }
 
     /// <summary>

@@ -557,9 +557,23 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
 ### The audit trail: every transition, newest first, starting with the outlet's creation (`from` is
 ### null). Append-only — there is deliberately no endpoint to add, edit or remove an entry, because
 ### an audit log with a write path is one that can be arranged after the fact.
+###
+### Each entry carries both `changedBy` (the Keycloak subject) and `changedByName`, resolved through
+### `IUserDirectory` at read time. Both, because a display name is a mutable label while the subject
+### is the identity — a rename must not rewrite who did what in March. `changedByName` is null when
+### the subject matches no user in this tenant, which is ordinary: a deleted account, an import
+### principal, or a subject that predates the user record. Resolved server-side because reading this
+### trail needs only `outlet:read`, while the user list needs `user:read`.
 GET {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}/status-history
 Accept: application/json
 Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### The same trail as a caller who may read outlets and nothing else — the case that decides where
+### the name is resolved. `changedByName` is still populated; a client-side join would show this
+### reader raw GUIDs.
+GET {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}/status-history
+Accept: application/json
+Authorization: Bearer {{viewerToken.response.body.access_token}}
 
 ### Reopening a closed outlet — expect 409 naming the new-outlet path.
 POST {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}/status

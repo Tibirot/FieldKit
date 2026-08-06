@@ -27,6 +27,14 @@
       that could cycle at runtime and is therefore tested rather than trusted.
     -->
     <ProjectReference Include="..\FieldKit.Modules.Org.Contracts\FieldKit.Modules.Org.Contracts.csproj" />
+    <!--
+      IAM's contracts: the outlet status trail records who made each transition as a Keycloak
+      subject, and `IUserDirectory` is how that becomes a name without reading IAM's tables
+      (ADR-0005). Consumed only from an endpoint, never from a contract implementation — AT-10
+      constrains the latter because it is the re-enterable surface, and nothing calls back into an
+      endpoint.
+    -->
+    <ProjectReference Include="..\FieldKit.Modules.Iam.Contracts\FieldKit.Modules.Iam.Contracts.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
