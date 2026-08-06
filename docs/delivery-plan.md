@@ -304,6 +304,7 @@ Sizes are hand-written diff estimates against the ~400-line budget; generated mi
 
 | # | Slice | Requirements | ~Size |
 |---|---|---|---|
+| 0 | **Refusal codes** — `FieldProblem` grows `Code`/`Args` ([ADR-0012](architecture/adr/0012-server-message-localization.md) stage 1) | — | 170 |
 | 1 | **Classification vocabulary** — `Category` (hierarchical), `Brand`, `TaxClass` | `PRD-01` | 350 |
 | 2 | **Product grows up** — brand, category, UoM, pack size, tax class, status, custom fields | `PRD-01` | 400 |
 | 3 | **Assortment + MSL** — channel assortment, MSL flags, per-outlet overrides; `IAssortmentService` | `PRD-02`, `BR-PRD-4` | 400 |
@@ -333,10 +334,12 @@ slice 10, where it would be shaped by whatever C# found convenient to emit.
 [api-contracts §1](architecture/13-api-contracts.md#1-shape--conventions)), which constrains every
 DTO from slice 4 onward. Retrofitting it later is a breaking API change.
 
-**Refusals carry codes from the first slice** ([ADR-0012](architecture/adr/0012-server-message-localization.md)).
-This module is refusal-heavy — no price list for this currency, product not in assortment, promotion
-outside its window — and writing them as English prose now would mean migrating a module's worth of
-messages a month later. Deciding that before W6 rather than during it was the point.
+**Refusals carry codes from slice 1, which is what slice 0 is for**
+([ADR-0012](architecture/adr/0012-server-message-localization.md)). This module is refusal-heavy — no
+price list for this currency, product not in assortment, promotion outside its window — and writing
+them as English prose now would mean migrating a module's worth of messages a month later. Deciding
+that before W6 rather than during it was the point; the envelope has to grow `Code`/`Args` before
+anything can use them, which is a prerequisite this decomposition initially failed to sequence.
 
 **Not in W6:** `IReferenceChangeFeed` for Products, which lands with the W8 sync slices for the same
 reason row-version stamping does — a primitive designed against a protocol that does not exist yet is
