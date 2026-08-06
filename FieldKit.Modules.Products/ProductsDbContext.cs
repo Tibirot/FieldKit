@@ -45,7 +45,7 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
             // in code; see NameTakenProblem.
             category.HasIndex(c => new { c.TenantId, c.ParentId, c.Name }).IsUnique();
 
-            // Self-referencing, restricted — the same shape Organization gives org units.
+            // Self-referencing, restricted, and keyed on the tenant as well as the id.
             //
             // The endpoint already checks that a parent exists and that a category with children is
             // not deleted, so this looks redundant. It is not: those checks read and then write, and
@@ -53,6 +53,20 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
             // deletes X and both pass their checks, leaving a category whose parent is gone — an
             // orphan invisible to any tree built from parent pointers, because its root points
             // nowhere. Only the database can close that window.
+            //
+            // **The tenant belongs in the key.** A plain `ParentId -> Id` foreign key is
+            // tenant-agnostic: it is satisfied by *any* tenant's category, so it would happily
+            // accept a parent belonging to someone else. The tenant-filtered check in the endpoint
+            // is what refuses that today, which means the strongest isolation guarantee in the
+            // module would rest entirely on application code. Keying the relationship
+            // `(TenantId, ParentId) -> (TenantId, Id)` puts it in the table, where a bug in a future
+            // code path cannot get around it. Organization keys org units on the id alone; this goes
+            // one better, and the same is worth doing there.
+            //
+            // Postgres uses MATCH SIMPLE, so a composite foreign key with any NULL column is not
+            // checked at all. `ParentId` is null exactly for roots and `TenantId` never is, so roots
+            // skip the constraint — which is what should happen, since a root has no parent to
+            // verify.
             //
             // No navigation property: the constraint is what is wanted, not a traversal. An
             // `ICollection<Category> Children` invites callers to walk the tree entity-by-entity and
@@ -64,7 +78,8 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
             // backstop for when something reaches the table another way.
             category.HasOne<Category>()
                 .WithMany()
-                .HasForeignKey(c => c.ParentId)
+                .HasForeignKey(c => new { c.TenantId, c.ParentId })
+                .HasPrincipalKey(c => new { c.TenantId, c.Id })
                 .OnDelete(DeleteBehavior.Restrict);
 
             // The list endpoint reads every category for a tenant, and the delete path asks whether

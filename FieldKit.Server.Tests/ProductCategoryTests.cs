@@ -202,7 +202,50 @@ public class ProductCategoryTests(ServerFixture fixture)
             """));
 
         Assert.NotNull(orphan);
-        Assert.Contains("FK_category_category_ParentId", orphan.ToString());
+        Assert.Contains("FK_category_category_TenantId_ParentId", orphan.ToString());
+    }
+
+    [Fact]
+    public async Task The_database_refuses_a_parent_belonging_to_another_tenant()
+    {
+        // The reason the foreign key is keyed on `(TenantId, ParentId)` rather than `ParentId`
+        // alone. A plain self-FK is tenant-agnostic — it is satisfied by *any* tenant's category, so
+        // it would accept this row without complaint, and the only thing refusing a cross-tenant
+        // parent would be the endpoint's tenant-filtered lookup. That leaves the module's strongest
+        // isolation guarantee resting entirely on application code.
+        //
+        // The parent below is real. Only the tenant is wrong, which is precisely the case a
+        // single-column key cannot see.
+        using var client = fixture.CreateAuthenticatedClient();
+        var realParent = await CreateAsync(client, $"Real {Guid.NewGuid():N}");
+
+        using var scope = fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ProductsDbContext>();
+
+        var stolen = await Record.ExceptionAsync(() => db.Database.ExecuteSqlAsync(
+            $"""
+            INSERT INTO products.category
+                ("Id", "Name", "ParentId", "TenantId", "CreatedAtUtc")
+            VALUES ({Guid.CreateVersion7()}, 'Trespasser', {realParent.Id}, {Guid.NewGuid()}, now())
+            """));
+
+        Assert.NotNull(stolen);
+        Assert.Contains("FK_category_category_TenantId_ParentId", stolen.ToString());
+    }
+
+    [Fact]
+    public async Task A_root_is_exempt_from_the_parent_constraint()
+    {
+        // Postgres uses MATCH SIMPLE: a composite foreign key with any NULL column is not checked.
+        // `ParentId` is null exactly for roots, so they skip it — which is what should happen, since
+        // a root has no parent to verify. Asserted because it is the one behaviour of a composite
+        // key that differs from the single-column version, and getting it wrong would make every
+        // root un-creatable.
+        using var client = fixture.CreateAuthenticatedClient();
+
+        var root = await CreateAsync(client, $"Root {Guid.NewGuid():N}");
+
+        Assert.Null(root.ParentId);
     }
 
     [Fact]

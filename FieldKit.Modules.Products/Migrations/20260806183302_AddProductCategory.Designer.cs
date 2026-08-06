@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FieldKit.Modules.Products.Migrations
 {
     [DbContext(typeof(ProductsDbContext))]
-    [Migration("20260806182630_AddProductCategory")]
+    [Migration("20260806183302_AddProductCategory")]
     partial class AddProductCategory
     {
         /// <inheritdoc />
@@ -88,8 +88,6 @@ namespace FieldKit.Modules.Products.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ParentId");
-
                     b.HasIndex("TenantId", "ParentId");
 
                     b.HasIndex("TenantId", "ParentId", "Name")
@@ -141,7 +139,8 @@ namespace FieldKit.Modules.Products.Migrations
                 {
                     b.HasOne("FieldKit.Modules.Products.Category", null)
                         .WithMany()
-                        .HasForeignKey("ParentId")
+                        .HasForeignKey("TenantId", "ParentId")
+                        .HasPrincipalKey("TenantId", "Id")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 #pragma warning restore 612, 618

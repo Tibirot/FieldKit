@@ -28,20 +28,15 @@ namespace FieldKit.Modules.Products.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_category", x => x.Id);
+                    table.UniqueConstraint("AK_category_TenantId_Id", x => new { x.TenantId, x.Id });
                     table.ForeignKey(
-                        name: "FK_category_category_ParentId",
-                        column: x => x.ParentId,
+                        name: "FK_category_category_TenantId_ParentId",
+                        columns: x => new { x.TenantId, x.ParentId },
                         principalSchema: "products",
                         principalTable: "category",
-                        principalColumn: "Id",
+                        principalColumns: new[] { "TenantId", "Id" },
                         onDelete: ReferentialAction.Restrict);
                 });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_category_ParentId",
-                schema: "products",
-                table: "category",
-                column: "ParentId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_category_TenantId_ParentId",
