@@ -18,6 +18,7 @@ import {
   treeOf,
   type OrgUnit,
 } from "@/lib/api/org";
+import { usePermissions } from "@/lib/auth/use-permissions";
 
 /**
  * The sales hierarchy (`ORG-01`).
@@ -34,6 +35,7 @@ export function OrgUnitBrowser() {
   const t = useTranslations("OrgUnits");
   const { user } = useAuth();
   const client = useQueryClient();
+  const { has } = usePermissions();
 
   const accessToken = user?.access_token;
   const subject = user?.profile.sub;
@@ -72,10 +74,12 @@ export function OrgUnitBrowser() {
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-semibold tracking-tight">{t("title")}</h2>
-        <Button type="button" size="sm" onClick={() => setEditing("new")}>
-          <Plus className="size-4" />
-          {t("newUnit")}
-        </Button>
+        {has("orgunit:write") ? (
+          <Button type="button" size="sm" onClick={() => setEditing("new")}>
+            <Plus className="size-4" />
+            {t("newUnit")}
+          </Button>
+        ) : null}
       </div>
 
       {editing !== null ? (
@@ -133,6 +137,8 @@ export function OrgUnitBrowser() {
               </span>
 
               <div className="ml-auto flex gap-2">
+                {has("orgunit:write") ? (
+                  <>
                 <Button
                   type="button"
                   size="sm"
@@ -152,6 +158,8 @@ export function OrgUnitBrowser() {
                 >
                   {t("delete")}
                 </Button>
+                  </>
+                ) : null}
               </div>
             </li>
           ))}

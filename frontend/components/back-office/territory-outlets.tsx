@@ -16,6 +16,7 @@ import {
 } from "@/lib/api/org";
 import { fetchOutlets, outletsKey } from "@/lib/api/outlets";
 import { cn } from "@/lib/utils";
+import { usePermissions } from "@/lib/auth/use-permissions";
 
 /**
  * The outlets a territory covers (`ORG-05`).
@@ -33,6 +34,7 @@ export function TerritoryOutlets({ territory }: { territory: Territory }) {
   const t = useTranslations("Territories");
   const { user } = useAuth();
   const client = useQueryClient();
+  const { has } = usePermissions();
 
   const accessToken = user?.access_token;
   const subject = user?.profile.sub;
@@ -142,22 +144,29 @@ export function TerritoryOutlets({ territory }: { territory: Territory }) {
                 </span>
               ) : null}
 
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="ml-auto"
-                disabled={drop.isPending}
-                onClick={() => drop.mutate(outlet.outletId)}
-                aria-label={t("removeOutletNamed", { code: outlet.code ?? outlet.outletId })}
-              >
-                {t("removeOutlet")}
-              </Button>
+              {has("territory:write") ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="ml-auto"
+                  disabled={drop.isPending}
+                  onClick={() => drop.mutate(outlet.outletId)}
+                  aria-label={t("removeOutletNamed", { code: outlet.code ?? outlet.outletId })}
+                >
+                  {t("removeOutlet")}
+                </Button>
+              ) : null}
             </li>
           ))}
         </ul>
       )}
 
+      {/*
+        The whole picker, not each control in it: without `territory:write` there is nothing to do
+        with a search result, so offering the search is offering a dead end one step earlier.
+      */}
+      {has("territory:write") ? (
       <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
         <label htmlFor="outletSearch" className="text-sm font-medium">
           {t("addOutlets")}
@@ -214,6 +223,7 @@ export function TerritoryOutlets({ territory }: { territory: Territory }) {
           </div>
         ) : null}
       </div>
+      ) : null}
     </section>
   );
 }

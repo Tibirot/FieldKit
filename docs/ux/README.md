@@ -87,6 +87,20 @@ here rather than silently dropping columns: the gap is a schedule, not a change 
 | Territories | List, outlet counts, rep assignment in the detail panel | **Coverage %** — reporting, **W12**. **Channel mix** bars — computable but has no endpoint; lands with the dashboard's read side |
 | Users & roles | User list, role bundles, permission toggles | **Device** column — `IAM-07`; no device concept exists in the IAM module yet |
 
+**A screen the signed-in user may not read is hidden, not disabled.** That is a different case from
+an unbuilt one and gets the opposite treatment. "Arrives in W7" is a fact about the product, worth
+showing everyone, and a disabled item with a week badge says it precisely. "You may not see this" is
+a fact about the caller — constant for their session, and no click will change it — so a disabled
+item there is a dead control that explains nothing, which is the pattern this codebase rejects
+everywhere else. The same rule governs write controls: someone who may read territories but not
+write them gets the list and none of the buttons.
+
+The permissions come from **`/api/auth/whoami`**, which re-derives them from the token the API
+validated — never from decoding the token in the browser, which the realms deliberately make
+impossible by keeping `permissions` off the ID token. Every endpoint still checks; hiding a control
+is about not offering a door that will not open. Found by walking the Phase 1 demo, where a user who
+had just been refused the user list was still being offered a **New user** button.
+
 Three decisions taken with it:
 
 - **The nav renders in full, with unbuilt items disabled.** A five-item nav would misrepresent the

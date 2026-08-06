@@ -18,6 +18,7 @@ import {
   rolesKey,
   type Role,
 } from "@/lib/api/users";
+import { usePermissions } from "@/lib/auth/use-permissions";
 
 /**
  * Roles, and the permissions each one bundles (`IAM-04`).
@@ -33,6 +34,7 @@ export function RoleBrowser() {
   const t = useTranslations("Roles");
   const { user } = useAuth();
   const client = useQueryClient();
+  const { has } = usePermissions();
 
   const accessToken = user?.access_token;
   const subject = user?.profile.sub;
@@ -75,10 +77,12 @@ export function RoleBrowser() {
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-semibold tracking-tight">{t("title")}</h2>
-        <Button type="button" size="sm" onClick={() => setEditing("new")}>
-          <Plus className="size-4" />
-          {t("newRole")}
-        </Button>
+        {has("role:write") ? (
+          <Button type="button" size="sm" onClick={() => setEditing("new")}>
+            <Plus className="size-4" />
+            {t("newRole")}
+          </Button>
+        ) : null}
       </div>
 
       {editing !== null ? (
@@ -155,6 +159,8 @@ export function RoleBrowser() {
               </div>
 
               <div className="flex shrink-0 gap-2">
+                {has("role:write") ? (
+                  <>
                 <Button
                   type="button"
                   size="sm"
@@ -176,6 +182,8 @@ export function RoleBrowser() {
                 >
                   {t("delete")}
                 </Button>
+                  </>
+                ) : null}
               </div>
             </li>
           ))}

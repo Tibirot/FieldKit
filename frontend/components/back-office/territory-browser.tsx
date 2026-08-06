@@ -24,6 +24,7 @@ import {
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
+import { usePermissions } from "@/lib/auth/use-permissions";
 
 /**
  * Territories, and the outlets each one holds (`ORG-03`).
@@ -40,6 +41,7 @@ export function TerritoryBrowser() {
   const { user } = useAuth();
   const client = useQueryClient();
   const router = useRouter();
+  const { has } = usePermissions();
   const pathname = usePathname();
   const params = useSearchParams();
 
@@ -123,10 +125,12 @@ export function TerritoryBrowser() {
           ))}
         </select>
 
-        <Button type="button" size="sm" onClick={() => setEditing("new")}>
-          <Plus className="size-4" />
-          {t("newTerritory")}
-        </Button>
+        {has("territory:write") ? (
+          <Button type="button" size="sm" onClick={() => setEditing("new")}>
+            <Plus className="size-4" />
+            {t("newTerritory")}
+          </Button>
+        ) : null}
       </div>
 
       {editing !== null ? (
@@ -208,6 +212,13 @@ export function TerritoryBrowser() {
                   <td className="px-3 py-2 text-right tabular-nums">{territory.outletCount}</td>
                   <td className="px-3 py-2 text-right">
                     <div className="flex justify-end gap-2">
+                      {/*
+                        Hidden rather than disabled. "Arrives in W12" is worth showing everyone; "you
+                        may not do this" is a fact about the caller that no click will change, and a
+                        dead control explains nothing.
+                      */}
+                      {has("territory:write") ? (
+                        <>
                       <Button
                         type="button"
                         size="sm"
@@ -230,6 +241,8 @@ export function TerritoryBrowser() {
                       >
                         {t("delete")}
                       </Button>
+                        </>
+                      ) : null}
                     </div>
                   </td>
                 </tr>

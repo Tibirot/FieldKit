@@ -6,6 +6,12 @@
  * `href` renders visibly disabled and says which week it arrives — honest about the shape of what is
  * coming without pretending it is here.
  *
+ * **A screen the signed-in user cannot read is a different case, and is hidden rather than
+ * disabled.** "Arrives in W7" is a fact about the product and worth showing everyone; "you may not
+ * see this" is a fact about the caller, constant for their session, and no click will change it. A
+ * disabled item there is a dead control that explains nothing — the pattern this codebase keeps
+ * rejecting elsewhere.
+ *
  * See the UX build-scope note (`docs/ux/README.md`) for the decision and the delivery plan for the
  * weeks.
  */
@@ -32,8 +38,20 @@ export type NavSoon = "week5" | "week6" | "week7" | "week9" | "week11" | "week12
  * better refused by the compiler than caught in review.
  */
 export type NavItem =
-  | { readonly key: NavKey; readonly href: string; readonly soon?: never }
-  | { readonly key: NavKey; readonly href?: never; readonly soon: NavSoon };
+  | {
+      readonly key: NavKey;
+      readonly href: string;
+      readonly soon?: never;
+      /**
+       * Any one of these is enough to show the item.
+       *
+       * Any-of rather than all-of because a page can hold sections with different permissions:
+       * someone who may read roles but not users still has a reason to open Users & roles, and the
+       * section they cannot read refuses itself with the API's own words.
+       */
+      readonly permissions: readonly string[];
+    }
+  | { readonly key: NavKey; readonly href?: never; readonly soon: NavSoon; readonly permissions?: never };
 
 export type NavGroup = {
   /** Keys into `Nav.groups`, or null for the ungrouped items at the top. */
@@ -54,14 +72,14 @@ export const NAVIGATION: readonly NavGroup[] = [
   {
     key: "masterData",
     items: [
-      { key: "outlets", href: "/outlets" },
+      { key: "outlets", href: "/outlets", permissions: ["outlet:read"] },
       { key: "products", soon: "week6" },
-      { key: "territories", href: "/territories" },
+      { key: "territories", href: "/territories", permissions: ["territory:read", "orgunit:read"] },
     ],
   },
   {
     key: "admin",
-    items: [{ key: "users", href: "/users" }],
+    items: [{ key: "users", href: "/users", permissions: ["user:read", "role:read"] }],
   },
 ];
 

@@ -19,6 +19,7 @@ import {
   type User,
 } from "@/lib/api/users";
 import { cn } from "@/lib/utils";
+import { usePermissions } from "@/lib/auth/use-permissions";
 
 /**
  * The people who can sign in, and what they may do (`IAM-03`).
@@ -34,6 +35,7 @@ export function UserBrowser() {
   const t = useTranslations("Users");
   const { user: signedIn } = useAuth();
   const client = useQueryClient();
+  const { has } = usePermissions();
 
   const accessToken = signedIn?.access_token;
   const subject = signedIn?.profile.sub;
@@ -74,12 +76,14 @@ export function UserBrowser() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <Button type="button" size="sm" onClick={() => setEditing("new")}>
-          <Plus className="size-4" />
-          {t("newUser")}
-        </Button>
-      </div>
+      {has("user:write") ? (
+        <div>
+          <Button type="button" size="sm" onClick={() => setEditing("new")}>
+            <Plus className="size-4" />
+            {t("newUser")}
+          </Button>
+        </div>
+      ) : null}
 
       {editing !== null ? (
         <UserForm
@@ -159,6 +163,8 @@ export function UserBrowser() {
                   </td>
                   <td className="px-3 py-2 text-right">
                     <div className="flex justify-end gap-2">
+                      {has("user:write") ? (
+                        <>
                       <Button
                         type="button"
                         size="sm"
@@ -182,6 +188,8 @@ export function UserBrowser() {
                       >
                         {row.isActive ? t("deactivate") : t("reactivate")}
                       </Button>
+                        </>
+                      ) : null}
                     </div>
                   </td>
                 </tr>

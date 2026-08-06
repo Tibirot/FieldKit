@@ -14,6 +14,7 @@ import { useTranslations } from "next-intl";
 
 import { NAVIGATION, type NavItem, type NavKey } from "@/components/back-office/navigation";
 import { Link, usePathname } from "@/i18n/navigation";
+import { usePermissions } from "@/lib/auth/use-permissions";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<NavKey, React.ComponentType<{ className?: string }>> = {
@@ -79,6 +80,16 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
 export function Sidebar({ workspace }: { workspace: string | null }) {
   const t = useTranslations("Nav");
   const pathname = usePathname();
+  const { hasAny } = usePermissions();
+
+  /**
+   * Whether to draw an item at all.
+   *
+   * A scheduled screen is shown to everyone — it is a fact about the product. A built one is shown
+   * only to someone who may read it, because that is a fact about them, and a nav entry leading
+   * straight to "you do not have permission" is an invitation to a dead end.
+   */
+  const visible = (item: NavItem) => item.soon !== undefined || hasAny(...item.permissions);
 
   return (
     <nav
@@ -104,7 +115,7 @@ export function Sidebar({ workspace }: { workspace: string | null }) {
               {t(`groups.${group.key}`)}
             </span>
           ) : null}
-          {group.items.map((item) => (
+          {group.items.filter(visible).map((item) => (
             <NavLink
               key={item.key}
               item={item}
