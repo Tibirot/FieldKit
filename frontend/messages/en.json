@@ -93,7 +93,13 @@
   "BackOffice": {
     "restoring": "Restoring your session…",
     "redirecting": "Taking you to sign in…",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "expired": {
+      "title": "Your session has expired",
+      "body": "You have been signed out for security. Sign in again to pick up where you left off.",
+      "signIn": "Sign in again",
+      "signingIn": "Signing in…"
+    }
   },
   "Outlets": {
     "crumb": "Master data / Outlets",
