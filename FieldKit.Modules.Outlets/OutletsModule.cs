@@ -39,6 +39,7 @@ public sealed class OutletsModule : IModule
         // The public surface. Registered against the Contracts interface so consumers can only bind
         // to that — the implementation is internal to this module by convention (AT-2).
         services.AddScoped<IOutletCatalog, OutletCatalog>();
+        services.AddScoped<IOutletClassification, OutletClassifier>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
