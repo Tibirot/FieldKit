@@ -85,6 +85,8 @@ namespace FieldKit.Modules.Products.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ParentId");
+
                     b.HasIndex("TenantId", "ParentId");
 
                     b.HasIndex("TenantId", "ParentId", "Name")
@@ -130,6 +132,14 @@ namespace FieldKit.Modules.Products.Migrations
                         .IsUnique();
 
                     b.ToTable("product", "products");
+                });
+
+            modelBuilder.Entity("FieldKit.Modules.Products.Category", b =>
+                {
+                    b.HasOne("FieldKit.Modules.Products.Category", null)
+                        .WithMany()
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 #pragma warning restore 612, 618
         }

@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using FieldKit.Modules.Products;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FieldKit.Server.Tests;
 
@@ -175,6 +177,32 @@ public class ProductCategoryTests(ServerFixture fixture)
 
         // And the parent can now go too — the refusal was about the children, not the category.
         Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"{Categories}/{root.Id}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task The_database_refuses_a_parent_that_does_not_exist()
+    {
+        // The endpoint checks this too, and that check is the one users meet. This is about the
+        // window the endpoint cannot close: it reads that a parent exists, then writes, and between
+        // the two another request can delete that parent. Both pass their own checks and commit,
+        // leaving a category whose parent is gone — an orphan invisible to any tree built from
+        // parent pointers, because its root points nowhere.
+        //
+        // Written as raw SQL on purpose: going through the API would just hit the endpoint check
+        // again and prove nothing about the table. Test projects are exempt from the raw-SQL ban
+        // for exactly this reason — see Directory.Build.props.
+        using var scope = fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ProductsDbContext>();
+
+        var orphan = await Record.ExceptionAsync(() => db.Database.ExecuteSqlAsync(
+            $"""
+            INSERT INTO products.category
+                ("Id", "Name", "ParentId", "TenantId", "CreatedAtUtc")
+            VALUES ({Guid.CreateVersion7()}, 'Orphan', {Guid.NewGuid()}, {Guid.NewGuid()}, now())
+            """));
+
+        Assert.NotNull(orphan);
+        Assert.Contains("FK_category_category_ParentId", orphan.ToString());
     }
 
     [Fact]

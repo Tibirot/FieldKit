@@ -45,9 +45,30 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
             // in code; see NameTakenProblem.
             category.HasIndex(c => new { c.TenantId, c.ParentId, c.Name }).IsUnique();
 
-            // No navigation property and no configured FK. The parent pointer is a plain Guid?, so
-            // EF has no relationship to cascade: deleting a category with children is refused by the
-            // endpoint with an explanation, rather than silently orphaning or cascading them away.
+            // Self-referencing, restricted — the same shape Organization gives org units.
+            //
+            // The endpoint already checks that a parent exists and that a category with children is
+            // not deleted, so this looks redundant. It is not: those checks read and then write, and
+            // between the two the world can change. Create a child under X while another request
+            // deletes X and both pass their checks, leaving a category whose parent is gone — an
+            // orphan invisible to any tree built from parent pointers, because its root points
+            // nowhere. Only the database can close that window.
+            //
+            // No navigation property: the constraint is what is wanted, not a traversal. An
+            // `ICollection<Category> Children` invites callers to walk the tree entity-by-entity and
+            // makes the aggregate's boundary a suggestion.
+            //
+            // Restrict rather than Cascade, deliberately. A cascade would delete an entire branch —
+            // and every product's grouping under it — because someone removed the node above it.
+            // The endpoint refuses first and says how many children are in the way; this is the
+            // backstop for when something reaches the table another way.
+            category.HasOne<Category>()
+                .WithMany()
+                .HasForeignKey(c => c.ParentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // The list endpoint reads every category for a tenant, and the delete path asks whether
+            // one has children. Both are parent lookups.
             category.HasIndex(c => new { c.TenantId, c.ParentId });
         });
     }
