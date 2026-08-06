@@ -30,6 +30,17 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
             product.HasKey(p => p.Id);
             product.Property(p => p.Sku).HasMaxLength(64).IsRequired();
             product.Property(p => p.Name).HasMaxLength(200).IsRequired();
+            product.Property(p => p.UnitOfMeasure).HasMaxLength(16);
+
+            // Stored as its integer value, not its name: a string column would turn renaming an enum
+            // member into a data migration. The wire is the other way round — `ProductResponse`
+            // carries a `JsonStringEnumConverter`, so clients see "Active" rather than 0 and never
+            // depend on the ordinal this column keeps.
+            //
+            // Which means the ordinals are now storage, and members must be *appended* rather than
+            // inserted. Adding a status between Active and Discontinued would renumber every stored
+            // row's meaning without touching a single one of them.
+            product.Property(p => p.Status).HasConversion<int>();
             product.HasIndex(p => new { p.TenantId, p.Sku }).IsUnique(); // SKU unique within a tenant
 
             // The three classification pointers, each keyed on the tenant as well as the id — the

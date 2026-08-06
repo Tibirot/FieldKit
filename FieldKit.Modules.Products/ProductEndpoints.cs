@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using FieldKit.SharedKernel;
 using FieldKit.Web;
 using Microsoft.AspNetCore.Builder;
@@ -7,9 +8,20 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FieldKit.Modules.Products;
 
-/// <summary>A product and how it is classified. Null classification means "not classified".</summary>
+/// <summary>A product, how it is classified, and what it is. Null classification means "not classified".</summary>
 public sealed record ProductResponse(
-    Guid Id, string Sku, string Name, Guid? BrandId, Guid? CategoryId, Guid? TaxClassId);
+    Guid Id,
+    string Sku,
+    string Name,
+    Guid? BrandId,
+    Guid? CategoryId,
+    Guid? TaxClassId,
+    string? UnitOfMeasure,
+    int? PackSize,
+    // Serialized as its name, matching how OutletStatus and the Configuration enums cross the wire.
+    // A bare enum would go out as 0 and 1, which is a number a client has to keep a private table
+    // for — and which silently changes meaning if a member is ever inserted rather than appended.
+    [property: JsonConverter(typeof(JsonStringEnumConverter<ProductStatus>))] ProductStatus Status);
 
 /// <summary>Create a product.</summary>
 /// <remarks>
@@ -20,7 +32,15 @@ public sealed record ProductResponse(
 /// that omits them deserializes to null either way.
 /// </remarks>
 public sealed record CreateProductRequest(
-    string Sku, string Name, Guid? BrandId = null, Guid? CategoryId = null, Guid? TaxClassId = null);
+    string Sku,
+    string Name,
+    Guid? BrandId = null,
+    Guid? CategoryId = null,
+    Guid? TaxClassId = null,
+    string? UnitOfMeasure = null,
+    int? PackSize = null,
+    [property: JsonConverter(typeof(JsonStringEnumConverter<ProductStatus>))]
+    ProductStatus Status = ProductStatus.Active);
 
 /// <summary>Rename and reclassify a product. The SKU is not editable — see the endpoint.</summary>
 /// <remarks>
@@ -30,7 +50,14 @@ public sealed record CreateProductRequest(
 /// do — gets that right without thinking about it.
 /// </remarks>
 public sealed record UpdateProductRequest(
-    string Name, Guid? BrandId = null, Guid? CategoryId = null, Guid? TaxClassId = null);
+    string Name,
+    Guid? BrandId = null,
+    Guid? CategoryId = null,
+    Guid? TaxClassId = null,
+    string? UnitOfMeasure = null,
+    int? PackSize = null,
+    [property: JsonConverter(typeof(JsonStringEnumConverter<ProductStatus>))]
+    ProductStatus Status = ProductStatus.Active);
 
 /// <summary>
 /// The catalogue itself (<c>PRD-01</c>).
@@ -48,19 +75,22 @@ internal static class ProductEndpoints
         products.MapGet("/", async (ProductsDbContext db, CancellationToken ct) =>
                 await db.Products
                     .OrderBy(p => p.Sku)
-                    .Select(p => new ProductResponse(p.Id, p.Sku, p.Name, p.BrandId, p.CategoryId, p.TaxClassId))
+                    .Select(p => new ProductResponse(
+                        p.Id, p.Sku, p.Name, p.BrandId, p.CategoryId, p.TaxClassId,
+                        p.UnitOfMeasure, p.PackSize, p.Status))
                     .ToListAsync(ct))
             .RequirePermission(ProductsPermissions.Read);
 
         products.MapPost("/", async (
             CreateProductRequest request, ProductsDbContext db, IClock clock, CancellationToken ct) =>
         {
-            if (await RequestProblem(db, request.Sku, request.Name, Classification(request), ct) is { } problem)
+            if (await RequestProblem(db, request.Sku, request.Name, Classification(request), Attributes(request), ct) is { } problem)
             {
                 return problem;
             }
 
-            var product = Product.Create(request.Sku, request.Name, Classification(request), clock);
+            var product = Product.Create(
+                request.Sku, request.Name, Classification(request), Attributes(request), clock);
             db.Products.Add(product);
             await db.SaveChangesAsync(ct);
 
@@ -77,12 +107,12 @@ internal static class ProductEndpoints
             // files and its trading partners identify the product — changing it is not a rename, it
             // is a different product, and doing it in place would silently rewrite the identity that
             // every order line already placed against it refers to.
-            if (await RequestProblem(db, null, request.Name, Classification(request), ct) is { } problem)
+            if (await RequestProblem(db, null, request.Name, Classification(request), Attributes(request), ct) is { } problem)
             {
                 return problem;
             }
 
-            product.Update(request.Name, Classification(request), clock);
+            product.Update(request.Name, Classification(request), Attributes(request), clock);
             await db.SaveChangesAsync(ct);
 
             return Results.Ok(Respond(product));
@@ -95,8 +125,16 @@ internal static class ProductEndpoints
     private static ProductClassification Classification(UpdateProductRequest request) =>
         new(request.BrandId, request.CategoryId, request.TaxClassId);
 
+    private static ProductAttributes Attributes(CreateProductRequest request) =>
+        new(request.UnitOfMeasure, request.PackSize, request.Status);
+
+    private static ProductAttributes Attributes(UpdateProductRequest request) =>
+        new(request.UnitOfMeasure, request.PackSize, request.Status);
+
     private static ProductResponse Respond(Product product) =>
-        new(product.Id, product.Sku, product.Name, product.BrandId, product.CategoryId, product.TaxClassId);
+        new(
+            product.Id, product.Sku, product.Name, product.BrandId, product.CategoryId,
+            product.TaxClassId, product.UnitOfMeasure, product.PackSize, product.Status);
 
     /// <summary>
     /// Everything wrong with the request, or null.
@@ -115,6 +153,7 @@ internal static class ProductEndpoints
         string? sku,
         string name,
         ProductClassification classification,
+        ProductAttributes attributes,
         CancellationToken ct)
     {
         var problems = new List<FieldProblem>();
@@ -159,6 +198,26 @@ internal static class ProductEndpoints
             && !await db.TaxClasses.AnyAsync(t => t.Id == taxClassId, ct))
         {
             problems.Add(new FieldProblem("taxClassId", "That tax class does not exist.", "product.taxClass.missing"));
+        }
+
+        // Zero and negatives are refused rather than normalised to null. A pack of zero is not "no
+        // pack size", it is a number someone got wrong — and quietly turning it into null would let
+        // a bad import look like a deliberate omission.
+        if (attributes.PackSize is { } packSize && packSize < 1)
+        {
+            problems.Add(new FieldProblem(
+                "packSize",
+                "A pack size is at least 1, or absent.",
+                "product.packSize.notPositive",
+                new Dictionary<string, string> { ["packSize"] = packSize.ToString() }));
+        }
+
+        if (attributes.UnitOfMeasure is { Length: > 16 })
+        {
+            problems.Add(new FieldProblem(
+                "unitOfMeasure",
+                "A unit of measure is at most 16 characters.",
+                "product.unitOfMeasure.tooLong"));
         }
 
         return problems.Count > 0 ? Problems.BadRequest(problems) : null;
