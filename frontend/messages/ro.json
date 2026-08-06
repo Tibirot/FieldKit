@@ -437,5 +437,27 @@
     "save": "Salvează",
     "saving": "Se salvează…",
     "cancel": "Anulează"
+  },
+  "OutletLifecycle": {
+    "title": "Ciclu de viață",
+    "moveTo": "Schimbă în",
+    "statuses": {
+      "Active": "Activ",
+      "Inactive": "Inactiv",
+      "Closed": "Închis"
+    },
+    "reason": "Motiv",
+    "reasonHint": "Opțional. Se înregistrează în istoricul de mai jos.",
+    "reasonRequiredHint": "Obligatoriu. Acesta este răspunsul la „de ce a fost închis acest magazin”, iar cel care îl știe ești tu, acum.",
+    "closingWarning": "Închiderea este definitivă. Un punct de vânzare închis nu poate fi redeschis — o locație care funcționează din nou este un punct de vânzare nou, cu cod propriu, astfel încât istoricul său ca altă afacere să nu continue tacit.",
+    "terminal": "Acest punct de vânzare este închis, iar închiderea este definitivă. Dacă locația funcționează din nou, creează un punct de vânzare nou, cu cod propriu — istoricul său ca altă afacere nu ar trebui să continue sub acesta.",
+    "apply": "Schimbă starea",
+    "saving": "Se schimbă…",
+    "failed": "Starea nu a putut fi schimbată.",
+    "history": "Istoric",
+    "historyLoading": "Se încarcă istoricul…",
+    "historyFailed": "Istoricul nu a putut fi încărcat.",
+    "created": "Creat ca {to}",
+    "moved": "{from} → {to}"
   }
 }

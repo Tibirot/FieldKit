@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 
 import { useAuth } from "@/components/auth-provider";
 import { OutletForm } from "@/components/back-office/outlet-form";
+import { OutletLifecycle } from "@/components/back-office/outlet-lifecycle";
 import { ApiError } from "@/lib/api/client";
 import { fetchOutlet, outletKey } from "@/lib/api/outlets";
 
@@ -67,6 +68,15 @@ export function OutletEditor() {
         one’s values in every field. Found by a test that re-rendered with a different outlet.
       */}
       <OutletForm key={outlet.data.id} outlet={outlet.data} />
+
+      {/*
+        Below the form and outside it. The API gave status its own endpoint precisely so that closing
+        a shop could not ride along on an unrelated edit (`OUT-04`, spec §F4) — a control inside the
+        form would put that back, with one Save covering two decisions. Only on an outlet that
+        exists: there is no lifecycle to move through before there is an outlet, and the create form
+        deliberately has no status field either.
+      */}
+      <OutletLifecycle key={`lifecycle-${outlet.data.id}`} outlet={outlet.data} />
     </div>
   );
 }

@@ -183,3 +183,55 @@ export function updateOutlet(
   return apiSend<OutletDetail>("PUT", `/api/outlets/${id}`, accessToken, outlet);
 }
 
+/**
+ * Moves an outlet through its lifecycle (`OUT-04`).
+ *
+ * **Its own call, not a field on `updateOutlet`** — and that is the API's design rather than a
+ * convenience here. "This store is shut" is a different decision from "the name was spelled wrong",
+ * and a status that rides along on the edit form is one a careless typo fix can change as a side
+ * effect ([spec §F4](../../../docs/product/12-outlets-master-data.md)).
+ *
+ * A reason is required to close and optional otherwise; the server decides that, and refuses with
+ * the problem keyed to `reason`.
+ */
+export function changeOutletStatus(
+  accessToken: string,
+  id: string,
+  change: { status: OutletStatus; reason: string | null },
+): Promise<OutletDetail> {
+  return apiSend<OutletDetail>("POST", `/api/outlets/${id}/status`, accessToken, change);
+}
+
+/**
+ * One transition in an outlet's life, as recorded (`OUT-04`).
+ *
+ * `from` is null on the first entry — the outlet's creation. The trail always has that entry, so
+ * "nothing here" can never be mistaken for "the history was lost".
+ */
+export type OutletStatusChange = {
+  from: OutletStatus | null;
+  to: OutletStatus;
+  reason: string | null;
+  changedAtUtc: string;
+  changedBy: string | null;
+};
+
+/**
+ * The append-only trail.
+ *
+ * Read-only by design: the API has no way to write, edit or delete an entry, because an audit log
+ * with a write path is one that can be arranged after the fact. Worth reading in full rather than
+ * paged — an outlet has a handful of transitions in its life, and the first one is the one somebody
+ * scrolls to.
+ */
+export function fetchOutletStatusHistory(
+  accessToken: string,
+  id: string,
+  signal?: AbortSignal,
+): Promise<OutletStatusChange[]> {
+  return apiGet<OutletStatusChange[]>(`/api/outlets/${id}/status-history`, accessToken, signal);
+}
+
+export const outletStatusHistoryKey = (subject: string, id: string) =>
+  ["outlet-status-history", subject, id] as const;
+
