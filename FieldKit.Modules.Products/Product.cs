@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FieldKit.BuildingBlocks;
 using FieldKit.SharedKernel;
 
@@ -61,6 +62,19 @@ public sealed class Product : AggregateRoot, ITenantOwned, IAuditable
 
     public ProductStatus Status { get; private set; }
 
+    private Dictionary<string, JsonElement> _customFields = [];
+
+    /// <summary>
+    /// What this tenant additionally records about a product (<c>CFG-02</c>, ADR-0009).
+    /// </summary>
+    /// <remarks>
+    /// Raw JSON, not a typed shape: what is in here is the tenant's business, described by the
+    /// Configuration catalogue rather than by this model. The aggregate stores what it is given —
+    /// the endpoint has already checked it against the definitions, which is the only place that
+    /// knows what they are.
+    /// </remarks>
+    public IReadOnlyDictionary<string, JsonElement> CustomFields => _customFields;
+
     // Set by infrastructure interceptors (tenant / audit).
     public TenantId TenantId { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
@@ -75,22 +89,29 @@ public sealed class Product : AggregateRoot, ITenantOwned, IAuditable
         string name,
         ProductClassification classification,
         ProductAttributes attributes,
+        IReadOnlyDictionary<string, JsonElement>? customFields,
         IClock clock)
     {
         var product = new Product { Id = Guid.CreateVersion7(), Sku = sku, Name = name };
         product.Classify(classification);
         product.Describe(attributes);
+        product.SetCustomFields(customFields);
         product.Raise(new ProductCreated(Guid.CreateVersion7(), clock.UtcNow, product.Id, sku, name));
         return product;
     }
 
     /// <summary>Renames, reclassifies and re-describes in one call, the way a form saves.</summary>
     public void Update(
-        string name, ProductClassification classification, ProductAttributes attributes, IClock clock)
+        string name,
+        ProductClassification classification,
+        ProductAttributes attributes,
+        IReadOnlyDictionary<string, JsonElement>? customFields,
+        IClock clock)
     {
         Name = name;
         Classify(classification);
         Describe(attributes);
+        SetCustomFields(customFields);
         ModifiedAtUtc = clock.UtcNow;
     }
 
@@ -105,6 +126,17 @@ public sealed class Product : AggregateRoot, ITenantOwned, IAuditable
         CategoryId = classification.CategoryId;
         TaxClassId = classification.TaxClassId;
     }
+
+    /// <remarks>
+    /// Values are cloned on the way in. A <see cref="JsonElement"/> borrowed from the request's
+    /// <see cref="JsonDocument"/> is only valid while that document lives, and the request is
+    /// disposed long before the row is written — storing the borrowed element gives an aggregate
+    /// whose contents evaporate.
+    /// </remarks>
+    private void SetCustomFields(IReadOnlyDictionary<string, JsonElement>? customFields) =>
+        _customFields = customFields is null
+            ? []
+            : customFields.ToDictionary(entry => entry.Key, entry => entry.Value.Clone(), StringComparer.Ordinal);
 
     private void Describe(ProductAttributes attributes)
     {

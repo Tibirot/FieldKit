@@ -1,4 +1,6 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
+using FieldKit.Modules.Configuration.Contracts;
 using FieldKit.SharedKernel;
 using FieldKit.Web;
 using Microsoft.AspNetCore.Builder;
@@ -21,7 +23,8 @@ public sealed record ProductResponse(
     // Serialized as its name, matching how OutletStatus and the Configuration enums cross the wire.
     // A bare enum would go out as 0 and 1, which is a number a client has to keep a private table
     // for — and which silently changes meaning if a member is ever inserted rather than appended.
-    [property: JsonConverter(typeof(JsonStringEnumConverter<ProductStatus>))] ProductStatus Status);
+    [property: JsonConverter(typeof(JsonStringEnumConverter<ProductStatus>))] ProductStatus Status,
+    IReadOnlyDictionary<string, JsonElement> CustomFields);
 
 /// <summary>Create a product.</summary>
 /// <remarks>
@@ -40,7 +43,8 @@ public sealed record CreateProductRequest(
     string? UnitOfMeasure = null,
     int? PackSize = null,
     [property: JsonConverter(typeof(JsonStringEnumConverter<ProductStatus>))]
-    ProductStatus Status = ProductStatus.Active);
+    ProductStatus Status = ProductStatus.Active,
+    IReadOnlyDictionary<string, JsonElement>? CustomFields = null);
 
 /// <summary>Rename and reclassify a product. The SKU is not editable — see the endpoint.</summary>
 /// <remarks>
@@ -57,7 +61,8 @@ public sealed record UpdateProductRequest(
     string? UnitOfMeasure = null,
     int? PackSize = null,
     [property: JsonConverter(typeof(JsonStringEnumConverter<ProductStatus>))]
-    ProductStatus Status = ProductStatus.Active);
+    ProductStatus Status = ProductStatus.Active,
+    IReadOnlyDictionary<string, JsonElement>? CustomFields = null);
 
 /// <summary>
 /// The catalogue itself (<c>PRD-01</c>).
@@ -77,20 +82,21 @@ internal static class ProductEndpoints
                     .OrderBy(p => p.Sku)
                     .Select(p => new ProductResponse(
                         p.Id, p.Sku, p.Name, p.BrandId, p.CategoryId, p.TaxClassId,
-                        p.UnitOfMeasure, p.PackSize, p.Status))
+                        p.UnitOfMeasure, p.PackSize, p.Status, p.CustomFields))
                     .ToListAsync(ct))
             .RequirePermission(ProductsPermissions.Read);
 
         products.MapPost("/", async (
-            CreateProductRequest request, ProductsDbContext db, IClock clock, CancellationToken ct) =>
+            CreateProductRequest request, ProductsDbContext db, IFieldDefinitionCatalog catalog, IClock clock,
+            CancellationToken ct) =>
         {
-            if (await RequestProblem(db, request.Sku, request.Name, Classification(request), Attributes(request), ct) is { } problem)
+            if (await RequestProblem(db, request.Sku, request.Name, Classification(request), Attributes(request), request.CustomFields, catalog, ct) is { } problem)
             {
                 return problem;
             }
 
             var product = Product.Create(
-                request.Sku, request.Name, Classification(request), Attributes(request), clock);
+                request.Sku, request.Name, Classification(request), Attributes(request), request.CustomFields, clock);
             db.Products.Add(product);
             await db.SaveChangesAsync(ct);
 
@@ -98,7 +104,8 @@ internal static class ProductEndpoints
         }).RequirePermission(ProductsPermissions.Write);
 
         products.MapPut("/{id:guid}", async (
-            Guid id, UpdateProductRequest request, ProductsDbContext db, IClock clock, CancellationToken ct) =>
+            Guid id, UpdateProductRequest request, ProductsDbContext db, IFieldDefinitionCatalog catalog,
+            IClock clock, CancellationToken ct) =>
         {
             var product = await db.Products.SingleOrDefaultAsync(p => p.Id == id, ct);
             if (product is null) return Results.NotFound();
@@ -107,12 +114,13 @@ internal static class ProductEndpoints
             // files and its trading partners identify the product — changing it is not a rename, it
             // is a different product, and doing it in place would silently rewrite the identity that
             // every order line already placed against it refers to.
-            if (await RequestProblem(db, null, request.Name, Classification(request), Attributes(request), ct) is { } problem)
+            if (await RequestProblem(db, null, request.Name, Classification(request), Attributes(request), request.CustomFields, catalog, ct) is { } problem)
             {
                 return problem;
             }
 
-            product.Update(request.Name, Classification(request), Attributes(request), clock);
+            product.Update(
+                request.Name, Classification(request), Attributes(request), request.CustomFields, clock);
             await db.SaveChangesAsync(ct);
 
             return Results.Ok(Respond(product));
@@ -134,7 +142,8 @@ internal static class ProductEndpoints
     private static ProductResponse Respond(Product product) =>
         new(
             product.Id, product.Sku, product.Name, product.BrandId, product.CategoryId,
-            product.TaxClassId, product.UnitOfMeasure, product.PackSize, product.Status);
+            product.TaxClassId, product.UnitOfMeasure, product.PackSize, product.Status,
+            product.CustomFields);
 
     /// <summary>
     /// Everything wrong with the request, or null.
@@ -154,6 +163,8 @@ internal static class ProductEndpoints
         string name,
         ProductClassification classification,
         ProductAttributes attributes,
+        IReadOnlyDictionary<string, JsonElement>? customFields,
+        IFieldDefinitionCatalog catalog,
         CancellationToken ct)
     {
         var problems = new List<FieldProblem>();
@@ -220,6 +231,63 @@ internal static class ProductEndpoints
                 "product.unitOfMeasure.tooLong"));
         }
 
+        problems.AddRange(await CustomFieldProblems(customFields, catalog, ct));
+
         return problems.Count > 0 ? Problems.BadRequest(problems) : null;
     }
+
+    /// <summary>
+    /// Checks the tenant's custom-field values against its definitions (<c>CFG-02</c>).
+    /// </summary>
+    /// <remarks>
+    /// The rules themselves live in <see cref="CustomFieldRules"/>, shared with Outlets. What this
+    /// adds is the two things a shared rule cannot know: the request path a problem is named by, and
+    /// which <c>ADR-0012</c> code it carries. Products' codes are <c>product.customField.*</c>;
+    /// Outlets' will be <c>outlet.customField.*</c> when it migrates, and neither module can derive
+    /// the other's.
+    /// </remarks>
+    private static async Task<IReadOnlyList<FieldProblem>> CustomFieldProblems(
+        IReadOnlyDictionary<string, JsonElement>? values,
+        IFieldDefinitionCatalog catalog,
+        CancellationToken ct)
+    {
+        var definitions = await catalog.ForAsync(CustomFieldEntity.Product, ct);
+
+        // Skipped entirely when the tenant has defined nothing and sent nothing — the common case,
+        // and not worth a round trip's worth of ceremony to conclude there is nothing to check.
+        if (definitions.Count == 0 && (values is null || values.Count == 0)) return [];
+
+        return
+        [
+            .. CustomFieldRules
+                .Validate(values, definitions, CustomFieldEntity.Product)
+                .Select(violation => new FieldProblem(
+                    // `customFields.chiller_count`, not `chiller_count` — the request has a
+                    // `customFields` object, so that is where a client looks for the problem. Naming
+                    // it by the bare key would collide with a fixed field the day a tenant defines
+                    // one called `name`.
+                    $"customFields.{violation.Key}",
+                    violation.Message,
+                    Code(violation.Kind),
+                    violation.Args)),
+        ];
+    }
+
+    /// <summary>Maps a rule violation to this module's <c>ADR-0012</c> code.</summary>
+    /// <remarks>
+    /// A switch rather than string interpolation over the enum name, so every code appears in this
+    /// file as a literal. That is the whole reason the shared rules return a <c>Kind</c> instead of
+    /// a code: <c>grep product.customField</c> has to find the module that answers for them.
+    /// </remarks>
+    private static string Code(CustomFieldViolationKind kind) => kind switch
+    {
+        CustomFieldViolationKind.Unknown => "product.customField.unknown",
+        CustomFieldViolationKind.Required => "product.customField.required",
+        CustomFieldViolationKind.WrongType => "product.customField.wrongType",
+        CustomFieldViolationKind.TooLong => "product.customField.tooLong",
+        CustomFieldViolationKind.NotAnOption => "product.customField.notAnOption",
+        CustomFieldViolationKind.TooSmall => "product.customField.tooSmall",
+        CustomFieldViolationKind.TooLarge => "product.customField.tooLarge",
+        _ => "product.customField.invalid",
+    };
 }

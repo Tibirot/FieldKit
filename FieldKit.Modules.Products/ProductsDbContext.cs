@@ -1,6 +1,8 @@
+using System.Text.Json;
 using FieldKit.BuildingBlocks;
 using FieldKit.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace FieldKit.Modules.Products;
 
@@ -41,6 +43,24 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
             // inserted. Adding a status between Active and Discontinued would renumber every stored
             // row's meaning without touching a single one of them.
             product.Property(p => p.Status).HasConversion<int>();
+
+            // jsonb, and stored as a dictionary of raw JSON elements — what is inside is the
+            // tenant's business, described by the Configuration catalogue rather than by this model.
+            // The same shape Outlets uses, deliberately: two entities carrying tenant-defined fields
+            // should store them the same way, or the sync engine has two problems instead of one.
+            product.Property(p => p.CustomFields)
+                .HasColumnName("custom_fields")
+                .HasColumnType("jsonb")
+                .HasConversion(
+                    fields => JsonSerializer.Serialize(fields, (JsonSerializerOptions?)null),
+                    json => JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json, (JsonSerializerOptions?)null)!,
+                    new ValueComparer<IReadOnlyDictionary<string, JsonElement>>(
+                        // Compared by serialized form: JsonElement has no value equality, so without
+                        // this EF would compare references and miss every edit to a custom field.
+                        (left, right) => JsonSerializer.Serialize(left, (JsonSerializerOptions?)null)
+                            == JsonSerializer.Serialize(right, (JsonSerializerOptions?)null),
+                        fields => JsonSerializer.Serialize(fields, (JsonSerializerOptions?)null).GetHashCode(),
+                        fields => fields));
             product.HasIndex(p => new { p.TenantId, p.Sku }).IsUnique(); // SKU unique within a tenant
 
             // The three classification pointers, each keyed on the tenant as well as the id — the

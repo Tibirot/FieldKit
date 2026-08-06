@@ -5,6 +5,12 @@
     <ProjectReference Include="..\FieldKit.BuildingBlocks\FieldKit.BuildingBlocks.csproj" />
     <ProjectReference Include="..\FieldKit.Infrastructure\FieldKit.Infrastructure.csproj" />
     <ProjectReference Include="..\FieldKit.Web\FieldKit.Web.csproj" />
+    <!--
+      Contracts only, never the implementation (AT-1). Products reads the tenant's custom-field
+      definitions and the rules that check values against them; it knows nothing about how
+      Configuration stores or authors them.
+    -->
+    <ProjectReference Include="..\FieldKit.Modules.Configuration.Contracts\FieldKit.Modules.Configuration.Contracts.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
