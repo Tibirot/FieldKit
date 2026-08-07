@@ -502,7 +502,8 @@
     "saving": "Saving…",
     "cancel": "Cancel",
     "saveFailed": "This product could not be saved.",
-    "manageClassification": "Manage classification"
+    "manageClassification": "Manage classification",
+    "manageAssortments": "Manage assortments"
   },
   "Classification": {
     "crumb": "Master data / Products / Classification",
@@ -543,5 +544,28 @@
       "new": "New tax class",
       "empty": "No tax classes yet."
     }
+  },
+  "Assortments": {
+    "crumb": "Master data / Products / Assortments",
+    "title": "Assortments",
+    "intro": "Which products belong in which outlets. Authored per channel — a decision about a kind of shop rather than one shop — and read per outlet, where it drives the suggested order list and the audit availability checks.",
+    "channel": "Channel",
+    "search": "Search products",
+    "searchPlaceholder": "Search by SKU or name…",
+    "summary": "{included, plural, =0 {No products in this assortment} one {# product} other {# products}}, {mustStock, plural, =0 {none must-stock} other {# must-stock}}.",
+    "mustStock": "Must stock",
+    "mustStockNamed": "Must stock {name}",
+    "includeNamed": "Include {name}",
+    "discontinued": "Discontinued",
+    "loading": "Loading…",
+    "failed": "This could not be loaded.",
+    "forbidden": "You do not have permission to view assortments.",
+    "noChannels": "No channels yet. An assortment is authored per channel, so create one under Outlets first.",
+    "noProducts": "No products yet. Create some before deciding which outlets carry them.",
+    "noMatches": "No product matches “{search}”.",
+    "save": "Save assortment",
+    "saving": "Saving…",
+    "saveFailed": "This assortment could not be saved.",
+    "unsaved": "Unsaved changes."
   }
 }

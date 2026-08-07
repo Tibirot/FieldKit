@@ -502,7 +502,8 @@
     "saving": "Se salvează…",
     "cancel": "Anulează",
     "saveFailed": "Produsul nu a putut fi salvat.",
-    "manageClassification": "Gestionează clasificarea"
+    "manageClassification": "Gestionează clasificarea",
+    "manageAssortments": "Gestionează sortimentele"
   },
   "Classification": {
     "crumb": "Date de bază / Produse / Clasificare",
@@ -543,5 +544,28 @@
       "new": "Clasă de taxare nouă",
       "empty": "Nicio clasă de taxare încă."
     }
+  },
+  "Assortments": {
+    "crumb": "Date de bază / Produse / Sortimente",
+    "title": "Sortimente",
+    "intro": "Ce produse aparțin căror puncte de vânzare. Definite per canal — o decizie despre un tip de magazin, nu despre unul anume — și citite per punct de vânzare, unde determină lista de comandă sugerată și verificările de disponibilitate din audit.",
+    "channel": "Canal",
+    "search": "Caută produse",
+    "searchPlaceholder": "Caută după SKU sau denumire…",
+    "summary": "{included, plural, =0 {Niciun produs în acest sortiment} one {# produs} few {# produse} other {# de produse}}, {mustStock, plural, =0 {niciunul obligatoriu} one {# obligatoriu} few {# obligatorii} other {# obligatorii}}.",
+    "mustStock": "Obligatoriu",
+    "mustStockNamed": "Obligatoriu {name}",
+    "includeNamed": "Include {name}",
+    "discontinued": "Discontinuat",
+    "loading": "Se încarcă…",
+    "failed": "Nu s-a putut încărca.",
+    "forbidden": "Nu aveți permisiunea de a vedea sortimentele.",
+    "noChannels": "Niciun canal încă. Sortimentul se definește per canal, așa că creați întâi unul în secțiunea Puncte de vânzare.",
+    "noProducts": "Niciun produs încă. Creați câteva înainte de a decide ce puncte de vânzare le comercializează.",
+    "noMatches": "Niciun produs nu corespunde căutării „{search}”.",
+    "save": "Salvează sortimentul",
+    "saving": "Se salvează…",
+    "saveFailed": "Sortimentul nu a putut fi salvat.",
+    "unsaved": "Modificări nesalvate."
   }
 }
