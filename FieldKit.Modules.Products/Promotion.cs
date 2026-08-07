@@ -9,15 +9,17 @@ namespace FieldKit.Modules.Products;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Three of the four types B1 names. <c>BuyXGetY</c> (BOGO / bundle) is the last, and needs a
-/// get-this-for-that pair of its own.
+/// <b>All four types B1 names</b>, complete as of <c>BuyXGetY</c>. The check constraint on
+/// <c>promotion</c> is written per type and no longer has an <c>ELSE</c> that permits anything: a
+/// type nobody has constrained is now a type nobody can store.
 /// </para>
 /// <para>
-/// <b>The first two are <i>flat</i>: one discount, whatever the quantity.</b>
-/// <see cref="VolumeTiered"/> is the first that is not — its discount is a function of how many were
-/// ordered, so the value lives on <see cref="PromotionTier"/> rows rather than on the promotion, and
-/// the promotion's own value columns are null. That split is why the check constraint on
-/// <c>promotion</c> is written per type.
+/// The four differ in <i>where their discount lives</i>, which is the whole reason the constraint is
+/// per type rather than one expression over the columns. <see cref="PercentOff"/> and
+/// <see cref="FixedAmountOff"/> are flat — one discount, whatever the quantity — and carry it on the
+/// promotion. <see cref="VolumeTiered"/> carries none, because it has as many discounts as it has
+/// thresholds. <see cref="BuyXGetY"/> carries none either, but for a different reason: it does not
+/// reduce a price at all.
 /// </para>
 /// <para>
 /// <b>Stored as a string, unlike this module's other enums</b> (<c>ProductStatus</c>,
@@ -40,6 +42,12 @@ public enum PromotionType
     /// see <see cref="PromotionTier"/>.
     /// </summary>
     VolumeTiered,
+
+    /// <summary>
+    /// Buy X, get Y at a discount — BOGO when that discount is 100%. Carries its own quantities;
+    /// see <c>Promotion.BuyQuantity</c>.
+    /// </summary>
+    BuyXGetY,
 }
 
 /// <summary>
@@ -84,6 +92,33 @@ public sealed class Promotion : AggregateRoot, ITenantOwned, IAuditable
     /// the currency is what makes it possible to make.
     /// </remarks>
     public string? Currency { get; private set; }
+
+    /// <summary>How many must be bought for <see cref="PromotionType.BuyXGetY"/>. Null otherwise.</summary>
+    public int? BuyQuantity { get; private set; }
+
+    /// <summary>How many are then given at <see cref="GetPercentOff"/>. Null otherwise.</summary>
+    public int? GetQuantity { get; private set; }
+
+    /// <summary>The discount on the given units. <c>100</c> is free — the classic BOGO. Null otherwise.</summary>
+    /// <remarks>
+    /// A percentage rather than a free/discounted flag, because "buy two get one free" and "buy two
+    /// get one half price" are the same offer with a different number, and a boolean would have made
+    /// the second one a new type. 100 is not a special case in the storage, only in what a shopper
+    /// calls it.
+    /// </remarks>
+    public decimal? GetPercentOff { get; private set; }
+
+    /// <summary>
+    /// What is given. <b>Null means the same product that was bought</b> — the classic BOGO.
+    /// </summary>
+    /// <remarks>
+    /// Null rather than requiring the author to name the product again, because the promotion's
+    /// targets may be a whole category: "buy two of anything in Beverages, get one free" gives one of
+    /// <i>whichever</i> was bought, and there is no single id to write down. Naming a product turns
+    /// the same mechanism into a cross-sell bundle — buy three cases of water, get a crate of cola at
+    /// half price — without a second type.
+    /// </remarks>
+    public Guid? GetProductId { get; private set; }
 
     public DateOnly ValidFrom { get; private set; }
 
@@ -163,6 +198,52 @@ public sealed class Promotion : AggregateRoot, ITenantOwned, IAuditable
             ValidTo = to,
             Priority = priority,
         };
+
+    /// <summary>
+    /// Buy <paramref name="buyQuantity"/>, get <paramref name="getQuantity"/> at
+    /// <paramref name="getPercentOff"/>% off. <paramref name="getProductId"/> null gives the same
+    /// product that was bought.
+    /// </summary>
+    /// <remarks>
+    /// <b>The only type that does not reduce a price.</b> The others answer "what does this line
+    /// cost"; this one answers "what else comes with it", which is why it carries quantities instead
+    /// of a value and why <c>PRD-06</c> will have to add a line rather than adjust one. The
+    /// distinction is worth keeping visible here, because it is the reason
+    /// <see cref="CarriesItsOwnValue"/> excludes it even though its columns are non-null.
+    /// </remarks>
+    public static Promotion BuyXGetY(
+        string name,
+        int buyQuantity,
+        int getQuantity,
+        decimal getPercentOff,
+        Guid? getProductId,
+        DateOnly from,
+        DateOnly? to,
+        int priority) =>
+        new()
+        {
+            Id = Guid.CreateVersion7(),
+            Name = name,
+            Type = PromotionType.BuyXGetY,
+            BuyQuantity = buyQuantity,
+            GetQuantity = getQuantity,
+            GetPercentOff = getPercentOff,
+            GetProductId = getProductId,
+            ValidFrom = from,
+            ValidTo = to,
+            Priority = priority,
+        };
+
+    /// <summary>Re-states what a <see cref="PromotionType.BuyXGetY"/> promotion gives away.</summary>
+    public void Rebundle(
+        int buyQuantity, int getQuantity, decimal getPercentOff, Guid? getProductId, IClock clock)
+    {
+        BuyQuantity = buyQuantity;
+        GetQuantity = getQuantity;
+        GetPercentOff = getPercentOff;
+        GetProductId = getProductId;
+        ModifiedAtUtc = clock.UtcNow;
+    }
 
     /// <summary>Whether this type's discount lives on the promotion rather than on child rows.</summary>
     /// <remarks>

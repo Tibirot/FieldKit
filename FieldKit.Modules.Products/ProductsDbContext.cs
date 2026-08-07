@@ -325,24 +325,30 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
 
         modelBuilder.Entity<Promotion>(promotion =>
         {
-            // Each type carries its own value columns, and the constraint says which:
-            //     PercentOff     → percent_off set, amount_off and currency null
-            //     FixedAmountOff → amount_off and currency set, percent_off null
-            //     VolumeTiered   → no value at all; the discounts live on promotion_tier
-            //     anything else  → not yet constrained
+            // Each type says what it carries, and the constraint says which. Writing `value` for the
+            // percent_off / amount_off / currency trio and `bundle` for buy_quantity / get_quantity /
+            // get_percent_off:
+            //     PercentOff     → percent_off set, no currency, no bundle
+            //     FixedAmountOff → amount_off and currency set, no bundle
+            //     VolumeTiered   → no value, no bundle; its discounts live on promotion_tier
+            //     BuyXGetY       → no value; bundle set, because it gives rather than reduces
+            //     anything else  → impossible
             //
-            // Written as a CASE per type rather than one expression over the columns, which is what
-            // made adding VolumeTiered a new WHEN rather than an ALTER reasoned about against stored
-            // rows. `ELSE TRUE` is the same room left for BuyXGetY.
+            // `ELSE FALSE`, and that is a change worth noticing. The clause was `ELSE TRUE` while the
+            // types arrived one slice at a time — deliberate room, so each new type was a new WHEN
+            // rather than an ALTER reasoned about against rows already stored. It cost an
+            // unconstrained escape for any unrecognised `type` string, flagged as the price of the
+            // approach at the time. B1 names exactly four types and all four are now here, so the
+            // room is no longer needed and the escape closes with it.
             //
             // Kept on one line on purpose. EF stores this string verbatim in the migration *and* the
             // model snapshot, then compares them to decide whether the model has changed — so a
             // multi-line literal bakes the authoring machine's line endings into the schema, and the
             // same source regenerated on Linux produces a different constraint and a phantom
-            // migration. The readable version is the four lines above.
+            // migration. The readable version is the five lines above.
             promotion.ToTable("promotion", table => table.HasCheckConstraint(
                 "ck_promotion_value_matches_type",
-                """CASE "type" WHEN 'PercentOff' THEN "percent_off" IS NOT NULL AND "amount_off" IS NULL AND "currency" IS NULL WHEN 'FixedAmountOff' THEN "amount_off" IS NOT NULL AND "currency" IS NOT NULL AND "percent_off" IS NULL WHEN 'VolumeTiered' THEN "percent_off" IS NULL AND "amount_off" IS NULL AND "currency" IS NULL ELSE TRUE END"""));
+                """CASE "type" WHEN 'PercentOff' THEN "percent_off" IS NOT NULL AND "amount_off" IS NULL AND "currency" IS NULL AND "buy_quantity" IS NULL AND "get_quantity" IS NULL AND "get_percent_off" IS NULL WHEN 'FixedAmountOff' THEN "amount_off" IS NOT NULL AND "currency" IS NOT NULL AND "percent_off" IS NULL AND "buy_quantity" IS NULL AND "get_quantity" IS NULL AND "get_percent_off" IS NULL WHEN 'VolumeTiered' THEN "percent_off" IS NULL AND "amount_off" IS NULL AND "currency" IS NULL AND "buy_quantity" IS NULL AND "get_quantity" IS NULL AND "get_percent_off" IS NULL WHEN 'BuyXGetY' THEN "percent_off" IS NULL AND "amount_off" IS NULL AND "currency" IS NULL AND "buy_quantity" IS NOT NULL AND "get_quantity" IS NOT NULL AND "get_percent_off" IS NOT NULL ELSE FALSE END"""));
 
             promotion.HasKey(p => p.Id);
             promotion.Property(p => p.Name).HasMaxLength(120).IsRequired();
@@ -361,10 +367,25 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
             promotion.Property(p => p.AmountOff).HasColumnName("amount_off").HasPrecision(18, 4);
             promotion.Property(p => p.Currency).HasColumnName("currency").HasMaxLength(3).IsFixedLength();
 
+            promotion.Property(p => p.BuyQuantity).HasColumnName("buy_quantity");
+            promotion.Property(p => p.GetQuantity).HasColumnName("get_quantity");
+            promotion.Property(p => p.GetPercentOff).HasColumnName("get_percent_off").HasPrecision(5, 2);
+            promotion.Property(p => p.GetProductId).HasColumnName("get_product_id");
+
             promotion.HasIndex(p => new { p.TenantId, p.Name }).IsUnique();
 
             // Resolution asks for the promotions live on a date, best priority first.
             promotion.HasIndex(p => new { p.TenantId, p.ValidFrom, p.Priority });
+
+            // Restrict, like every other product reference in this module: a product cannot vanish
+            // from under a promotion that promises to give it away. Tenant-keyed, so the FK cannot be
+            // satisfied by another tenant's product — a single-column reference here would be the one
+            // place a promotion could point across the boundary.
+            promotion.HasOne<Product>()
+                .WithMany()
+                .HasForeignKey(p => new { p.TenantId, p.GetProductId })
+                .HasPrincipalKey(p => new { p.TenantId, p.Id })
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<PromotionTarget>(target =>
