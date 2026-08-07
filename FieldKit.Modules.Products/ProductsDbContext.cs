@@ -38,6 +38,8 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
 
     public DbSet<PromotionTier> PromotionTiers => Set<PromotionTier>();
 
+    public DbSet<PromotionAssignment> PromotionAssignments => Set<PromotionAssignment>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -456,6 +458,35 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
             tier.HasOne<Promotion>()
                 .WithMany()
                 .HasForeignKey(t => new { t.TenantId, t.PromotionId })
+                .HasPrincipalKey(p => new { p.TenantId, p.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PromotionAssignment>(assignment =>
+        {
+            // The same shape as price_list_assignment, down to the constraint name pattern — see
+            // PromotionAssignment for why these are two tables rather than one shared one.
+            assignment.ToTable("promotion_assignment", table => table.HasCheckConstraint(
+                "ck_promotion_assignment_one_scope",
+                """("channel_id" IS NULL) <> ("outlet_id" IS NULL)"""));
+
+            assignment.HasKey(a => a.Id);
+            assignment.Property(a => a.ChannelId).HasColumnName("channel_id");
+            assignment.Property(a => a.OutletId).HasColumnName("outlet_id");
+
+            // A channel gets a given promotion at most once, and so does an outlet. Postgres treats
+            // NULLs as distinct, so each index constrains only the rows where its column is set.
+            assignment.HasIndex(a => new { a.TenantId, a.PromotionId, a.ChannelId }).IsUnique();
+            assignment.HasIndex(a => new { a.TenantId, a.PromotionId, a.OutletId }).IsUnique();
+
+            // Resolution asks "which promotions reach this outlet, and its channel" — both are
+            // lookups by scope rather than by promotion.
+            assignment.HasIndex(a => new { a.TenantId, a.ChannelId });
+            assignment.HasIndex(a => new { a.TenantId, a.OutletId });
+
+            assignment.HasOne<Promotion>()
+                .WithMany()
+                .HasForeignKey(a => new { a.TenantId, a.PromotionId })
                 .HasPrincipalKey(p => new { p.TenantId, p.Id })
                 .OnDelete(DeleteBehavior.Cascade);
         });

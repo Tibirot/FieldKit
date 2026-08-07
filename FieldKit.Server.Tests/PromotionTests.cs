@@ -1,5 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using FieldKit.Infrastructure.Outbox;
+using FieldKit.Modules.Outlets;
 using FieldKit.Modules.Products;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -1145,6 +1148,258 @@ public class PromotionTests(ServerFixture fixture)
         }
     }
 
+    // ─── Scope and PromotionActivated (PRD-05, slice 11) ───────────────────────────────────────
+
+    private static async Task<Guid> ChannelAsync(HttpClient admin)
+    {
+        var response = await admin.PostAsJsonAsync(
+            "/api/outlets/channels", new { name = Unique("Channel") });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        return (await response.Content.ReadFromJsonAsync<ChannelResponse>())!.Id;
+    }
+
+    private static async Task<Guid> OutletAsync(HttpClient admin, Guid channelId)
+    {
+        var response = await admin.PostAsJsonAsync(
+            "/api/outlets",
+            new CreateOutletRequest(
+                Unique("OUT"), "Corner Shop", channelId, null, null, "Europe/Bucharest"));
+
+        Assert.True(
+            response.StatusCode == HttpStatusCode.Created,
+            $"{response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
+
+        return (await response.Content.ReadFromJsonAsync<OutletResponse>())!.Id;
+    }
+
+    private static async Task<HttpResponseMessage> AssignAsync(
+        HttpClient writer,
+        Guid promotionId,
+        IReadOnlyList<Guid>? channels = null,
+        IReadOnlyList<Guid>? outlets = null) =>
+        await writer.PutAsJsonAsync(
+            $"{Promotions}/{promotionId}/assignments",
+            new SetPromotionScopeRequest(channels ?? [], outlets ?? []));
+
+    /// <summary>The PromotionActivated events in the outbox for one promotion, oldest first.</summary>
+    private async Task<IReadOnlyList<PromotionActivated>> ActivatedAsync(Guid promotionId)
+    {
+        using var scope = fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ProductsDbContext>();
+
+        // Filtered by type in SQL and matched on the payload in memory: the content column is jsonb,
+        // and a Contains against it translates to `jsonb ~~ jsonb`, which Postgres has no operator
+        // for.
+        var payloads = await db.Set<OutboxMessage>()
+            .Where(message => message.Type.Contains(nameof(PromotionActivated)))
+            .OrderBy(message => message.OccurredOnUtc)
+            .Select(message => message.Content)
+            .ToListAsync();
+
+        return
+        [
+            .. payloads
+                .Select(json => JsonSerializer.Deserialize<PromotionActivated>(
+                    json, new JsonSerializerOptions(JsonSerializerDefaults.Web))!)
+                .Where(activated => activated.PromotionId == promotionId),
+        ];
+    }
+
+    [Fact]
+    public async Task A_promotion_can_reach_a_channel_and_particular_outlets()
+    {
+        using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+        using var writer = fixture.CreateAuthenticatedClient();
+
+        var channelId = await ChannelAsync(admin);
+        var outletId = await OutletAsync(admin, channelId);
+        var promotion = await PromotionAsync(writer, PromotionType.PercentOff, "15");
+
+        var response = await AssignAsync(writer, promotion.Id, [channelId], [outletId]);
+
+        Assert.True(
+            response.StatusCode == HttpStatusCode.OK,
+            $"{response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
+
+        var assignments =
+            (await response.Content.ReadFromJsonAsync<List<PromotionAssignmentResponse>>())!;
+
+        Assert.Equal(2, assignments.Count);
+        Assert.Contains(assignments, a => a.ChannelId == channelId && a.OutletId is null);
+        Assert.Contains(assignments, a => a.OutletId == outletId && a.ChannelId is null);
+    }
+
+    [Fact]
+    public async Task Assigning_a_promotion_announces_it_through_the_outbox()
+    {
+        // Read from the outbox rather than asserted at the call site, because the property that
+        // matters is that it was written in the same transaction as the assignment rows (ADR-0006),
+        // not that a method was called.
+        using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+        using var writer = fixture.CreateAuthenticatedClient();
+
+        var channelId = await ChannelAsync(admin);
+        var promotion = await PromotionAsync(
+            writer, PromotionType.PercentOff, "15", from: Opens, priority: 42);
+
+        await AssignAsync(writer, promotion.Id, [channelId]);
+
+        var activated = Assert.Single(await ActivatedAsync(promotion.Id));
+
+        Assert.Equal(PromotionType.PercentOff, activated.Type);
+        Assert.Equal(Opens, activated.ValidFrom);
+        Assert.Null(activated.ValidTo);
+        Assert.Equal(42, activated.Priority);
+        Assert.Equal(1, activated.ChannelCount);
+        Assert.Equal(0, activated.OutletCount);
+    }
+
+    [Fact]
+    public async Task Withdrawing_a_promotion_is_announced_too()
+    {
+        // "This promotion now reaches nobody" is a change a consumer needs as much as any other — a
+        // device that never hears it keeps offering a deal that has been pulled.
+        using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+        using var writer = fixture.CreateAuthenticatedClient();
+
+        var channelId = await ChannelAsync(admin);
+        var promotion = await PromotionAsync(writer, PromotionType.PercentOff, "15");
+
+        await AssignAsync(writer, promotion.Id, [channelId]);
+        await AssignAsync(writer, promotion.Id);
+
+        var activated = await ActivatedAsync(promotion.Id);
+
+        Assert.Equal(2, activated.Count);
+        Assert.Equal(0, activated[^1].ChannelCount);
+        Assert.Equal(0, activated[^1].OutletCount);
+    }
+
+    [Fact]
+    public async Task Assigning_replaces_the_whole_scope_without_duplicating_it()
+    {
+        using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+        using var writer = fixture.CreateAuthenticatedClient();
+
+        var first = await ChannelAsync(admin);
+        var second = await ChannelAsync(admin);
+        var promotion = await PromotionAsync(writer, PromotionType.PercentOff, "15");
+
+        await AssignAsync(writer, promotion.Id, [first]);
+
+        var repeated = await AssignAsync(writer, promotion.Id, [first]);
+        Assert.Single((await repeated.Content.ReadFromJsonAsync<List<PromotionAssignmentResponse>>())!);
+
+        var replaced = await AssignAsync(writer, promotion.Id, [second]);
+        var assignments =
+            (await replaced.Content.ReadFromJsonAsync<List<PromotionAssignmentResponse>>())!;
+
+        Assert.Equal(second, Assert.Single(assignments).ChannelId);
+    }
+
+    [Fact]
+    public async Task A_channel_or_outlet_that_does_not_exist_is_refused()
+    {
+        // Products cannot see either table (AT-1), so both go through Outlets contracts. Without the
+        // checks the scope would save cleanly and reach nobody.
+        using var writer = fixture.CreateAuthenticatedClient();
+        var promotion = await PromotionAsync(writer, PromotionType.PercentOff, "15");
+
+        var badChannel = await AssignAsync(writer, promotion.Id, [Guid.NewGuid()]);
+        Assert.Equal(HttpStatusCode.BadRequest, badChannel.StatusCode);
+        var problem = Assert.Single(await Refusals.ProblemsOf(badChannel));
+        Assert.Equal("channelIds", problem.Field);
+        Assert.Equal("product.promotion.channelMissing", problem.Code);
+
+        var badOutlet = await AssignAsync(writer, promotion.Id, outlets: [Guid.NewGuid()]);
+        Assert.Equal(HttpStatusCode.BadRequest, badOutlet.StatusCode);
+        Assert.Equal(
+            "product.promotion.outletMissing",
+            Assert.Single(await Refusals.ProblemsOf(badOutlet)).Code);
+    }
+
+    [Fact]
+    public async Task Another_tenants_outlet_reads_as_missing_rather_than_forbidden()
+    {
+        using var tenantBAdmin = fixture.CreateAuthenticatedClient(fixture.TenantBAccessToken);
+        var channelOfB = await ChannelAsync(tenantBAdmin);
+        var outletOfB = await OutletAsync(tenantBAdmin, channelOfB);
+
+        using var writer = fixture.CreateAuthenticatedClient();
+        var promotion = await PromotionAsync(writer, PromotionType.PercentOff, "15");
+
+        var response = await AssignAsync(writer, promotion.Id, outlets: [outletOfB]);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            "product.promotion.outletMissing",
+            Assert.Single(await Refusals.ProblemsOf(response)).Code);
+    }
+
+    [Fact]
+    public async Task Every_type_can_be_given_a_scope()
+    {
+        // Reach is a property of a promotion, not of its type — a tiered deal and a BOGO are pointed
+        // at outlets exactly as a flat percentage is.
+        using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+        using var writer = fixture.CreateAuthenticatedClient();
+        var channelId = await ChannelAsync(admin);
+
+        var tiered = await TieredAsync(writer);
+        var bogo = await BogoAsync(writer);
+
+        foreach (var promotionId in new[] { tiered, bogo.Id })
+        {
+            var response = await AssignAsync(writer, promotionId, [channelId]);
+
+            Assert.True(
+                response.StatusCode == HttpStatusCode.OK,
+                $"{response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
+
+            Assert.Single(await ActivatedAsync(promotionId));
+        }
+    }
+
+    [Fact]
+    public async Task The_database_refuses_a_scope_of_both_or_of_neither()
+    {
+        using var scope = fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ProductsDbContext>();
+
+        foreach (var (channel, outlet) in new (object?, object?)[]
+                 {
+                     (Guid.NewGuid(), Guid.NewGuid()), // both
+                     (null, null),                     // neither
+                 })
+        {
+            var refused = await Record.ExceptionAsync(() => db.Database.ExecuteSqlAsync(
+                $"""
+                INSERT INTO products.promotion_assignment
+                    ("Id", "PromotionId", "channel_id", "outlet_id", "TenantId", "CreatedAtUtc")
+                VALUES ({Guid.CreateVersion7()}, {Guid.NewGuid()}, {channel}, {outlet},
+                        {Guid.NewGuid()}, now())
+                """));
+
+            Assert.NotNull(refused);
+            Assert.Contains("ck_promotion_assignment_one_scope", refused.ToString());
+        }
+    }
+
+    [Fact]
+    public async Task Reading_a_scope_and_setting_it_are_different_capabilities()
+    {
+        using var writer = fixture.CreateAuthenticatedClient();
+        using var viewer = fixture.CreateAuthenticatedClient(fixture.ReadOnlyAccessToken);
+        var promotion = await PromotionAsync(writer, PromotionType.PercentOff, "15");
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await viewer.GetAsync($"{Promotions}/{promotion.Id}/assignments")).StatusCode);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await AssignAsync(viewer, promotion.Id)).StatusCode);
+    }
+
     [Fact]
     public async Task A_promotion_that_does_not_exist_is_not_found()
     {
@@ -1157,6 +1412,12 @@ public class PromotionTests(ServerFixture fixture)
         Assert.Equal(
             HttpStatusCode.NotFound,
             (await writer.GetAsync($"{Promotions}/{absent}/targets")).StatusCode);
+
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            (await writer.GetAsync($"{Promotions}/{absent}/assignments")).StatusCode);
+
+        Assert.Equal(HttpStatusCode.NotFound, (await AssignAsync(writer, absent)).StatusCode);
 
         var write = await writer.PutAsJsonAsync(
             $"{Promotions}/{absent}/targets", new SetPromotionTargetsRequest([], []));
