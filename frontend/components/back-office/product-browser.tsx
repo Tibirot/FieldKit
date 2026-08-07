@@ -97,23 +97,29 @@ export function ProductBrowser() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <input
-          type="search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder={t("searchPlaceholder")}
-          aria-label={t("search")}
-          className="h-9 w-full max-w-xs rounded-lg border border-input bg-background px-3 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-        />
+      {/* Hidden once the list has failed, not merely disabled. A search box above "you do not have
+          permission to view products" filters a list that is not there — a dead control that
+          explains nothing, which is the pattern the navigation rejects for the same reason. Kept
+          while the query is pending so the toolbar does not jump into place on arrival. */}
+      {products.isError ? null : (
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={t("searchPlaceholder")}
+            aria-label={t("search")}
+            className="h-9 w-full max-w-xs rounded-lg border border-input bg-background px-3 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          />
 
-        {canWrite ? (
-          <Button type="button" size="sm" className="ml-auto" onClick={() => setEditing("new")}>
-            <Plus className="size-4" />
-            {t("newProduct")}
-          </Button>
-        ) : null}
-      </div>
+          {canWrite ? (
+            <Button type="button" size="sm" className="ml-auto" onClick={() => setEditing("new")}>
+              <Plus className="size-4" />
+              {t("newProduct")}
+            </Button>
+          ) : null}
+        </div>
+      )}
 
       {editing !== null ? (
         <ProductForm

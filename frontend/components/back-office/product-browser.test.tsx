@@ -168,6 +168,20 @@ describe("<ProductBrowser>", () => {
     expect(await screen.findByText(/do not have permission/i)).toBeTruthy();
   });
 
+  it("offers no search box over a list it could not load", async () => {
+    // Found in the browser, signed in as an admin — who holds no product permissions. The message
+    // rendered correctly and a search box sat above it, filtering a list that was not there. A dead
+    // control that explains nothing is what the navigation refuses to render for the same reason,
+    // and the original version of this suite missed it by asserting only that the message appeared.
+    fetchProducts.mockRejectedValue(new ApiError(403));
+
+    render(<ProductBrowser />);
+    await screen.findByText(/do not have permission/i);
+
+    expect(screen.queryByRole("searchbox")).toBeNull();
+    expect(screen.queryByRole("button", { name: /new product/i })).toBeNull();
+  });
+
   it("offers no way to write to a caller who may only read", async () => {
     // Someone may maintain the catalogue's *use* — assortments, price lists — without being able to
     // mint SKUs. Overridden at the fetch boundary so the hook and its "pending counts as denied"
