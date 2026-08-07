@@ -31,7 +31,19 @@ flowchart TB
   — the specific defense against JS float64 vs `System.Decimal` divergence ([BR-PRD-8/9](../product/13-products-and-pricing.md#decimal-parity-resolves-finding-s4)).
   They live in [`vectors/`](../../vectors/README.md) — outside both projects, because neither owns
   them. Price resolution (`PRD-04`) landed there first, hand-written, one case per rule; the
-  generated suite fills the same format later without the mirror having to change.
+  generated suite fills the same format without the mirror having to change.
+  > **Generated and property-based are not two names for one thing, and the distinction decides what
+  > each can catch.** Generated vectors take their expectations *from the C# engine*, so replaying
+  > them against C# is circular — a bug is generated into the file and then confirmed by it. Their
+  > value is entirely as an **oracle for the TypeScript mirror**, across input regions nobody would
+  > hand-write. What tests C# is the hand-written cases (which encode the rules, decided before the
+  > code) and the **properties** — statements needing no expected answer, like *net + tax = gross* or
+  > *resolution does not depend on candidate order*. The mirror should reimplement the properties
+  > rather than read them: a vector file transfers answers, a property transfers a rule.
+  >
+  > The committed generated files are checked against the generator on every run, because committed
+  > output goes stale silently — and a mirror proving itself against a file describing last month's
+  > engine is precisely the drift this apparatus exists to catch, arriving through the apparatus.
 - **Perfect-store scoring** — weighted score across pillars, under the **same decimal-parity regime
   as pricing** (decimal lib + rounding + **generated C#≡TS vectors**): share-of-shelf ratios and
   weighted sums are a second float-vs-decimal divergence surface (BR-AUD-5/12, [Audit](../product/22-merchandising-and-audits.md)).

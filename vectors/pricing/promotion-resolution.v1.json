@@ -176,12 +176,12 @@
     },
     {
       "name": "a tie on priority is broken by the higher id, ordered as bytes",
-      "why": "The same hostile pair as price resolution, for the same reason. .NET's Guid.CompareTo reads the first field as a signed native-endian int and sorts ffffffff below 00000001; any implementation comparing canonical strings or big-endian bytes agrees with this case, and one reaching for the platform's built-in comparison does not.",
+      "why": "The same discriminating pair as price resolution, for the same reason: Guid.ToByteArray() with no argument is little-endian for the first three groups, so a naive byte comparison puts 00000100 below 00000002 — backwards from the strings. Big-endian bytes, canonical string comparison and Guid.CompareTo all agree with this case.",
       "on": "2026-06-15",
       "quantity": 1,
       "candidates": [
         {
-          "promotionId": "00000001-0000-7000-8000-000000000000",
+          "promotionId": "00000002-0000-7000-8000-000000000000",
           "type": "PercentOff",
           "priority": 50,
           "validFrom": "2026-06-01",
@@ -189,7 +189,7 @@
           "percentOff": "5.00"
         },
         {
-          "promotionId": "ffffffff-0000-7000-8000-000000000000",
+          "promotionId": "00000100-0000-7000-8000-000000000000",
           "type": "PercentOff",
           "priority": 50,
           "validFrom": "2026-06-01",
@@ -198,7 +198,7 @@
         }
       ],
       "expected": {
-        "promotionId": "ffffffff-0000-7000-8000-000000000000",
+        "promotionId": "00000100-0000-7000-8000-000000000000",
         "type": "PercentOff",
         "priority": 50,
         "percentOff": "9.00",

@@ -39,6 +39,30 @@ pass.
 **Every file carries a `version`.** A change that alters what a case means bumps it, so a mirror
 running an older file fails loudly rather than silently testing yesterday's rules.
 
+## Ordering ids — read this before implementing a tiebreak
+
+Every engine here breaks a tie on the **higher id, compared as big-endian bytes**, which is the order
+the canonical string form prints. Implement it as an ordinal comparison of the lowercase canonical
+strings, or as a comparison of `ToByteArray(bigEndian: true)`. Both give the same answer.
+
+**The trap is `Guid.ToByteArray()` with no argument.** It returns the first three groups
+*little-endian*, so comparing those bytes orders `00000100-…` **below** `00000002-…` — backwards
+from what the strings say. Each hand-written file carries that exact pair.
+
+> **A correction, kept here because the wrong version shipped.** Slices 6–9 justified the explicit
+> byte comparison by claiming .NET's `Guid.CompareTo` reads the first field as a *signed* int and so
+> sorts `ffffffff-…` below `00000001-…`. **That is false** — it compares those fields unsigned, and
+> agrees with byte order. The "hostile" pair chosen to catch it therefore discriminated nothing, and
+> three files carried a case whose stated purpose it did not serve.
+>
+> Slice 10's mutation testing found it: reverting a resolver to `Guid.CompareTo` broke no test, which
+> it should have. The pairs are now `00000100` / `00000002`, which do discriminate — against the
+> naive byte array, the mistake that actually exists.
+>
+> The implementation never changed, and the underlying reason held up: the mirror is TypeScript and
+> has no `Guid` type, so the ordering has to be *specified* rather than inherited from a platform.
+> What was wrong was the example, not the rule.
+
 ## Files
 
 | File | Covers | Consumed by |

@@ -314,7 +314,7 @@ Sizes are hand-written diff estimates against the ~400-line budget; generated mi
 | 7 | **Promotion authoring** — %-off and fixed-amount (7a), volume/tiered (7b), BOGO/bundle (7c), scope + `PromotionActivated` (7d) | `PRD-05` | 400 ×4 |
 | 8 | **Promotion resolution** — priority selection, validity window in the outlet's timezone; second [vector file](../vectors/README.md) | `PRD-06`, `BR-PRD-3/6` | 350 |
 | 9 | **Tax** — tax class × tenant/country, on the rounded net line; third [vector file](../vectors/README.md); `IOutletClassification` grows `CountryCode` | `PRD-07`, `BR-PRD-5/9` | 250 |
-| 10 | **Parity vector suite** — generated vectors as a committed artifact; the C# engine proves against them | `PRD-08`, `BR-PRD-8/9` | 350 |
+| 10 | **Parity vector suite** — a deterministic generator, committed artifacts checked against it, and the properties that test C# where generated vectors cannot | `PRD-08`, `BR-PRD-8/9` | 350 |
 | 11+ | **Back-office screens** — products, assortment, price lists, promotions (3–4 PRs) | — | — |
 
 **Slice 5 is a prerequisite, and it is deliberately late.** `BR-PRD-2` resolves a price by *outlet
@@ -331,14 +331,19 @@ same file, so the format is decided in **slice 6**, with the first engine code �
 slice 10, where it would be shaped by whatever C# found convenient to emit.
 
 > **Landed as [`vectors/`](../vectors/README.md)** with slice 6, hand-written, one case per rule.
-> Deciding it against a real engine paid for itself immediately: the first draft broke the tie
-> between two equally-specific lists with `Guid.CompareTo`, which reads .NET's first Guid field as a
-> *signed* int and sorts `ffffffff-…` below `00000001-…`. A TypeScript mirror comparing canonical
-> strings would have disagreed — on a rule neither author thought was interesting, in the one place
-> the two engines are supposed to agree by construction. The resolver now orders big-endian bytes,
-> which is what the canonical string spells out, and the vector file carries the hostile pair that
-> tells the two apart. Invented at slice 10 against emitted output, the format would have recorded
-> whatever C# happened to do.
+> Invented at slice 10 against emitted output, the format would have recorded whatever C# happened
+> to do; decided against a real engine, it had to state rules a second language could implement.
+>
+> The tiebreak between two equally-specific lists is the example, and it took two attempts to get
+> the *reasoning* right even though the code was right the first time. Slice 6 replaced
+> `Guid.CompareTo` with an explicit big-endian byte comparison, justified by the claim that .NET
+> compares a Guid's first field as a *signed* int. **That claim was false** — .NET compares it
+> unsigned, so `CompareTo` agrees with byte order — and the "hostile" id pair chosen to catch it
+> discriminated nothing. Slice 10's mutation testing found it: reverting the resolver to
+> `Guid.CompareTo` broke no test. The real trap is `Guid.ToByteArray()` with no argument, which is
+> little-endian for the first three groups and orders `00000100-…` below `00000002-…`; the vectors
+> now carry a pair that catches *that*. The implementation never changed — specifying the ordering
+> in a form TypeScript can implement was right for a reason that survived the correction.
 
 **A promotion's scope is its own slice, as a price list's was.** 7a authors the rule — type, value,
 window, priority, and what it targets; where it reaches (channels and outlets) and the

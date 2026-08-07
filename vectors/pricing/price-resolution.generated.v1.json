@@ -1,0 +1,728 @@
+{
+  "version": 1,
+  "generated": true,
+  "rule": "PRD-04 / BR-PRD-2",
+  "description": "Randomly shaped candidate sets, seeded so the file is reproducible. Expectations come from the C# engine — an oracle for the mirror, not a test of C#.",
+  "cases": [
+    {
+      "name": "generated 0",
+      "on": "2026-05-12",
+      "candidates": [{ "priceListId": "00000000-0000-7000-8000-000000000000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-11-24", "effectiveTo": "2027-04-15", "amount": "99.99" }, { "priceListId": "00000001-0000-7000-8000-000000000001", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-12-17", "effectiveTo": "2027-04-20", "amount": "1234.56" }],
+      "expected": null
+    },
+    {
+      "name": "generated 1",
+      "on": "2026-01-24",
+      "candidates": [{ "priceListId": "9e3779b1-0000-7000-8000-000000010000", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-07-10", "effectiveTo": null, "amount": "0.99" }, { "priceListId": "9e3779b2-0000-7000-8000-000000010001", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-07-09", "effectiveTo": "2026-10-12", "amount": "0.04" }],
+      "expected": null
+    },
+    {
+      "name": "generated 2",
+      "on": "2026-03-02",
+      "candidates": [{ "priceListId": "3c6ef362-0000-7000-8000-000000020000", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-06-24", "effectiveTo": "2026-12-18", "amount": "1.00" }, { "priceListId": "3c6ef363-0000-7000-8000-000000020001", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-11-08", "effectiveTo": null, "amount": "0.04" }, { "priceListId": "3c6ef364-0000-7000-8000-000000020002", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-07-01", "effectiveTo": "2026-08-31", "amount": "0.125" }],
+      "expected": null
+    },
+    {
+      "name": "generated 3",
+      "on": "2026-02-19",
+      "candidates": [{ "priceListId": "daa66d13-0000-7000-8000-000000030000", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-09-15", "effectiveTo": null, "amount": "1.005" }, { "priceListId": "daa66d14-0000-7000-8000-000000030001", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-03-24", "effectiveTo": null, "amount": "0.03" }, { "priceListId": "daa66d15-0000-7000-8000-000000030002", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-01-24", "effectiveTo": "2026-07-11", "amount": "12.99" }],
+      "expected": { "priceListId": "daa66d15-0000-7000-8000-000000030002", "scope": "Outlet", "currency": "RON", "amount": "12.99" }
+    },
+    {
+      "name": "generated 4",
+      "on": "2026-10-09",
+      "candidates": [{ "priceListId": "78dde6c4-0000-7000-8000-000000040000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-06-23", "effectiveTo": "2026-08-26", "amount": "0.04" }],
+      "expected": null
+    },
+    {
+      "name": "generated 5",
+      "on": "2026-04-07",
+      "candidates": [{ "priceListId": "17156075-0000-7000-8000-000000050000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-11-04", "effectiveTo": "2026-11-15", "amount": "0.01" }, { "priceListId": "17156076-0000-7000-8000-000000050001", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-04-08", "effectiveTo": "2026-05-08", "amount": "1.005" }],
+      "expected": null
+    },
+    {
+      "name": "generated 6",
+      "on": "2026-08-10",
+      "candidates": [{ "priceListId": "b54cda26-0000-7000-8000-000000060000", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-08-22", "effectiveTo": "2026-10-11", "amount": "7.77" }, { "priceListId": "b54cda27-0000-7000-8000-000000060001", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-02-19", "effectiveTo": null, "amount": "9.99" }, { "priceListId": "b54cda28-0000-7000-8000-000000060002", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-12-16", "effectiveTo": "2027-01-11", "amount": "0.99" }, { "priceListId": "b54cda29-0000-7000-8000-000000060003", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-08-24", "effectiveTo": "2026-11-27", "amount": "12.345" }],
+      "expected": { "priceListId": "b54cda27-0000-7000-8000-000000060001", "scope": "Channel", "currency": "RON", "amount": "9.99" }
+    },
+    {
+      "name": "generated 7",
+      "on": "2026-04-24",
+      "candidates": [{ "priceListId": "538453d7-0000-7000-8000-000000070000", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-05-16", "effectiveTo": "2026-06-01", "amount": "0.99" }, { "priceListId": "538453d8-0000-7000-8000-000000070001", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-08-03", "effectiveTo": null, "amount": "2.50" }, { "priceListId": "538453d9-0000-7000-8000-000000070002", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-12-23", "effectiveTo": "2027-06-15", "amount": "0.03" }, { "priceListId": "538453da-0000-7000-8000-000000070003", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-11-07", "effectiveTo": "2027-02-03", "amount": "2.50" }],
+      "expected": null
+    },
+    {
+      "name": "generated 8",
+      "on": "2026-10-10",
+      "candidates": [{ "priceListId": "f1bbcd88-0000-7000-8000-000000080000", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-11-14", "effectiveTo": "2027-05-10", "amount": "0.02" }],
+      "expected": null
+    },
+    {
+      "name": "generated 9",
+      "on": "2026-11-27",
+      "candidates": [{ "priceListId": "8ff34739-0000-7000-8000-000000090000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-03-18", "effectiveTo": "2026-09-14", "amount": "9.99" }, { "priceListId": "8ff3473a-0000-7000-8000-000000090001", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-09-04", "effectiveTo": "2026-12-06", "amount": "1234.56" }, { "priceListId": "8ff3473b-0000-7000-8000-000000090002", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-09-20", "effectiveTo": "2027-01-29", "amount": "0.01" }, { "priceListId": "8ff3473c-0000-7000-8000-000000090003", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-04-08", "effectiveTo": "2026-07-14", "amount": "0.05" }],
+      "expected": { "priceListId": "8ff3473b-0000-7000-8000-000000090002", "scope": "Outlet", "currency": "GBP", "amount": "0.01" }
+    },
+    {
+      "name": "generated 10",
+      "on": "2026-01-04",
+      "candidates": [{ "priceListId": "2e2ac0ea-0000-7000-8000-0000000a0000", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-07-11", "effectiveTo": "2026-10-30", "amount": "9.99" }, { "priceListId": "2e2ac0eb-0000-7000-8000-0000000a0001", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-08-28", "effectiveTo": null, "amount": "0.05" }],
+      "expected": null
+    },
+    {
+      "name": "generated 11",
+      "on": "2026-11-19",
+      "candidates": [{ "priceListId": "cc623a9b-0000-7000-8000-0000000b0000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-06-14", "effectiveTo": "2026-11-27", "amount": "1234.56" }, { "priceListId": "cc623a9c-0000-7000-8000-0000000b0001", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-03-08", "effectiveTo": null, "amount": "0.125" }, { "priceListId": "cc623a9d-0000-7000-8000-0000000b0002", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-06-03", "effectiveTo": "2026-10-22", "amount": "0.05" }],
+      "expected": { "priceListId": "cc623a9c-0000-7000-8000-0000000b0001", "scope": "Outlet", "currency": "EUR", "amount": "0.125" }
+    },
+    {
+      "name": "generated 12",
+      "on": "2026-01-06",
+      "candidates": [{ "priceListId": "6a99b44c-0000-7000-8000-0000000c0000", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-12-14", "effectiveTo": "2027-01-03", "amount": "7.77" }, { "priceListId": "6a99b44d-0000-7000-8000-0000000c0001", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-01-26", "effectiveTo": null, "amount": "1234.56" }, { "priceListId": "6a99b44e-0000-7000-8000-0000000c0002", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-02-23", "effectiveTo": "2026-03-22", "amount": "0.125" }, { "priceListId": "6a99b44f-0000-7000-8000-0000000c0003", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-07-02", "effectiveTo": null, "amount": "7.77" }],
+      "expected": null
+    },
+    {
+      "name": "generated 13",
+      "on": "2026-07-05",
+      "candidates": [{ "priceListId": "08d12dfd-0000-7000-8000-0000000d0000", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-06-05", "effectiveTo": null, "amount": "3.33" }, { "priceListId": "08d12dfe-0000-7000-8000-0000000d0001", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-05-24", "effectiveTo": "2026-11-20", "amount": "7.77" }],
+      "expected": { "priceListId": "08d12dfd-0000-7000-8000-0000000d0000", "scope": "Outlet", "currency": "RON", "amount": "3.33" }
+    },
+    {
+      "name": "generated 14",
+      "on": "2026-04-14",
+      "candidates": [{ "priceListId": "a708a7ae-0000-7000-8000-0000000e0000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-03-10", "effectiveTo": "2026-07-08", "amount": "2.50" }, { "priceListId": "a708a7af-0000-7000-8000-0000000e0001", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-12-25", "effectiveTo": "2027-01-19", "amount": "99999.99" }, { "priceListId": "a708a7b0-0000-7000-8000-0000000e0002", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-03-23", "effectiveTo": "2026-09-04", "amount": "0.02" }],
+      "expected": { "priceListId": "a708a7b0-0000-7000-8000-0000000e0002", "scope": "Channel", "currency": "RON", "amount": "0.02" }
+    },
+    {
+      "name": "generated 15",
+      "on": "2026-12-01",
+      "candidates": [{ "priceListId": "4540215f-0000-7000-8000-0000000f0000", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-06-01", "effectiveTo": "2026-07-11", "amount": "99.99" }, { "priceListId": "45402160-0000-7000-8000-0000000f0001", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-10-13", "effectiveTo": "2026-12-21", "amount": "0.04" }, { "priceListId": "45402161-0000-7000-8000-0000000f0002", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-10-13", "effectiveTo": "2027-01-28", "amount": "0.05" }],
+      "expected": { "priceListId": "45402161-0000-7000-8000-0000000f0002", "scope": "Outlet", "currency": "GBP", "amount": "0.05" }
+    },
+    {
+      "name": "generated 16",
+      "on": "2026-11-17",
+      "candidates": [{ "priceListId": "e3779b10-0000-7000-8000-000000100000", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-10-03", "effectiveTo": null, "amount": "0.99" }, { "priceListId": "e3779b11-0000-7000-8000-000000100001", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-06-17", "effectiveTo": "2026-06-19", "amount": "12.345" }, { "priceListId": "e3779b12-0000-7000-8000-000000100002", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-10-10", "effectiveTo": null, "amount": "12.99" }, { "priceListId": "e3779b13-0000-7000-8000-000000100003", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-05-28", "effectiveTo": "2026-07-06", "amount": "99.99" }],
+      "expected": { "priceListId": "e3779b12-0000-7000-8000-000000100002", "scope": "Outlet", "currency": "EUR", "amount": "12.99" }
+    },
+    {
+      "name": "generated 17",
+      "on": "2026-04-26",
+      "candidates": [{ "priceListId": "81af14c1-0000-7000-8000-000000110000", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-12-14", "effectiveTo": null, "amount": "1.00" }, { "priceListId": "81af14c2-0000-7000-8000-000000110001", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-01-21", "effectiveTo": null, "amount": "1.005" }, { "priceListId": "81af14c3-0000-7000-8000-000000110002", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-03-16", "effectiveTo": null, "amount": "0.03" }, { "priceListId": "81af14c4-0000-7000-8000-000000110003", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-08-10", "effectiveTo": "2026-09-09", "amount": "1.00" }],
+      "expected": { "priceListId": "81af14c2-0000-7000-8000-000000110001", "scope": "Outlet", "currency": "EUR", "amount": "1.005" }
+    },
+    {
+      "name": "generated 18",
+      "on": "2026-10-17",
+      "candidates": [{ "priceListId": "1fe68e72-0000-7000-8000-000000120000", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-04-27", "effectiveTo": null, "amount": "99999.99" }, { "priceListId": "1fe68e73-0000-7000-8000-000000120001", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-11-01", "effectiveTo": "2027-02-15", "amount": "0.05" }],
+      "expected": { "priceListId": "1fe68e72-0000-7000-8000-000000120000", "scope": "Outlet", "currency": "RON", "amount": "99999.99" }
+    },
+    {
+      "name": "generated 19",
+      "on": "2026-09-25",
+      "candidates": [{ "priceListId": "be1e0823-0000-7000-8000-000000130000", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-06-14", "effectiveTo": "2026-11-09", "amount": "1.00" }, { "priceListId": "be1e0824-0000-7000-8000-000000130001", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-08-23", "effectiveTo": "2026-10-29", "amount": "12.345" }],
+      "expected": { "priceListId": "be1e0824-0000-7000-8000-000000130001", "scope": "Outlet", "currency": "RON", "amount": "12.345" }
+    },
+    {
+      "name": "generated 20",
+      "on": "2026-10-19",
+      "candidates": [{ "priceListId": "5c5581d4-0000-7000-8000-000000140000", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-04-15", "effectiveTo": "2026-08-25", "amount": "7.77" }],
+      "expected": null
+    },
+    {
+      "name": "generated 21",
+      "on": "2026-04-11",
+      "candidates": [{ "priceListId": "fa8cfb85-0000-7000-8000-000000150000", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-08-20", "effectiveTo": null, "amount": "0.04" }, { "priceListId": "fa8cfb86-0000-7000-8000-000000150001", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-08-25", "effectiveTo": null, "amount": "0.03" }],
+      "expected": null
+    },
+    {
+      "name": "generated 22",
+      "on": "2026-06-18",
+      "candidates": [{ "priceListId": "98c47536-0000-7000-8000-000000160000", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-10-23", "effectiveTo": "2027-01-24", "amount": "0.04" }, { "priceListId": "98c47537-0000-7000-8000-000000160001", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-07-08", "effectiveTo": "2026-09-29", "amount": "99999.99" }],
+      "expected": null
+    },
+    {
+      "name": "generated 23",
+      "on": "2026-06-01",
+      "candidates": [{ "priceListId": "36fbeee7-0000-7000-8000-000000170000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-06-24", "effectiveTo": "2026-09-28", "amount": "12.345" }, { "priceListId": "36fbeee8-0000-7000-8000-000000170001", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-04-05", "effectiveTo": "2026-08-10", "amount": "7.77" }, { "priceListId": "36fbeee9-0000-7000-8000-000000170002", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-11-25", "effectiveTo": "2027-02-21", "amount": "2.50" }, { "priceListId": "36fbeeea-0000-7000-8000-000000170003", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-07-05", "effectiveTo": "2026-10-29", "amount": "0.04" }],
+      "expected": { "priceListId": "36fbeee8-0000-7000-8000-000000170001", "scope": "Outlet", "currency": "GBP", "amount": "7.77" }
+    },
+    {
+      "name": "generated 24",
+      "on": "2026-01-02",
+      "candidates": [{ "priceListId": "d5336898-0000-7000-8000-000000180000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-05-11", "effectiveTo": null, "amount": "1234.56" }, { "priceListId": "d5336899-0000-7000-8000-000000180001", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-09-27", "effectiveTo": "2026-09-29", "amount": "7.77" }, { "priceListId": "d533689a-0000-7000-8000-000000180002", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-03-06", "effectiveTo": "2026-09-01", "amount": "0.05" }, { "priceListId": "d533689b-0000-7000-8000-000000180003", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-03-11", "effectiveTo": "2026-08-01", "amount": "3.33" }],
+      "expected": null
+    },
+    {
+      "name": "generated 25",
+      "on": "2026-01-10",
+      "candidates": [{ "priceListId": "736ae249-0000-7000-8000-000000190000", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-04-25", "effectiveTo": null, "amount": "12.345" }],
+      "expected": null
+    },
+    {
+      "name": "generated 26",
+      "on": "2026-03-15",
+      "candidates": [{ "priceListId": "11a25bfa-0000-7000-8000-0000001a0000", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-07-08", "effectiveTo": "2026-09-16", "amount": "2.50" }, { "priceListId": "11a25bfb-0000-7000-8000-0000001a0001", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-11-04", "effectiveTo": "2027-01-31", "amount": "99999.99" }, { "priceListId": "11a25bfc-0000-7000-8000-0000001a0002", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-10-02", "effectiveTo": null, "amount": "0.125" }, { "priceListId": "11a25bfd-0000-7000-8000-0000001a0003", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-08-27", "effectiveTo": "2026-09-20", "amount": "1.005" }],
+      "expected": null
+    },
+    {
+      "name": "generated 27",
+      "on": "2026-06-14",
+      "candidates": [{ "priceListId": "afd9d5ab-0000-7000-8000-0000001b0000", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-12-20", "effectiveTo": "2027-03-14", "amount": "12.99" }, { "priceListId": "afd9d5ac-0000-7000-8000-0000001b0001", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-02-24", "effectiveTo": "2026-06-06", "amount": "12.99" }, { "priceListId": "afd9d5ad-0000-7000-8000-0000001b0002", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-07-15", "effectiveTo": "2026-09-23", "amount": "0.125" }, { "priceListId": "afd9d5ae-0000-7000-8000-0000001b0003", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-01-28", "effectiveTo": "2026-02-01", "amount": "12.99" }],
+      "expected": null
+    },
+    {
+      "name": "generated 28",
+      "on": "2026-04-06",
+      "candidates": [{ "priceListId": "4e114f5c-0000-7000-8000-0000001c0000", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-02-01", "effectiveTo": "2026-03-05", "amount": "1.00" }, { "priceListId": "4e114f5d-0000-7000-8000-0000001c0001", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-05-01", "effectiveTo": "2026-07-12", "amount": "3.33" }, { "priceListId": "4e114f5e-0000-7000-8000-0000001c0002", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-11-13", "effectiveTo": null, "amount": "0.125" }],
+      "expected": null
+    },
+    {
+      "name": "generated 29",
+      "on": "2026-12-12",
+      "candidates": [{ "priceListId": "ec48c90d-0000-7000-8000-0000001d0000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-03-09", "effectiveTo": "2026-03-25", "amount": "12.99" }, { "priceListId": "ec48c90e-0000-7000-8000-0000001d0001", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-07-17", "effectiveTo": null, "amount": "99999.99" }],
+      "expected": { "priceListId": "ec48c90e-0000-7000-8000-0000001d0001", "scope": "Outlet", "currency": "RON", "amount": "99999.99" }
+    },
+    {
+      "name": "generated 30",
+      "on": "2026-02-17",
+      "candidates": [{ "priceListId": "8a8042be-0000-7000-8000-0000001e0000", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-02-01", "effectiveTo": "2026-03-21", "amount": "0.01" }, { "priceListId": "8a8042bf-0000-7000-8000-0000001e0001", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-04-20", "effectiveTo": "2026-05-21", "amount": "99999.99" }, { "priceListId": "8a8042c0-0000-7000-8000-0000001e0002", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-08-23", "effectiveTo": "2026-11-08", "amount": "9.99" }],
+      "expected": { "priceListId": "8a8042be-0000-7000-8000-0000001e0000", "scope": "Outlet", "currency": "EUR", "amount": "0.01" }
+    },
+    {
+      "name": "generated 31",
+      "on": "2026-01-26",
+      "candidates": [{ "priceListId": "28b7bc6f-0000-7000-8000-0000001f0000", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-07-19", "effectiveTo": "2026-10-27", "amount": "3.33" }],
+      "expected": null
+    },
+    {
+      "name": "generated 32",
+      "on": "2026-12-09",
+      "candidates": [{ "priceListId": "c6ef3620-0000-7000-8000-000000200000", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-11-13", "effectiveTo": "2027-01-26", "amount": "0.01" }, { "priceListId": "c6ef3621-0000-7000-8000-000000200001", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-01-18", "effectiveTo": "2026-04-07", "amount": "9.99" }, { "priceListId": "c6ef3622-0000-7000-8000-000000200002", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-05-01", "effectiveTo": "2026-10-25", "amount": "0.04" }, { "priceListId": "c6ef3623-0000-7000-8000-000000200003", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-06-05", "effectiveTo": "2026-10-29", "amount": "0.125" }],
+      "expected": { "priceListId": "c6ef3620-0000-7000-8000-000000200000", "scope": "Channel", "currency": "RON", "amount": "0.01" }
+    },
+    {
+      "name": "generated 33",
+      "on": "2026-08-27",
+      "candidates": [{ "priceListId": "6526afd1-0000-7000-8000-000000210000", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-12-16", "effectiveTo": null, "amount": "0.99" }, { "priceListId": "6526afd2-0000-7000-8000-000000210001", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-10-14", "effectiveTo": "2027-02-28", "amount": "99999.99" }, { "priceListId": "6526afd3-0000-7000-8000-000000210002", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-12-05", "effectiveTo": "2027-05-03", "amount": "0.01" }],
+      "expected": null
+    },
+    {
+      "name": "generated 34",
+      "on": "2026-08-16",
+      "candidates": [{ "priceListId": "035e2982-0000-7000-8000-000000220000", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-08-25", "effectiveTo": null, "amount": "9.99" }, { "priceListId": "035e2983-0000-7000-8000-000000220001", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-10-12", "effectiveTo": null, "amount": "0.04" }, { "priceListId": "035e2984-0000-7000-8000-000000220002", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-09-26", "effectiveTo": "2026-11-05", "amount": "99999.99" }],
+      "expected": null
+    },
+    {
+      "name": "generated 35",
+      "on": "2026-09-10",
+      "candidates": [{ "priceListId": "a195a333-0000-7000-8000-000000230000", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-08-09", "effectiveTo": "2027-01-01", "amount": "0.01" }, { "priceListId": "a195a334-0000-7000-8000-000000230001", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-01-09", "effectiveTo": null, "amount": "3.33" }, { "priceListId": "a195a335-0000-7000-8000-000000230002", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-02-23", "effectiveTo": null, "amount": "12.345" }],
+      "expected": { "priceListId": "a195a333-0000-7000-8000-000000230000", "scope": "Outlet", "currency": "EUR", "amount": "0.01" }
+    },
+    {
+      "name": "generated 36",
+      "on": "2026-03-04",
+      "candidates": [{ "priceListId": "3fcd1ce4-0000-7000-8000-000000240000", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-03-19", "effectiveTo": null, "amount": "7.77" }, { "priceListId": "3fcd1ce5-0000-7000-8000-000000240001", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-08-28", "effectiveTo": "2026-09-04", "amount": "0.01" }],
+      "expected": null
+    },
+    {
+      "name": "generated 37",
+      "on": "2026-07-11",
+      "candidates": [{ "priceListId": "de049695-0000-7000-8000-000000250000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-05-26", "effectiveTo": null, "amount": "9.99" }, { "priceListId": "de049696-0000-7000-8000-000000250001", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-03-21", "effectiveTo": "2026-04-28", "amount": "12.99" }],
+      "expected": { "priceListId": "de049695-0000-7000-8000-000000250000", "scope": "Channel", "currency": "EUR", "amount": "9.99" }
+    },
+    {
+      "name": "generated 38",
+      "on": "2026-06-01",
+      "candidates": [{ "priceListId": "7c3c1046-0000-7000-8000-000000260000", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-10-18", "effectiveTo": null, "amount": "99.99" }, { "priceListId": "7c3c1047-0000-7000-8000-000000260001", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-12-12", "effectiveTo": "2027-01-13", "amount": "9.99" }, { "priceListId": "7c3c1048-0000-7000-8000-000000260002", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-11-25", "effectiveTo": null, "amount": "0.99" }],
+      "expected": null
+    },
+    {
+      "name": "generated 39",
+      "on": "2026-01-22",
+      "candidates": [{ "priceListId": "1a7389f7-0000-7000-8000-000000270000", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-02-21", "effectiveTo": null, "amount": "1.00" }, { "priceListId": "1a7389f8-0000-7000-8000-000000270001", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-04-20", "effectiveTo": "2026-09-08", "amount": "12.99" }],
+      "expected": null
+    },
+    {
+      "name": "generated 40",
+      "on": "2026-10-25",
+      "candidates": [{ "priceListId": "b8ab03a8-0000-7000-8000-000000280000", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-02-15", "effectiveTo": "2026-06-19", "amount": "0.125" }, { "priceListId": "b8ab03a9-0000-7000-8000-000000280001", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-09-05", "effectiveTo": null, "amount": "0.03" }, { "priceListId": "b8ab03aa-0000-7000-8000-000000280002", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-12-01", "effectiveTo": null, "amount": "12.345" }],
+      "expected": { "priceListId": "b8ab03a9-0000-7000-8000-000000280001", "scope": "Outlet", "currency": "RON", "amount": "0.03" }
+    },
+    {
+      "name": "generated 41",
+      "on": "2026-04-12",
+      "candidates": [{ "priceListId": "56e27d59-0000-7000-8000-000000290000", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-08-16", "effectiveTo": "2027-01-29", "amount": "99999.99" }, { "priceListId": "56e27d5a-0000-7000-8000-000000290001", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-03-10", "effectiveTo": "2026-05-15", "amount": "0.99" }],
+      "expected": { "priceListId": "56e27d5a-0000-7000-8000-000000290001", "scope": "Channel", "currency": "RON", "amount": "0.99" }
+    },
+    {
+      "name": "generated 42",
+      "on": "2026-09-08",
+      "candidates": [{ "priceListId": "f519f70a-0000-7000-8000-0000002a0000", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-08-24", "effectiveTo": null, "amount": "0.125" }],
+      "expected": { "priceListId": "f519f70a-0000-7000-8000-0000002a0000", "scope": "Outlet", "currency": "RON", "amount": "0.125" }
+    },
+    {
+      "name": "generated 43",
+      "on": "2026-08-07",
+      "candidates": [{ "priceListId": "935170bb-0000-7000-8000-0000002b0000", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-09-12", "effectiveTo": "2026-11-12", "amount": "12.99" }],
+      "expected": null
+    },
+    {
+      "name": "generated 44",
+      "on": "2026-05-12",
+      "candidates": [{ "priceListId": "3188ea6c-0000-7000-8000-0000002c0000", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-03-21", "effectiveTo": "2026-08-10", "amount": "0.03" }, { "priceListId": "3188ea6d-0000-7000-8000-0000002c0001", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-11-18", "effectiveTo": "2026-11-26", "amount": "0.03" }, { "priceListId": "3188ea6e-0000-7000-8000-0000002c0002", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-03-13", "effectiveTo": null, "amount": "0.01" }],
+      "expected": { "priceListId": "3188ea6c-0000-7000-8000-0000002c0000", "scope": "Channel", "currency": "RON", "amount": "0.03" }
+    },
+    {
+      "name": "generated 45",
+      "on": "2026-07-02",
+      "candidates": [{ "priceListId": "cfc0641d-0000-7000-8000-0000002d0000", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-01-16", "effectiveTo": "2026-03-10", "amount": "1234.56" }],
+      "expected": null
+    },
+    {
+      "name": "generated 46",
+      "on": "2026-12-17",
+      "candidates": [{ "priceListId": "6df7ddce-0000-7000-8000-0000002e0000", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-07-02", "effectiveTo": "2026-11-23", "amount": "0.99" }],
+      "expected": null
+    },
+    {
+      "name": "generated 47",
+      "on": "2026-05-25",
+      "candidates": [{ "priceListId": "0c2f577f-0000-7000-8000-0000002f0000", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-01-22", "effectiveTo": "2026-06-08", "amount": "99999.99" }, { "priceListId": "0c2f5780-0000-7000-8000-0000002f0001", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-07-16", "effectiveTo": "2026-12-17", "amount": "3.33" }, { "priceListId": "0c2f5781-0000-7000-8000-0000002f0002", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-07-07", "effectiveTo": "2026-07-09", "amount": "7.77" }, { "priceListId": "0c2f5782-0000-7000-8000-0000002f0003", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-10-07", "effectiveTo": "2027-04-05", "amount": "12.345" }],
+      "expected": { "priceListId": "0c2f577f-0000-7000-8000-0000002f0000", "scope": "Outlet", "currency": "EUR", "amount": "99999.99" }
+    },
+    {
+      "name": "generated 48",
+      "on": "2026-11-14",
+      "candidates": [{ "priceListId": "aa66d130-0000-7000-8000-000000300000", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-02-02", "effectiveTo": "2026-03-01", "amount": "0.03" }, { "priceListId": "aa66d131-0000-7000-8000-000000300001", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-04-27", "effectiveTo": null, "amount": "7.77" }],
+      "expected": { "priceListId": "aa66d131-0000-7000-8000-000000300001", "scope": "Outlet", "currency": "EUR", "amount": "7.77" }
+    },
+    {
+      "name": "generated 49",
+      "on": "2026-10-15",
+      "candidates": [{ "priceListId": "489e4ae1-0000-7000-8000-000000310000", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-05-02", "effectiveTo": null, "amount": "1.005" }, { "priceListId": "489e4ae2-0000-7000-8000-000000310001", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-07-11", "effectiveTo": "2026-10-18", "amount": "12.99" }],
+      "expected": { "priceListId": "489e4ae1-0000-7000-8000-000000310000", "scope": "Outlet", "currency": "GBP", "amount": "1.005" }
+    },
+    {
+      "name": "generated 50",
+      "on": "2026-01-22",
+      "candidates": [{ "priceListId": "e6d5c492-0000-7000-8000-000000320000", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-08-16", "effectiveTo": null, "amount": "0.02" }],
+      "expected": null
+    },
+    {
+      "name": "generated 51",
+      "on": "2026-08-07",
+      "candidates": [{ "priceListId": "850d3e43-0000-7000-8000-000000330000", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-10-07", "effectiveTo": "2027-01-15", "amount": "12.99" }, { "priceListId": "850d3e44-0000-7000-8000-000000330001", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-10-17", "effectiveTo": "2027-01-28", "amount": "12.345" }, { "priceListId": "850d3e45-0000-7000-8000-000000330002", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-11-21", "effectiveTo": "2027-03-23", "amount": "12.345" }, { "priceListId": "850d3e46-0000-7000-8000-000000330003", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-04-18", "effectiveTo": "2026-05-26", "amount": "7.77" }],
+      "expected": null
+    },
+    {
+      "name": "generated 52",
+      "on": "2026-11-25",
+      "candidates": [{ "priceListId": "2344b7f4-0000-7000-8000-000000340000", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-12-11", "effectiveTo": null, "amount": "1.00" }, { "priceListId": "2344b7f5-0000-7000-8000-000000340001", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-07-25", "effectiveTo": null, "amount": "0.125" }, { "priceListId": "2344b7f6-0000-7000-8000-000000340002", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-12-05", "effectiveTo": "2027-02-02", "amount": "1.005" }, { "priceListId": "2344b7f7-0000-7000-8000-000000340003", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-05-23", "effectiveTo": "2026-09-23", "amount": "1.005" }],
+      "expected": { "priceListId": "2344b7f5-0000-7000-8000-000000340001", "scope": "Outlet", "currency": "RON", "amount": "0.125" }
+    },
+    {
+      "name": "generated 53",
+      "on": "2026-12-25",
+      "candidates": [{ "priceListId": "c17c31a5-0000-7000-8000-000000350000", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-09-13", "effectiveTo": "2027-03-03", "amount": "0.05" }, { "priceListId": "c17c31a6-0000-7000-8000-000000350001", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-11-19", "effectiveTo": "2027-01-13", "amount": "0.99" }, { "priceListId": "c17c31a7-0000-7000-8000-000000350002", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-02-23", "effectiveTo": "2026-04-22", "amount": "0.125" }, { "priceListId": "c17c31a8-0000-7000-8000-000000350003", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-10-02", "effectiveTo": null, "amount": "1234.56" }],
+      "expected": { "priceListId": "c17c31a8-0000-7000-8000-000000350003", "scope": "Outlet", "currency": "RON", "amount": "1234.56" }
+    },
+    {
+      "name": "generated 54",
+      "on": "2026-01-20",
+      "candidates": [{ "priceListId": "5fb3ab56-0000-7000-8000-000000360000", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-07-25", "effectiveTo": "2026-10-06", "amount": "0.02" }, { "priceListId": "5fb3ab57-0000-7000-8000-000000360001", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-12-24", "effectiveTo": "2027-05-19", "amount": "9.99" }, { "priceListId": "5fb3ab58-0000-7000-8000-000000360002", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-05-20", "effectiveTo": "2026-10-07", "amount": "7.77" }],
+      "expected": null
+    },
+    {
+      "name": "generated 55",
+      "on": "2026-10-09",
+      "candidates": [{ "priceListId": "fdeb2507-0000-7000-8000-000000370000", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-09-17", "effectiveTo": null, "amount": "0.99" }],
+      "expected": { "priceListId": "fdeb2507-0000-7000-8000-000000370000", "scope": "Channel", "currency": "RON", "amount": "0.99" }
+    },
+    {
+      "name": "generated 56",
+      "on": "2026-10-11",
+      "candidates": [{ "priceListId": "9c229eb8-0000-7000-8000-000000380000", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-09-10", "effectiveTo": "2027-03-06", "amount": "0.05" }, { "priceListId": "9c229eb9-0000-7000-8000-000000380001", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-01-27", "effectiveTo": "2026-07-12", "amount": "12.345" }],
+      "expected": { "priceListId": "9c229eb8-0000-7000-8000-000000380000", "scope": "Outlet", "currency": "RON", "amount": "0.05" }
+    },
+    {
+      "name": "generated 57",
+      "on": "2026-12-25",
+      "candidates": [{ "priceListId": "3a5a1869-0000-7000-8000-000000390000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-05-26", "effectiveTo": "2026-07-17", "amount": "0.04" }, { "priceListId": "3a5a186a-0000-7000-8000-000000390001", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-11-26", "effectiveTo": "2027-05-01", "amount": "0.125" }],
+      "expected": { "priceListId": "3a5a186a-0000-7000-8000-000000390001", "scope": "Channel", "currency": "EUR", "amount": "0.125" }
+    },
+    {
+      "name": "generated 58",
+      "on": "2026-02-22",
+      "candidates": [{ "priceListId": "d891921a-0000-7000-8000-0000003a0000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-07-09", "effectiveTo": null, "amount": "99.99" }],
+      "expected": null
+    },
+    {
+      "name": "generated 59",
+      "on": "2026-07-15",
+      "candidates": [{ "priceListId": "76c90bcb-0000-7000-8000-0000003b0000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-10-18", "effectiveTo": null, "amount": "12.345" }],
+      "expected": null
+    },
+    {
+      "name": "generated 60",
+      "on": "2026-01-18",
+      "candidates": [{ "priceListId": "1500857c-0000-7000-8000-0000003c0000", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-10-08", "effectiveTo": "2027-02-20", "amount": "99999.99" }, { "priceListId": "1500857d-0000-7000-8000-0000003c0001", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-04-14", "effectiveTo": "2026-07-31", "amount": "1.005" }, { "priceListId": "1500857e-0000-7000-8000-0000003c0002", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-06-03", "effectiveTo": null, "amount": "0.99" }],
+      "expected": null
+    },
+    {
+      "name": "generated 61",
+      "on": "2026-03-26",
+      "candidates": [{ "priceListId": "b337ff2d-0000-7000-8000-0000003d0000", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-11-09", "effectiveTo": null, "amount": "99.99" }, { "priceListId": "b337ff2e-0000-7000-8000-0000003d0001", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-07-17", "effectiveTo": null, "amount": "0.03" }],
+      "expected": null
+    },
+    {
+      "name": "generated 62",
+      "on": "2026-04-22",
+      "candidates": [{ "priceListId": "516f78de-0000-7000-8000-0000003e0000", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-05-20", "effectiveTo": "2026-08-26", "amount": "0.99" }],
+      "expected": null
+    },
+    {
+      "name": "generated 63",
+      "on": "2026-11-20",
+      "candidates": [{ "priceListId": "efa6f28f-0000-7000-8000-0000003f0000", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-11-24", "effectiveTo": "2027-02-23", "amount": "0.01" }, { "priceListId": "efa6f290-0000-7000-8000-0000003f0001", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-03-16", "effectiveTo": null, "amount": "12.345" }],
+      "expected": { "priceListId": "efa6f290-0000-7000-8000-0000003f0001", "scope": "Channel", "currency": "EUR", "amount": "12.345" }
+    },
+    {
+      "name": "generated 64",
+      "on": "2026-01-09",
+      "candidates": [{ "priceListId": "8dde6c40-0000-7000-8000-000000400000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-02-09", "effectiveTo": "2026-07-10", "amount": "1.00" }],
+      "expected": null
+    },
+    {
+      "name": "generated 65",
+      "on": "2026-11-26",
+      "candidates": [{ "priceListId": "2c15e5f1-0000-7000-8000-000000410000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-06-22", "effectiveTo": "2026-08-15", "amount": "12.345" }],
+      "expected": null
+    },
+    {
+      "name": "generated 66",
+      "on": "2026-05-26",
+      "candidates": [{ "priceListId": "ca4d5fa2-0000-7000-8000-000000420000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-06-14", "effectiveTo": null, "amount": "7.77" }, { "priceListId": "ca4d5fa3-0000-7000-8000-000000420001", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-02-15", "effectiveTo": null, "amount": "12.345" }, { "priceListId": "ca4d5fa4-0000-7000-8000-000000420002", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-05-11", "effectiveTo": "2026-08-08", "amount": "0.99" }],
+      "expected": { "priceListId": "ca4d5fa4-0000-7000-8000-000000420002", "scope": "Outlet", "currency": "EUR", "amount": "0.99" }
+    },
+    {
+      "name": "generated 67",
+      "on": "2026-03-17",
+      "candidates": [{ "priceListId": "6884d953-0000-7000-8000-000000430000", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-05-28", "effectiveTo": null, "amount": "99999.99" }, { "priceListId": "6884d954-0000-7000-8000-000000430001", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-12-21", "effectiveTo": "2027-05-04", "amount": "7.77" }, { "priceListId": "6884d955-0000-7000-8000-000000430002", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-10-21", "effectiveTo": "2027-03-20", "amount": "0.05" }, { "priceListId": "6884d956-0000-7000-8000-000000430003", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-03-25", "effectiveTo": "2026-06-30", "amount": "99999.99" }],
+      "expected": null
+    },
+    {
+      "name": "generated 68",
+      "on": "2026-09-02",
+      "candidates": [{ "priceListId": "06bc5304-0000-7000-8000-000000440000", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-08-08", "effectiveTo": null, "amount": "1.005" }],
+      "expected": { "priceListId": "06bc5304-0000-7000-8000-000000440000", "scope": "Channel", "currency": "GBP", "amount": "1.005" }
+    },
+    {
+      "name": "generated 69",
+      "on": "2026-07-10",
+      "candidates": [{ "priceListId": "a4f3ccb5-0000-7000-8000-000000450000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-05-13", "effectiveTo": "2026-07-17", "amount": "0.02" }, { "priceListId": "a4f3ccb6-0000-7000-8000-000000450001", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-02-05", "effectiveTo": "2026-06-13", "amount": "0.99" }, { "priceListId": "a4f3ccb7-0000-7000-8000-000000450002", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-04-17", "effectiveTo": "2026-05-24", "amount": "12.345" }, { "priceListId": "a4f3ccb8-0000-7000-8000-000000450003", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-02-17", "effectiveTo": null, "amount": "3.33" }],
+      "expected": { "priceListId": "a4f3ccb8-0000-7000-8000-000000450003", "scope": "Outlet", "currency": "RON", "amount": "3.33" }
+    },
+    {
+      "name": "generated 70",
+      "on": "2026-08-11",
+      "candidates": [{ "priceListId": "432b4666-0000-7000-8000-000000460000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-04-13", "effectiveTo": "2026-05-01", "amount": "1.005" }, { "priceListId": "432b4667-0000-7000-8000-000000460001", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-12-22", "effectiveTo": "2027-03-21", "amount": "1.005" }, { "priceListId": "432b4668-0000-7000-8000-000000460002", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-03-25", "effectiveTo": null, "amount": "99.99" }, { "priceListId": "432b4669-0000-7000-8000-000000460003", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-02-10", "effectiveTo": "2026-02-14", "amount": "1234.56" }],
+      "expected": { "priceListId": "432b4668-0000-7000-8000-000000460002", "scope": "Channel", "currency": "RON", "amount": "99.99" }
+    },
+    {
+      "name": "generated 71",
+      "on": "2026-02-10",
+      "candidates": [{ "priceListId": "e162c017-0000-7000-8000-000000470000", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-02-04", "effectiveTo": null, "amount": "0.99" }, { "priceListId": "e162c018-0000-7000-8000-000000470001", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-07-03", "effectiveTo": "2026-09-13", "amount": "12.345" }, { "priceListId": "e162c019-0000-7000-8000-000000470002", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-05-02", "effectiveTo": "2026-10-21", "amount": "0.03" }],
+      "expected": { "priceListId": "e162c017-0000-7000-8000-000000470000", "scope": "Channel", "currency": "GBP", "amount": "0.99" }
+    },
+    {
+      "name": "generated 72",
+      "on": "2026-05-01",
+      "candidates": [{ "priceListId": "7f9a39c8-0000-7000-8000-000000480000", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-04-12", "effectiveTo": "2026-08-03", "amount": "12.345" }, { "priceListId": "7f9a39c9-0000-7000-8000-000000480001", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-01-16", "effectiveTo": "2026-07-09", "amount": "0.03" }, { "priceListId": "7f9a39ca-0000-7000-8000-000000480002", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-01-07", "effectiveTo": "2026-05-06", "amount": "2.50" }],
+      "expected": { "priceListId": "7f9a39c8-0000-7000-8000-000000480000", "scope": "Outlet", "currency": "RON", "amount": "12.345" }
+    },
+    {
+      "name": "generated 73",
+      "on": "2026-02-26",
+      "candidates": [{ "priceListId": "1dd1b379-0000-7000-8000-000000490000", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-06-08", "effectiveTo": "2026-07-14", "amount": "1.00" }, { "priceListId": "1dd1b37a-0000-7000-8000-000000490001", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-06-23", "effectiveTo": null, "amount": "0.05" }, { "priceListId": "1dd1b37b-0000-7000-8000-000000490002", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-08-21", "effectiveTo": null, "amount": "0.04" }],
+      "expected": null
+    },
+    {
+      "name": "generated 74",
+      "on": "2026-07-25",
+      "candidates": [{ "priceListId": "bc092d2a-0000-7000-8000-0000004a0000", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-09-14", "effectiveTo": "2026-12-23", "amount": "9.99" }, { "priceListId": "bc092d2b-0000-7000-8000-0000004a0001", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-03-13", "effectiveTo": "2026-07-18", "amount": "0.05" }, { "priceListId": "bc092d2c-0000-7000-8000-0000004a0002", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-10-12", "effectiveTo": "2027-02-08", "amount": "0.99" }, { "priceListId": "bc092d2d-0000-7000-8000-0000004a0003", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-05-12", "effectiveTo": null, "amount": "0.99" }],
+      "expected": { "priceListId": "bc092d2d-0000-7000-8000-0000004a0003", "scope": "Channel", "currency": "EUR", "amount": "0.99" }
+    },
+    {
+      "name": "generated 75",
+      "on": "2026-06-28",
+      "candidates": [{ "priceListId": "5a40a6db-0000-7000-8000-0000004b0000", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-06-26", "effectiveTo": "2026-07-25", "amount": "0.01" }],
+      "expected": { "priceListId": "5a40a6db-0000-7000-8000-0000004b0000", "scope": "Channel", "currency": "RON", "amount": "0.01" }
+    },
+    {
+      "name": "generated 76",
+      "on": "2026-05-04",
+      "candidates": [{ "priceListId": "f878208c-0000-7000-8000-0000004c0000", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-09-06", "effectiveTo": "2026-10-04", "amount": "0.04" }, { "priceListId": "f878208d-0000-7000-8000-0000004c0001", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-12-13", "effectiveTo": "2027-03-23", "amount": "1234.56" }, { "priceListId": "f878208e-0000-7000-8000-0000004c0002", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-08-28", "effectiveTo": "2026-11-17", "amount": "99.99" }, { "priceListId": "f878208f-0000-7000-8000-0000004c0003", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-05-06", "effectiveTo": null, "amount": "99.99" }],
+      "expected": null
+    },
+    {
+      "name": "generated 77",
+      "on": "2026-03-04",
+      "candidates": [{ "priceListId": "96af9a3d-0000-7000-8000-0000004d0000", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-03-22", "effectiveTo": "2026-03-31", "amount": "0.04" }, { "priceListId": "96af9a3e-0000-7000-8000-0000004d0001", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-06-24", "effectiveTo": "2026-10-06", "amount": "0.04" }],
+      "expected": null
+    },
+    {
+      "name": "generated 78",
+      "on": "2026-04-16",
+      "candidates": [{ "priceListId": "34e713ee-0000-7000-8000-0000004e0000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-03-21", "effectiveTo": null, "amount": "99999.99" }, { "priceListId": "34e713ef-0000-7000-8000-0000004e0001", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-05-22", "effectiveTo": "2026-08-27", "amount": "0.05" }, { "priceListId": "34e713f0-0000-7000-8000-0000004e0002", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-12-12", "effectiveTo": null, "amount": "1.005" }],
+      "expected": { "priceListId": "34e713ee-0000-7000-8000-0000004e0000", "scope": "Channel", "currency": "EUR", "amount": "99999.99" }
+    },
+    {
+      "name": "generated 79",
+      "on": "2026-10-27",
+      "candidates": [{ "priceListId": "d31e8d9f-0000-7000-8000-0000004f0000", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-01-25", "effectiveTo": "2026-06-08", "amount": "0.02" }, { "priceListId": "d31e8da0-0000-7000-8000-0000004f0001", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-10-03", "effectiveTo": "2026-11-23", "amount": "0.01" }, { "priceListId": "d31e8da1-0000-7000-8000-0000004f0002", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-05-09", "effectiveTo": null, "amount": "99.99" }, { "priceListId": "d31e8da2-0000-7000-8000-0000004f0003", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-09-28", "effectiveTo": "2027-01-12", "amount": "99999.99" }],
+      "expected": { "priceListId": "d31e8da0-0000-7000-8000-0000004f0001", "scope": "Outlet", "currency": "GBP", "amount": "0.01" }
+    },
+    {
+      "name": "generated 80",
+      "on": "2026-02-24",
+      "candidates": [{ "priceListId": "71560750-0000-7000-8000-000000500000", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-06-17", "effectiveTo": "2026-09-26", "amount": "12.345" }, { "priceListId": "71560751-0000-7000-8000-000000500001", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-07-15", "effectiveTo": "2026-11-09", "amount": "3.33" }, { "priceListId": "71560752-0000-7000-8000-000000500002", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-03-04", "effectiveTo": null, "amount": "1.005" }, { "priceListId": "71560753-0000-7000-8000-000000500003", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-03-07", "effectiveTo": "2026-06-01", "amount": "1234.56" }],
+      "expected": null
+    },
+    {
+      "name": "generated 81",
+      "on": "2026-01-24",
+      "candidates": [{ "priceListId": "0f8d8101-0000-7000-8000-000000510000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-08-13", "effectiveTo": "2026-10-14", "amount": "1.005" }, { "priceListId": "0f8d8102-0000-7000-8000-000000510001", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-09-02", "effectiveTo": null, "amount": "12.345" }, { "priceListId": "0f8d8103-0000-7000-8000-000000510002", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-07-07", "effectiveTo": null, "amount": "2.50" }],
+      "expected": null
+    },
+    {
+      "name": "generated 82",
+      "on": "2026-10-10",
+      "candidates": [{ "priceListId": "adc4fab2-0000-7000-8000-000000520000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-09-09", "effectiveTo": "2027-01-11", "amount": "0.125" }, { "priceListId": "adc4fab3-0000-7000-8000-000000520001", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-10-14", "effectiveTo": "2026-12-28", "amount": "0.05" }, { "priceListId": "adc4fab4-0000-7000-8000-000000520002", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-08-24", "effectiveTo": null, "amount": "0.02" }],
+      "expected": { "priceListId": "adc4fab2-0000-7000-8000-000000520000", "scope": "Channel", "currency": "EUR", "amount": "0.125" }
+    },
+    {
+      "name": "generated 83",
+      "on": "2026-11-16",
+      "candidates": [{ "priceListId": "4bfc7463-0000-7000-8000-000000530000", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-11-03", "effectiveTo": "2027-01-13", "amount": "0.03" }],
+      "expected": { "priceListId": "4bfc7463-0000-7000-8000-000000530000", "scope": "Outlet", "currency": "RON", "amount": "0.03" }
+    },
+    {
+      "name": "generated 84",
+      "on": "2026-06-13",
+      "candidates": [{ "priceListId": "ea33ee14-0000-7000-8000-000000540000", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-07-25", "effectiveTo": null, "amount": "0.02" }, { "priceListId": "ea33ee15-0000-7000-8000-000000540001", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-04-08", "effectiveTo": "2026-06-18", "amount": "99999.99" }, { "priceListId": "ea33ee16-0000-7000-8000-000000540002", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-01-08", "effectiveTo": "2026-06-05", "amount": "1234.56" }],
+      "expected": { "priceListId": "ea33ee15-0000-7000-8000-000000540001", "scope": "Channel", "currency": "GBP", "amount": "99999.99" }
+    },
+    {
+      "name": "generated 85",
+      "on": "2026-11-08",
+      "candidates": [{ "priceListId": "886b67c5-0000-7000-8000-000000550000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-02-04", "effectiveTo": null, "amount": "12.345" }, { "priceListId": "886b67c6-0000-7000-8000-000000550001", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-05-18", "effectiveTo": "2026-07-18", "amount": "0.125" }, { "priceListId": "886b67c7-0000-7000-8000-000000550002", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-09-05", "effectiveTo": "2026-12-03", "amount": "99999.99" }, { "priceListId": "886b67c8-0000-7000-8000-000000550003", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-06-04", "effectiveTo": "2026-11-11", "amount": "0.02" }],
+      "expected": { "priceListId": "886b67c7-0000-7000-8000-000000550002", "scope": "Outlet", "currency": "EUR", "amount": "99999.99" }
+    },
+    {
+      "name": "generated 86",
+      "on": "2026-04-24",
+      "candidates": [{ "priceListId": "26a2e176-0000-7000-8000-000000560000", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-01-07", "effectiveTo": "2026-06-06", "amount": "0.05" }],
+      "expected": { "priceListId": "26a2e176-0000-7000-8000-000000560000", "scope": "Channel", "currency": "GBP", "amount": "0.05" }
+    },
+    {
+      "name": "generated 87",
+      "on": "2026-07-03",
+      "candidates": [{ "priceListId": "c4da5b27-0000-7000-8000-000000570000", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-04-07", "effectiveTo": null, "amount": "1.005" }],
+      "expected": { "priceListId": "c4da5b27-0000-7000-8000-000000570000", "scope": "Channel", "currency": "RON", "amount": "1.005" }
+    },
+    {
+      "name": "generated 88",
+      "on": "2026-02-15",
+      "candidates": [{ "priceListId": "6311d4d8-0000-7000-8000-000000580000", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-08-16", "effectiveTo": "2027-01-15", "amount": "2.50" }, { "priceListId": "6311d4d9-0000-7000-8000-000000580001", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-09-18", "effectiveTo": "2027-02-02", "amount": "2.50" }],
+      "expected": null
+    },
+    {
+      "name": "generated 89",
+      "on": "2026-08-11",
+      "candidates": [{ "priceListId": "01494e89-0000-7000-8000-000000590000", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-08-08", "effectiveTo": "2026-09-21", "amount": "0.01" }],
+      "expected": { "priceListId": "01494e89-0000-7000-8000-000000590000", "scope": "Outlet", "currency": "GBP", "amount": "0.01" }
+    },
+    {
+      "name": "generated 90",
+      "on": "2026-12-01",
+      "candidates": [{ "priceListId": "9f80c83a-0000-7000-8000-0000005a0000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-07-14", "effectiveTo": "2026-08-09", "amount": "12.99" }, { "priceListId": "9f80c83b-0000-7000-8000-0000005a0001", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-01-08", "effectiveTo": "2026-02-24", "amount": "12.99" }, { "priceListId": "9f80c83c-0000-7000-8000-0000005a0002", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-02-20", "effectiveTo": "2026-05-04", "amount": "0.02" }, { "priceListId": "9f80c83d-0000-7000-8000-0000005a0003", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-07-15", "effectiveTo": "2026-09-09", "amount": "1.005" }],
+      "expected": null
+    },
+    {
+      "name": "generated 91",
+      "on": "2026-10-02",
+      "candidates": [{ "priceListId": "3db841eb-0000-7000-8000-0000005b0000", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-11-09", "effectiveTo": "2027-03-01", "amount": "0.04" }],
+      "expected": null
+    },
+    {
+      "name": "generated 92",
+      "on": "2026-04-20",
+      "candidates": [{ "priceListId": "dbefbb9c-0000-7000-8000-0000005c0000", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-08-26", "effectiveTo": "2026-11-25", "amount": "3.33" }, { "priceListId": "dbefbb9d-0000-7000-8000-0000005c0001", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-04-26", "effectiveTo": "2026-06-24", "amount": "7.77" }, { "priceListId": "dbefbb9e-0000-7000-8000-0000005c0002", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-10-16", "effectiveTo": "2026-11-27", "amount": "1.005" }, { "priceListId": "dbefbb9f-0000-7000-8000-0000005c0003", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-06-07", "effectiveTo": "2026-06-24", "amount": "0.03" }],
+      "expected": null
+    },
+    {
+      "name": "generated 93",
+      "on": "2026-03-02",
+      "candidates": [{ "priceListId": "7a27354d-0000-7000-8000-0000005d0000", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-08-08", "effectiveTo": "2026-12-25", "amount": "3.33" }, { "priceListId": "7a27354e-0000-7000-8000-0000005d0001", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-09-01", "effectiveTo": "2027-01-17", "amount": "12.345" }, { "priceListId": "7a27354f-0000-7000-8000-0000005d0002", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-10-24", "effectiveTo": null, "amount": "99.99" }],
+      "expected": null
+    },
+    {
+      "name": "generated 94",
+      "on": "2026-04-17",
+      "candidates": [{ "priceListId": "185eaefe-0000-7000-8000-0000005e0000", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-09-05", "effectiveTo": "2027-02-27", "amount": "12.345" }, { "priceListId": "185eaeff-0000-7000-8000-0000005e0001", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-02-05", "effectiveTo": null, "amount": "12.345" }, { "priceListId": "185eaf00-0000-7000-8000-0000005e0002", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-09-27", "effectiveTo": "2026-12-11", "amount": "0.04" }],
+      "expected": { "priceListId": "185eaeff-0000-7000-8000-0000005e0001", "scope": "Outlet", "currency": "RON", "amount": "12.345" }
+    },
+    {
+      "name": "generated 95",
+      "on": "2026-08-06",
+      "candidates": [{ "priceListId": "b69628af-0000-7000-8000-0000005f0000", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-03-23", "effectiveTo": "2026-08-10", "amount": "1234.56" }, { "priceListId": "b69628b0-0000-7000-8000-0000005f0001", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-06-13", "effectiveTo": "2026-07-31", "amount": "3.33" }, { "priceListId": "b69628b1-0000-7000-8000-0000005f0002", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-05-01", "effectiveTo": "2026-06-04", "amount": "1234.56" }, { "priceListId": "b69628b2-0000-7000-8000-0000005f0003", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-05-04", "effectiveTo": "2026-10-27", "amount": "12.99" }],
+      "expected": { "priceListId": "b69628b2-0000-7000-8000-0000005f0003", "scope": "Outlet", "currency": "GBP", "amount": "12.99" }
+    },
+    {
+      "name": "generated 96",
+      "on": "2026-03-11",
+      "candidates": [{ "priceListId": "54cda260-0000-7000-8000-000000600000", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-07-17", "effectiveTo": null, "amount": "2.50" }],
+      "expected": null
+    },
+    {
+      "name": "generated 97",
+      "on": "2026-12-16",
+      "candidates": [{ "priceListId": "f3051c11-0000-7000-8000-000000610000", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-07-27", "effectiveTo": "2026-10-31", "amount": "9.99" }, { "priceListId": "f3051c12-0000-7000-8000-000000610001", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-11-06", "effectiveTo": "2027-04-19", "amount": "3.33" }, { "priceListId": "f3051c13-0000-7000-8000-000000610002", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-08-08", "effectiveTo": "2026-12-15", "amount": "12.345" }],
+      "expected": { "priceListId": "f3051c12-0000-7000-8000-000000610001", "scope": "Outlet", "currency": "RON", "amount": "3.33" }
+    },
+    {
+      "name": "generated 98",
+      "on": "2026-10-20",
+      "candidates": [{ "priceListId": "913c95c2-0000-7000-8000-000000620000", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-06-08", "effectiveTo": null, "amount": "1.005" }, { "priceListId": "913c95c3-0000-7000-8000-000000620001", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-02-15", "effectiveTo": "2026-02-23", "amount": "0.99" }],
+      "expected": { "priceListId": "913c95c2-0000-7000-8000-000000620000", "scope": "Outlet", "currency": "EUR", "amount": "1.005" }
+    },
+    {
+      "name": "generated 99",
+      "on": "2026-06-04",
+      "candidates": [{ "priceListId": "2f740f73-0000-7000-8000-000000630000", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-11-28", "effectiveTo": "2027-02-22", "amount": "0.125" }, { "priceListId": "2f740f74-0000-7000-8000-000000630001", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-11-19", "effectiveTo": null, "amount": "12.345" }, { "priceListId": "2f740f75-0000-7000-8000-000000630002", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-04-25", "effectiveTo": "2026-09-07", "amount": "7.77" }, { "priceListId": "2f740f76-0000-7000-8000-000000630003", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-11-06", "effectiveTo": "2027-05-04", "amount": "7.77" }],
+      "expected": { "priceListId": "2f740f75-0000-7000-8000-000000630002", "scope": "Outlet", "currency": "GBP", "amount": "7.77" }
+    },
+    {
+      "name": "generated 100",
+      "on": "2026-05-08",
+      "candidates": [{ "priceListId": "cdab8924-0000-7000-8000-000000640000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-01-04", "effectiveTo": null, "amount": "2.50" }, { "priceListId": "cdab8925-0000-7000-8000-000000640001", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-05-27", "effectiveTo": null, "amount": "0.04" }, { "priceListId": "cdab8926-0000-7000-8000-000000640002", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-07-28", "effectiveTo": null, "amount": "0.05" }],
+      "expected": { "priceListId": "cdab8924-0000-7000-8000-000000640000", "scope": "Channel", "currency": "EUR", "amount": "2.50" }
+    },
+    {
+      "name": "generated 101",
+      "on": "2026-10-22",
+      "candidates": [{ "priceListId": "6be302d5-0000-7000-8000-000000650000", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-08-16", "effectiveTo": null, "amount": "0.02" }],
+      "expected": { "priceListId": "6be302d5-0000-7000-8000-000000650000", "scope": "Channel", "currency": "RON", "amount": "0.02" }
+    },
+    {
+      "name": "generated 102",
+      "on": "2026-11-07",
+      "candidates": [{ "priceListId": "0a1a7c86-0000-7000-8000-000000660000", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-10-27", "effectiveTo": "2026-11-23", "amount": "2.50" }, { "priceListId": "0a1a7c87-0000-7000-8000-000000660001", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-03-28", "effectiveTo": "2026-05-31", "amount": "1.00" }, { "priceListId": "0a1a7c88-0000-7000-8000-000000660002", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-10-09", "effectiveTo": null, "amount": "99999.99" }],
+      "expected": { "priceListId": "0a1a7c86-0000-7000-8000-000000660000", "scope": "Channel", "currency": "GBP", "amount": "2.50" }
+    },
+    {
+      "name": "generated 103",
+      "on": "2026-04-21",
+      "candidates": [{ "priceListId": "a851f637-0000-7000-8000-000000670000", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-08-23", "effectiveTo": "2027-01-18", "amount": "12.345" }, { "priceListId": "a851f638-0000-7000-8000-000000670001", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-05-08", "effectiveTo": "2026-08-31", "amount": "0.01" }],
+      "expected": null
+    },
+    {
+      "name": "generated 104",
+      "on": "2026-03-25",
+      "candidates": [{ "priceListId": "46896fe8-0000-7000-8000-000000680000", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-12-16", "effectiveTo": null, "amount": "0.03" }],
+      "expected": null
+    },
+    {
+      "name": "generated 105",
+      "on": "2026-02-14",
+      "candidates": [{ "priceListId": "e4c0e999-0000-7000-8000-000000690000", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-12-10", "effectiveTo": "2027-01-29", "amount": "12.345" }],
+      "expected": null
+    },
+    {
+      "name": "generated 106",
+      "on": "2026-07-18",
+      "candidates": [{ "priceListId": "82f8634a-0000-7000-8000-0000006a0000", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-03-11", "effectiveTo": "2026-08-22", "amount": "0.99" }],
+      "expected": { "priceListId": "82f8634a-0000-7000-8000-0000006a0000", "scope": "Outlet", "currency": "GBP", "amount": "0.99" }
+    },
+    {
+      "name": "generated 107",
+      "on": "2026-05-03",
+      "candidates": [{ "priceListId": "212fdcfb-0000-7000-8000-0000006b0000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-08-05", "effectiveTo": null, "amount": "0.03" }, { "priceListId": "212fdcfc-0000-7000-8000-0000006b0001", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-05-10", "effectiveTo": "2026-06-02", "amount": "0.99" }, { "priceListId": "212fdcfd-0000-7000-8000-0000006b0002", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-09-14", "effectiveTo": "2027-01-14", "amount": "0.99" }, { "priceListId": "212fdcfe-0000-7000-8000-0000006b0003", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-08-02", "effectiveTo": "2027-01-06", "amount": "3.33" }],
+      "expected": null
+    },
+    {
+      "name": "generated 108",
+      "on": "2026-05-02",
+      "candidates": [{ "priceListId": "bf6756ac-0000-7000-8000-0000006c0000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-11-09", "effectiveTo": "2027-04-15", "amount": "1.00" }, { "priceListId": "bf6756ad-0000-7000-8000-0000006c0001", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-10-27", "effectiveTo": null, "amount": "0.02" }],
+      "expected": null
+    },
+    {
+      "name": "generated 109",
+      "on": "2026-03-12",
+      "candidates": [{ "priceListId": "5d9ed05d-0000-7000-8000-0000006d0000", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-02-09", "effectiveTo": null, "amount": "0.125" }, { "priceListId": "5d9ed05e-0000-7000-8000-0000006d0001", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-03-04", "effectiveTo": null, "amount": "0.05" }],
+      "expected": { "priceListId": "5d9ed05d-0000-7000-8000-0000006d0000", "scope": "Outlet", "currency": "GBP", "amount": "0.125" }
+    },
+    {
+      "name": "generated 110",
+      "on": "2026-03-10",
+      "candidates": [{ "priceListId": "fbd64a0e-0000-7000-8000-0000006e0000", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-02-23", "effectiveTo": null, "amount": "0.03" }, { "priceListId": "fbd64a0f-0000-7000-8000-0000006e0001", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-06-20", "effectiveTo": "2026-08-23", "amount": "0.99" }, { "priceListId": "fbd64a10-0000-7000-8000-0000006e0002", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-05-24", "effectiveTo": null, "amount": "9.99" }],
+      "expected": { "priceListId": "fbd64a0e-0000-7000-8000-0000006e0000", "scope": "Outlet", "currency": "EUR", "amount": "0.03" }
+    },
+    {
+      "name": "generated 111",
+      "on": "2026-04-16",
+      "candidates": [{ "priceListId": "9a0dc3bf-0000-7000-8000-0000006f0000", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-10-10", "effectiveTo": "2026-12-02", "amount": "0.03" }, { "priceListId": "9a0dc3c0-0000-7000-8000-0000006f0001", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-06-11", "effectiveTo": null, "amount": "12.99" }, { "priceListId": "9a0dc3c1-0000-7000-8000-0000006f0002", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-05-25", "effectiveTo": "2026-10-15", "amount": "12.99" }],
+      "expected": null
+    },
+    {
+      "name": "generated 112",
+      "on": "2026-04-14",
+      "candidates": [{ "priceListId": "38453d70-0000-7000-8000-000000700000", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-11-06", "effectiveTo": "2027-04-14", "amount": "2.50" }, { "priceListId": "38453d71-0000-7000-8000-000000700001", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-10-09", "effectiveTo": null, "amount": "1.00" }],
+      "expected": null
+    },
+    {
+      "name": "generated 113",
+      "on": "2026-03-02",
+      "candidates": [{ "priceListId": "d67cb721-0000-7000-8000-000000710000", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-08-21", "effectiveTo": "2026-11-12", "amount": "7.77" }, { "priceListId": "d67cb722-0000-7000-8000-000000710001", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-02-25", "effectiveTo": "2026-03-02", "amount": "1.005" }],
+      "expected": null
+    },
+    {
+      "name": "generated 114",
+      "on": "2026-10-20",
+      "candidates": [{ "priceListId": "74b430d2-0000-7000-8000-000000720000", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-01-20", "effectiveTo": null, "amount": "1234.56" }, { "priceListId": "74b430d3-0000-7000-8000-000000720001", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-05-22", "effectiveTo": "2026-11-11", "amount": "1.00" }, { "priceListId": "74b430d4-0000-7000-8000-000000720002", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-01-22", "effectiveTo": "2026-03-31", "amount": "2.50" }],
+      "expected": { "priceListId": "74b430d3-0000-7000-8000-000000720001", "scope": "Channel", "currency": "RON", "amount": "1.00" }
+    },
+    {
+      "name": "generated 115",
+      "on": "2026-07-28",
+      "candidates": [{ "priceListId": "12ebaa83-0000-7000-8000-000000730000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-06-28", "effectiveTo": "2026-09-27", "amount": "99999.99" }],
+      "expected": { "priceListId": "12ebaa83-0000-7000-8000-000000730000", "scope": "Channel", "currency": "EUR", "amount": "99999.99" }
+    },
+    {
+      "name": "generated 116",
+      "on": "2026-02-06",
+      "candidates": [{ "priceListId": "b1232434-0000-7000-8000-000000740000", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-07-16", "effectiveTo": "2026-12-27", "amount": "1234.56" }, { "priceListId": "b1232435-0000-7000-8000-000000740001", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-04-18", "effectiveTo": "2026-05-04", "amount": "0.01" }, { "priceListId": "b1232436-0000-7000-8000-000000740002", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-10-22", "effectiveTo": null, "amount": "12.99" }],
+      "expected": null
+    },
+    {
+      "name": "generated 117",
+      "on": "2026-07-02",
+      "candidates": [{ "priceListId": "4f5a9de5-0000-7000-8000-000000750000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-07-09", "effectiveTo": "2026-07-13", "amount": "99.99" }, { "priceListId": "4f5a9de6-0000-7000-8000-000000750001", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-11-05", "effectiveTo": "2027-01-08", "amount": "0.05" }, { "priceListId": "4f5a9de7-0000-7000-8000-000000750002", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-01-20", "effectiveTo": null, "amount": "99999.99" }, { "priceListId": "4f5a9de8-0000-7000-8000-000000750003", "scope": "Channel", "currency": "GBP", "effectiveFrom": "2026-01-10", "effectiveTo": "2026-03-15", "amount": "0.04" }],
+      "expected": { "priceListId": "4f5a9de7-0000-7000-8000-000000750002", "scope": "Outlet", "currency": "RON", "amount": "99999.99" }
+    },
+    {
+      "name": "generated 118",
+      "on": "2026-09-11",
+      "candidates": [{ "priceListId": "ed921796-0000-7000-8000-000000760000", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-07-08", "effectiveTo": null, "amount": "1.00" }, { "priceListId": "ed921797-0000-7000-8000-000000760001", "scope": "Outlet", "currency": "RON", "effectiveFrom": "2026-02-18", "effectiveTo": null, "amount": "0.02" }, { "priceListId": "ed921798-0000-7000-8000-000000760002", "scope": "Outlet", "currency": "EUR", "effectiveFrom": "2026-02-10", "effectiveTo": null, "amount": "0.04" }, { "priceListId": "ed921799-0000-7000-8000-000000760003", "scope": "Outlet", "currency": "GBP", "effectiveFrom": "2026-08-02", "effectiveTo": "2026-09-24", "amount": "1.00" }],
+      "expected": { "priceListId": "ed921799-0000-7000-8000-000000760003", "scope": "Outlet", "currency": "GBP", "amount": "1.00" }
+    },
+    {
+      "name": "generated 119",
+      "on": "2026-03-02",
+      "candidates": [{ "priceListId": "8bc99147-0000-7000-8000-000000770000", "scope": "Channel", "currency": "RON", "effectiveFrom": "2026-03-06", "effectiveTo": "2026-05-24", "amount": "0.99" }, { "priceListId": "8bc99148-0000-7000-8000-000000770001", "scope": "Channel", "currency": "EUR", "effectiveFrom": "2026-12-21", "effectiveTo": "2027-04-09", "amount": "1234.56" }],
+      "expected": null
+    }
+  ]
+}

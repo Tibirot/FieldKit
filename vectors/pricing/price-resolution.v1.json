@@ -274,11 +274,11 @@
     },
     {
       "name": "a tie on scope and date is broken by the higher id, ordered as bytes",
-      "why": "The ids here are chosen to be hostile. .NET's Guid.CompareTo reads the first field as a signed native-endian int, which sorts ffffffff below 00000001 — the opposite of what these strings say. Any implementation that compares canonical strings, or big-endian bytes, agrees with this case; one that reaches for the platform's built-in Guid comparison does not.",
+      "why": "The ids discriminate the one mistake a C# implementer actually makes: Guid.ToByteArray() with no argument returns the first three groups little-endian, so comparing those bytes puts 00000100 BELOW 00000002 — backwards from what the strings say. Big-endian bytes (ToByteArray(true)), canonical string comparison, and Guid.CompareTo all agree with this case; the naive byte array does not. An earlier revision of this file claimed Guid.CompareTo was the trap, on the belief that it compared the first field as a signed int. It does not — it compares unsigned — and the pair chosen to catch it did not discriminate anything.",
       "on": "2026-03-15",
       "candidates": [
         {
-          "priceListId": "00000001-0000-7000-8000-000000000000",
+          "priceListId": "00000002-0000-7000-8000-000000000000",
           "scope": "Channel",
           "currency": "EUR",
           "effectiveFrom": "2026-01-01",
@@ -286,7 +286,7 @@
           "amount": "12.50"
         },
         {
-          "priceListId": "ffffffff-0000-7000-8000-000000000000",
+          "priceListId": "00000100-0000-7000-8000-000000000000",
           "scope": "Channel",
           "currency": "EUR",
           "effectiveFrom": "2026-01-01",
@@ -295,7 +295,7 @@
         }
       ],
       "expected": {
-        "priceListId": "ffffffff-0000-7000-8000-000000000000",
+        "priceListId": "00000100-0000-7000-8000-000000000000",
         "scope": "Channel",
         "currency": "EUR",
         "amount": "99.99"
@@ -303,7 +303,7 @@
     },
     {
       "name": "the tiebreak also looks past the first field",
-      "why": "Two ids that agree until the fourth group. Native-endian byte order within a field would flip this one while leaving the case above intact.",
+      "why": "Two ids that agree until the fourth group, so the comparison has to keep going past the fields the case above exercises. The fourth and fifth groups are byte-ordered identically in every representation, which is exactly why this case is here: it pins the length of the comparison rather than its endianness.",
       "on": "2026-03-15",
       "candidates": [
         {

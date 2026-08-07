@@ -127,14 +127,20 @@ public static class PriceResolver
     /// one level down.
     /// </para>
     /// <para>
-    /// <b>Ordered as big-endian bytes, deliberately not <c>Guid.CompareTo</c>.</b> .NET compares a
-    /// Guid's first three fields as native-endian <i>signed</i> integers, so <c>ffffffff-…</c> sorts
-    /// <i>below</i> <c>00000001-…</c> — the sign bit of <c>_a</c> inverts half the ordering, and the
-    /// endianness scrambles it within each field. TypeScript, given the same two ids as canonical
-    /// strings, would compare them lexicographically and reach the opposite answer. Two engines that
-    /// are supposed to agree by construction would then disagree on a rule neither author thought was
-    /// interesting. Big-endian byte order is what the canonical string spells out, so both languages
-    /// can implement it from the same sentence.
+    /// <b>Ordered as big-endian bytes, which is what the canonical string spells out.</b> The rule
+    /// has to be stateable in a sentence both languages can implement, because the mirror is
+    /// TypeScript and has no <c>Guid</c> type at all — "compare the 16 bytes in the order the
+    /// canonical form prints them" is implementable anywhere; "whatever this platform's Guid
+    /// comparison does" is not a specification.
+    /// </para>
+    /// <para>
+    /// <b>The trap this avoids is <c>Guid.ToByteArray()</c>, not <c>Guid.CompareTo</c>.</b> The
+    /// no-argument overload returns the first three groups <i>little-endian</i>, so comparing those
+    /// bytes disagrees with the canonical string: <c>00000100-…</c> sorts below <c>00000002-…</c>,
+    /// backwards. That is the mistake a C# implementer actually makes, and the vectors carry a pair
+    /// that catches it. <c>Guid.CompareTo</c> on this runtime compares those fields as
+    /// <i>unsigned</i> and agrees with byte order — an earlier version of this comment claimed
+    /// otherwise and was wrong; see <c>vectors/README.md</c>.
     /// </para>
     /// </remarks>
     private static bool Beats(PriceCandidate challenger, PriceCandidate holder)
