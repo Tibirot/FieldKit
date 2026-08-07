@@ -315,7 +315,8 @@ Sizes are hand-written diff estimates against the ~400-line budget; generated mi
 | 8 | **Promotion resolution** — priority selection, validity window in the outlet's timezone; second [vector file](../vectors/README.md) | `PRD-06`, `BR-PRD-3/6` | 350 |
 | 9 | **Tax** — tax class × tenant/country, on the rounded net line; third [vector file](../vectors/README.md); `IOutletClassification` grows `CountryCode` | `PRD-07`, `BR-PRD-5/9` | 250 |
 | 10 | **Parity vector suite** — a deterministic generator, committed artifacts checked against it, and the properties that test C# where generated vectors cannot | `PRD-08`, `BR-PRD-8/9` | 350 |
-| 11+ | **Back-office screens** — products, assortment, price lists, promotions (3–4 PRs) | — | — |
+| 11 | **Product catalogue screen** — `/products`, list + create/edit; nav item goes live | `PRD-01` | 400 |
+| 12+ | **Back-office screens** — classification vocabularies, assortment, price lists, promotions | — | — |
 
 **Slice 5 is a prerequisite, and it is deliberately late.** `BR-PRD-2` resolves a price by *outlet
 override → channel → default*, so the engine must map an outlet to its channel. `Outlet.ChannelId`

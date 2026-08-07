@@ -73,7 +73,7 @@ export const NAVIGATION: readonly NavGroup[] = [
     key: "masterData",
     items: [
       { key: "outlets", href: "/outlets", permissions: ["outlet:read"] },
-      { key: "products", soon: "week6" },
+      { key: "products", href: "/products", permissions: ["product:read"] },
       { key: "territories", href: "/territories", permissions: ["territory:read", "orgunit:read"] },
     ],
   },
