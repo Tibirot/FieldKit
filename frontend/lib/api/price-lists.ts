@@ -91,6 +91,50 @@ export function setPrices(
   );
 }
 
+// ── Where a list applies ───────────────────────────────────────────────────────────────────────
+
+/** One place a price list reaches. Exactly one of the two ids is set (`PRD-03`). */
+export type PriceListAssignment = { channelId: string | null; outletId: string | null };
+
+/** The whole scope. A PUT replaces it, and an empty scope withdraws the list. */
+export type SetPriceListScope = { channelIds: string[]; outletIds: string[] };
+
+export function fetchAssignments(
+  accessToken: string,
+  id: string,
+  signal?: AbortSignal,
+): Promise<PriceListAssignment[]> {
+  return apiGet<PriceListAssignment[]>(
+    `/api/products/price-lists/${id}/assignments`,
+    accessToken,
+    signal,
+  );
+}
+
+/**
+ * Replaces where a list applies.
+ *
+ * **Also announces it.** The server raises `PriceListPublished` into the outbox in the same
+ * transaction, which is what Sync turns into a reference delta — including when the scope is emptied,
+ * because "this list now reaches nobody" is how a list is withdrawn and a device that never hears it
+ * keeps pricing against one that no longer applies.
+ */
+export function setAssignments(
+  accessToken: string,
+  id: string,
+  scope: SetPriceListScope,
+): Promise<PriceListAssignment[]> {
+  return apiSend<PriceListAssignment[]>(
+    "PUT",
+    `/api/products/price-lists/${id}/assignments`,
+    accessToken,
+    scope,
+  );
+}
+
+export const assignmentsKey = (subject: string, id: string) =>
+  ["price-lists", subject, id, "assignments"] as const;
+
 export const priceListsKey = (subject: string) => ["price-lists", subject] as const;
 
 export const pricesKey = (subject: string, id: string) =>

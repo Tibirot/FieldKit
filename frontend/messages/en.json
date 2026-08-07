@@ -634,6 +634,36 @@
     "fixAmounts": "Fix the amounts marked above.",
     "savePrices": "Save prices",
     "unsaved": "Unsaved changes.",
-    "noMatches": "No product matches “{search}”."
+    "noMatches": "No product matches “{search}”.",
+    "scope": "Scope"
+  },
+  "PriceListScope": {
+    "crumb": "Master data / Products / Price lists / Scope",
+    "intro": "Which shops pay these {currency} prices. Saving also announces the change, so devices holding this list know it moved — including when the scope is emptied, which is how a list is withdrawn.",
+    "channels": "Channels",
+    "channelsHint": "The ordinary case: every outlet trading in a channel is priced by the lists assigned to it.",
+    "channelNamed": "Assign to {name}",
+    "noChannels": "No channels yet. Create one under Outlets first.",
+    "outlets": "Individual outlets",
+    "outletsHint": "The exception: a shop that pays something other than its channel. Search for it by code or name.",
+    "noOutlets": "No individual outlets. This list applies through its channels only.",
+    "searchOutlets": "Search outlets",
+    "searchPlaceholder": "Search by code or name — at least two characters…",
+    "noMatches": "No outlet matches “{search}”.",
+    "add": "Add",
+    "added": "Added",
+    "addNamed": "Add {name} ({code})",
+    "removeNamed": "Remove {name} ({code})",
+    "unknownOutlet": "Outlet could not be loaded",
+    "reaches": "Reaches {count, plural, one {# place} other {# places}}.",
+    "reachesNobody": "This list reaches nobody. It is priced but withdrawn.",
+    "loading": "Loading…",
+    "failed": "This could not be loaded.",
+    "forbidden": "You do not have permission to view price lists.",
+    "notFound": "That price list does not exist.",
+    "save": "Save scope",
+    "saving": "Saving…",
+    "saveFailed": "This scope could not be saved.",
+    "unsaved": "Unsaved changes."
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Tag } from "lucide-react";
+import { Plus, Tag, Target } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
@@ -111,6 +111,18 @@ export function PriceListBrowser() {
                 >
                   <Tag className="size-4" />
                   {t("prices")}
+                </Button>
+
+                {/* Separate from the prices, because pricing a catalogue and deciding which shops
+                    pay those prices are different decisions made at different times. */}
+                <Button
+                  render={<Link href={`/products/price-lists/${list.id}/scope`} />}
+                  nativeButton={false}
+                  size="sm"
+                  variant="outline"
+                >
+                  <Target className="size-4" />
+                  {t("scope")}
                 </Button>
 
                 {canWrite ? (
