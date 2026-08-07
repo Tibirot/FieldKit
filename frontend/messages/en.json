@@ -501,6 +501,47 @@
     "save": "Save",
     "saving": "Saving…",
     "cancel": "Cancel",
-    "saveFailed": "This product could not be saved."
+    "saveFailed": "This product could not be saved.",
+    "manageClassification": "Manage classification"
+  },
+  "Classification": {
+    "crumb": "Master data / Products / Classification",
+    "title": "Classification",
+    "intro": "How your catalogue is organised. A category groups products for promotions and reporting, a brand says who makes them, and a tax class decides what they are taxed at. All three are optional on a product — set up what you use.",
+    "name": "Name",
+    "nameHint": "Unique for this workspace, ignoring case.",
+    "parent": "Parent",
+    "noParent": "Top level",
+    "parentHint": "Leave at top level for a root category. A category can be moved later, but not underneath itself.",
+    "loading": "Loading…",
+    "failed": "This could not be loaded.",
+    "forbidden": "You do not have permission to view this.",
+    "edit": "Rename",
+    "editNamed": "Rename {name}",
+    "delete": "Delete",
+    "deleteNamed": "Delete {name}",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "saveFailed": "This could not be saved.",
+    "deleteFailed": "This could not be deleted.",
+    "categories": {
+      "title": "Categories",
+      "intro": "A tree. Promotions on a category cover everything filed beneath it.",
+      "new": "New category",
+      "empty": "No categories yet."
+    },
+    "brands": {
+      "title": "Brands",
+      "intro": "Who makes the product.",
+      "new": "New brand",
+      "empty": "No brands yet."
+    },
+    "tax-classes": {
+      "title": "Tax classes",
+      "intro": "What kind of thing this is for tax — standard, reduced, zero-rated. The rate per country is set against the class.",
+      "new": "New tax class",
+      "empty": "No tax classes yet."
+    }
   }
 }

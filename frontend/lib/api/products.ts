@@ -1,4 +1,4 @@
-import { apiGet, apiSend } from "@/lib/api/client";
+import { apiDelete, apiGet, apiSend } from "@/lib/api/client";
 
 /**
  * Whether a product can still be ordered (`PRD-01`).
@@ -91,6 +91,58 @@ export function fetchCategories(accessToken: string, signal?: AbortSignal): Prom
 export const brandsKey = (subject: string) => ["brands", subject] as const;
 export const taxClassesKey = (subject: string) => ["tax-classes", subject] as const;
 export const categoriesKey = (subject: string) => ["categories", subject] as const;
+
+/**
+ * The three vocabularies, as the classification screen addresses them.
+ *
+ * Brands and tax classes are the **same shape** on the wire — `{ id, name }` with the same four
+ * verbs — so they are described here rather than given a module each. A category adds a parent and
+ * nothing else, which is why it rides along instead of getting its own file: three near-identical
+ * clients would drift, and the difference that matters is one nullable field.
+ */
+export type VocabularyKind = "brands" | "categories" | "tax-classes";
+
+const PATHS: Record<VocabularyKind, string> = {
+  brands: "/api/products/brands",
+  categories: "/api/products/categories",
+  "tax-classes": "/api/products/tax-classes",
+};
+
+/** What a vocabulary entry is written with. `parentId` is only ever sent for a category. */
+export type VocabularyWrite = { name: string; parentId?: string | null };
+
+export function createVocabulary(
+  accessToken: string,
+  kind: VocabularyKind,
+  body: VocabularyWrite,
+): Promise<Vocabulary> {
+  return apiSend<Vocabulary>("POST", PATHS[kind], accessToken, body);
+}
+
+export function updateVocabulary(
+  accessToken: string,
+  kind: VocabularyKind,
+  id: string,
+  body: VocabularyWrite,
+): Promise<Vocabulary> {
+  return apiSend<Vocabulary>("PUT", `${PATHS[kind]}/${id}`, accessToken, body);
+}
+
+/**
+ * Removes an entry.
+ *
+ * Refused with a 409 while anything still points at it — a brand or tax class any product is
+ * classified by, a category with children or with products filed under it. The API says how many and
+ * what to do about it; this just passes the refusal along, because "12 product(s) are branded
+ * 'Veridian'. Reclassify them first." is an instruction and "could not delete" is not.
+ */
+export function deleteVocabulary(
+  accessToken: string,
+  kind: VocabularyKind,
+  id: string,
+): Promise<void> {
+  return apiDelete(`${PATHS[kind]}/${id}`, accessToken);
+}
 
 /**
  * Category names with their ancestry, so a flat `<select>` can show a tree.
