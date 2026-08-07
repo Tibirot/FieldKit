@@ -1,0 +1,284 @@
+{
+  "version": 1,
+  "rule": "PRD-07 / BR-PRD-5, BR-PRD-9",
+  "description": "Two engines in one file. `resolution` picks the rate applying to a tax class in a country on a date; `application` turns a net line into net + tax + gross under the documented rounding policy. See ../README.md for the format rules — money and percentages are strings, dates are YYYY-MM-DD.",
+  "resolution": [
+    {
+      "name": "a single covering rate is the answer",
+      "on": "2026-06-15",
+      "candidates": [
+        {
+          "taxRateId": "0195f000-0000-7000-8000-000000000001",
+          "percentage": "19.00",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null
+        }
+      ],
+      "expected": {
+        "taxRateId": "0195f000-0000-7000-8000-000000000001",
+        "percentage": "19.00"
+      }
+    },
+    {
+      "name": "no rate authored resolves to unknown, not to zero",
+      "why": "The distinction the whole design turns on. A caller treating this as 0% invoices untaxed and looks deliberate doing it — which is why a 0% rate is separately authorable, and why this case exists next to the one below.",
+      "on": "2026-06-15",
+      "candidates": [],
+      "expected": null
+    },
+    {
+      "name": "a zero-rated good has a rate, and it is zero",
+      "why": "The counterpart. Zero-rated is a real tax treatment, and it must be distinguishable from 'nobody set this up' — a resolver collapsing 0 to null would make them the same.",
+      "on": "2026-06-15",
+      "candidates": [
+        {
+          "taxRateId": "0195f000-0000-7000-8000-000000000001",
+          "percentage": "0.00",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null
+        }
+      ],
+      "expected": {
+        "taxRateId": "0195f000-0000-7000-8000-000000000001",
+        "percentage": "0.00"
+      }
+    },
+    {
+      "name": "the window includes its first day",
+      "on": "2026-01-01",
+      "candidates": [
+        {
+          "taxRateId": "0195f000-0000-7000-8000-000000000001",
+          "percentage": "19.00",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": "2026-07-01"
+        }
+      ],
+      "expected": {
+        "taxRateId": "0195f000-0000-7000-8000-000000000001",
+        "percentage": "19.00"
+      }
+    },
+    {
+      "name": "a rate change takes over on its announced day",
+      "why": "The case everyone looks at. Half-open windows mean the old rate stops exactly where the new one starts — an inclusive end would leave the changeover day double-covered, and a resolver would have to break a tie on the one day that must not be ambiguous.",
+      "on": "2026-07-01",
+      "candidates": [
+        {
+          "taxRateId": "0195f000-0000-7000-8000-000000000001",
+          "percentage": "19.00",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": "2026-07-01"
+        },
+        {
+          "taxRateId": "0195f000-0000-7000-8000-000000000002",
+          "percentage": "21.00",
+          "effectiveFrom": "2026-07-01",
+          "effectiveTo": null
+        }
+      ],
+      "expected": {
+        "taxRateId": "0195f000-0000-7000-8000-000000000002",
+        "percentage": "21.00"
+      }
+    },
+    {
+      "name": "the day before the change still gets the old rate",
+      "why": "The other side of the same boundary, and what makes re-pricing an old order correct.",
+      "on": "2026-06-30",
+      "candidates": [
+        {
+          "taxRateId": "0195f000-0000-7000-8000-000000000001",
+          "percentage": "19.00",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": "2026-07-01"
+        },
+        {
+          "taxRateId": "0195f000-0000-7000-8000-000000000002",
+          "percentage": "21.00",
+          "effectiveFrom": "2026-07-01",
+          "effectiveTo": null
+        }
+      ],
+      "expected": {
+        "taxRateId": "0195f000-0000-7000-8000-000000000001",
+        "percentage": "19.00"
+      }
+    },
+    {
+      "name": "the latest effective date wins among overlapping open-ended rates",
+      "on": "2026-08-15",
+      "candidates": [
+        {
+          "taxRateId": "0195f000-0000-7000-8000-000000000001",
+          "percentage": "19.00",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null
+        },
+        {
+          "taxRateId": "0195f000-0000-7000-8000-000000000002",
+          "percentage": "21.00",
+          "effectiveFrom": "2026-07-01",
+          "effectiveTo": null
+        }
+      ],
+      "expected": {
+        "taxRateId": "0195f000-0000-7000-8000-000000000002",
+        "percentage": "21.00"
+      }
+    },
+    {
+      "name": "the order candidates arrive in does not change the answer",
+      "on": "2026-08-15",
+      "candidates": [
+        {
+          "taxRateId": "0195f000-0000-7000-8000-000000000002",
+          "percentage": "21.00",
+          "effectiveFrom": "2026-07-01",
+          "effectiveTo": null
+        },
+        {
+          "taxRateId": "0195f000-0000-7000-8000-000000000001",
+          "percentage": "19.00",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null
+        }
+      ],
+      "expected": {
+        "taxRateId": "0195f000-0000-7000-8000-000000000002",
+        "percentage": "21.00"
+      }
+    },
+    {
+      "name": "a tie on effective date is broken by the higher id, ordered as bytes",
+      "why": "The same hostile pair as the other two engines. .NET's Guid.CompareTo reads the first field as a signed native-endian int and sorts ffffffff below 00000001.",
+      "on": "2026-06-15",
+      "candidates": [
+        {
+          "taxRateId": "00000001-0000-7000-8000-000000000000",
+          "percentage": "19.00",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null
+        },
+        {
+          "taxRateId": "ffffffff-0000-7000-8000-000000000000",
+          "percentage": "21.00",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null
+        }
+      ],
+      "expected": {
+        "taxRateId": "ffffffff-0000-7000-8000-000000000000",
+        "percentage": "21.00"
+      }
+    },
+    {
+      "name": "a date before every rate resolves to unknown",
+      "on": "2025-12-31",
+      "candidates": [
+        {
+          "taxRateId": "0195f000-0000-7000-8000-000000000001",
+          "percentage": "19.00",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null
+        }
+      ],
+      "expected": null
+    }
+  ],
+  "application": [
+    {
+      "name": "a whole-cent case",
+      "net": "100.00",
+      "currency": "EUR",
+      "percentage": "19.00",
+      "expected": { "net": "100.00", "tax": "19.00", "gross": "119.00" }
+    },
+    {
+      "name": "zero-rated leaves the line alone",
+      "net": "12.50",
+      "currency": "EUR",
+      "percentage": "0.00",
+      "expected": { "net": "12.50", "tax": "0.00", "gross": "12.50" }
+    },
+    {
+      "name": "a half-cent rounds up, not to even",
+      "why": "The single most important case in this file. 0.10 * 19% is 0.019 — no; 1.00 * 4.5% is 0.045, which is exactly half a cent. BR-PRD-9 is half-up (away from zero), so this is 0.05. Banker's rounding — .NET's Math.Round default, and JavaScript's toFixed in some engines — gives 0.04, and a device disagreeing with the server by a cent on a VAT line is a reconciliation problem someone chases through a ledger.",
+      "net": "1.00",
+      "currency": "EUR",
+      "percentage": "4.50",
+      "expected": { "net": "1.00", "tax": "0.05", "gross": "1.05" }
+    },
+    {
+      "name": "the other half-cent, where banker's rounding would agree by accident",
+      "why": "Paired with the case above on purpose. 3.00 * 4.5% is 0.135, and half-up gives 0.14 — which is also what banker's rounding gives, because 13 is odd. A suite containing only this case would pass on a wrong implementation.",
+      "net": "3.00",
+      "currency": "EUR",
+      "percentage": "4.50",
+      "expected": { "net": "3.00", "tax": "0.14", "gross": "3.14" }
+    },
+    {
+      "name": "a repeating decimal is rounded, not truncated",
+      "why": "12.99 * 19% is 2.4681. Truncation gives 2.46 and costs the tenant a cent on every line.",
+      "net": "12.99",
+      "currency": "EUR",
+      "percentage": "19.00",
+      "expected": { "net": "12.99", "tax": "2.47", "gross": "15.46" }
+    },
+    {
+      "name": "a fractional rate",
+      "why": "Ireland has run 13.5%. A schema or an engine that assumed whole-number rates loses this.",
+      "net": "20.00",
+      "currency": "EUR",
+      "percentage": "13.50",
+      "expected": { "net": "20.00", "tax": "2.70", "gross": "22.70" }
+    },
+    {
+      "name": "the net is rounded before the tax is computed",
+      "why": "12.994 is not a figure any invoice shows. Tax on the unrounded value would be 2.46886, rounding to 2.47 — the same answer here by luck. The net in the result is the point: it comes back as 12.99, the figure the shopkeeper checks, and the tax is computed from that rather than from something nobody can see.",
+      "net": "12.994",
+      "currency": "EUR",
+      "percentage": "19.00",
+      "expected": { "net": "12.99", "tax": "2.47", "gross": "15.46" }
+    },
+    {
+      "name": "rounding the net first changes the answer",
+      "why": "The case that proves the ordering matters. 0.125 rounds up to 0.13, and 19% of that is 0.0247 → 0.02. Computed on the unrounded 0.125 the tax would be 0.02375 → 0.02 as well — but the gross differs, because gross is net plus tax and the net is the rounded one. An engine taxing the raw value and then rounding everything at the end reports 0.15 here.",
+      "net": "0.125",
+      "currency": "EUR",
+      "percentage": "19.00",
+      "expected": { "net": "0.13", "tax": "0.02", "gross": "0.15" }
+    },
+    {
+      "name": "gross is net plus tax, not net times one-point-something",
+      "why": "9.99 * 1.19 is 11.8881, which rounds to 11.89. Net-plus-tax is 9.99 + 1.90 = 11.89 as well — they agree here. They are still computed differently, and an invoice has to show three numbers that add up, which only the second guarantees.",
+      "net": "9.99",
+      "currency": "EUR",
+      "percentage": "19.00",
+      "expected": { "net": "9.99", "tax": "1.90", "gross": "11.89" }
+    },
+    {
+      "name": "a large line does not drift",
+      "why": "Nothing subtle — a guard against a float creeping into either engine, where the error only shows at scale.",
+      "net": "99999.99",
+      "currency": "EUR",
+      "percentage": "19.00",
+      "expected": { "net": "99999.99", "tax": "19000.00", "gross": "118999.99" }
+    },
+    {
+      "name": "a hundred percent doubles the line",
+      "why": "The boundary authoring stops at. Not a real VAT rate, but the schema and the engine both accept it, so the answer should be stated rather than discovered.",
+      "net": "7.77",
+      "currency": "RON",
+      "percentage": "100.00",
+      "expected": { "net": "7.77", "tax": "7.77", "gross": "15.54" }
+    },
+    {
+      "name": "the currency comes through untouched",
+      "net": "50.00",
+      "currency": "RON",
+      "percentage": "21.00",
+      "expected": { "net": "50.00", "tax": "10.50", "gross": "60.50" }
+    }
+  ]
+}

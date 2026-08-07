@@ -225,6 +225,14 @@ the pattern; **Products is still a single assembly**, for the same reason Organi
 — it has no consumer yet, and `IProductCatalog` designed before Journey, Visit or Order asks for
 anything is a guess three modules would have to live with.
 
+> **`IOutletClassification` grew a second dimension in W6, and the record shape is why that was
+> free.** Tax (`PRD-07`) keys a rate by `(tax class, country)`, and the country lives on the outlet's
+> address where `AT-1` forbids Products reading it. The contract's own doc had anticipated this — "a
+> record rather than a bare `Guid` return, so the shape survives a second classification dimension" —
+> so `CountryCode` was an added property rather than a third Outlets contract or a fourth method.
+> Country qualifies on the same test channel did: something another module *decides with*, not a
+> detail of the outlet.
+>
 > **It did not grow its `.Contracts` in W6, as this line used to promise.** W6 built the things those
 > contracts would wrap — assortments (`PRD-02`), price lists (`PRD-03`), price resolution
 > (`PRD-04`) — and each time, the consumer that would shape the contract turned out to be Order or

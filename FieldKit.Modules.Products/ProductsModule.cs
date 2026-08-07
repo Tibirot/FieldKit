@@ -64,6 +64,7 @@ public sealed class ProductsModule : IModule
         // it has to be.
         endpoints.MapPriceResolutionEndpoints();
         endpoints.MapPromotionResolutionEndpoints();
+        endpoints.MapTaxEndpoints();
     }
 }
 
