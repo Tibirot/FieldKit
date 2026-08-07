@@ -30,6 +30,8 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
 
     public DbSet<PriceListLine> PriceListLines => Set<PriceListLine>();
 
+    public DbSet<PriceListAssignment> PriceListAssignments => Set<PriceListAssignment>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -278,6 +280,41 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
                 .HasForeignKey(l => new { l.TenantId, l.ProductId })
                 .HasPrincipalKey(p => new { p.TenantId, p.Id })
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PriceListAssignment>(assignment =>
+        {
+            // Exactly one scope, enforced by the database rather than only by the endpoint. A row
+            // with both a channel and an outlet is a rule with two scopes and no meaning; a row with
+            // neither applies nowhere. Neither is a state a reader could sensibly handle, so they
+            // are made unrepresentable instead of defensively skipped everywhere.
+            assignment.ToTable("price_list_assignment", table => table.HasCheckConstraint(
+                "ck_price_list_assignment_one_scope",
+                """("channel_id" IS NULL) <> ("outlet_id" IS NULL)"""));
+
+            assignment.HasKey(a => a.Id);
+            assignment.Property(a => a.ChannelId).HasColumnName("channel_id");
+            assignment.Property(a => a.OutletId).HasColumnName("outlet_id");
+
+            // A channel is assigned a given list at most once, and so is an outlet. Postgres treats
+            // NULLs as distinct, so each index only constrains the rows where its column is set —
+            // which is exactly the half it is about, and why two partial-by-accident indexes are
+            // correct here rather than one over both columns.
+            assignment.HasIndex(a => new { a.TenantId, a.PriceListId, a.ChannelId }).IsUnique();
+            assignment.HasIndex(a => new { a.TenantId, a.PriceListId, a.OutletId }).IsUnique();
+
+            // Resolution asks "which lists apply to this outlet, and to its channel" — both are
+            // lookups by scope rather than by list.
+            assignment.HasIndex(a => new { a.TenantId, a.ChannelId });
+            assignment.HasIndex(a => new { a.TenantId, a.OutletId });
+
+            // Cascade: an assignment is a statement about a list, and it says nothing once the list
+            // is gone. The price lines cascade for the same reason.
+            assignment.HasOne<PriceList>()
+                .WithMany()
+                .HasForeignKey(a => new { a.TenantId, a.PriceListId })
+                .HasPrincipalKey(l => new { l.TenantId, l.Id })
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

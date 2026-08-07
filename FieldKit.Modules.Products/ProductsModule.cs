@@ -54,6 +54,7 @@ public sealed class ProductsModule : IModule
         endpoints.MapProductEndpoints();
         endpoints.MapAssortmentEndpoints();
         endpoints.MapPriceListEndpoints();
+        endpoints.MapPriceListAssignmentEndpoints();
     }
 }
 
