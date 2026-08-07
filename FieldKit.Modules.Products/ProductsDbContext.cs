@@ -36,6 +36,8 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
 
     public DbSet<PromotionTarget> PromotionTargets => Set<PromotionTarget>();
 
+    public DbSet<PromotionTier> PromotionTiers => Set<PromotionTier>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -323,24 +325,24 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
 
         modelBuilder.Entity<Promotion>(promotion =>
         {
-            // Each type carries its own value columns, and the constraint says which. Written as a
-            // CASE per type rather than one expression over the columns because the two types
-            // arriving in the next PR — volume/tiered and BOGO — carry neither `percent_off` nor
-            // `amount_off`, and a blanket "exactly one is set" would reject them. `ELSE TRUE` is the
-            // room left for that: adding a type is then a new WHEN, not an ALTER that has to be
-            // reasoned about against rows already stored.
+            // Each type carries its own value columns, and the constraint says which:
             //     PercentOff     → percent_off set, amount_off and currency null
             //     FixedAmountOff → amount_off and currency set, percent_off null
+            //     VolumeTiered   → no value at all; the discounts live on promotion_tier
             //     anything else  → not yet constrained
+            //
+            // Written as a CASE per type rather than one expression over the columns, which is what
+            // made adding VolumeTiered a new WHEN rather than an ALTER reasoned about against stored
+            // rows. `ELSE TRUE` is the same room left for BuyXGetY.
             //
             // Kept on one line on purpose. EF stores this string verbatim in the migration *and* the
             // model snapshot, then compares them to decide whether the model has changed — so a
             // multi-line literal bakes the authoring machine's line endings into the schema, and the
             // same source regenerated on Linux produces a different constraint and a phantom
-            // migration. The readable version is the three lines above.
+            // migration. The readable version is the four lines above.
             promotion.ToTable("promotion", table => table.HasCheckConstraint(
                 "ck_promotion_value_matches_type",
-                """CASE "type" WHEN 'PercentOff' THEN "percent_off" IS NOT NULL AND "amount_off" IS NULL AND "currency" IS NULL WHEN 'FixedAmountOff' THEN "amount_off" IS NOT NULL AND "currency" IS NOT NULL AND "percent_off" IS NULL ELSE TRUE END"""));
+                """CASE "type" WHEN 'PercentOff' THEN "percent_off" IS NOT NULL AND "amount_off" IS NULL AND "currency" IS NULL WHEN 'FixedAmountOff' THEN "amount_off" IS NOT NULL AND "currency" IS NOT NULL AND "percent_off" IS NULL WHEN 'VolumeTiered' THEN "percent_off" IS NULL AND "amount_off" IS NULL AND "currency" IS NULL ELSE TRUE END"""));
 
             promotion.HasKey(p => p.Id);
             promotion.Property(p => p.Name).HasMaxLength(120).IsRequired();
@@ -406,6 +408,35 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
                 .HasForeignKey(t => new { t.TenantId, t.CategoryId })
                 .HasPrincipalKey(c => new { c.TenantId, c.Id })
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PromotionTier>(tier =>
+        {
+            // Self-describing, under the same rule the flat promotion follows: exactly one kind of
+            // discount, and a currency exactly when there is an amount to give units to. Expressed
+            // over the columns rather than as a CASE because a tier has no type of its own — the two
+            // shapes here are all there will ever be.
+            tier.ToTable("promotion_tier", table => table.HasCheckConstraint(
+                "ck_promotion_tier_value",
+                """(("percent_off" IS NULL) <> ("amount_off" IS NULL)) AND (("amount_off" IS NULL) = ("currency" IS NULL))"""));
+
+            tier.HasKey(t => t.Id);
+            tier.Property(t => t.MinQuantity).HasColumnName("min_quantity");
+            tier.Property(t => t.PercentOff).HasColumnName("percent_off").HasPrecision(5, 2);
+            tier.Property(t => t.AmountOff).HasColumnName("amount_off").HasPrecision(18, 4);
+            tier.Property(t => t.Currency).HasColumnName("currency").HasMaxLength(3).IsFixedLength();
+
+            // One tier per threshold. Two rows at the same quantity would make "the discount at 24"
+            // a question with two answers, and resolution would have to break a tie that means
+            // nothing — the same reason a product is priced at most once per list.
+            tier.HasIndex(t => new { t.TenantId, t.PromotionId, t.MinQuantity }).IsUnique();
+
+            // Cascade: a tier is a statement about a promotion and says nothing once it is gone.
+            tier.HasOne<Promotion>()
+                .WithMany()
+                .HasForeignKey(t => new { t.TenantId, t.PromotionId })
+                .HasPrincipalKey(p => new { p.TenantId, p.Id })
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

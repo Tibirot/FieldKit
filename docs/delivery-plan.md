@@ -311,7 +311,7 @@ Sizes are hand-written diff estimates against the ~400-line budget; generated mi
 | 4 | **Price lists** — currency + effective window, product prices, channel/outlet assignment; publishes `PriceListPublished` | `PRD-03`, `BR-PRD-1` | 400 |
 | 5 | **`IOutletClassification`** — Outlets grows the contract slice 6 needs (see below) | — | 120 |
 | 6 | **Price resolution** — specificity + effective date, as a pure function; decides the [vector format](../vectors/README.md) (see below) | `PRD-04`, `BR-PRD-2`, `BR-PRD-7` | 350 |
-| 7 | **Promotion authoring** — %-off and fixed-amount (7a), then volume/tiered and BOGO/bundle (7b) | `PRD-05` | 400 ×2 |
+| 7 | **Promotion authoring** — %-off and fixed-amount (7a), volume/tiered (7b), BOGO/bundle (7c) | `PRD-05` | 400 ×3 |
 | 8 | **Promotion resolution** — priority selection, validity window in the outlet's timezone | `PRD-06`, `BR-PRD-3/6` | 350 |
 | 9 | **Tax** — tax class × tenant/country, on the rounded net line | `PRD-07`, `BR-PRD-5` | 250 |
 | 10 | **Parity vector suite** — generated vectors as a committed artifact; the C# engine proves against them | `PRD-08`, `BR-PRD-8/9` | 350 |
@@ -346,6 +346,15 @@ window, priority, and what it targets; where it reaches (channels and outlets) a
 intermediate state is honest rather than awkward: a promotion that exists and discounts nobody is
 what a draft *is*, and splitting there keeps the aggregate's invariants and its reach reviewable
 separately.
+
+> **`PRD-05` took three PRs, not the two budgeted above.** The estimate treated "the two remaining
+> types" as one slice because both were *not-flat*; in fact they are not-flat in different ways.
+> Volume/tiered moves the discount onto rows keyed by quantity, which changes what a promotion's own
+> value columns mean and forces every value path to become optional. BOGO changes what the promotion
+> *does* — it gives something away rather than reducing a price — and needs a second subject. Sharing
+> a PR would have meant ~900 hand-written lines and two unrelated rule sets reviewed at once. The
+> estimate was wrong about the shape of the work rather than its size, which is the more useful thing
+> to record.
 
 **`IPricingService` is not built by slice 6, deliberately.** The resolver is a pure static function
 and the endpoint is its only caller; a cross-module contract needs a cross-module consumer, which is

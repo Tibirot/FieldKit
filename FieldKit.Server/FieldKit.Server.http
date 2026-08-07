@@ -391,6 +391,114 @@ Authorization: Bearer {{token.response.body.access_token}}
   "validFrom": "2026-06-01"
 }
 
+### Products — a volume/tiered promotion: buy N or more, get more off (PRD-05). The **first type
+### whose discount is not flat**, so it carries no `value` of its own — sending one is a 400
+### (`product.promotion.valueNotApplicable`), because the caller has misunderstood where the
+### discounts live and dropping it silently means they go on to author tiers they think are spare.
+# @name tiered
+POST {{Server_HostAddress}}/api/products/promotions
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Buy more, pay less — still water",
+  "type": "VolumeTiered",
+  "validFrom": "2026-06-01",
+  "priority": 200
+}
+
+### Its thresholds. A PUT replaces the set, and the bound is **inclusive with no upper end** — a tier
+### is "N or more", and resolution takes the highest threshold the quantity reaches. That is why
+### tiers never state where they stop, and so cannot leave a gap by disagreeing about it: the same
+### instinct as the half-open date window, one dimension over.
+###
+### Deliberately sent out of order; they come back ascending.
+PUT {{Server_HostAddress}}/api/products/promotions/{{tiered.response.body.id}}/tiers
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "tiers": [
+    { "minQuantity": 24, "value": "10" },
+    { "minQuantity": 6,  "value": "2.5" },
+    { "minQuantity": 12, "value": "5" }
+  ]
+}
+
+### Read them back — ascending, and each value spelled the way money is.
+GET {{Server_HostAddress}}/api/products/promotions/{{tiered.response.body.id}}/tiers
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### Amount tiers instead, each carrying its currency. One currency across the set (`BR-PRD-1`):
+### EUR at one threshold and RON at another cannot be compared or summed, and resolution would have
+### to pick a currency nobody declared. Expect 400 `product.promotion.tierCurrenciesMixed` if they
+### disagree.
+PUT {{Server_HostAddress}}/api/products/promotions/{{tiered.response.body.id}}/tiers
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "tiers": [
+    { "minQuantity": 6,  "value": "1.50", "currency": "EUR" },
+    { "minQuantity": 12, "value": "4.00", "currency": "EUR" }
+  ]
+}
+
+### Mixed kinds — expect 400 `product.promotion.tierKindsMixed`. Nothing about resolution requires
+### the rule: tiers are picked by quantity and never compared to each other, so a mixed set is
+### perfectly well-defined. It is refused because "5% off at 6, three euros off at 12" is a set
+### nobody can sanity-check at a glance, and is far likelier to be a slip than an intention.
+PUT {{Server_HostAddress}}/api/products/promotions/{{tiered.response.body.id}}/tiers
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "tiers": [
+    { "minQuantity": 6,  "value": "5" },
+    { "minQuantity": 12, "value": "3.00", "currency": "EUR" }
+  ]
+}
+
+### A tier starting at 1, and a second one out of range — expect
+### `product.promotion.tierQuantityTooSmall` naming `tiers[0].minQuantity` and
+### `product.promotion.percentOutOfRange` naming `tiers[1].value`. The index is part of the answer:
+### a form showing four tiers cannot work out from "is above 0 and at most 100" which row to
+### highlight. "Buy one or more" is every line that matched at all — a flat discount wearing a
+### tier's clothes, silently shadowing the `PercentOff` type it duplicates.
+PUT {{Server_HostAddress}}/api/products/promotions/{{tiered.response.body.id}}/tiers
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "tiers": [
+    { "minQuantity": 1,  "value": "5" },
+    { "minQuantity": 12, "value": "150" }
+  ]
+}
+
+### Withdraw it — an empty set, like an empty target set and like a price list with no assignments.
+### Three endpoints of the same shape, one answer to what empty means.
+PUT {{Server_HostAddress}}/api/products/promotions/{{tiered.response.body.id}}/tiers
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "tiers": []
+}
+
+### Tiers on a flat promotion — expect 400 `product.promotion.tiersNotApplicable`. It would then
+### hold two discounts with no rule saying which applies.
+PUT {{Server_HostAddress}}/api/products/promotions/{{percentOff.response.body.id}}/tiers
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "tiers": [
+    { "minQuantity": 6, "value": "5" }
+  ]
+}
+
 ### Four things wrong at once — expect `product.promotion.nameRequired`,
 ### `product.promotion.percentOutOfRange`, `product.promotion.currencyNotApplicable` and
 ### `product.promotion.windowInverted`, all in one envelope. Equal dates are an inverted window

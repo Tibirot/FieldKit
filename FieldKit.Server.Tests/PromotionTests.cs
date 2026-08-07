@@ -59,7 +59,13 @@ public class PromotionTests(ServerFixture fixture)
         await writer.PostAsJsonAsync(
             Promotions,
             new CreatePromotionRequest(
-                name ?? Unique("Promo"), type, value, from ?? Opens, to, priority, currency));
+                Name: name ?? Unique("Promo"),
+                Type: type,
+                ValidFrom: from ?? Opens,
+                Value: value,
+                ValidTo: to,
+                Priority: priority,
+                Currency: currency));
 
     private static async Task<PromotionResponse> PromotionAsync(
         HttpClient writer,
@@ -294,7 +300,12 @@ public class PromotionTests(ServerFixture fixture)
         var response = await writer.PostAsJsonAsync(
             Promotions,
             new CreatePromotionRequest(
-                "  ", PromotionType.PercentOff, "150", Opens, Opens, 0, "EUR"));
+                Name: "  ",
+                Type: PromotionType.PercentOff,
+                ValidFrom: Opens,
+                Value: "150",
+                ValidTo: Opens,
+                Currency: "EUR"));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var codes = (await Refusals.ProblemsOf(response)).Select(p => p.Code).ToList();
@@ -314,7 +325,7 @@ public class PromotionTests(ServerFixture fixture)
         var response = await writer.PutAsJsonAsync(
             $"{Promotions}/{promotion.Id}",
             new UpdatePromotionRequest(
-                promotion.Name, "20", Opens, new DateOnly(2026, 4, 1), 50));
+                promotion.Name, Opens, "20", new DateOnly(2026, 4, 1), 50));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var updated = (await response.Content.ReadFromJsonAsync<PromotionResponse>())!;
@@ -342,7 +353,7 @@ public class PromotionTests(ServerFixture fixture)
 
         var response = await writer.PutAsJsonAsync(
             $"{Promotions}/{promotion.Id}",
-            new UpdatePromotionRequest(promotion.Name, "3.00", Opens));
+            new UpdatePromotionRequest(promotion.Name, Opens, "3.00"));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var updated = (await response.Content.ReadFromJsonAsync<PromotionResponse>())!;
@@ -483,6 +494,326 @@ public class PromotionTests(ServerFixture fixture)
         Assert.Equal(
             "product.promotion.productMissing",
             Assert.Single(await Refusals.ProblemsOf(response)).Code);
+    }
+
+    // ─── Volume/tiered (PRD-05, slice 9) ───────────────────────────────────────────────────────
+
+    private static async Task<HttpResponseMessage> SetTiersAsync(
+        HttpClient writer, Guid promotionId, params PromotionTierRequest[] tiers) =>
+        await writer.PutAsJsonAsync(
+            $"{Promotions}/{promotionId}/tiers", new SetPromotionTiersRequest(tiers));
+
+    private static async Task<Guid> TieredAsync(HttpClient writer, int priority = 0) =>
+        (await PromotionAsync(writer, PromotionType.VolumeTiered, value: null, priority: priority)).Id;
+
+    [Fact]
+    public async Task A_tiered_promotion_carries_no_value_of_its_own()
+    {
+        using var writer = fixture.CreateAuthenticatedClient();
+
+        var promotion = await PromotionAsync(writer, PromotionType.VolumeTiered, value: null);
+
+        Assert.Equal(PromotionType.VolumeTiered, promotion.Type);
+
+        // Null rather than "0.00": a zero would read as "no discount" instead of "look at the tiers".
+        Assert.Null(promotion.Value);
+        Assert.Null(promotion.Currency);
+    }
+
+    [Fact]
+    public async Task A_tiered_promotion_sending_a_value_is_refused()
+    {
+        // Refused rather than ignored, for the same reason a percentage carrying a currency is: the
+        // caller has misunderstood where the discounts live, and dropping it silently means they go
+        // on to author tiers they believe are redundant.
+        using var writer = fixture.CreateAuthenticatedClient();
+
+        var response = await CreateAsync(writer, PromotionType.VolumeTiered, value: "15");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            "product.promotion.valueNotApplicable",
+            Assert.Single(await Refusals.ProblemsOf(response)).Code);
+    }
+
+    [Fact]
+    public async Task Tiers_come_back_in_ascending_threshold_order()
+    {
+        // The order a tier table is read in, and the order resolution will scan it — asserted
+        // against an input deliberately out of order.
+        using var writer = fixture.CreateAuthenticatedClient();
+        var promotionId = await TieredAsync(writer);
+
+        var response = await SetTiersAsync(
+            writer,
+            promotionId,
+            new PromotionTierRequest(24, "10"),
+            new PromotionTierRequest(6, "2.5"),
+            new PromotionTierRequest(12, "5"));
+
+        Assert.True(
+            response.StatusCode == HttpStatusCode.OK,
+            $"{response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
+
+        var tiers = (await response.Content.ReadFromJsonAsync<List<PromotionTierResponse>>())!;
+
+        Assert.Equal([6, 12, 24], tiers.Select(tier => tier.MinQuantity));
+        Assert.Equal(["2.50", "5.00", "10.00"], tiers.Select(tier => tier.Value));
+        Assert.All(tiers, tier => Assert.Null(tier.Currency));
+    }
+
+    [Fact]
+    public async Task Amount_tiers_keep_their_currency()
+    {
+        using var writer = fixture.CreateAuthenticatedClient();
+        var promotionId = await TieredAsync(writer);
+
+        await SetTiersAsync(
+            writer,
+            promotionId,
+            new PromotionTierRequest(6, "1.50", "eur"),
+            new PromotionTierRequest(12, "4.00", "EUR"));
+
+        var tiers = await writer.GetFromJsonAsync<List<PromotionTierResponse>>(
+            $"{Promotions}/{promotionId}/tiers");
+
+        Assert.All(tiers!, tier => Assert.Equal("EUR", tier.Currency));
+        Assert.Equal(["1.50", "4.00"], tiers!.Select(tier => tier.Value));
+    }
+
+    [Fact]
+    public async Task Setting_tiers_replaces_the_whole_set()
+    {
+        using var writer = fixture.CreateAuthenticatedClient();
+        var promotionId = await TieredAsync(writer);
+
+        await SetTiersAsync(writer, promotionId, new PromotionTierRequest(6, "5"));
+
+        var response = await SetTiersAsync(writer, promotionId, new PromotionTierRequest(12, "8"));
+        var tiers = (await response.Content.ReadFromJsonAsync<List<PromotionTierResponse>>())!;
+
+        Assert.Equal(12, Assert.Single(tiers).MinQuantity);
+    }
+
+    [Fact]
+    public async Task Emptying_the_tiers_withdraws_the_promotion()
+    {
+        // The same meaning as an empty target set, and as a price list with no assignments. Three
+        // endpoints of the same shape, one answer to what empty means.
+        using var writer = fixture.CreateAuthenticatedClient();
+        var promotionId = await TieredAsync(writer);
+
+        await SetTiersAsync(writer, promotionId, new PromotionTierRequest(6, "5"));
+
+        var response = await SetTiersAsync(writer, promotionId);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var read = await writer.GetFromJsonAsync<List<PromotionTierResponse>>(
+            $"{Promotions}/{promotionId}/tiers");
+
+        Assert.Empty(read!);
+    }
+
+    [Fact]
+    public async Task A_tier_starting_below_two_is_refused()
+    {
+        // "Buy one or more" is every line that matched at all — a flat discount wearing a tier's
+        // clothes, silently shadowing the PercentOff type it duplicates.
+        using var writer = fixture.CreateAuthenticatedClient();
+        var promotionId = await TieredAsync(writer);
+
+        var response = await SetTiersAsync(writer, promotionId, new PromotionTierRequest(1, "5"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = Assert.Single(await Refusals.ProblemsOf(response));
+        Assert.Equal("tiers[0].minQuantity", problem.Field);
+        Assert.Equal("product.promotion.tierQuantityTooSmall", problem.Code);
+    }
+
+    [Fact]
+    public async Task Two_tiers_at_the_same_threshold_are_refused()
+    {
+        // "The discount at 12" would be a question with two answers, and resolution would have to
+        // break a tie that means nothing.
+        using var writer = fixture.CreateAuthenticatedClient();
+        var promotionId = await TieredAsync(writer);
+
+        var response = await SetTiersAsync(
+            writer,
+            promotionId,
+            new PromotionTierRequest(12, "5"),
+            new PromotionTierRequest(12, "8"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            "product.promotion.tierQuantityDuplicated",
+            Assert.Single(await Refusals.ProblemsOf(response)).Code);
+    }
+
+    [Fact]
+    public async Task Mixing_percentage_and_amount_tiers_is_refused()
+    {
+        // Well-defined but almost certainly a mistake: tiers are picked by quantity, never compared,
+        // so nothing breaks — but "5% off at 6, three euros off at 12" is a set nobody can
+        // sanity-check at a glance.
+        using var writer = fixture.CreateAuthenticatedClient();
+        var promotionId = await TieredAsync(writer);
+
+        var response = await SetTiersAsync(
+            writer,
+            promotionId,
+            new PromotionTierRequest(6, "5"),
+            new PromotionTierRequest(12, "3.00", "EUR"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            "product.promotion.tierKindsMixed",
+            Assert.Single(await Refusals.ProblemsOf(response)).Code);
+    }
+
+    [Fact]
+    public async Task Amount_tiers_in_two_currencies_are_refused()
+    {
+        // BR-PRD-1: a set that discounts by EUR at one threshold and RON at another cannot be
+        // compared or summed, and resolution would have to pick a currency nobody declared.
+        using var writer = fixture.CreateAuthenticatedClient();
+        var promotionId = await TieredAsync(writer);
+
+        var response = await SetTiersAsync(
+            writer,
+            promotionId,
+            new PromotionTierRequest(6, "1.50", "EUR"),
+            new PromotionTierRequest(12, "20.00", "RON"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            "product.promotion.tierCurrenciesMixed",
+            Assert.Single(await Refusals.ProblemsOf(response)).Code);
+    }
+
+    [Fact]
+    public async Task A_bad_tier_names_its_own_index()
+    {
+        // A form showing four tiers cannot work out from "is above 0 and at most 100" which row to
+        // highlight. Same reasoning as contacts[1].email in Outlets.
+        using var writer = fixture.CreateAuthenticatedClient();
+        var promotionId = await TieredAsync(writer);
+
+        var response = await SetTiersAsync(
+            writer,
+            promotionId,
+            new PromotionTierRequest(6, "5"),
+            new PromotionTierRequest(12, "150"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = Assert.Single(await Refusals.ProblemsOf(response));
+        Assert.Equal("tiers[1].value", problem.Field);
+        Assert.Equal("product.promotion.percentOutOfRange", problem.Code);
+    }
+
+    [Fact]
+    public async Task A_tier_obeys_the_same_value_rules_as_a_flat_discount()
+    {
+        // The shared checker, reached through the tier path: comma decimals and out-of-range
+        // percentages are refused here exactly as they are on the promotion itself.
+        using var writer = fixture.CreateAuthenticatedClient();
+        var promotionId = await TieredAsync(writer);
+
+        var comma = await SetTiersAsync(writer, promotionId, new PromotionTierRequest(6, "12,50"));
+        Assert.Equal(
+            "product.promotion.valueNotANumber",
+            Assert.Single(await Refusals.ProblemsOf(comma)).Code);
+
+        var zero = await SetTiersAsync(writer, promotionId, new PromotionTierRequest(6, "0"));
+        Assert.Equal(
+            "product.promotion.percentOutOfRange",
+            Assert.Single(await Refusals.ProblemsOf(zero)).Code);
+
+        var negative = await SetTiersAsync(
+            writer, promotionId, new PromotionTierRequest(6, "-1.00", "EUR"));
+        Assert.Equal(
+            "product.promotion.amountNotPositive",
+            Assert.Single(await Refusals.ProblemsOf(negative)).Code);
+    }
+
+    [Fact]
+    public async Task A_flat_promotion_cannot_have_tiers()
+    {
+        // It would then hold two discounts with no rule saying which applies.
+        using var writer = fixture.CreateAuthenticatedClient();
+        var flat = await PromotionAsync(writer, PromotionType.PercentOff, "15");
+
+        var response = await SetTiersAsync(writer, flat.Id, new PromotionTierRequest(6, "5"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            "product.promotion.tiersNotApplicable",
+            Assert.Single(await Refusals.ProblemsOf(response)).Code);
+    }
+
+    [Fact]
+    public async Task The_database_refuses_a_tiered_promotion_carrying_a_value()
+    {
+        // The WHEN this slice added to the promotion constraint. Nothing reachable over HTTP can
+        // write such a row, which is why it is worth proving at the table.
+        using var scope = fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ProductsDbContext>();
+
+        var refused = await Record.ExceptionAsync(() => db.Database.ExecuteSqlAsync(
+            $"""
+            INSERT INTO products.promotion
+                ("Id", "Name", "type", "percent_off", "amount_off", "currency",
+                 "ValidFrom", "ValidTo", "Priority", "TenantId", "CreatedAtUtc")
+            VALUES ({Guid.CreateVersion7()}, {Guid.NewGuid().ToString()}, 'VolumeTiered',
+                    {10m}, NULL, NULL, {Opens}, NULL, 0, {Guid.NewGuid()}, now())
+            """));
+
+        Assert.NotNull(refused);
+        Assert.Contains("ck_promotion_value_matches_type", refused.ToString());
+    }
+
+    [Fact]
+    public async Task The_database_refuses_a_tier_whose_value_and_currency_disagree()
+    {
+        using var scope = fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ProductsDbContext>();
+
+        foreach (var (percent, amount, currency) in new (object?, object?, object?)[]
+                 {
+                     (5m, 3m, null),      // both kinds
+                     (null, null, "EUR"), // neither
+                     (5m, null, "EUR"),   // a percentage with a currency
+                     (null, 3m, null),    // money with no units
+                 })
+        {
+            var refused = await Record.ExceptionAsync(() => db.Database.ExecuteSqlAsync(
+                $"""
+                INSERT INTO products.promotion_tier
+                    ("Id", "PromotionId", "min_quantity", "percent_off", "amount_off", "currency",
+                     "TenantId", "CreatedAtUtc")
+                VALUES ({Guid.CreateVersion7()}, {Guid.NewGuid()}, 6, {percent}, {amount}, {currency},
+                        {Guid.NewGuid()}, now())
+                """));
+
+            Assert.NotNull(refused);
+            Assert.Contains("ck_promotion_tier_value", refused.ToString());
+        }
+    }
+
+    [Fact]
+    public async Task Reading_tiers_and_setting_them_are_different_capabilities()
+    {
+        using var writer = fixture.CreateAuthenticatedClient();
+        using var viewer = fixture.CreateAuthenticatedClient(fixture.ReadOnlyAccessToken);
+        var promotionId = await TieredAsync(writer);
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await viewer.GetAsync($"{Promotions}/{promotionId}/tiers")).StatusCode);
+
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await SetTiersAsync(viewer, promotionId, new PromotionTierRequest(6, "5"))).StatusCode);
     }
 
     [Fact]

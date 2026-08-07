@@ -52,6 +52,14 @@ deterministic offline. This is the most rules-heavy module — see drafted mecha
   - **% off** a product/category
   - **fixed amount off**
   - **volume / tiered** (buy N+ → discount)
+    > 📝 ASSUMPTION: a tier's lower bound is **inclusive with no upper bound** — "N or more" — and
+    > resolution takes the highest threshold the quantity reaches. Tiers therefore never state where
+    > they stop, and so cannot leave a gap or an overlap by disagreeing about it, which is the same
+    > reasoning as the half-open date window one dimension over. A tier below 2 is refused: "buy one
+    > or more" is every line that matched at all, which is a **% off** wearing a tier's clothes.
+    > Within one promotion the tiers are all percentages or all amounts, and amount tiers share one
+    > currency (`BR-PRD-1`) — mixed sets are well-defined, since tiers are selected by quantity and
+    > never compared, but they are refused as far likelier to be a slip than an intention.
   - **BOGO / bundle** (buy X get Y)
 - Set scope (product/category/outlet/channel), validity window, and **priority**.
 
