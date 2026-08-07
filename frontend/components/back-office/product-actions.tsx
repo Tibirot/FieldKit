@@ -1,6 +1,6 @@
 "use client";
 
-import { Tags } from "lucide-react";
+import { Boxes, Tags } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -29,14 +29,30 @@ export function ProductActions() {
   if (!has("product:read")) return null;
 
   return (
-    <Button
-      render={<Link href="/products/classification" />}
-      nativeButton={false}
-      size="sm"
-      variant="outline"
-    >
-      <Tags className="size-4" />
-      {t("manageClassification")}
-    </Button>
+    <div className="flex flex-wrap gap-2">
+      {/* Assortments need `channel:read` as well: the screen is organised by channel, and someone
+          who cannot see the channel list would get a selector with nothing in it. */}
+      {has("channel:read") ? (
+        <Button
+          render={<Link href="/products/assortments" />}
+          nativeButton={false}
+          size="sm"
+          variant="outline"
+        >
+          <Boxes className="size-4" />
+          {t("manageAssortments")}
+        </Button>
+      ) : null}
+
+      <Button
+        render={<Link href="/products/classification" />}
+        nativeButton={false}
+        size="sm"
+        variant="outline"
+      >
+        <Tags className="size-4" />
+        {t("manageClassification")}
+      </Button>
+    </div>
   );
 }
