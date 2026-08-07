@@ -278,6 +278,136 @@ Authorization: Bearer {{token.response.body.access_token}}
 DELETE {{Server_HostAddress}}/api/products/brands/{{veridian.response.body.id}}
 Authorization: Bearer {{token.response.body.access_token}}
 
+### Products — author a promotion (PRD-05). Two of B1's four types today: `PercentOff` and
+### `FixedAmountOff`. Volume/tiered and BOGO need child rows of their own and are the second
+### promotion PR.
+###
+### `value` is a **string**, like a price and for the same reason (`BR-PRD-8`) — "12.5% off" losing
+### its last digit to a float is the same class of bug as a price doing so. It comes back formatted
+### the way money is, so creating and reading spell it the same way.
+###
+### `priority` decides which promotion wins when several are in scope (`BR-PRD-3`): **higher beats
+### lower**. The opposite convention ("priority 1 = first") means a deal that must beat everything
+### already authored requires renumbering the rest, and eventually needs 0, then -1.
+# @name percentOff
+POST {{Server_HostAddress}}/api/products/promotions
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Summer 15% — still water",
+  "type": "PercentOff",
+  "value": "15",
+  "validFrom": "2026-06-01",
+  "validTo": "2026-09-01",
+  "priority": 100
+}
+
+### A fixed amount off, which carries **its own** currency rather than borrowing a price list's.
+### A promotion is authored once and may reach outlets priced in more than one currency; refusing to
+### discount a EUR line by an RON amount is `BR-PRD-1` holding, and PRD-06 can only make that check
+### because the currency is stored here.
+# @name amountOff
+POST {{Server_HostAddress}}/api/products/promotions
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Two-fifty off a case",
+  "type": "FixedAmountOff",
+  "value": "2.50",
+  "currency": "EUR",
+  "validFrom": "2026-06-01",
+  "priority": 50
+}
+
+### List them, best priority first — the order someone reviewing a tenant's deals reads them in,
+### and the order resolution will consider them.
+GET {{Server_HostAddress}}/api/products/promotions
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### What it discounts. A PUT replaces the set. A category target is **not** expanded into its
+### products: storing the expansion would freeze the category's membership at authoring time, so a
+### product added to Beverages next week would silently miss a promotion that says it covers
+### Beverages. Resolution walks the hierarchy instead (PRD-06).
+PUT {{Server_HostAddress}}/api/products/promotions/{{percentOff.response.body.id}}/targets
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "productIds": ["{{classified.response.body.id}}"],
+  "categoryIds": ["{{water.response.body.id}}"]
+}
+
+### Read the targets back.
+GET {{Server_HostAddress}}/api/products/promotions/{{percentOff.response.body.id}}/targets
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### Withdraw it — an empty set is a real change, not a refusal. A promotion that targets nothing
+### discounts nothing, which is how it is taken out of play without editing its window or deleting a
+### record other things point at. The same shape and the same meaning as emptying a price list's
+### assignments; two endpoints this alike should not disagree about what empty means.
+###
+### Nothing has to be guessed for this to be safe: resolution matches target rows, and no rows is no
+### match. The dangerous reading — empty meaning *everything* — is not one anything here invites.
+PUT {{Server_HostAddress}}/api/products/promotions/{{percentOff.response.body.id}}/targets
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "productIds": [],
+  "categoryIds": []
+}
+
+### 0% off — expect 400 `product.promotion.percentOutOfRange`. Zero is refused along with the
+### negatives: it is not a rule that does nothing, it is a rule that will win a priority contest
+### against a real discount and then take nothing off. Above 100 is refused too — that would make
+### the line negative, turning a discount into a payment to the shop.
+POST {{Server_HostAddress}}/api/products/promotions
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Nothing off",
+  "type": "PercentOff",
+  "value": "0",
+  "validFrom": "2026-06-01"
+}
+
+### A percentage carrying a currency — expect 400 `product.promotion.currencyNotApplicable`.
+### Refused rather than ignored: silently dropping it means the author finds out when a report
+### disagrees with what they thought they wrote.
+POST {{Server_HostAddress}}/api/products/promotions
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Percent with money",
+  "type": "PercentOff",
+  "value": "15",
+  "currency": "EUR",
+  "validFrom": "2026-06-01"
+}
+
+### Four things wrong at once — expect `product.promotion.nameRequired`,
+### `product.promotion.percentOutOfRange`, `product.promotion.currencyNotApplicable` and
+### `product.promotion.windowInverted`, all in one envelope. Equal dates are an inverted window
+### because the range is half-open: a promotion that is never live.
+POST {{Server_HostAddress}}/api/products/promotions
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "   ",
+  "type": "PercentOff",
+  "value": "150",
+  "currency": "EUR",
+  "validFrom": "2026-06-01",
+  "validTo": "2026-06-01"
+}
+
 ### Same create, anonymous — expect 401.
 POST {{Server_HostAddress}}/api/products
 Content-Type: application/json

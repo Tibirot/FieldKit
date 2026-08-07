@@ -86,6 +86,18 @@ This function is pure and runs **identically on server and device** (shared rule
 > the device and the server cannot drift apart on either.
 - **BR-PRD-3** At most **one line-level promotion per order line**, selected by priority; order-
   level promos are separate ([B1](decisions-and-assumptions.md#b1--pricing--promotions)).
+
+> 📝 ASSUMPTION: **a higher priority number wins.** The rule says "selected by priority" without
+> saying which end is which, and the opposite convention is at least as common — "priority 1" reads
+> like *first* to most people. Higher-wins is chosen for what each does to the data over time: under
+> lowest-wins, authoring a promotion that must beat everything already in place means renumbering the
+> others, and once something sits at 1 the next one needs 0, then -1. Under higher-wins the author
+> picks a bigger number and touches nothing else.
+>
+> **Ties are allowed at authoring time and broken at resolution.** Two promotions at the same
+> priority are a legitimate intermediate state while someone is editing, so refusing them would block
+> the edit rather than the mistake. `PRD-06` breaks the tie deterministically, for the same reason
+> `BR-PRD-2`'s does: the answer must not depend on which device asked.
 - **BR-PRD-4** A product not in an outlet's assortment cannot be ordered there (unless the
   tenant enables "off-assortment with reason" — a *Could*).
 - **BR-PRD-5** Prices are stored **net**; tax is computed at order time from the tax class.

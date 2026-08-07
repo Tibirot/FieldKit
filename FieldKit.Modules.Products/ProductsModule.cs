@@ -55,6 +55,7 @@ public sealed class ProductsModule : IModule
         endpoints.MapAssortmentEndpoints();
         endpoints.MapPriceListEndpoints();
         endpoints.MapPriceListAssignmentEndpoints();
+        endpoints.MapPromotionEndpoints();
 
         // `/api/products/outlets/...` — a literal segment, which routing prefers over the `/{id:guid}`
         // above it regardless of registration order, and which the guid constraint would reject
