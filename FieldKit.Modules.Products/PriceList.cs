@@ -79,6 +79,29 @@ public sealed class PriceList : AggregateRoot, ITenantOwned, IAuditable
     /// <summary>Whether this list covers <paramref name="date"/> — half-open, as above.</summary>
     public bool Covers(DateOnly date) =>
         date >= EffectiveFrom && (EffectiveTo is not { } end || date < end);
+
+    /// <summary>Announces that this list's scope changed.</summary>
+    /// <remarks>
+    /// On the aggregate rather than at the endpoint, so the event goes to the outbox in the same
+    /// transaction as the rows that caused it (ADR-0006). Raising it from the handler after
+    /// <c>SaveChanges</c> would be a dual write: the scope committed and the announcement lost, or
+    /// the announcement sent for a scope that rolled back.
+    /// <para>
+    /// Called even when the scope is set to nothing. "This list now reaches nobody" is a change a
+    /// consumer needs as much as any other — it is how a list is withdrawn, and a device that never
+    /// hears it keeps pricing against a list that no longer applies.
+    /// </para>
+    /// </remarks>
+    public void Publish(int channelCount, int outletCount, IClock clock) =>
+        Raise(new PriceListPublished(
+            Guid.CreateVersion7(),
+            clock.UtcNow,
+            Id,
+            Currency,
+            EffectiveFrom,
+            EffectiveTo,
+            channelCount,
+            outletCount));
 }
 
 /// <summary>

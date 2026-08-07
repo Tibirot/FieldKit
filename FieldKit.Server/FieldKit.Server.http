@@ -180,6 +180,50 @@ Authorization: Bearer {{token.response.body.access_token}}
   ]
 }
 
+### Where the list applies. A PUT replaces the whole scope — channels and outlets together.
+### Each stored row is scoped to exactly one of the two, and the database enforces that with a check
+### constraint rather than trusting this endpoint.
+###
+### Publishing here also raises `PriceListPublished` into the outbox, in the same transaction as the
+### rows (ADR-0006), which is what Sync will turn into a reference delta.
+PUT {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}/assignments
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "channelIds": ["{{channel.response.body.id}}"],
+  "outletIds": ["{{outlet.response.body.id}}"]
+}
+
+### Read the scope back.
+GET {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}/assignments
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### Withdraw it — an empty scope is a real change, not a no-op. It is how a list stops applying, and
+### it raises `PriceListPublished` too: a device that never hears this keeps pricing against a list
+### that no longer reaches it.
+PUT {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}/assignments
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "channelIds": [],
+  "outletIds": []
+}
+
+### A channel that does not exist — expect 400 `product.priceList.channelMissing`.
+### Products cannot see the channel table (AT-1), so this is checked through
+### `IOutletClassification.ChannelExistsAsync`; without it the assignment would save and price nobody.
+PUT {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}/assignments
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "channelIds": ["00000000-0000-0000-0000-000000000009"],
+  "outletIds": []
+}
+
 ### A currency that is not a three-letter code — expect 400 `product.priceList.currencyInvalid`.
 POST {{Server_HostAddress}}/api/products/price-lists
 Content-Type: application/json
