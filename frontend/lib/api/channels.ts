@@ -19,6 +19,29 @@ export function fetchChannels(accessToken: string, signal?: AbortSignal): Promis
  */
 export const channelsKey = (subject: string) => ["channels", subject] as const;
 
+/**
+ * The channel list, guaranteed to contain the one already stored.
+ *
+ * **A `<select>` cannot hold a value it has no `<option>` for.** React Hook Form registers this
+ * field uncontrolled and assigns `select.value` on mount — before the channel list has arrived, that
+ * assignment silently does nothing, and once the options render the browser settles on the first
+ * enabled one. The outlet then *displays* a channel it is not in.
+ *
+ * So the stored channel is always an option, even while the list is loading or if it is ever missing
+ * from it. The same shape as `zonesIncluding` one field down in the same form, and for exactly the
+ * same reason.
+ */
+export function channelsIncluding(
+  loaded: readonly Channel[] | undefined,
+  stored: { id: string; name: string } | undefined,
+): Channel[] {
+  const channels = [...(loaded ?? [])];
+
+  if (!stored || channels.some((channel) => channel.id === stored.id)) return channels;
+
+  return [{ id: stored.id, name: stored.name }, ...channels];
+}
+
 export type ChannelWrite = { name: string };
 
 export function createChannel(accessToken: string, channel: ChannelWrite): Promise<Channel> {

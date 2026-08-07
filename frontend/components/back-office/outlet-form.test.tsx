@@ -92,6 +92,40 @@ describe("<OutletForm>", () => {
     expect(code.value).toBe("OUT-2214");
   });
 
+  it("shows the channel the outlet is actually in, before the channel list arrives", async () => {
+    // Found in the browser: an outlet in "MT 8839" displayed "HoReCa 2001", because the select is
+    // registered uncontrolled and React Hook Form assigns `select.value` on mount. Until the channel
+    // list resolves there is no matching <option>, so that assignment silently does nothing and the
+    // browser settles on whichever channel renders first.
+    //
+    // A form that shows a shop in the wrong channel is not a cosmetic problem: channel drives
+    // assortment, pricing and the visit workflow, and someone reading it would believe it.
+    //
+    // The list never resolves here, which is the sharpest version of "has not resolved yet".
+    fetchChannels.mockReturnValue(new Promise(() => {}));
+
+    render(<OutletForm outlet={OUTLET} />);
+
+    const channel = screen.getByLabelText(/channel/i) as HTMLSelectElement;
+
+    expect(channel.value).toBe("019f-c");
+    expect(channel.options[channel.selectedIndex].textContent).toBe("Modern Trade");
+  });
+
+  it("does not offer the stored channel twice once the list arrives", async () => {
+    // The stored channel is prepended only when the loaded list lacks it. Otherwise an outlet would
+    // see its own channel listed once from the fallback and once from the server.
+    render(<OutletForm outlet={OUTLET} />);
+    await waitFor(() => expect(fetchChannels).toHaveBeenCalled());
+
+    await waitFor(() => {
+      const channel = screen.getByLabelText(/channel/i) as HTMLSelectElement;
+      const named = Array.from(channel.options).filter((o) => o.value === "019f-c");
+
+      expect(named).toHaveLength(1);
+    });
+  });
+
   it("sends what was typed, and nothing it was not given", async () => {
     render(<OutletForm />);
     await waitFor(() => expect(fetchChannels).toHaveBeenCalled());
