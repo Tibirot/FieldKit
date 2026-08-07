@@ -99,10 +99,12 @@ This function is pure and runs **identically on server and device** (shared rule
 > cover. It is a data problem — an author has said two contradictory things — and no tiebreak makes
 > it *right*. What one buys is determinism: the **higher price-list id, compared as big-endian
 > bytes**, wins. Ids are UUIDv7 and creation-ordered, so this is the recency instinct applied one
-> level down, and byte order is chosen over any platform's built-in Guid comparison because
-> [.NET's sorts `ffffffff-…` below `00000001-…`](../../vectors/pricing/price-resolution.v1.json)
-> while TypeScript's string comparison does not. Both readings are pinned by the shared vectors, so
-> the device and the server cannot drift apart on either.
+> level down. **Big-endian** because that is the order the canonical string prints, and the rule has
+> to be stateable in a sentence a TypeScript mirror — which has no `Guid` type — can implement. The
+> trap it avoids is `Guid.ToByteArray()` with no argument, which returns the first three groups
+> *little-endian* and orders `00000100-…` below `00000002-…`, backwards; the
+> [vectors](../../vectors/pricing/price-resolution.v1.json) carry a pair that catches it. Both
+> readings are pinned there, so the device and the server cannot drift apart on either.
 - **BR-PRD-3** At most **one line-level promotion per order line**, selected by priority; order-
   level promos are separate ([B1](decisions-and-assumptions.md#b1--pricing--promotions)).
 

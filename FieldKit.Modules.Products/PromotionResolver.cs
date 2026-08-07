@@ -101,9 +101,10 @@ public static class PromotionResolver
     /// <para>
     /// The last rule is the one <see cref="PriceResolver"/> explains at length, and it is the same
     /// rule for the same reason: a tie is a data problem no tiebreak makes <i>right</i>, but
-    /// determinism is what stops a rep and a supervisor seeing different answers for one shop. Byte
-    /// order rather than the platform's Guid comparison, because .NET's sorts <c>ffffffff-…</c> below
-    /// <c>00000001-…</c> and a TypeScript mirror comparing canonical strings would not.
+    /// determinism is what stops a rep and a supervisor seeing different answers for one shop.
+    /// Big-endian bytes because that is the order the canonical string prints, and the mirror is a
+    /// language with no <c>Guid</c> type — the trap being <c>Guid.ToByteArray()</c>, whose
+    /// no-argument overload is little-endian for the first three groups.
     /// </para>
     /// </remarks>
     public static ResolvedPromotion? Resolve(

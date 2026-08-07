@@ -151,24 +151,24 @@
     },
     {
       "name": "a tie on effective date is broken by the higher id, ordered as bytes",
-      "why": "The same hostile pair as the other two engines. .NET's Guid.CompareTo reads the first field as a signed native-endian int and sorts ffffffff below 00000001.",
+      "why": "The same discriminating pair as the other two engines: Guid.ToByteArray() with no argument is little-endian for the first three groups, so a naive byte comparison orders these backwards.",
       "on": "2026-06-15",
       "candidates": [
         {
-          "taxRateId": "00000001-0000-7000-8000-000000000000",
+          "taxRateId": "00000002-0000-7000-8000-000000000000",
           "percentage": "19.00",
           "effectiveFrom": "2026-01-01",
           "effectiveTo": null
         },
         {
-          "taxRateId": "ffffffff-0000-7000-8000-000000000000",
+          "taxRateId": "00000100-0000-7000-8000-000000000000",
           "percentage": "21.00",
           "effectiveFrom": "2026-01-01",
           "effectiveTo": null
         }
       ],
       "expected": {
-        "taxRateId": "ffffffff-0000-7000-8000-000000000000",
+        "taxRateId": "00000100-0000-7000-8000-000000000000",
         "percentage": "21.00"
       }
     },

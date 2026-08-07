@@ -102,9 +102,9 @@ public static class TaxEngine
 
     /// <summary>Latest effective date, then the higher id as big-endian bytes.</summary>
     /// <remarks>
-    /// Byte order rather than <c>Guid.CompareTo</c>, which reads .NET's first Guid field as a signed
-    /// native-endian int and sorts <c>ffffffff-…</c> below <c>00000001-…</c>. The device mirror
-    /// comparing canonical strings would disagree. Explained at length on
+    /// Big-endian bytes, which is the order the canonical string prints — the only form of the rule
+    /// a TypeScript mirror with no <c>Guid</c> type can implement, and the one that avoids
+    /// <c>Guid.ToByteArray()</c>'s little-endian first three groups. Explained at length on
     /// <see cref="PriceResolver"/>; repeated here in shape but not in prose.
     /// </remarks>
     private static bool Beats(TaxRateCandidate challenger, TaxRateCandidate holder)

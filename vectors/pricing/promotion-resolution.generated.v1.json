@@ -1,0 +1,848 @@
+{
+  "version": 1,
+  "generated": true,
+  "rule": "PRD-06 / BR-PRD-3",
+  "description": "Randomly shaped candidate sets across all four promotion types, seeded so the file is reproducible. Expectations come from the C# engine — an oracle for the mirror, not a test of C#.",
+  "cases": [
+    {
+      "name": "generated 0",
+      "on": "2026-01-04",
+      "quantity": 23,
+      "candidates": [{ "promotionId": "00000000-0000-7000-8000-000000000000", "type": "PercentOff", "priority": 30, "validFrom": "2026-08-14", "validTo": "2026-09-02", "percentOff": "5.00" }],
+      "expected": null
+    },
+    {
+      "name": "generated 1",
+      "on": "2026-05-01",
+      "quantity": 39,
+      "candidates": [{ "promotionId": "9e3779b1-0000-7000-8000-000000010000", "type": "PercentOff", "priority": 30, "validFrom": "2026-08-08", "validTo": null, "percentOff": "5.00" }, { "promotionId": "9e3779b2-0000-7000-8000-000000010001", "type": "BuyXGetY", "priority": 20, "validFrom": "2026-04-01", "validTo": "2026-07-10", "bundle": { "buyQuantity": 5, "getQuantity": 2, "getPercentOff": "50.00", "getProductId": null } }, { "promotionId": "9e3779b3-0000-7000-8000-000000010002", "type": "VolumeTiered", "priority": 20, "validFrom": "2026-05-07", "validTo": null, "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }] }, { "promotionId": "9e3779b4-0000-7000-8000-000000010003", "type": "FixedAmountOff", "priority": -10, "validFrom": "2026-08-10", "validTo": null, "amountOff": "19.99", "currency": "EUR" }],
+      "expected": { "promotionId": "9e3779b2-0000-7000-8000-000000010001", "type": "BuyXGetY", "priority": 20, "percentOff": null, "amountOff": null, "currency": null, "bundle": { "buyQuantity": 5, "getQuantity": 2, "getPercentOff": "50.00", "getProductId": null } }
+    },
+    {
+      "name": "generated 2",
+      "on": "2026-02-09",
+      "quantity": 6,
+      "candidates": [{ "promotionId": "3c6ef362-0000-7000-8000-000000020000", "type": "BuyXGetY", "priority": 30, "validFrom": "2026-09-01", "validTo": "2026-09-15", "bundle": { "buyQuantity": 1, "getQuantity": 3, "getPercentOff": "50.00", "getProductId": null } }],
+      "expected": null
+    },
+    {
+      "name": "generated 3",
+      "on": "2026-12-01",
+      "quantity": 2,
+      "candidates": [{ "promotionId": "daa66d13-0000-7000-8000-000000030000", "type": "PercentOff", "priority": 30, "validFrom": "2026-05-23", "validTo": null, "percentOff": "100.00" }, { "promotionId": "daa66d14-0000-7000-8000-000000030001", "type": "BuyXGetY", "priority": 10, "validFrom": "2026-02-03", "validTo": "2026-03-08", "bundle": { "buyQuantity": 2, "getQuantity": 3, "getPercentOff": "50.00", "getProductId": null } }, { "promotionId": "daa66d15-0000-7000-8000-000000030002", "type": "PercentOff", "priority": -10, "validFrom": "2026-02-08", "validTo": "2026-06-07", "percentOff": "100.00" }],
+      "expected": { "promotionId": "daa66d13-0000-7000-8000-000000030000", "type": "PercentOff", "priority": 30, "percentOff": "100.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 4",
+      "on": "2026-01-21",
+      "quantity": 3,
+      "candidates": [{ "promotionId": "78dde6c4-0000-7000-8000-000000040000", "type": "VolumeTiered", "priority": 20, "validFrom": "2026-10-18", "validTo": null, "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }, { "minQuantity": 24, "percentOff": "12.00" }] }, { "promotionId": "78dde6c5-0000-7000-8000-000000040001", "type": "PercentOff", "priority": 30, "validFrom": "2026-03-11", "validTo": "2026-03-24", "percentOff": "5.00" }],
+      "expected": null
+    },
+    {
+      "name": "generated 5",
+      "on": "2026-04-03",
+      "quantity": 32,
+      "candidates": [{ "promotionId": "17156075-0000-7000-8000-000000050000", "type": "FixedAmountOff", "priority": 10, "validFrom": "2026-11-24", "validTo": "2027-01-29", "amountOff": "0.50", "currency": "EUR" }],
+      "expected": null
+    },
+    {
+      "name": "generated 6",
+      "on": "2026-04-28",
+      "quantity": 17,
+      "candidates": [{ "promotionId": "b54cda26-0000-7000-8000-000000060000", "type": "FixedAmountOff", "priority": 20, "validFrom": "2026-02-04", "validTo": null, "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "b54cda27-0000-7000-8000-000000060001", "type": "BuyXGetY", "priority": -10, "validFrom": "2026-05-08", "validTo": null, "bundle": { "buyQuantity": 2, "getQuantity": 1, "getPercentOff": "50.00", "getProductId": null } }],
+      "expected": { "promotionId": "b54cda26-0000-7000-8000-000000060000", "type": "FixedAmountOff", "priority": 20, "percentOff": null, "amountOff": "19.99", "currency": "EUR", "bundle": null }
+    },
+    {
+      "name": "generated 7",
+      "on": "2026-02-16",
+      "quantity": 19,
+      "candidates": [{ "promotionId": "538453d7-0000-7000-8000-000000070000", "type": "PercentOff", "priority": 20, "validFrom": "2026-02-07", "validTo": "2026-05-24", "percentOff": "5.00" }, { "promotionId": "538453d8-0000-7000-8000-000000070001", "type": "BuyXGetY", "priority": 30, "validFrom": "2026-05-03", "validTo": "2026-08-28", "bundle": { "buyQuantity": 4, "getQuantity": 2, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "538453d9-0000-7000-8000-000000070002", "type": "BuyXGetY", "priority": 0, "validFrom": "2026-04-28", "validTo": null, "bundle": { "buyQuantity": 1, "getQuantity": 3, "getPercentOff": "100.00", "getProductId": null } }],
+      "expected": { "promotionId": "538453d7-0000-7000-8000-000000070000", "type": "PercentOff", "priority": 20, "percentOff": "5.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 8",
+      "on": "2026-07-18",
+      "quantity": 13,
+      "candidates": [{ "promotionId": "f1bbcd88-0000-7000-8000-000000080000", "type": "BuyXGetY", "priority": 20, "validFrom": "2026-09-13", "validTo": "2027-01-20", "bundle": { "buyQuantity": 6, "getQuantity": 3, "getPercentOff": "50.00", "getProductId": null } }],
+      "expected": null
+    },
+    {
+      "name": "generated 9",
+      "on": "2026-06-28",
+      "quantity": 37,
+      "candidates": [{ "promotionId": "8ff34739-0000-7000-8000-000000090000", "type": "BuyXGetY", "priority": 0, "validFrom": "2026-04-22", "validTo": "2026-05-08", "bundle": { "buyQuantity": 5, "getQuantity": 2, "getPercentOff": "50.00", "getProductId": null } }, { "promotionId": "8ff3473a-0000-7000-8000-000000090001", "type": "PercentOff", "priority": -10, "validFrom": "2026-11-24", "validTo": "2027-03-29", "percentOff": "5.00" }, { "promotionId": "8ff3473b-0000-7000-8000-000000090002", "type": "BuyXGetY", "priority": 20, "validFrom": "2026-07-21", "validTo": "2026-11-25", "bundle": { "buyQuantity": 3, "getQuantity": 2, "getPercentOff": "50.00", "getProductId": null } }],
+      "expected": null
+    },
+    {
+      "name": "generated 10",
+      "on": "2026-09-23",
+      "quantity": 25,
+      "candidates": [{ "promotionId": "2e2ac0ea-0000-7000-8000-0000000a0000", "type": "VolumeTiered", "priority": 20, "validFrom": "2026-06-21", "validTo": "2026-12-01", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }] }, { "promotionId": "2e2ac0eb-0000-7000-8000-0000000a0001", "type": "VolumeTiered", "priority": 0, "validFrom": "2026-06-17", "validTo": "2026-11-25", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }] }, { "promotionId": "2e2ac0ec-0000-7000-8000-0000000a0002", "type": "PercentOff", "priority": 30, "validFrom": "2026-05-07", "validTo": "2026-08-15", "percentOff": "12.50" }, { "promotionId": "2e2ac0ed-0000-7000-8000-0000000a0003", "type": "FixedAmountOff", "priority": -10, "validFrom": "2026-12-08", "validTo": null, "amountOff": "19.99", "currency": "EUR" }],
+      "expected": { "promotionId": "2e2ac0ea-0000-7000-8000-0000000a0000", "type": "VolumeTiered", "priority": 20, "percentOff": "6.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 11",
+      "on": "2026-07-23",
+      "quantity": 34,
+      "candidates": [{ "promotionId": "cc623a9b-0000-7000-8000-0000000b0000", "type": "VolumeTiered", "priority": 0, "validFrom": "2026-12-22", "validTo": "2027-05-29", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }, { "minQuantity": 24, "percentOff": "12.00" }] }, { "promotionId": "cc623a9c-0000-7000-8000-0000000b0001", "type": "PercentOff", "priority": 10, "validFrom": "2026-12-25", "validTo": "2027-01-15", "percentOff": "12.50" }, { "promotionId": "cc623a9d-0000-7000-8000-0000000b0002", "type": "PercentOff", "priority": 0, "validFrom": "2026-06-02", "validTo": "2026-09-22", "percentOff": "12.50" }],
+      "expected": { "promotionId": "cc623a9d-0000-7000-8000-0000000b0002", "type": "PercentOff", "priority": 0, "percentOff": "12.50", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 12",
+      "on": "2026-07-01",
+      "quantity": 40,
+      "candidates": [{ "promotionId": "6a99b44c-0000-7000-8000-0000000c0000", "type": "PercentOff", "priority": 20, "validFrom": "2026-05-24", "validTo": "2026-11-06", "percentOff": "12.50" }, { "promotionId": "6a99b44d-0000-7000-8000-0000000c0001", "type": "VolumeTiered", "priority": 10, "validFrom": "2026-10-13", "validTo": null, "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }, { "minQuantity": 24, "percentOff": "12.00" }] }, { "promotionId": "6a99b44e-0000-7000-8000-0000000c0002", "type": "PercentOff", "priority": 20, "validFrom": "2026-01-08", "validTo": null, "percentOff": "12.50" }],
+      "expected": { "promotionId": "6a99b44e-0000-7000-8000-0000000c0002", "type": "PercentOff", "priority": 20, "percentOff": "12.50", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 13",
+      "on": "2026-12-09",
+      "quantity": 14,
+      "candidates": [{ "promotionId": "08d12dfd-0000-7000-8000-0000000d0000", "type": "PercentOff", "priority": 20, "validFrom": "2026-11-23", "validTo": "2027-04-18", "percentOff": "40.00" }, { "promotionId": "08d12dfe-0000-7000-8000-0000000d0001", "type": "BuyXGetY", "priority": 20, "validFrom": "2026-02-11", "validTo": "2026-06-29", "bundle": { "buyQuantity": 4, "getQuantity": 2, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "08d12dff-0000-7000-8000-0000000d0002", "type": "VolumeTiered", "priority": 0, "validFrom": "2026-05-06", "validTo": "2026-06-17", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }, { "minQuantity": 24, "percentOff": "12.00" }] }, { "promotionId": "08d12e00-0000-7000-8000-0000000d0003", "type": "BuyXGetY", "priority": 20, "validFrom": "2026-04-16", "validTo": "2026-06-13", "bundle": { "buyQuantity": 2, "getQuantity": 3, "getPercentOff": "50.00", "getProductId": null } }],
+      "expected": { "promotionId": "08d12dfd-0000-7000-8000-0000000d0000", "type": "PercentOff", "priority": 20, "percentOff": "40.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 14",
+      "on": "2026-07-16",
+      "quantity": 8,
+      "candidates": [{ "promotionId": "a708a7ae-0000-7000-8000-0000000e0000", "type": "BuyXGetY", "priority": -10, "validFrom": "2026-02-14", "validTo": "2026-05-13", "bundle": { "buyQuantity": 1, "getQuantity": 3, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "a708a7af-0000-7000-8000-0000000e0001", "type": "FixedAmountOff", "priority": 30, "validFrom": "2026-10-27", "validTo": null, "amountOff": "0.50", "currency": "EUR" }, { "promotionId": "a708a7b0-0000-7000-8000-0000000e0002", "type": "FixedAmountOff", "priority": 30, "validFrom": "2026-11-04", "validTo": null, "amountOff": "2.50", "currency": "EUR" }, { "promotionId": "a708a7b1-0000-7000-8000-0000000e0003", "type": "BuyXGetY", "priority": -10, "validFrom": "2026-10-21", "validTo": null, "bundle": { "buyQuantity": 2, "getQuantity": 2, "getPercentOff": "100.00", "getProductId": null } }],
+      "expected": null
+    },
+    {
+      "name": "generated 15",
+      "on": "2026-06-06",
+      "quantity": 30,
+      "candidates": [{ "promotionId": "4540215f-0000-7000-8000-0000000f0000", "type": "VolumeTiered", "priority": 0, "validFrom": "2026-04-28", "validTo": null, "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }, { "minQuantity": 24, "percentOff": "12.00" }] }, { "promotionId": "45402160-0000-7000-8000-0000000f0001", "type": "BuyXGetY", "priority": 20, "validFrom": "2026-07-14", "validTo": "2026-11-14", "bundle": { "buyQuantity": 6, "getQuantity": 2, "getPercentOff": "100.00", "getProductId": null } }],
+      "expected": { "promotionId": "4540215f-0000-7000-8000-0000000f0000", "type": "VolumeTiered", "priority": 0, "percentOff": "12.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 16",
+      "on": "2026-03-22",
+      "quantity": 23,
+      "candidates": [{ "promotionId": "e3779b10-0000-7000-8000-000000100000", "type": "PercentOff", "priority": 10, "validFrom": "2026-08-16", "validTo": "2027-01-10", "percentOff": "40.00" }, { "promotionId": "e3779b11-0000-7000-8000-000000100001", "type": "PercentOff", "priority": 20, "validFrom": "2026-08-09", "validTo": "2026-11-28", "percentOff": "12.50" }],
+      "expected": null
+    },
+    {
+      "name": "generated 17",
+      "on": "2026-12-05",
+      "quantity": 36,
+      "candidates": [{ "promotionId": "81af14c1-0000-7000-8000-000000110000", "type": "FixedAmountOff", "priority": 10, "validFrom": "2026-08-08", "validTo": "2027-01-03", "amountOff": "2.50", "currency": "EUR" }],
+      "expected": { "promotionId": "81af14c1-0000-7000-8000-000000110000", "type": "FixedAmountOff", "priority": 10, "percentOff": null, "amountOff": "2.50", "currency": "EUR", "bundle": null }
+    },
+    {
+      "name": "generated 18",
+      "on": "2026-03-03",
+      "quantity": 37,
+      "candidates": [{ "promotionId": "1fe68e72-0000-7000-8000-000000120000", "type": "VolumeTiered", "priority": 30, "validFrom": "2026-11-19", "validTo": "2027-01-07", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }] }, { "promotionId": "1fe68e73-0000-7000-8000-000000120001", "type": "VolumeTiered", "priority": 10, "validFrom": "2026-01-14", "validTo": null, "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }, { "minQuantity": 24, "percentOff": "12.00" }] }],
+      "expected": { "promotionId": "1fe68e73-0000-7000-8000-000000120001", "type": "VolumeTiered", "priority": 10, "percentOff": "12.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 19",
+      "on": "2026-03-25",
+      "quantity": 18,
+      "candidates": [{ "promotionId": "be1e0823-0000-7000-8000-000000130000", "type": "PercentOff", "priority": 0, "validFrom": "2026-05-23", "validTo": "2026-10-07", "percentOff": "40.00" }],
+      "expected": null
+    },
+    {
+      "name": "generated 20",
+      "on": "2026-08-07",
+      "quantity": 24,
+      "candidates": [{ "promotionId": "5c5581d4-0000-7000-8000-000000140000", "type": "BuyXGetY", "priority": -10, "validFrom": "2026-06-21", "validTo": null, "bundle": { "buyQuantity": 3, "getQuantity": 1, "getPercentOff": "50.00", "getProductId": null } }],
+      "expected": { "promotionId": "5c5581d4-0000-7000-8000-000000140000", "type": "BuyXGetY", "priority": -10, "percentOff": null, "amountOff": null, "currency": null, "bundle": { "buyQuantity": 3, "getQuantity": 1, "getPercentOff": "50.00", "getProductId": null } }
+    },
+    {
+      "name": "generated 21",
+      "on": "2026-07-03",
+      "quantity": 2,
+      "candidates": [{ "promotionId": "fa8cfb85-0000-7000-8000-000000150000", "type": "FixedAmountOff", "priority": 20, "validFrom": "2026-11-26", "validTo": null, "amountOff": "2.50", "currency": "EUR" }, { "promotionId": "fa8cfb86-0000-7000-8000-000000150001", "type": "BuyXGetY", "priority": 10, "validFrom": "2026-02-23", "validTo": "2026-08-14", "bundle": { "buyQuantity": 2, "getQuantity": 3, "getPercentOff": "100.00", "getProductId": null } }],
+      "expected": { "promotionId": "fa8cfb86-0000-7000-8000-000000150001", "type": "BuyXGetY", "priority": 10, "percentOff": null, "amountOff": null, "currency": null, "bundle": { "buyQuantity": 2, "getQuantity": 3, "getPercentOff": "100.00", "getProductId": null } }
+    },
+    {
+      "name": "generated 22",
+      "on": "2026-08-10",
+      "quantity": 5,
+      "candidates": [{ "promotionId": "98c47536-0000-7000-8000-000000160000", "type": "VolumeTiered", "priority": 0, "validFrom": "2026-02-09", "validTo": "2026-06-11", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }] }],
+      "expected": null
+    },
+    {
+      "name": "generated 23",
+      "on": "2026-10-28",
+      "quantity": 16,
+      "candidates": [{ "promotionId": "36fbeee7-0000-7000-8000-000000170000", "type": "PercentOff", "priority": 20, "validFrom": "2026-09-14", "validTo": "2026-12-25", "percentOff": "40.00" }],
+      "expected": { "promotionId": "36fbeee7-0000-7000-8000-000000170000", "type": "PercentOff", "priority": 20, "percentOff": "40.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 24",
+      "on": "2026-07-08",
+      "quantity": 25,
+      "candidates": [{ "promotionId": "d5336898-0000-7000-8000-000000180000", "type": "FixedAmountOff", "priority": 20, "validFrom": "2026-03-21", "validTo": "2026-09-13", "amountOff": "19.99", "currency": "EUR" }],
+      "expected": { "promotionId": "d5336898-0000-7000-8000-000000180000", "type": "FixedAmountOff", "priority": 20, "percentOff": null, "amountOff": "19.99", "currency": "EUR", "bundle": null }
+    },
+    {
+      "name": "generated 25",
+      "on": "2026-07-06",
+      "quantity": 27,
+      "candidates": [{ "promotionId": "736ae249-0000-7000-8000-000000190000", "type": "BuyXGetY", "priority": 20, "validFrom": "2026-05-13", "validTo": "2026-09-10", "bundle": { "buyQuantity": 6, "getQuantity": 3, "getPercentOff": "100.00", "getProductId": null } }],
+      "expected": { "promotionId": "736ae249-0000-7000-8000-000000190000", "type": "BuyXGetY", "priority": 20, "percentOff": null, "amountOff": null, "currency": null, "bundle": { "buyQuantity": 6, "getQuantity": 3, "getPercentOff": "100.00", "getProductId": null } }
+    },
+    {
+      "name": "generated 26",
+      "on": "2026-05-13",
+      "quantity": 16,
+      "candidates": [{ "promotionId": "11a25bfa-0000-7000-8000-0000001a0000", "type": "FixedAmountOff", "priority": 10, "validFrom": "2026-12-27", "validTo": "2027-05-17", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "11a25bfb-0000-7000-8000-0000001a0001", "type": "PercentOff", "priority": -10, "validFrom": "2026-07-19", "validTo": null, "percentOff": "12.50" }, { "promotionId": "11a25bfc-0000-7000-8000-0000001a0002", "type": "VolumeTiered", "priority": 20, "validFrom": "2026-08-16", "validTo": null, "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }] }],
+      "expected": null
+    },
+    {
+      "name": "generated 27",
+      "on": "2026-10-21",
+      "quantity": 15,
+      "candidates": [{ "promotionId": "afd9d5ab-0000-7000-8000-0000001b0000", "type": "PercentOff", "priority": 30, "validFrom": "2026-06-28", "validTo": null, "percentOff": "40.00" }, { "promotionId": "afd9d5ac-0000-7000-8000-0000001b0001", "type": "PercentOff", "priority": 20, "validFrom": "2026-11-25", "validTo": "2027-01-06", "percentOff": "12.50" }, { "promotionId": "afd9d5ad-0000-7000-8000-0000001b0002", "type": "PercentOff", "priority": 30, "validFrom": "2026-11-09", "validTo": "2027-04-19", "percentOff": "12.50" }],
+      "expected": { "promotionId": "afd9d5ab-0000-7000-8000-0000001b0000", "type": "PercentOff", "priority": 30, "percentOff": "40.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 28",
+      "on": "2026-04-10",
+      "quantity": 9,
+      "candidates": [{ "promotionId": "4e114f5c-0000-7000-8000-0000001c0000", "type": "VolumeTiered", "priority": -10, "validFrom": "2026-09-17", "validTo": "2026-12-05", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }] }, { "promotionId": "4e114f5d-0000-7000-8000-0000001c0001", "type": "BuyXGetY", "priority": 0, "validFrom": "2026-12-03", "validTo": "2027-02-06", "bundle": { "buyQuantity": 6, "getQuantity": 3, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "4e114f5e-0000-7000-8000-0000001c0002", "type": "PercentOff", "priority": 20, "validFrom": "2026-08-07", "validTo": "2026-08-14", "percentOff": "12.50" }, { "promotionId": "4e114f5f-0000-7000-8000-0000001c0003", "type": "PercentOff", "priority": 20, "validFrom": "2026-06-21", "validTo": "2026-11-29", "percentOff": "5.00" }],
+      "expected": null
+    },
+    {
+      "name": "generated 29",
+      "on": "2026-11-01",
+      "quantity": 7,
+      "candidates": [{ "promotionId": "ec48c90d-0000-7000-8000-0000001d0000", "type": "FixedAmountOff", "priority": 0, "validFrom": "2026-02-04", "validTo": "2026-05-15", "amountOff": "0.50", "currency": "EUR" }],
+      "expected": null
+    },
+    {
+      "name": "generated 30",
+      "on": "2026-03-05",
+      "quantity": 22,
+      "candidates": [{ "promotionId": "8a8042be-0000-7000-8000-0000001e0000", "type": "PercentOff", "priority": 0, "validFrom": "2026-07-17", "validTo": null, "percentOff": "12.50" }],
+      "expected": null
+    },
+    {
+      "name": "generated 31",
+      "on": "2026-06-22",
+      "quantity": 2,
+      "candidates": [{ "promotionId": "28b7bc6f-0000-7000-8000-0000001f0000", "type": "FixedAmountOff", "priority": 0, "validFrom": "2026-06-25", "validTo": "2026-11-24", "amountOff": "19.99", "currency": "EUR" }],
+      "expected": null
+    },
+    {
+      "name": "generated 32",
+      "on": "2026-10-03",
+      "quantity": 26,
+      "candidates": [{ "promotionId": "c6ef3620-0000-7000-8000-000000200000", "type": "VolumeTiered", "priority": 20, "validFrom": "2026-06-24", "validTo": null, "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }] }, { "promotionId": "c6ef3621-0000-7000-8000-000000200001", "type": "BuyXGetY", "priority": 30, "validFrom": "2026-12-01", "validTo": null, "bundle": { "buyQuantity": 5, "getQuantity": 2, "getPercentOff": "50.00", "getProductId": null } }, { "promotionId": "c6ef3622-0000-7000-8000-000000200002", "type": "BuyXGetY", "priority": 10, "validFrom": "2026-05-27", "validTo": null, "bundle": { "buyQuantity": 2, "getQuantity": 2, "getPercentOff": "50.00", "getProductId": null } }],
+      "expected": { "promotionId": "c6ef3620-0000-7000-8000-000000200000", "type": "VolumeTiered", "priority": 20, "percentOff": "6.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 33",
+      "on": "2026-11-05",
+      "quantity": 15,
+      "candidates": [{ "promotionId": "6526afd1-0000-7000-8000-000000210000", "type": "PercentOff", "priority": 30, "validFrom": "2026-01-11", "validTo": null, "percentOff": "12.50" }],
+      "expected": { "promotionId": "6526afd1-0000-7000-8000-000000210000", "type": "PercentOff", "priority": 30, "percentOff": "12.50", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 34",
+      "on": "2026-07-27",
+      "quantity": 16,
+      "candidates": [{ "promotionId": "035e2982-0000-7000-8000-000000220000", "type": "BuyXGetY", "priority": 0, "validFrom": "2026-07-05", "validTo": null, "bundle": { "buyQuantity": 6, "getQuantity": 3, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "035e2983-0000-7000-8000-000000220001", "type": "FixedAmountOff", "priority": 20, "validFrom": "2026-02-11", "validTo": "2026-07-18", "amountOff": "0.50", "currency": "EUR" }, { "promotionId": "035e2984-0000-7000-8000-000000220002", "type": "VolumeTiered", "priority": 10, "validFrom": "2026-05-04", "validTo": "2026-05-27", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }, { "minQuantity": 24, "percentOff": "12.00" }] }],
+      "expected": { "promotionId": "035e2982-0000-7000-8000-000000220000", "type": "BuyXGetY", "priority": 0, "percentOff": null, "amountOff": null, "currency": null, "bundle": { "buyQuantity": 6, "getQuantity": 3, "getPercentOff": "100.00", "getProductId": null } }
+    },
+    {
+      "name": "generated 35",
+      "on": "2026-10-25",
+      "quantity": 2,
+      "candidates": [{ "promotionId": "a195a333-0000-7000-8000-000000230000", "type": "PercentOff", "priority": 10, "validFrom": "2026-12-25", "validTo": "2027-03-27", "percentOff": "100.00" }, { "promotionId": "a195a334-0000-7000-8000-000000230001", "type": "FixedAmountOff", "priority": 20, "validFrom": "2026-06-28", "validTo": null, "amountOff": "0.50", "currency": "EUR" }],
+      "expected": { "promotionId": "a195a334-0000-7000-8000-000000230001", "type": "FixedAmountOff", "priority": 20, "percentOff": null, "amountOff": "0.50", "currency": "EUR", "bundle": null }
+    },
+    {
+      "name": "generated 36",
+      "on": "2026-07-04",
+      "quantity": 39,
+      "candidates": [{ "promotionId": "3fcd1ce4-0000-7000-8000-000000240000", "type": "PercentOff", "priority": -10, "validFrom": "2026-10-03", "validTo": null, "percentOff": "100.00" }, { "promotionId": "3fcd1ce5-0000-7000-8000-000000240001", "type": "PercentOff", "priority": 30, "validFrom": "2026-03-15", "validTo": "2026-08-10", "percentOff": "100.00" }, { "promotionId": "3fcd1ce6-0000-7000-8000-000000240002", "type": "BuyXGetY", "priority": 30, "validFrom": "2026-11-13", "validTo": "2026-11-15", "bundle": { "buyQuantity": 1, "getQuantity": 2, "getPercentOff": "50.00", "getProductId": null } }, { "promotionId": "3fcd1ce7-0000-7000-8000-000000240003", "type": "VolumeTiered", "priority": 10, "validFrom": "2026-01-21", "validTo": "2026-01-27", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }, { "minQuantity": 24, "percentOff": "12.00" }] }],
+      "expected": { "promotionId": "3fcd1ce5-0000-7000-8000-000000240001", "type": "PercentOff", "priority": 30, "percentOff": "100.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 37",
+      "on": "2026-12-24",
+      "quantity": 13,
+      "candidates": [{ "promotionId": "de049695-0000-7000-8000-000000250000", "type": "PercentOff", "priority": -10, "validFrom": "2026-08-08", "validTo": "2027-02-02", "percentOff": "12.50" }, { "promotionId": "de049696-0000-7000-8000-000000250001", "type": "PercentOff", "priority": -10, "validFrom": "2026-10-06", "validTo": "2026-11-28", "percentOff": "5.00" }, { "promotionId": "de049697-0000-7000-8000-000000250002", "type": "FixedAmountOff", "priority": 10, "validFrom": "2026-03-14", "validTo": "2026-06-06", "amountOff": "19.99", "currency": "EUR" }],
+      "expected": { "promotionId": "de049695-0000-7000-8000-000000250000", "type": "PercentOff", "priority": -10, "percentOff": "12.50", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 38",
+      "on": "2026-02-11",
+      "quantity": 24,
+      "candidates": [{ "promotionId": "7c3c1046-0000-7000-8000-000000260000", "type": "VolumeTiered", "priority": 30, "validFrom": "2026-09-03", "validTo": null, "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }] }, { "promotionId": "7c3c1047-0000-7000-8000-000000260001", "type": "FixedAmountOff", "priority": 10, "validFrom": "2026-02-04", "validTo": "2026-03-10", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "7c3c1048-0000-7000-8000-000000260002", "type": "PercentOff", "priority": -10, "validFrom": "2026-11-26", "validTo": "2027-04-01", "percentOff": "5.00" }],
+      "expected": { "promotionId": "7c3c1047-0000-7000-8000-000000260001", "type": "FixedAmountOff", "priority": 10, "percentOff": null, "amountOff": "19.99", "currency": "EUR", "bundle": null }
+    },
+    {
+      "name": "generated 39",
+      "on": "2026-01-17",
+      "quantity": 3,
+      "candidates": [{ "promotionId": "1a7389f7-0000-7000-8000-000000270000", "type": "BuyXGetY", "priority": 20, "validFrom": "2026-10-18", "validTo": null, "bundle": { "buyQuantity": 2, "getQuantity": 2, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "1a7389f8-0000-7000-8000-000000270001", "type": "VolumeTiered", "priority": 20, "validFrom": "2026-12-14", "validTo": "2027-02-14", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }] }, { "promotionId": "1a7389f9-0000-7000-8000-000000270002", "type": "PercentOff", "priority": 10, "validFrom": "2026-12-09", "validTo": null, "percentOff": "100.00" }],
+      "expected": null
+    },
+    {
+      "name": "generated 40",
+      "on": "2026-03-23",
+      "quantity": 24,
+      "candidates": [{ "promotionId": "b8ab03a8-0000-7000-8000-000000280000", "type": "VolumeTiered", "priority": 20, "validFrom": "2026-05-18", "validTo": "2026-08-20", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }] }, { "promotionId": "b8ab03a9-0000-7000-8000-000000280001", "type": "FixedAmountOff", "priority": 20, "validFrom": "2026-06-21", "validTo": "2026-09-19", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "b8ab03aa-0000-7000-8000-000000280002", "type": "PercentOff", "priority": 0, "validFrom": "2026-09-03", "validTo": "2027-02-10", "percentOff": "5.00" }],
+      "expected": null
+    },
+    {
+      "name": "generated 41",
+      "on": "2026-06-18",
+      "quantity": 28,
+      "candidates": [{ "promotionId": "56e27d59-0000-7000-8000-000000290000", "type": "PercentOff", "priority": 30, "validFrom": "2026-04-27", "validTo": "2026-07-21", "percentOff": "5.00" }, { "promotionId": "56e27d5a-0000-7000-8000-000000290001", "type": "FixedAmountOff", "priority": 0, "validFrom": "2026-01-19", "validTo": null, "amountOff": "2.50", "currency": "EUR" }],
+      "expected": { "promotionId": "56e27d59-0000-7000-8000-000000290000", "type": "PercentOff", "priority": 30, "percentOff": "5.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 42",
+      "on": "2026-10-10",
+      "quantity": 18,
+      "candidates": [{ "promotionId": "f519f70a-0000-7000-8000-0000002a0000", "type": "PercentOff", "priority": 10, "validFrom": "2026-08-28", "validTo": "2027-01-30", "percentOff": "40.00" }],
+      "expected": { "promotionId": "f519f70a-0000-7000-8000-0000002a0000", "type": "PercentOff", "priority": 10, "percentOff": "40.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 43",
+      "on": "2026-02-19",
+      "quantity": 16,
+      "candidates": [{ "promotionId": "935170bb-0000-7000-8000-0000002b0000", "type": "BuyXGetY", "priority": 30, "validFrom": "2026-12-01", "validTo": "2027-04-24", "bundle": { "buyQuantity": 6, "getQuantity": 3, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "935170bc-0000-7000-8000-0000002b0001", "type": "VolumeTiered", "priority": -10, "validFrom": "2026-09-18", "validTo": null, "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }] }, { "promotionId": "935170bd-0000-7000-8000-0000002b0002", "type": "VolumeTiered", "priority": 10, "validFrom": "2026-05-26", "validTo": null, "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }] }, { "promotionId": "935170be-0000-7000-8000-0000002b0003", "type": "VolumeTiered", "priority": 0, "validFrom": "2026-07-03", "validTo": "2026-08-21", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }, { "minQuantity": 24, "percentOff": "12.00" }] }],
+      "expected": null
+    },
+    {
+      "name": "generated 44",
+      "on": "2026-01-15",
+      "quantity": 6,
+      "candidates": [{ "promotionId": "3188ea6c-0000-7000-8000-0000002c0000", "type": "FixedAmountOff", "priority": -10, "validFrom": "2026-02-02", "validTo": "2026-05-30", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "3188ea6d-0000-7000-8000-0000002c0001", "type": "FixedAmountOff", "priority": 20, "validFrom": "2026-01-11", "validTo": "2026-03-29", "amountOff": "2.50", "currency": "EUR" }, { "promotionId": "3188ea6e-0000-7000-8000-0000002c0002", "type": "FixedAmountOff", "priority": 10, "validFrom": "2026-02-03", "validTo": "2026-03-15", "amountOff": "0.50", "currency": "EUR" }],
+      "expected": { "promotionId": "3188ea6d-0000-7000-8000-0000002c0001", "type": "FixedAmountOff", "priority": 20, "percentOff": null, "amountOff": "2.50", "currency": "EUR", "bundle": null }
+    },
+    {
+      "name": "generated 45",
+      "on": "2026-01-04",
+      "quantity": 29,
+      "candidates": [{ "promotionId": "cfc0641d-0000-7000-8000-0000002d0000", "type": "BuyXGetY", "priority": 10, "validFrom": "2026-08-21", "validTo": null, "bundle": { "buyQuantity": 3, "getQuantity": 1, "getPercentOff": "50.00", "getProductId": null } }, { "promotionId": "cfc0641e-0000-7000-8000-0000002d0001", "type": "PercentOff", "priority": 0, "validFrom": "2026-08-19", "validTo": "2026-11-19", "percentOff": "12.50" }],
+      "expected": null
+    },
+    {
+      "name": "generated 46",
+      "on": "2026-03-05",
+      "quantity": 3,
+      "candidates": [{ "promotionId": "6df7ddce-0000-7000-8000-0000002e0000", "type": "VolumeTiered", "priority": 10, "validFrom": "2026-10-02", "validTo": "2027-03-01", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }] }],
+      "expected": null
+    },
+    {
+      "name": "generated 47",
+      "on": "2026-11-07",
+      "quantity": 23,
+      "candidates": [{ "promotionId": "0c2f577f-0000-7000-8000-0000002f0000", "type": "PercentOff", "priority": 30, "validFrom": "2026-11-08", "validTo": null, "percentOff": "12.50" }, { "promotionId": "0c2f5780-0000-7000-8000-0000002f0001", "type": "PercentOff", "priority": 20, "validFrom": "2026-09-08", "validTo": null, "percentOff": "12.50" }, { "promotionId": "0c2f5781-0000-7000-8000-0000002f0002", "type": "VolumeTiered", "priority": 10, "validFrom": "2026-02-10", "validTo": null, "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }, { "minQuantity": 24, "percentOff": "12.00" }] }],
+      "expected": { "promotionId": "0c2f5780-0000-7000-8000-0000002f0001", "type": "PercentOff", "priority": 20, "percentOff": "12.50", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 48",
+      "on": "2026-02-18",
+      "quantity": 27,
+      "candidates": [{ "promotionId": "aa66d130-0000-7000-8000-000000300000", "type": "PercentOff", "priority": 10, "validFrom": "2026-03-02", "validTo": null, "percentOff": "100.00" }, { "promotionId": "aa66d131-0000-7000-8000-000000300001", "type": "FixedAmountOff", "priority": 0, "validFrom": "2026-07-18", "validTo": null, "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "aa66d132-0000-7000-8000-000000300002", "type": "FixedAmountOff", "priority": 20, "validFrom": "2026-01-28", "validTo": "2026-03-23", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "aa66d133-0000-7000-8000-000000300003", "type": "VolumeTiered", "priority": -10, "validFrom": "2026-06-12", "validTo": "2026-07-07", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }] }],
+      "expected": { "promotionId": "aa66d132-0000-7000-8000-000000300002", "type": "FixedAmountOff", "priority": 20, "percentOff": null, "amountOff": "19.99", "currency": "EUR", "bundle": null }
+    },
+    {
+      "name": "generated 49",
+      "on": "2026-08-03",
+      "quantity": 38,
+      "candidates": [{ "promotionId": "489e4ae1-0000-7000-8000-000000310000", "type": "VolumeTiered", "priority": 0, "validFrom": "2026-09-01", "validTo": "2027-02-22", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }, { "minQuantity": 24, "percentOff": "12.00" }] }, { "promotionId": "489e4ae2-0000-7000-8000-000000310001", "type": "FixedAmountOff", "priority": 20, "validFrom": "2026-12-10", "validTo": "2027-02-09", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "489e4ae3-0000-7000-8000-000000310002", "type": "FixedAmountOff", "priority": 20, "validFrom": "2026-03-05", "validTo": "2026-03-25", "amountOff": "2.50", "currency": "EUR" }],
+      "expected": null
+    },
+    {
+      "name": "generated 50",
+      "on": "2026-12-20",
+      "quantity": 8,
+      "candidates": [{ "promotionId": "e6d5c492-0000-7000-8000-000000320000", "type": "FixedAmountOff", "priority": 10, "validFrom": "2026-10-19", "validTo": null, "amountOff": "0.50", "currency": "EUR" }],
+      "expected": { "promotionId": "e6d5c492-0000-7000-8000-000000320000", "type": "FixedAmountOff", "priority": 10, "percentOff": null, "amountOff": "0.50", "currency": "EUR", "bundle": null }
+    },
+    {
+      "name": "generated 51",
+      "on": "2026-11-25",
+      "quantity": 25,
+      "candidates": [{ "promotionId": "850d3e43-0000-7000-8000-000000330000", "type": "VolumeTiered", "priority": 30, "validFrom": "2026-02-17", "validTo": null, "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }] }, { "promotionId": "850d3e44-0000-7000-8000-000000330001", "type": "BuyXGetY", "priority": -10, "validFrom": "2026-04-22", "validTo": "2026-10-05", "bundle": { "buyQuantity": 4, "getQuantity": 3, "getPercentOff": "50.00", "getProductId": null } }],
+      "expected": { "promotionId": "850d3e43-0000-7000-8000-000000330000", "type": "VolumeTiered", "priority": 30, "percentOff": "6.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 52",
+      "on": "2026-03-28",
+      "quantity": 37,
+      "candidates": [{ "promotionId": "2344b7f4-0000-7000-8000-000000340000", "type": "FixedAmountOff", "priority": 0, "validFrom": "2026-06-27", "validTo": "2026-12-19", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "2344b7f5-0000-7000-8000-000000340001", "type": "VolumeTiered", "priority": 30, "validFrom": "2026-01-25", "validTo": "2026-03-20", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }] }, { "promotionId": "2344b7f6-0000-7000-8000-000000340002", "type": "PercentOff", "priority": -10, "validFrom": "2026-10-25", "validTo": "2027-01-23", "percentOff": "12.50" }, { "promotionId": "2344b7f7-0000-7000-8000-000000340003", "type": "VolumeTiered", "priority": 20, "validFrom": "2026-10-10", "validTo": "2026-11-25", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }, { "minQuantity": 24, "percentOff": "12.00" }] }],
+      "expected": null
+    },
+    {
+      "name": "generated 53",
+      "on": "2026-08-26",
+      "quantity": 22,
+      "candidates": [{ "promotionId": "c17c31a5-0000-7000-8000-000000350000", "type": "VolumeTiered", "priority": 20, "validFrom": "2026-05-17", "validTo": "2026-10-20", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }] }, { "promotionId": "c17c31a6-0000-7000-8000-000000350001", "type": "VolumeTiered", "priority": -10, "validFrom": "2026-01-11", "validTo": "2026-06-11", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }, { "minQuantity": 24, "percentOff": "12.00" }] }, { "promotionId": "c17c31a7-0000-7000-8000-000000350002", "type": "VolumeTiered", "priority": 10, "validFrom": "2026-05-28", "validTo": null, "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }] }],
+      "expected": { "promotionId": "c17c31a5-0000-7000-8000-000000350000", "type": "VolumeTiered", "priority": 20, "percentOff": "3.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 54",
+      "on": "2026-03-03",
+      "quantity": 3,
+      "candidates": [{ "promotionId": "5fb3ab56-0000-7000-8000-000000360000", "type": "FixedAmountOff", "priority": 0, "validFrom": "2026-01-01", "validTo": "2026-01-21", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "5fb3ab57-0000-7000-8000-000000360001", "type": "VolumeTiered", "priority": 10, "validFrom": "2026-04-08", "validTo": "2026-07-31", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }] }, { "promotionId": "5fb3ab58-0000-7000-8000-000000360002", "type": "VolumeTiered", "priority": 20, "validFrom": "2026-10-13", "validTo": null, "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }] }, { "promotionId": "5fb3ab59-0000-7000-8000-000000360003", "type": "PercentOff", "priority": -10, "validFrom": "2026-03-10", "validTo": "2026-06-19", "percentOff": "100.00" }],
+      "expected": null
+    },
+    {
+      "name": "generated 55",
+      "on": "2026-01-04",
+      "quantity": 2,
+      "candidates": [{ "promotionId": "fdeb2507-0000-7000-8000-000000370000", "type": "VolumeTiered", "priority": -10, "validFrom": "2026-06-20", "validTo": "2026-09-22", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }] }],
+      "expected": null
+    },
+    {
+      "name": "generated 56",
+      "on": "2026-08-22",
+      "quantity": 33,
+      "candidates": [{ "promotionId": "9c229eb8-0000-7000-8000-000000380000", "type": "BuyXGetY", "priority": 0, "validFrom": "2026-03-02", "validTo": null, "bundle": { "buyQuantity": 6, "getQuantity": 1, "getPercentOff": "50.00", "getProductId": null } }, { "promotionId": "9c229eb9-0000-7000-8000-000000380001", "type": "FixedAmountOff", "priority": 20, "validFrom": "2026-08-15", "validTo": "2027-01-01", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "9c229eba-0000-7000-8000-000000380002", "type": "PercentOff", "priority": 20, "validFrom": "2026-12-20", "validTo": null, "percentOff": "5.00" }],
+      "expected": { "promotionId": "9c229eb9-0000-7000-8000-000000380001", "type": "FixedAmountOff", "priority": 20, "percentOff": null, "amountOff": "19.99", "currency": "EUR", "bundle": null }
+    },
+    {
+      "name": "generated 57",
+      "on": "2026-09-08",
+      "quantity": 22,
+      "candidates": [{ "promotionId": "3a5a1869-0000-7000-8000-000000390000", "type": "BuyXGetY", "priority": 0, "validFrom": "2026-12-03", "validTo": null, "bundle": { "buyQuantity": 1, "getQuantity": 1, "getPercentOff": "50.00", "getProductId": null } }],
+      "expected": null
+    },
+    {
+      "name": "generated 58",
+      "on": "2026-11-13",
+      "quantity": 18,
+      "candidates": [{ "promotionId": "d891921a-0000-7000-8000-0000003a0000", "type": "VolumeTiered", "priority": 20, "validFrom": "2026-05-07", "validTo": "2026-06-03", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }] }, { "promotionId": "d891921b-0000-7000-8000-0000003a0001", "type": "VolumeTiered", "priority": -10, "validFrom": "2026-07-21", "validTo": "2026-08-27", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }] }, { "promotionId": "d891921c-0000-7000-8000-0000003a0002", "type": "BuyXGetY", "priority": -10, "validFrom": "2026-05-18", "validTo": "2026-06-07", "bundle": { "buyQuantity": 1, "getQuantity": 1, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "d891921d-0000-7000-8000-0000003a0003", "type": "VolumeTiered", "priority": 30, "validFrom": "2026-02-08", "validTo": "2026-04-15", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }, { "minQuantity": 24, "percentOff": "12.00" }] }],
+      "expected": null
+    },
+    {
+      "name": "generated 59",
+      "on": "2026-08-28",
+      "quantity": 37,
+      "candidates": [{ "promotionId": "76c90bcb-0000-7000-8000-0000003b0000", "type": "PercentOff", "priority": 10, "validFrom": "2026-08-07", "validTo": "2026-10-07", "percentOff": "12.50" }, { "promotionId": "76c90bcc-0000-7000-8000-0000003b0001", "type": "BuyXGetY", "priority": 30, "validFrom": "2026-10-14", "validTo": null, "bundle": { "buyQuantity": 3, "getQuantity": 3, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "76c90bcd-0000-7000-8000-0000003b0002", "type": "PercentOff", "priority": 20, "validFrom": "2026-07-17", "validTo": null, "percentOff": "40.00" }, { "promotionId": "76c90bce-0000-7000-8000-0000003b0003", "type": "FixedAmountOff", "priority": -10, "validFrom": "2026-04-18", "validTo": "2026-08-01", "amountOff": "19.99", "currency": "EUR" }],
+      "expected": { "promotionId": "76c90bcd-0000-7000-8000-0000003b0002", "type": "PercentOff", "priority": 20, "percentOff": "40.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 60",
+      "on": "2026-08-08",
+      "quantity": 38,
+      "candidates": [{ "promotionId": "1500857c-0000-7000-8000-0000003c0000", "type": "VolumeTiered", "priority": 10, "validFrom": "2026-04-05", "validTo": null, "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }] }],
+      "expected": { "promotionId": "1500857c-0000-7000-8000-0000003c0000", "type": "VolumeTiered", "priority": 10, "percentOff": "3.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 61",
+      "on": "2026-09-19",
+      "quantity": 32,
+      "candidates": [{ "promotionId": "b337ff2d-0000-7000-8000-0000003d0000", "type": "PercentOff", "priority": 10, "validFrom": "2026-01-27", "validTo": "2026-03-19", "percentOff": "12.50" }],
+      "expected": null
+    },
+    {
+      "name": "generated 62",
+      "on": "2026-01-14",
+      "quantity": 19,
+      "candidates": [{ "promotionId": "516f78de-0000-7000-8000-0000003e0000", "type": "VolumeTiered", "priority": 10, "validFrom": "2026-09-18", "validTo": "2027-01-06", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }, { "minQuantity": 24, "percentOff": "12.00" }] }, { "promotionId": "516f78df-0000-7000-8000-0000003e0001", "type": "PercentOff", "priority": 20, "validFrom": "2026-04-21", "validTo": null, "percentOff": "5.00" }],
+      "expected": null
+    },
+    {
+      "name": "generated 63",
+      "on": "2026-08-20",
+      "quantity": 21,
+      "candidates": [{ "promotionId": "efa6f28f-0000-7000-8000-0000003f0000", "type": "BuyXGetY", "priority": 10, "validFrom": "2026-04-14", "validTo": "2026-08-08", "bundle": { "buyQuantity": 3, "getQuantity": 2, "getPercentOff": "50.00", "getProductId": null } }],
+      "expected": null
+    },
+    {
+      "name": "generated 64",
+      "on": "2026-05-17",
+      "quantity": 2,
+      "candidates": [{ "promotionId": "8dde6c40-0000-7000-8000-000000400000", "type": "FixedAmountOff", "priority": 10, "validFrom": "2026-10-27", "validTo": "2026-11-25", "amountOff": "0.50", "currency": "EUR" }, { "promotionId": "8dde6c41-0000-7000-8000-000000400001", "type": "FixedAmountOff", "priority": 20, "validFrom": "2026-06-24", "validTo": null, "amountOff": "0.50", "currency": "EUR" }, { "promotionId": "8dde6c42-0000-7000-8000-000000400002", "type": "PercentOff", "priority": 10, "validFrom": "2026-05-05", "validTo": "2026-06-16", "percentOff": "40.00" }, { "promotionId": "8dde6c43-0000-7000-8000-000000400003", "type": "BuyXGetY", "priority": 30, "validFrom": "2026-05-27", "validTo": "2026-09-07", "bundle": { "buyQuantity": 5, "getQuantity": 3, "getPercentOff": "50.00", "getProductId": null } }],
+      "expected": { "promotionId": "8dde6c42-0000-7000-8000-000000400002", "type": "PercentOff", "priority": 10, "percentOff": "40.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 65",
+      "on": "2026-08-13",
+      "quantity": 1,
+      "candidates": [{ "promotionId": "2c15e5f1-0000-7000-8000-000000410000", "type": "VolumeTiered", "priority": 10, "validFrom": "2026-06-17", "validTo": "2026-10-14", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }] }],
+      "expected": null
+    },
+    {
+      "name": "generated 66",
+      "on": "2026-04-15",
+      "quantity": 31,
+      "candidates": [{ "promotionId": "ca4d5fa2-0000-7000-8000-000000420000", "type": "PercentOff", "priority": 10, "validFrom": "2026-12-12", "validTo": "2027-01-29", "percentOff": "5.00" }, { "promotionId": "ca4d5fa3-0000-7000-8000-000000420001", "type": "BuyXGetY", "priority": 0, "validFrom": "2026-10-23", "validTo": null, "bundle": { "buyQuantity": 1, "getQuantity": 3, "getPercentOff": "100.00", "getProductId": null } }],
+      "expected": null
+    },
+    {
+      "name": "generated 67",
+      "on": "2026-11-19",
+      "quantity": 12,
+      "candidates": [{ "promotionId": "6884d953-0000-7000-8000-000000430000", "type": "VolumeTiered", "priority": 10, "validFrom": "2026-09-28", "validTo": null, "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }] }, { "promotionId": "6884d954-0000-7000-8000-000000430001", "type": "VolumeTiered", "priority": 0, "validFrom": "2026-01-28", "validTo": null, "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }, { "minQuantity": 24, "percentOff": "12.00" }] }, { "promotionId": "6884d955-0000-7000-8000-000000430002", "type": "PercentOff", "priority": 30, "validFrom": "2026-07-28", "validTo": null, "percentOff": "12.50" }, { "promotionId": "6884d956-0000-7000-8000-000000430003", "type": "FixedAmountOff", "priority": 0, "validFrom": "2026-03-16", "validTo": "2026-04-18", "amountOff": "19.99", "currency": "EUR" }],
+      "expected": { "promotionId": "6884d955-0000-7000-8000-000000430002", "type": "PercentOff", "priority": 30, "percentOff": "12.50", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 68",
+      "on": "2026-11-18",
+      "quantity": 11,
+      "candidates": [{ "promotionId": "06bc5304-0000-7000-8000-000000440000", "type": "BuyXGetY", "priority": 20, "validFrom": "2026-03-27", "validTo": "2026-06-16", "bundle": { "buyQuantity": 2, "getQuantity": 3, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "06bc5305-0000-7000-8000-000000440001", "type": "FixedAmountOff", "priority": -10, "validFrom": "2026-03-04", "validTo": "2026-08-04", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "06bc5306-0000-7000-8000-000000440002", "type": "PercentOff", "priority": 30, "validFrom": "2026-11-20", "validTo": "2027-01-05", "percentOff": "100.00" }],
+      "expected": null
+    },
+    {
+      "name": "generated 69",
+      "on": "2026-01-16",
+      "quantity": 35,
+      "candidates": [{ "promotionId": "a4f3ccb5-0000-7000-8000-000000450000", "type": "FixedAmountOff", "priority": -10, "validFrom": "2026-01-08", "validTo": "2026-05-02", "amountOff": "0.50", "currency": "EUR" }, { "promotionId": "a4f3ccb6-0000-7000-8000-000000450001", "type": "FixedAmountOff", "priority": 20, "validFrom": "2026-10-26", "validTo": "2027-01-16", "amountOff": "19.99", "currency": "EUR" }],
+      "expected": { "promotionId": "a4f3ccb5-0000-7000-8000-000000450000", "type": "FixedAmountOff", "priority": -10, "percentOff": null, "amountOff": "0.50", "currency": "EUR", "bundle": null }
+    },
+    {
+      "name": "generated 70",
+      "on": "2026-05-07",
+      "quantity": 14,
+      "candidates": [{ "promotionId": "432b4666-0000-7000-8000-000000460000", "type": "PercentOff", "priority": -10, "validFrom": "2026-10-01", "validTo": "2026-11-10", "percentOff": "40.00" }, { "promotionId": "432b4667-0000-7000-8000-000000460001", "type": "BuyXGetY", "priority": 10, "validFrom": "2026-03-27", "validTo": null, "bundle": { "buyQuantity": 1, "getQuantity": 3, "getPercentOff": "50.00", "getProductId": null } }, { "promotionId": "432b4668-0000-7000-8000-000000460002", "type": "FixedAmountOff", "priority": 20, "validFrom": "2026-05-13", "validTo": "2026-05-20", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "432b4669-0000-7000-8000-000000460003", "type": "BuyXGetY", "priority": 10, "validFrom": "2026-12-19", "validTo": "2027-01-16", "bundle": { "buyQuantity": 1, "getQuantity": 3, "getPercentOff": "50.00", "getProductId": null } }],
+      "expected": { "promotionId": "432b4667-0000-7000-8000-000000460001", "type": "BuyXGetY", "priority": 10, "percentOff": null, "amountOff": null, "currency": null, "bundle": { "buyQuantity": 1, "getQuantity": 3, "getPercentOff": "50.00", "getProductId": null } }
+    },
+    {
+      "name": "generated 71",
+      "on": "2026-04-26",
+      "quantity": 4,
+      "candidates": [{ "promotionId": "e162c017-0000-7000-8000-000000470000", "type": "PercentOff", "priority": 30, "validFrom": "2026-07-19", "validTo": null, "percentOff": "5.00" }, { "promotionId": "e162c018-0000-7000-8000-000000470001", "type": "FixedAmountOff", "priority": -10, "validFrom": "2026-05-16", "validTo": "2026-10-19", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "e162c019-0000-7000-8000-000000470002", "type": "VolumeTiered", "priority": 20, "validFrom": "2026-01-26", "validTo": "2026-04-13", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }] }],
+      "expected": null
+    },
+    {
+      "name": "generated 72",
+      "on": "2026-02-21",
+      "quantity": 14,
+      "candidates": [{ "promotionId": "7f9a39c8-0000-7000-8000-000000480000", "type": "FixedAmountOff", "priority": 20, "validFrom": "2026-07-05", "validTo": "2026-11-03", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "7f9a39c9-0000-7000-8000-000000480001", "type": "VolumeTiered", "priority": -10, "validFrom": "2026-02-09", "validTo": "2026-07-01", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }, { "minQuantity": 24, "percentOff": "12.00" }] }, { "promotionId": "7f9a39ca-0000-7000-8000-000000480002", "type": "BuyXGetY", "priority": 20, "validFrom": "2026-04-23", "validTo": null, "bundle": { "buyQuantity": 1, "getQuantity": 3, "getPercentOff": "100.00", "getProductId": null } }],
+      "expected": { "promotionId": "7f9a39c9-0000-7000-8000-000000480001", "type": "VolumeTiered", "priority": -10, "percentOff": "6.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 73",
+      "on": "2026-04-02",
+      "quantity": 9,
+      "candidates": [{ "promotionId": "1dd1b379-0000-7000-8000-000000490000", "type": "FixedAmountOff", "priority": 0, "validFrom": "2026-11-03", "validTo": "2027-01-19", "amountOff": "19.99", "currency": "EUR" }],
+      "expected": null
+    },
+    {
+      "name": "generated 74",
+      "on": "2026-11-01",
+      "quantity": 7,
+      "candidates": [{ "promotionId": "bc092d2a-0000-7000-8000-0000004a0000", "type": "PercentOff", "priority": 30, "validFrom": "2026-06-25", "validTo": "2026-11-26", "percentOff": "100.00" }],
+      "expected": { "promotionId": "bc092d2a-0000-7000-8000-0000004a0000", "type": "PercentOff", "priority": 30, "percentOff": "100.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 75",
+      "on": "2026-10-20",
+      "quantity": 6,
+      "candidates": [{ "promotionId": "5a40a6db-0000-7000-8000-0000004b0000", "type": "PercentOff", "priority": 30, "validFrom": "2026-04-05", "validTo": null, "percentOff": "40.00" }, { "promotionId": "5a40a6dc-0000-7000-8000-0000004b0001", "type": "FixedAmountOff", "priority": 30, "validFrom": "2026-02-18", "validTo": "2026-04-29", "amountOff": "0.50", "currency": "EUR" }, { "promotionId": "5a40a6dd-0000-7000-8000-0000004b0002", "type": "BuyXGetY", "priority": -10, "validFrom": "2026-11-24", "validTo": "2027-02-25", "bundle": { "buyQuantity": 2, "getQuantity": 1, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "5a40a6de-0000-7000-8000-0000004b0003", "type": "FixedAmountOff", "priority": 0, "validFrom": "2026-09-24", "validTo": "2026-12-05", "amountOff": "2.50", "currency": "EUR" }],
+      "expected": { "promotionId": "5a40a6db-0000-7000-8000-0000004b0000", "type": "PercentOff", "priority": 30, "percentOff": "40.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 76",
+      "on": "2026-06-03",
+      "quantity": 26,
+      "candidates": [{ "promotionId": "f878208c-0000-7000-8000-0000004c0000", "type": "FixedAmountOff", "priority": 20, "validFrom": "2026-01-07", "validTo": "2026-06-21", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "f878208d-0000-7000-8000-0000004c0001", "type": "FixedAmountOff", "priority": 10, "validFrom": "2026-02-18", "validTo": null, "amountOff": "0.50", "currency": "EUR" }, { "promotionId": "f878208e-0000-7000-8000-0000004c0002", "type": "FixedAmountOff", "priority": 20, "validFrom": "2026-04-01", "validTo": "2026-04-10", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "f878208f-0000-7000-8000-0000004c0003", "type": "FixedAmountOff", "priority": 20, "validFrom": "2026-07-22", "validTo": "2026-08-01", "amountOff": "2.50", "currency": "EUR" }],
+      "expected": { "promotionId": "f878208c-0000-7000-8000-0000004c0000", "type": "FixedAmountOff", "priority": 20, "percentOff": null, "amountOff": "19.99", "currency": "EUR", "bundle": null }
+    },
+    {
+      "name": "generated 77",
+      "on": "2026-09-10",
+      "quantity": 29,
+      "candidates": [{ "promotionId": "96af9a3d-0000-7000-8000-0000004d0000", "type": "FixedAmountOff", "priority": 30, "validFrom": "2026-04-11", "validTo": "2026-07-25", "amountOff": "2.50", "currency": "EUR" }, { "promotionId": "96af9a3e-0000-7000-8000-0000004d0001", "type": "FixedAmountOff", "priority": 10, "validFrom": "2026-01-14", "validTo": "2026-05-10", "amountOff": "2.50", "currency": "EUR" }],
+      "expected": null
+    },
+    {
+      "name": "generated 78",
+      "on": "2026-10-12",
+      "quantity": 8,
+      "candidates": [{ "promotionId": "34e713ee-0000-7000-8000-0000004e0000", "type": "PercentOff", "priority": -10, "validFrom": "2026-05-12", "validTo": "2026-08-21", "percentOff": "100.00" }],
+      "expected": null
+    },
+    {
+      "name": "generated 79",
+      "on": "2026-07-04",
+      "quantity": 5,
+      "candidates": [{ "promotionId": "d31e8d9f-0000-7000-8000-0000004f0000", "type": "BuyXGetY", "priority": 0, "validFrom": "2026-12-08", "validTo": "2027-04-05", "bundle": { "buyQuantity": 6, "getQuantity": 1, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "d31e8da0-0000-7000-8000-0000004f0001", "type": "BuyXGetY", "priority": 0, "validFrom": "2026-06-13", "validTo": null, "bundle": { "buyQuantity": 5, "getQuantity": 1, "getPercentOff": "50.00", "getProductId": null } }, { "promotionId": "d31e8da1-0000-7000-8000-0000004f0002", "type": "VolumeTiered", "priority": 20, "validFrom": "2026-05-15", "validTo": "2026-05-29", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }] }, { "promotionId": "d31e8da2-0000-7000-8000-0000004f0003", "type": "PercentOff", "priority": 0, "validFrom": "2026-01-18", "validTo": "2026-02-22", "percentOff": "5.00" }],
+      "expected": { "promotionId": "d31e8da0-0000-7000-8000-0000004f0001", "type": "BuyXGetY", "priority": 0, "percentOff": null, "amountOff": null, "currency": null, "bundle": { "buyQuantity": 5, "getQuantity": 1, "getPercentOff": "50.00", "getProductId": null } }
+    },
+    {
+      "name": "generated 80",
+      "on": "2026-06-18",
+      "quantity": 35,
+      "candidates": [{ "promotionId": "71560750-0000-7000-8000-000000500000", "type": "FixedAmountOff", "priority": -10, "validFrom": "2026-08-09", "validTo": null, "amountOff": "0.50", "currency": "EUR" }, { "promotionId": "71560751-0000-7000-8000-000000500001", "type": "BuyXGetY", "priority": 0, "validFrom": "2026-07-25", "validTo": null, "bundle": { "buyQuantity": 1, "getQuantity": 1, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "71560752-0000-7000-8000-000000500002", "type": "BuyXGetY", "priority": 0, "validFrom": "2026-01-01", "validTo": "2026-05-08", "bundle": { "buyQuantity": 1, "getQuantity": 2, "getPercentOff": "50.00", "getProductId": null } }, { "promotionId": "71560753-0000-7000-8000-000000500003", "type": "BuyXGetY", "priority": 10, "validFrom": "2026-08-02", "validTo": "2026-12-05", "bundle": { "buyQuantity": 5, "getQuantity": 2, "getPercentOff": "100.00", "getProductId": null } }],
+      "expected": null
+    },
+    {
+      "name": "generated 81",
+      "on": "2026-07-28",
+      "quantity": 9,
+      "candidates": [{ "promotionId": "0f8d8101-0000-7000-8000-000000510000", "type": "BuyXGetY", "priority": -10, "validFrom": "2026-08-04", "validTo": "2026-10-18", "bundle": { "buyQuantity": 5, "getQuantity": 1, "getPercentOff": "50.00", "getProductId": null } }, { "promotionId": "0f8d8102-0000-7000-8000-000000510001", "type": "PercentOff", "priority": 20, "validFrom": "2026-02-25", "validTo": "2026-05-11", "percentOff": "5.00" }, { "promotionId": "0f8d8103-0000-7000-8000-000000510002", "type": "BuyXGetY", "priority": -10, "validFrom": "2026-04-04", "validTo": null, "bundle": { "buyQuantity": 3, "getQuantity": 2, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "0f8d8104-0000-7000-8000-000000510003", "type": "PercentOff", "priority": 30, "validFrom": "2026-09-15", "validTo": "2027-02-03", "percentOff": "100.00" }],
+      "expected": { "promotionId": "0f8d8103-0000-7000-8000-000000510002", "type": "BuyXGetY", "priority": -10, "percentOff": null, "amountOff": null, "currency": null, "bundle": { "buyQuantity": 3, "getQuantity": 2, "getPercentOff": "100.00", "getProductId": null } }
+    },
+    {
+      "name": "generated 82",
+      "on": "2026-12-07",
+      "quantity": 17,
+      "candidates": [{ "promotionId": "adc4fab2-0000-7000-8000-000000520000", "type": "BuyXGetY", "priority": -10, "validFrom": "2026-09-17", "validTo": null, "bundle": { "buyQuantity": 3, "getQuantity": 2, "getPercentOff": "50.00", "getProductId": null } }, { "promotionId": "adc4fab3-0000-7000-8000-000000520001", "type": "BuyXGetY", "priority": -10, "validFrom": "2026-09-02", "validTo": "2026-10-22", "bundle": { "buyQuantity": 6, "getQuantity": 1, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "adc4fab4-0000-7000-8000-000000520002", "type": "VolumeTiered", "priority": 30, "validFrom": "2026-03-23", "validTo": "2026-04-01", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }] }, { "promotionId": "adc4fab5-0000-7000-8000-000000520003", "type": "VolumeTiered", "priority": -10, "validFrom": "2026-01-24", "validTo": null, "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }] }],
+      "expected": { "promotionId": "adc4fab5-0000-7000-8000-000000520003", "type": "VolumeTiered", "priority": -10, "percentOff": "1.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 83",
+      "on": "2026-06-12",
+      "quantity": 7,
+      "candidates": [{ "promotionId": "4bfc7463-0000-7000-8000-000000530000", "type": "VolumeTiered", "priority": 10, "validFrom": "2026-03-08", "validTo": "2026-08-05", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }] }, { "promotionId": "4bfc7464-0000-7000-8000-000000530001", "type": "VolumeTiered", "priority": 30, "validFrom": "2026-05-20", "validTo": "2026-09-01", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }] }, { "promotionId": "4bfc7465-0000-7000-8000-000000530002", "type": "PercentOff", "priority": -10, "validFrom": "2026-08-27", "validTo": null, "percentOff": "40.00" }, { "promotionId": "4bfc7466-0000-7000-8000-000000530003", "type": "PercentOff", "priority": 20, "validFrom": "2026-01-03", "validTo": null, "percentOff": "40.00" }],
+      "expected": { "promotionId": "4bfc7464-0000-7000-8000-000000530001", "type": "VolumeTiered", "priority": 30, "percentOff": "3.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 84",
+      "on": "2026-06-25",
+      "quantity": 17,
+      "candidates": [{ "promotionId": "ea33ee14-0000-7000-8000-000000540000", "type": "FixedAmountOff", "priority": 10, "validFrom": "2026-07-03", "validTo": "2026-08-14", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "ea33ee15-0000-7000-8000-000000540001", "type": "FixedAmountOff", "priority": 0, "validFrom": "2026-02-24", "validTo": "2026-05-28", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "ea33ee16-0000-7000-8000-000000540002", "type": "BuyXGetY", "priority": 10, "validFrom": "2026-01-14", "validTo": "2026-02-13", "bundle": { "buyQuantity": 1, "getQuantity": 3, "getPercentOff": "50.00", "getProductId": null } }],
+      "expected": null
+    },
+    {
+      "name": "generated 85",
+      "on": "2026-12-26",
+      "quantity": 33,
+      "candidates": [{ "promotionId": "886b67c5-0000-7000-8000-000000550000", "type": "PercentOff", "priority": 10, "validFrom": "2026-05-11", "validTo": null, "percentOff": "100.00" }, { "promotionId": "886b67c6-0000-7000-8000-000000550001", "type": "BuyXGetY", "priority": 10, "validFrom": "2026-07-05", "validTo": "2026-12-17", "bundle": { "buyQuantity": 3, "getQuantity": 2, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "886b67c7-0000-7000-8000-000000550002", "type": "BuyXGetY", "priority": 10, "validFrom": "2026-04-18", "validTo": "2026-08-21", "bundle": { "buyQuantity": 4, "getQuantity": 3, "getPercentOff": "100.00", "getProductId": null } }],
+      "expected": { "promotionId": "886b67c5-0000-7000-8000-000000550000", "type": "PercentOff", "priority": 10, "percentOff": "100.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 86",
+      "on": "2026-02-22",
+      "quantity": 32,
+      "candidates": [{ "promotionId": "26a2e176-0000-7000-8000-000000560000", "type": "BuyXGetY", "priority": 10, "validFrom": "2026-03-18", "validTo": "2026-07-18", "bundle": { "buyQuantity": 3, "getQuantity": 3, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "26a2e177-0000-7000-8000-000000560001", "type": "FixedAmountOff", "priority": -10, "validFrom": "2026-03-25", "validTo": "2026-07-01", "amountOff": "0.50", "currency": "EUR" }, { "promotionId": "26a2e178-0000-7000-8000-000000560002", "type": "VolumeTiered", "priority": 30, "validFrom": "2026-10-23", "validTo": "2026-11-11", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }] }, { "promotionId": "26a2e179-0000-7000-8000-000000560003", "type": "PercentOff", "priority": 30, "validFrom": "2026-02-12", "validTo": "2026-02-13", "percentOff": "40.00" }],
+      "expected": null
+    },
+    {
+      "name": "generated 87",
+      "on": "2026-10-05",
+      "quantity": 10,
+      "candidates": [{ "promotionId": "c4da5b27-0000-7000-8000-000000570000", "type": "PercentOff", "priority": 20, "validFrom": "2026-06-12", "validTo": "2026-08-17", "percentOff": "100.00" }, { "promotionId": "c4da5b28-0000-7000-8000-000000570001", "type": "FixedAmountOff", "priority": 30, "validFrom": "2026-08-12", "validTo": "2026-12-15", "amountOff": "19.99", "currency": "EUR" }],
+      "expected": { "promotionId": "c4da5b28-0000-7000-8000-000000570001", "type": "FixedAmountOff", "priority": 30, "percentOff": null, "amountOff": "19.99", "currency": "EUR", "bundle": null }
+    },
+    {
+      "name": "generated 88",
+      "on": "2026-07-16",
+      "quantity": 16,
+      "candidates": [{ "promotionId": "6311d4d8-0000-7000-8000-000000580000", "type": "FixedAmountOff", "priority": -10, "validFrom": "2026-04-12", "validTo": null, "amountOff": "2.50", "currency": "EUR" }],
+      "expected": { "promotionId": "6311d4d8-0000-7000-8000-000000580000", "type": "FixedAmountOff", "priority": -10, "percentOff": null, "amountOff": "2.50", "currency": "EUR", "bundle": null }
+    },
+    {
+      "name": "generated 89",
+      "on": "2026-12-17",
+      "quantity": 24,
+      "candidates": [{ "promotionId": "01494e89-0000-7000-8000-000000590000", "type": "VolumeTiered", "priority": -10, "validFrom": "2026-04-10", "validTo": null, "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }, { "minQuantity": 24, "percentOff": "12.00" }] }],
+      "expected": { "promotionId": "01494e89-0000-7000-8000-000000590000", "type": "VolumeTiered", "priority": -10, "percentOff": "12.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 90",
+      "on": "2026-08-06",
+      "quantity": 14,
+      "candidates": [{ "promotionId": "9f80c83a-0000-7000-8000-0000005a0000", "type": "BuyXGetY", "priority": 0, "validFrom": "2026-03-20", "validTo": "2026-04-20", "bundle": { "buyQuantity": 4, "getQuantity": 3, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "9f80c83b-0000-7000-8000-0000005a0001", "type": "VolumeTiered", "priority": 0, "validFrom": "2026-01-05", "validTo": "2026-02-10", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }] }, { "promotionId": "9f80c83c-0000-7000-8000-0000005a0002", "type": "BuyXGetY", "priority": 30, "validFrom": "2026-11-10", "validTo": "2026-11-15", "bundle": { "buyQuantity": 5, "getQuantity": 1, "getPercentOff": "50.00", "getProductId": null } }],
+      "expected": null
+    },
+    {
+      "name": "generated 91",
+      "on": "2026-02-02",
+      "quantity": 22,
+      "candidates": [{ "promotionId": "3db841eb-0000-7000-8000-0000005b0000", "type": "FixedAmountOff", "priority": 30, "validFrom": "2026-03-11", "validTo": "2026-07-17", "amountOff": "2.50", "currency": "EUR" }],
+      "expected": null
+    },
+    {
+      "name": "generated 92",
+      "on": "2026-04-05",
+      "quantity": 4,
+      "candidates": [{ "promotionId": "dbefbb9c-0000-7000-8000-0000005c0000", "type": "FixedAmountOff", "priority": 30, "validFrom": "2026-12-26", "validTo": "2027-05-01", "amountOff": "0.50", "currency": "EUR" }, { "promotionId": "dbefbb9d-0000-7000-8000-0000005c0001", "type": "PercentOff", "priority": 10, "validFrom": "2026-01-02", "validTo": "2026-06-20", "percentOff": "12.50" }, { "promotionId": "dbefbb9e-0000-7000-8000-0000005c0002", "type": "FixedAmountOff", "priority": 10, "validFrom": "2026-04-09", "validTo": "2026-04-27", "amountOff": "2.50", "currency": "EUR" }],
+      "expected": { "promotionId": "dbefbb9d-0000-7000-8000-0000005c0001", "type": "PercentOff", "priority": 10, "percentOff": "12.50", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 93",
+      "on": "2026-10-05",
+      "quantity": 9,
+      "candidates": [{ "promotionId": "7a27354d-0000-7000-8000-0000005d0000", "type": "PercentOff", "priority": 0, "validFrom": "2026-04-06", "validTo": "2026-07-27", "percentOff": "5.00" }, { "promotionId": "7a27354e-0000-7000-8000-0000005d0001", "type": "BuyXGetY", "priority": 0, "validFrom": "2026-07-21", "validTo": null, "bundle": { "buyQuantity": 5, "getQuantity": 1, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "7a27354f-0000-7000-8000-0000005d0002", "type": "PercentOff", "priority": 10, "validFrom": "2026-08-09", "validTo": "2026-11-10", "percentOff": "12.50" }, { "promotionId": "7a273550-0000-7000-8000-0000005d0003", "type": "PercentOff", "priority": 30, "validFrom": "2026-10-01", "validTo": "2026-10-18", "percentOff": "12.50" }],
+      "expected": { "promotionId": "7a273550-0000-7000-8000-0000005d0003", "type": "PercentOff", "priority": 30, "percentOff": "12.50", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 94",
+      "on": "2026-04-03",
+      "quantity": 9,
+      "candidates": [{ "promotionId": "185eaefe-0000-7000-8000-0000005e0000", "type": "BuyXGetY", "priority": -10, "validFrom": "2026-07-09", "validTo": null, "bundle": { "buyQuantity": 4, "getQuantity": 3, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "185eaeff-0000-7000-8000-0000005e0001", "type": "PercentOff", "priority": 20, "validFrom": "2026-05-10", "validTo": "2026-06-21", "percentOff": "100.00" }, { "promotionId": "185eaf00-0000-7000-8000-0000005e0002", "type": "FixedAmountOff", "priority": 0, "validFrom": "2026-12-21", "validTo": "2026-12-27", "amountOff": "0.50", "currency": "EUR" }, { "promotionId": "185eaf01-0000-7000-8000-0000005e0003", "type": "BuyXGetY", "priority": -10, "validFrom": "2026-03-07", "validTo": "2026-05-12", "bundle": { "buyQuantity": 2, "getQuantity": 3, "getPercentOff": "50.00", "getProductId": null } }],
+      "expected": { "promotionId": "185eaf01-0000-7000-8000-0000005e0003", "type": "BuyXGetY", "priority": -10, "percentOff": null, "amountOff": null, "currency": null, "bundle": { "buyQuantity": 2, "getQuantity": 3, "getPercentOff": "50.00", "getProductId": null } }
+    },
+    {
+      "name": "generated 95",
+      "on": "2026-11-28",
+      "quantity": 27,
+      "candidates": [{ "promotionId": "b69628af-0000-7000-8000-0000005f0000", "type": "VolumeTiered", "priority": 0, "validFrom": "2026-05-02", "validTo": "2026-06-20", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }, { "minQuantity": 24, "percentOff": "12.00" }] }, { "promotionId": "b69628b0-0000-7000-8000-0000005f0001", "type": "FixedAmountOff", "priority": 30, "validFrom": "2026-06-09", "validTo": "2026-07-18", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "b69628b1-0000-7000-8000-0000005f0002", "type": "BuyXGetY", "priority": 20, "validFrom": "2026-01-19", "validTo": null, "bundle": { "buyQuantity": 2, "getQuantity": 1, "getPercentOff": "50.00", "getProductId": null } }, { "promotionId": "b69628b2-0000-7000-8000-0000005f0003", "type": "PercentOff", "priority": 10, "validFrom": "2026-01-18", "validTo": "2026-01-28", "percentOff": "100.00" }],
+      "expected": { "promotionId": "b69628b1-0000-7000-8000-0000005f0002", "type": "BuyXGetY", "priority": 20, "percentOff": null, "amountOff": null, "currency": null, "bundle": { "buyQuantity": 2, "getQuantity": 1, "getPercentOff": "50.00", "getProductId": null } }
+    },
+    {
+      "name": "generated 96",
+      "on": "2026-11-19",
+      "quantity": 8,
+      "candidates": [{ "promotionId": "54cda260-0000-7000-8000-000000600000", "type": "VolumeTiered", "priority": -10, "validFrom": "2026-07-16", "validTo": "2027-01-04", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }] }, { "promotionId": "54cda261-0000-7000-8000-000000600001", "type": "FixedAmountOff", "priority": 20, "validFrom": "2026-06-16", "validTo": "2026-11-12", "amountOff": "2.50", "currency": "EUR" }, { "promotionId": "54cda262-0000-7000-8000-000000600002", "type": "VolumeTiered", "priority": -10, "validFrom": "2026-08-21", "validTo": "2027-02-16", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }] }],
+      "expected": { "promotionId": "54cda262-0000-7000-8000-000000600002", "type": "VolumeTiered", "priority": -10, "percentOff": "3.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 97",
+      "on": "2026-02-16",
+      "quantity": 36,
+      "candidates": [{ "promotionId": "f3051c11-0000-7000-8000-000000610000", "type": "VolumeTiered", "priority": -10, "validFrom": "2026-02-23", "validTo": null, "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }, { "minQuantity": 24, "percentOff": "12.00" }] }, { "promotionId": "f3051c12-0000-7000-8000-000000610001", "type": "PercentOff", "priority": 20, "validFrom": "2026-06-01", "validTo": "2026-08-20", "percentOff": "40.00" }, { "promotionId": "f3051c13-0000-7000-8000-000000610002", "type": "VolumeTiered", "priority": 20, "validFrom": "2026-02-27", "validTo": "2026-06-04", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }] }, { "promotionId": "f3051c14-0000-7000-8000-000000610003", "type": "FixedAmountOff", "priority": 20, "validFrom": "2026-08-04", "validTo": "2026-12-06", "amountOff": "2.50", "currency": "EUR" }],
+      "expected": null
+    },
+    {
+      "name": "generated 98",
+      "on": "2026-07-08",
+      "quantity": 5,
+      "candidates": [{ "promotionId": "913c95c2-0000-7000-8000-000000620000", "type": "FixedAmountOff", "priority": 0, "validFrom": "2026-03-10", "validTo": "2026-03-25", "amountOff": "0.50", "currency": "EUR" }, { "promotionId": "913c95c3-0000-7000-8000-000000620001", "type": "FixedAmountOff", "priority": 30, "validFrom": "2026-04-19", "validTo": "2026-09-28", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "913c95c4-0000-7000-8000-000000620002", "type": "FixedAmountOff", "priority": 0, "validFrom": "2026-05-15", "validTo": "2026-06-20", "amountOff": "2.50", "currency": "EUR" }],
+      "expected": { "promotionId": "913c95c3-0000-7000-8000-000000620001", "type": "FixedAmountOff", "priority": 30, "percentOff": null, "amountOff": "19.99", "currency": "EUR", "bundle": null }
+    },
+    {
+      "name": "generated 99",
+      "on": "2026-04-21",
+      "quantity": 25,
+      "candidates": [{ "promotionId": "2f740f73-0000-7000-8000-000000630000", "type": "FixedAmountOff", "priority": -10, "validFrom": "2026-08-10", "validTo": "2026-12-05", "amountOff": "2.50", "currency": "EUR" }, { "promotionId": "2f740f74-0000-7000-8000-000000630001", "type": "PercentOff", "priority": 0, "validFrom": "2026-07-18", "validTo": "2026-10-22", "percentOff": "5.00" }, { "promotionId": "2f740f75-0000-7000-8000-000000630002", "type": "BuyXGetY", "priority": 20, "validFrom": "2026-09-15", "validTo": null, "bundle": { "buyQuantity": 4, "getQuantity": 1, "getPercentOff": "50.00", "getProductId": null } }],
+      "expected": null
+    },
+    {
+      "name": "generated 100",
+      "on": "2026-08-08",
+      "quantity": 2,
+      "candidates": [{ "promotionId": "cdab8924-0000-7000-8000-000000640000", "type": "PercentOff", "priority": -10, "validFrom": "2026-05-14", "validTo": "2026-11-07", "percentOff": "100.00" }, { "promotionId": "cdab8925-0000-7000-8000-000000640001", "type": "BuyXGetY", "priority": 20, "validFrom": "2026-09-04", "validTo": "2026-11-16", "bundle": { "buyQuantity": 4, "getQuantity": 2, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "cdab8926-0000-7000-8000-000000640002", "type": "BuyXGetY", "priority": 30, "validFrom": "2026-11-13", "validTo": null, "bundle": { "buyQuantity": 1, "getQuantity": 2, "getPercentOff": "50.00", "getProductId": null } }, { "promotionId": "cdab8927-0000-7000-8000-000000640003", "type": "VolumeTiered", "priority": -10, "validFrom": "2026-04-11", "validTo": "2026-05-31", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }] }],
+      "expected": { "promotionId": "cdab8924-0000-7000-8000-000000640000", "type": "PercentOff", "priority": -10, "percentOff": "100.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 101",
+      "on": "2026-08-03",
+      "quantity": 29,
+      "candidates": [{ "promotionId": "6be302d5-0000-7000-8000-000000650000", "type": "BuyXGetY", "priority": 10, "validFrom": "2026-02-13", "validTo": null, "bundle": { "buyQuantity": 6, "getQuantity": 1, "getPercentOff": "50.00", "getProductId": null } }, { "promotionId": "6be302d6-0000-7000-8000-000000650001", "type": "PercentOff", "priority": 20, "validFrom": "2026-04-18", "validTo": "2026-05-26", "percentOff": "5.00" }, { "promotionId": "6be302d7-0000-7000-8000-000000650002", "type": "VolumeTiered", "priority": 0, "validFrom": "2026-01-06", "validTo": "2026-03-29", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }] }, { "promotionId": "6be302d8-0000-7000-8000-000000650003", "type": "BuyXGetY", "priority": 30, "validFrom": "2026-02-11", "validTo": null, "bundle": { "buyQuantity": 4, "getQuantity": 1, "getPercentOff": "50.00", "getProductId": null } }],
+      "expected": { "promotionId": "6be302d8-0000-7000-8000-000000650003", "type": "BuyXGetY", "priority": 30, "percentOff": null, "amountOff": null, "currency": null, "bundle": { "buyQuantity": 4, "getQuantity": 1, "getPercentOff": "50.00", "getProductId": null } }
+    },
+    {
+      "name": "generated 102",
+      "on": "2026-06-24",
+      "quantity": 32,
+      "candidates": [{ "promotionId": "0a1a7c86-0000-7000-8000-000000660000", "type": "PercentOff", "priority": -10, "validFrom": "2026-12-23", "validTo": "2027-04-25", "percentOff": "40.00" }],
+      "expected": null
+    },
+    {
+      "name": "generated 103",
+      "on": "2026-04-03",
+      "quantity": 25,
+      "candidates": [{ "promotionId": "a851f637-0000-7000-8000-000000670000", "type": "PercentOff", "priority": 10, "validFrom": "2026-08-08", "validTo": null, "percentOff": "12.50" }, { "promotionId": "a851f638-0000-7000-8000-000000670001", "type": "PercentOff", "priority": 30, "validFrom": "2026-05-19", "validTo": "2026-06-08", "percentOff": "12.50" }, { "promotionId": "a851f639-0000-7000-8000-000000670002", "type": "BuyXGetY", "priority": 10, "validFrom": "2026-11-10", "validTo": "2027-02-06", "bundle": { "buyQuantity": 3, "getQuantity": 2, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "a851f63a-0000-7000-8000-000000670003", "type": "VolumeTiered", "priority": 10, "validFrom": "2026-04-13", "validTo": "2026-06-12", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }] }],
+      "expected": null
+    },
+    {
+      "name": "generated 104",
+      "on": "2026-02-25",
+      "quantity": 32,
+      "candidates": [{ "promotionId": "46896fe8-0000-7000-8000-000000680000", "type": "VolumeTiered", "priority": -10, "validFrom": "2026-11-15", "validTo": "2027-02-11", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }] }, { "promotionId": "46896fe9-0000-7000-8000-000000680001", "type": "BuyXGetY", "priority": 0, "validFrom": "2026-02-18", "validTo": "2026-07-02", "bundle": { "buyQuantity": 1, "getQuantity": 1, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "46896fea-0000-7000-8000-000000680002", "type": "VolumeTiered", "priority": -10, "validFrom": "2026-03-28", "validTo": "2026-09-20", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }] }, { "promotionId": "46896feb-0000-7000-8000-000000680003", "type": "BuyXGetY", "priority": -10, "validFrom": "2026-04-08", "validTo": null, "bundle": { "buyQuantity": 1, "getQuantity": 2, "getPercentOff": "100.00", "getProductId": null } }],
+      "expected": { "promotionId": "46896fe9-0000-7000-8000-000000680001", "type": "BuyXGetY", "priority": 0, "percentOff": null, "amountOff": null, "currency": null, "bundle": { "buyQuantity": 1, "getQuantity": 1, "getPercentOff": "100.00", "getProductId": null } }
+    },
+    {
+      "name": "generated 105",
+      "on": "2026-03-27",
+      "quantity": 9,
+      "candidates": [{ "promotionId": "e4c0e999-0000-7000-8000-000000690000", "type": "FixedAmountOff", "priority": 10, "validFrom": "2026-05-12", "validTo": "2026-06-03", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "e4c0e99a-0000-7000-8000-000000690001", "type": "PercentOff", "priority": 10, "validFrom": "2026-12-19", "validTo": "2027-04-10", "percentOff": "100.00" }],
+      "expected": null
+    },
+    {
+      "name": "generated 106",
+      "on": "2026-02-06",
+      "quantity": 9,
+      "candidates": [{ "promotionId": "82f8634a-0000-7000-8000-0000006a0000", "type": "PercentOff", "priority": 20, "validFrom": "2026-07-11", "validTo": "2026-11-07", "percentOff": "5.00" }, { "promotionId": "82f8634b-0000-7000-8000-0000006a0001", "type": "PercentOff", "priority": 0, "validFrom": "2026-03-23", "validTo": "2026-04-11", "percentOff": "5.00" }, { "promotionId": "82f8634c-0000-7000-8000-0000006a0002", "type": "PercentOff", "priority": 10, "validFrom": "2026-07-15", "validTo": "2026-12-27", "percentOff": "12.50" }],
+      "expected": null
+    },
+    {
+      "name": "generated 107",
+      "on": "2026-07-01",
+      "quantity": 8,
+      "candidates": [{ "promotionId": "212fdcfb-0000-7000-8000-0000006b0000", "type": "BuyXGetY", "priority": 10, "validFrom": "2026-02-02", "validTo": "2026-06-13", "bundle": { "buyQuantity": 6, "getQuantity": 1, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "212fdcfc-0000-7000-8000-0000006b0001", "type": "FixedAmountOff", "priority": 10, "validFrom": "2026-11-14", "validTo": null, "amountOff": "2.50", "currency": "EUR" }, { "promotionId": "212fdcfd-0000-7000-8000-0000006b0002", "type": "BuyXGetY", "priority": 30, "validFrom": "2026-07-25", "validTo": "2026-09-09", "bundle": { "buyQuantity": 5, "getQuantity": 1, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "212fdcfe-0000-7000-8000-0000006b0003", "type": "PercentOff", "priority": 30, "validFrom": "2026-08-24", "validTo": null, "percentOff": "5.00" }],
+      "expected": null
+    },
+    {
+      "name": "generated 108",
+      "on": "2026-07-04",
+      "quantity": 4,
+      "candidates": [{ "promotionId": "bf6756ac-0000-7000-8000-0000006c0000", "type": "VolumeTiered", "priority": 30, "validFrom": "2026-05-05", "validTo": "2026-05-14", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }] }],
+      "expected": null
+    },
+    {
+      "name": "generated 109",
+      "on": "2026-06-24",
+      "quantity": 1,
+      "candidates": [{ "promotionId": "5d9ed05d-0000-7000-8000-0000006d0000", "type": "PercentOff", "priority": 0, "validFrom": "2026-12-28", "validTo": "2027-03-04", "percentOff": "100.00" }, { "promotionId": "5d9ed05e-0000-7000-8000-0000006d0001", "type": "FixedAmountOff", "priority": 0, "validFrom": "2026-02-21", "validTo": "2026-08-20", "amountOff": "2.50", "currency": "EUR" }],
+      "expected": { "promotionId": "5d9ed05e-0000-7000-8000-0000006d0001", "type": "FixedAmountOff", "priority": 0, "percentOff": null, "amountOff": "2.50", "currency": "EUR", "bundle": null }
+    },
+    {
+      "name": "generated 110",
+      "on": "2026-03-17",
+      "quantity": 28,
+      "candidates": [{ "promotionId": "fbd64a0e-0000-7000-8000-0000006e0000", "type": "FixedAmountOff", "priority": -10, "validFrom": "2026-12-27", "validTo": "2027-03-14", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "fbd64a0f-0000-7000-8000-0000006e0001", "type": "VolumeTiered", "priority": 0, "validFrom": "2026-07-19", "validTo": null, "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }, { "minQuantity": 24, "percentOff": "12.00" }] }],
+      "expected": null
+    },
+    {
+      "name": "generated 111",
+      "on": "2026-11-14",
+      "quantity": 11,
+      "candidates": [{ "promotionId": "9a0dc3bf-0000-7000-8000-0000006f0000", "type": "PercentOff", "priority": 30, "validFrom": "2026-12-10", "validTo": "2027-04-07", "percentOff": "100.00" }, { "promotionId": "9a0dc3c0-0000-7000-8000-0000006f0001", "type": "FixedAmountOff", "priority": 10, "validFrom": "2026-04-08", "validTo": "2026-09-03", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "9a0dc3c1-0000-7000-8000-0000006f0002", "type": "FixedAmountOff", "priority": 10, "validFrom": "2026-03-03", "validTo": "2026-03-08", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "9a0dc3c2-0000-7000-8000-0000006f0003", "type": "PercentOff", "priority": 30, "validFrom": "2026-08-13", "validTo": null, "percentOff": "40.00" }],
+      "expected": { "promotionId": "9a0dc3c2-0000-7000-8000-0000006f0003", "type": "PercentOff", "priority": 30, "percentOff": "40.00", "amountOff": null, "currency": null, "bundle": null }
+    },
+    {
+      "name": "generated 112",
+      "on": "2026-06-26",
+      "quantity": 36,
+      "candidates": [{ "promotionId": "38453d70-0000-7000-8000-000000700000", "type": "FixedAmountOff", "priority": 30, "validFrom": "2026-09-26", "validTo": null, "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "38453d71-0000-7000-8000-000000700001", "type": "BuyXGetY", "priority": 0, "validFrom": "2026-10-12", "validTo": "2027-04-05", "bundle": { "buyQuantity": 1, "getQuantity": 2, "getPercentOff": "100.00", "getProductId": null } }],
+      "expected": null
+    },
+    {
+      "name": "generated 113",
+      "on": "2026-11-09",
+      "quantity": 12,
+      "candidates": [{ "promotionId": "d67cb721-0000-7000-8000-000000710000", "type": "PercentOff", "priority": 30, "validFrom": "2026-02-03", "validTo": "2026-04-23", "percentOff": "5.00" }],
+      "expected": null
+    },
+    {
+      "name": "generated 114",
+      "on": "2026-08-05",
+      "quantity": 13,
+      "candidates": [{ "promotionId": "74b430d2-0000-7000-8000-000000720000", "type": "BuyXGetY", "priority": -10, "validFrom": "2026-03-03", "validTo": "2026-03-05", "bundle": { "buyQuantity": 3, "getQuantity": 3, "getPercentOff": "50.00", "getProductId": null } }, { "promotionId": "74b430d3-0000-7000-8000-000000720001", "type": "VolumeTiered", "priority": 10, "validFrom": "2026-12-20", "validTo": "2027-03-29", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }] }],
+      "expected": null
+    },
+    {
+      "name": "generated 115",
+      "on": "2026-09-27",
+      "quantity": 17,
+      "candidates": [{ "promotionId": "12ebaa83-0000-7000-8000-000000730000", "type": "BuyXGetY", "priority": 0, "validFrom": "2026-05-13", "validTo": "2026-10-17", "bundle": { "buyQuantity": 3, "getQuantity": 3, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "12ebaa84-0000-7000-8000-000000730001", "type": "FixedAmountOff", "priority": -10, "validFrom": "2026-04-09", "validTo": "2026-05-15", "amountOff": "0.50", "currency": "EUR" }, { "promotionId": "12ebaa85-0000-7000-8000-000000730002", "type": "VolumeTiered", "priority": 20, "validFrom": "2026-09-16", "validTo": null, "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }] }, { "promotionId": "12ebaa86-0000-7000-8000-000000730003", "type": "FixedAmountOff", "priority": 30, "validFrom": "2026-06-15", "validTo": "2026-12-06", "amountOff": "0.50", "currency": "EUR" }],
+      "expected": { "promotionId": "12ebaa86-0000-7000-8000-000000730003", "type": "FixedAmountOff", "priority": 30, "percentOff": null, "amountOff": "0.50", "currency": "EUR", "bundle": null }
+    },
+    {
+      "name": "generated 116",
+      "on": "2026-09-12",
+      "quantity": 2,
+      "candidates": [{ "promotionId": "b1232434-0000-7000-8000-000000740000", "type": "PercentOff", "priority": 20, "validFrom": "2026-12-01", "validTo": "2026-12-15", "percentOff": "100.00" }, { "promotionId": "b1232435-0000-7000-8000-000000740001", "type": "FixedAmountOff", "priority": 30, "validFrom": "2026-01-21", "validTo": "2026-02-18", "amountOff": "19.99", "currency": "EUR" }, { "promotionId": "b1232436-0000-7000-8000-000000740002", "type": "BuyXGetY", "priority": 10, "validFrom": "2026-01-19", "validTo": "2026-03-02", "bundle": { "buyQuantity": 3, "getQuantity": 1, "getPercentOff": "50.00", "getProductId": null } }],
+      "expected": null
+    },
+    {
+      "name": "generated 117",
+      "on": "2026-02-24",
+      "quantity": 30,
+      "candidates": [{ "promotionId": "4f5a9de5-0000-7000-8000-000000750000", "type": "BuyXGetY", "priority": 0, "validFrom": "2026-01-15", "validTo": null, "bundle": { "buyQuantity": 2, "getQuantity": 2, "getPercentOff": "100.00", "getProductId": null } }, { "promotionId": "4f5a9de6-0000-7000-8000-000000750001", "type": "BuyXGetY", "priority": -10, "validFrom": "2026-08-20", "validTo": "2026-12-27", "bundle": { "buyQuantity": 2, "getQuantity": 3, "getPercentOff": "100.00", "getProductId": null } }],
+      "expected": { "promotionId": "4f5a9de5-0000-7000-8000-000000750000", "type": "BuyXGetY", "priority": 0, "percentOff": null, "amountOff": null, "currency": null, "bundle": { "buyQuantity": 2, "getQuantity": 2, "getPercentOff": "100.00", "getProductId": null } }
+    },
+    {
+      "name": "generated 118",
+      "on": "2026-10-17",
+      "quantity": 10,
+      "candidates": [{ "promotionId": "ed921796-0000-7000-8000-000000760000", "type": "VolumeTiered", "priority": 30, "validFrom": "2026-11-18", "validTo": "2027-05-17", "tiers": [{ "minQuantity": 2, "percentOff": "1.00" }, { "minQuantity": 6, "percentOff": "3.00" }, { "minQuantity": 12, "percentOff": "6.00" }] }, { "promotionId": "ed921797-0000-7000-8000-000000760001", "type": "BuyXGetY", "priority": 10, "validFrom": "2026-10-18", "validTo": null, "bundle": { "buyQuantity": 6, "getQuantity": 3, "getPercentOff": "50.00", "getProductId": null } }],
+      "expected": null
+    },
+    {
+      "name": "generated 119",
+      "on": "2026-01-24",
+      "quantity": 16,
+      "candidates": [{ "promotionId": "8bc99147-0000-7000-8000-000000770000", "type": "BuyXGetY", "priority": 20, "validFrom": "2026-03-12", "validTo": "2026-04-10", "bundle": { "buyQuantity": 3, "getQuantity": 2, "getPercentOff": "50.00", "getProductId": null } }],
+      "expected": null
+    }
+  ]
+}
