@@ -11,6 +11,11 @@
       Configuration stores or authors them.
     -->
     <ProjectReference Include="..\FieldKit.Modules.Configuration.Contracts\FieldKit.Modules.Configuration.Contracts.csproj" />
+    <!--
+      Likewise. Assortments are authored per channel and read per outlet, and only Outlets knows
+      which channel a shop trades in — see IOutletClassification.
+    -->
+    <ProjectReference Include="..\FieldKit.Modules.Outlets.Contracts\FieldKit.Modules.Outlets.Contracts.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

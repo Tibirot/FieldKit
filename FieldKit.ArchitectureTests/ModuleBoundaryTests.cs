@@ -112,6 +112,19 @@ public class ModuleBoundaryTests
 
         Assert.NotEmpty(catalogs);
         Assert.All(catalogs, type => Assert.False(type.IsPublic, $"{type.Name} should be internal"));
+
+        // And the same for the classification contract, which arrived when assortments needed it.
+        // Asserted separately rather than folded into the loop above: a second contract on the same
+        // assembly is exactly where "the interface is exported but the class is public too" slips
+        // through, because the first one passing makes the file look already covered.
+        Assert.Contains(typeof(IOutletClassification), OutletsContracts.GetExportedTypes());
+
+        var classifiers = OutletsModuleAssembly.GetTypes()
+            .Where(type => !type.IsInterface && typeof(IOutletClassification).IsAssignableFrom(type))
+            .ToList();
+
+        Assert.NotEmpty(classifiers);
+        Assert.All(classifiers, type => Assert.False(type.IsPublic, $"{type.Name} should be internal"));
     }
 
 

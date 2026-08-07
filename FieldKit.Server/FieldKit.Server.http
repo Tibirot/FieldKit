@@ -653,6 +653,44 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
   ]
 }
 
+### Products — set a channel's assortment. A PUT **replaces** it: an assortment is a set, and a
+### partial update of a set has no obvious meaning. `mustStock` flags the MSL subset (`B2`).
+### Requires `product:write`.
+PUT {{Server_HostAddress}}/api/products/assortments/channels/{{channel.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "items": [
+    { "productId": "{{classified.response.body.id}}", "mustStock": true }
+  ]
+}
+
+### Read it back — must-stock first, so a suggested-order list needs no second sort.
+GET {{Server_HostAddress}}/api/products/assortments/channels/{{channel.response.body.id}}
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### A channel that does not exist — expect 400 `product.assortment.channelMissing`.
+### Products cannot see the channel table (AT-1), so it asks Outlets through
+### `IOutletClassification.ChannelExistsAsync`. Without that check this would save cleanly and simply
+### never apply to anybody.
+PUT {{Server_HostAddress}}/api/products/assortments/channels/00000000-0000-0000-0000-000000000009
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "items": []
+}
+
+### The assortment for one **outlet**, resolved through the channel it trades in. This is the join
+### Products cannot make alone: it knows which channel an assortment is for, and only Outlets knows
+### which channel this shop is. An unknown outlet is 404, not an empty list — "no such shop" and
+### "nothing is sold there" are different answers.
+GET {{Server_HostAddress}}/api/products/assortments/outlets/{{outlet.response.body.id}}
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
 ### An unknown time zone — expect 400. Checked against the runtime's zone database rather than a
 ### pattern, because "Europe/Bucuresti" is well-formed and does not exist. A visit's business day and
 ### a promotion's validity both resolve in this zone, so a wrong one is a wrong answer waiting.
