@@ -32,6 +32,10 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
 
     public DbSet<PriceListAssignment> PriceListAssignments => Set<PriceListAssignment>();
 
+    public DbSet<Promotion> Promotions => Set<Promotion>();
+
+    public DbSet<PromotionTarget> PromotionTargets => Set<PromotionTarget>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -315,6 +319,93 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
                 .HasForeignKey(a => new { a.TenantId, a.PriceListId })
                 .HasPrincipalKey(l => new { l.TenantId, l.Id })
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Promotion>(promotion =>
+        {
+            // Each type carries its own value columns, and the constraint says which. Written as a
+            // CASE per type rather than one expression over the columns because the two types
+            // arriving in the next PR — volume/tiered and BOGO — carry neither `percent_off` nor
+            // `amount_off`, and a blanket "exactly one is set" would reject them. `ELSE TRUE` is the
+            // room left for that: adding a type is then a new WHEN, not an ALTER that has to be
+            // reasoned about against rows already stored.
+            //     PercentOff     → percent_off set, amount_off and currency null
+            //     FixedAmountOff → amount_off and currency set, percent_off null
+            //     anything else  → not yet constrained
+            //
+            // Kept on one line on purpose. EF stores this string verbatim in the migration *and* the
+            // model snapshot, then compares them to decide whether the model has changed — so a
+            // multi-line literal bakes the authoring machine's line endings into the schema, and the
+            // same source regenerated on Linux produces a different constraint and a phantom
+            // migration. The readable version is the three lines above.
+            promotion.ToTable("promotion", table => table.HasCheckConstraint(
+                "ck_promotion_value_matches_type",
+                """CASE "type" WHEN 'PercentOff' THEN "percent_off" IS NOT NULL AND "amount_off" IS NULL AND "currency" IS NULL WHEN 'FixedAmountOff' THEN "amount_off" IS NOT NULL AND "currency" IS NOT NULL AND "percent_off" IS NULL ELSE TRUE END"""));
+
+            promotion.HasKey(p => p.Id);
+            promotion.Property(p => p.Name).HasMaxLength(120).IsRequired();
+
+            // As a string, so the constraint above reads as the rule it is. See PromotionType.
+            promotion.Property(p => p.Type)
+                .HasColumnName("type").HasConversion<string>().HasMaxLength(20).IsRequired();
+
+            // numeric(5,2): a percentage needs room for 100.00 and for the fractional points a trade
+            // deal is actually written in ("12.5% off"), and nothing beyond. The narrower column is
+            // the schema refusing a money amount typed into the wrong field.
+            promotion.Property(p => p.PercentOff).HasColumnName("percent_off").HasPrecision(5, 2);
+
+            // numeric(18,4), matching PriceListLine — a discount is money, and it is compared and
+            // subtracted against amounts stored at that precision.
+            promotion.Property(p => p.AmountOff).HasColumnName("amount_off").HasPrecision(18, 4);
+            promotion.Property(p => p.Currency).HasColumnName("currency").HasMaxLength(3).IsFixedLength();
+
+            promotion.HasIndex(p => new { p.TenantId, p.Name }).IsUnique();
+
+            // Resolution asks for the promotions live on a date, best priority first.
+            promotion.HasIndex(p => new { p.TenantId, p.ValidFrom, p.Priority });
+        });
+
+        modelBuilder.Entity<PromotionTarget>(target =>
+        {
+            // Exactly one target, the same shape and the same argument as price_list_assignment.
+            target.ToTable("promotion_target", table => table.HasCheckConstraint(
+                "ck_promotion_target_one_subject",
+                """("product_id" IS NULL) <> ("category_id" IS NULL)"""));
+
+            target.HasKey(t => t.Id);
+            target.Property(t => t.ProductId).HasColumnName("product_id");
+            target.Property(t => t.CategoryId).HasColumnName("category_id");
+
+            // A promotion names a given product at most once, and a given category at most once.
+            // Postgres treats NULLs as distinct, so each index constrains only the rows where its
+            // column is set — which is the half it is about.
+            target.HasIndex(t => new { t.TenantId, t.PromotionId, t.ProductId }).IsUnique();
+            target.HasIndex(t => new { t.TenantId, t.PromotionId, t.CategoryId }).IsUnique();
+
+            // Resolution asks "which promotions target this product, or a category above it".
+            target.HasIndex(t => new { t.TenantId, t.ProductId });
+            target.HasIndex(t => new { t.TenantId, t.CategoryId });
+
+            // Cascade from the promotion: a target says nothing once the rule is gone. Restrict on
+            // both subjects, so a product or a category cannot vanish from under a live promotion —
+            // the same split PriceListLine makes between its list and its product.
+            target.HasOne<Promotion>()
+                .WithMany()
+                .HasForeignKey(t => new { t.TenantId, t.PromotionId })
+                .HasPrincipalKey(p => new { p.TenantId, p.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+
+            target.HasOne<Product>()
+                .WithMany()
+                .HasForeignKey(t => new { t.TenantId, t.ProductId })
+                .HasPrincipalKey(p => new { p.TenantId, p.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+
+            target.HasOne<Category>()
+                .WithMany()
+                .HasForeignKey(t => new { t.TenantId, t.CategoryId })
+                .HasPrincipalKey(c => new { c.TenantId, c.Id })
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

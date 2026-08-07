@@ -311,7 +311,7 @@ Sizes are hand-written diff estimates against the ~400-line budget; generated mi
 | 4 | **Price lists** — currency + effective window, product prices, channel/outlet assignment; publishes `PriceListPublished` | `PRD-03`, `BR-PRD-1` | 400 |
 | 5 | **`IOutletClassification`** — Outlets grows the contract slice 6 needs (see below) | — | 120 |
 | 6 | **Price resolution** — specificity + effective date, as a pure function; decides the [vector format](../vectors/README.md) (see below) | `PRD-04`, `BR-PRD-2`, `BR-PRD-7` | 350 |
-| 7 | **Promotion authoring** — %-off and fixed-amount, then volume/tiered and BOGO/bundle | `PRD-05` | 400 ×2 |
+| 7 | **Promotion authoring** — %-off and fixed-amount (7a), then volume/tiered and BOGO/bundle (7b) | `PRD-05` | 400 ×2 |
 | 8 | **Promotion resolution** — priority selection, validity window in the outlet's timezone | `PRD-06`, `BR-PRD-3/6` | 350 |
 | 9 | **Tax** — tax class × tenant/country, on the rounded net line | `PRD-07`, `BR-PRD-5` | 250 |
 | 10 | **Parity vector suite** — generated vectors as a committed artifact; the C# engine proves against them | `PRD-08`, `BR-PRD-8/9` | 350 |
@@ -339,6 +339,13 @@ slice 10, where it would be shaped by whatever C# found convenient to emit.
 > which is what the canonical string spells out, and the vector file carries the hostile pair that
 > tells the two apart. Invented at slice 10 against emitted output, the format would have recorded
 > whatever C# happened to do.
+
+**A promotion's scope is its own slice, as a price list's was.** 7a authors the rule — type, value,
+window, priority, and what it targets; where it reaches (channels and outlets) and the
+`PromotionActivated` event follow, exactly as `PriceListAssignment` followed `PriceList`. The
+intermediate state is honest rather than awkward: a promotion that exists and discounts nobody is
+what a draft *is*, and splitting there keeps the aggregate's invariants and its reach reviewable
+separately.
 
 **`IPricingService` is not built by slice 6, deliberately.** The resolver is a pure static function
 and the endpoint is its only caller; a cross-module contract needs a cross-module consumer, which is
