@@ -40,6 +40,8 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
 
     public DbSet<PromotionAssignment> PromotionAssignments => Set<PromotionAssignment>();
 
+    public DbSet<TaxRate> TaxRates => Set<TaxRate>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -488,6 +490,41 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
                 .WithMany()
                 .HasForeignKey(a => new { a.TenantId, a.PromotionId })
                 .HasPrincipalKey(p => new { p.TenantId, p.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TaxRate>(rate =>
+        {
+            rate.ToTable("tax_rate");
+            rate.HasKey(r => r.Id);
+
+            // char(2), like the currency's char(3): the schema saying what the type says — ISO-3166-1
+            // alpha-2 and nothing else — rather than leaving room for "Romania" to be stored and
+            // refused later.
+            rate.Property(r => r.CountryCode)
+                .HasColumnName("country_code").HasMaxLength(2).IsFixedLength().IsRequired();
+
+            // numeric(5,2): room for 100.00 and for the fractional points real VAT uses (Ireland has
+            // run 13.5%), and nothing beyond. The same narrow column as a promotion's percentage, and
+            // the same reason — it refuses a money amount typed into the wrong field.
+            rate.Property(r => r.Percentage).HasPrecision(5, 2);
+
+            // One rate per class, country and start date. A second row with the same three would make
+            // "the rate in Germany from January" a question with two answers, and resolution would
+            // have to break a tie that means nothing.
+            rate.HasIndex(r => new { r.TenantId, r.TaxClassId, r.CountryCode, r.EffectiveFrom })
+                .IsUnique();
+
+            // Resolution asks for the rates of one class in one country, then picks by date.
+            rate.HasIndex(r => new { r.TenantId, r.TaxClassId, r.CountryCode });
+
+            // Cascade: a rate is a statement about a class and says nothing once the class is gone.
+            // The class itself is Restrict-ed from deletion while products reference it, so this does
+            // not open a path to losing rates a live product depended on.
+            rate.HasOne<TaxClass>()
+                .WithMany()
+                .HasForeignKey(r => new { r.TenantId, r.TaxClassId })
+                .HasPrincipalKey(c => new { c.TenantId, c.Id })
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

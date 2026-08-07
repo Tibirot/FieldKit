@@ -120,6 +120,23 @@ This function is pure and runs **identically on server and device** (shared rule
 - **BR-PRD-4** A product not in an outlet's assortment cannot be ordered there (unless the
   tenant enables "off-assortment with reason" — a *Could*).
 - **BR-PRD-5** Prices are stored **net**; tax is computed at order time from the tax class.
+
+> 📝 ASSUMPTION: **a missing rate is *unknown*, never zero.** A tax class with no rate authored for
+> an outlet's country, an outlet whose address carries no country, and a product with no tax class
+> all resolve to the same answer: nothing. A caller must not read that as untaxed — which is exactly
+> why a **0% rate is separately authorable**. Zero-rated goods are a real tax treatment, and forcing
+> a tenant to express one by *omitting* a rate would make "no VAT here" and "we never set this up"
+> the same state, with the wrong one silently invoicing.
+>
+> **Tax is computed on the rounded net line, and rounded again.** Two roundings, both half-up per
+> `BR-PRD-9`: the net first, because that is the figure on the order and the one a shopkeeper checks,
+> so tax computed on an unrounded intermediate would not match anything visible; then the tax itself,
+> because it is money on its own invoice line. **Gross is net plus tax**, not net × 1.19 — those
+> differ once rounding is involved, and only the first guarantees three numbers that add up.
+>
+> Rates are keyed by `(tax class, country)` with their own half-open effective window, because VAT
+> rates change on announced dates and an order re-priced afterwards must compute the tax that applied
+> when it was taken.
 - **BR-PRD-6** Promotions apply only within their validity window (evaluated in the outlet's
   timezone).
 

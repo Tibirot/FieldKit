@@ -1,12 +1,27 @@
 namespace FieldKit.Modules.Outlets.Contracts;
 
-/// <summary>How one outlet is classified — today, which channel it trades in.</summary>
+/// <summary>How one outlet is classified — which channel it trades in, and where it is taxed.</summary>
 /// <remarks>
+/// <para>
 /// A record rather than a bare <c>Guid</c> return, so the shape survives a second classification
 /// dimension. Segment and banner are plain strings on the outlet and nothing branches on them yet;
 /// when something does, this grows a property instead of the interface growing a method.
+/// </para>
+/// <para>
+/// <b><see cref="CountryCode"/> is that second dimension arriving</b> — added for tax
+/// (<c>PRD-07</c>), where the rate is keyed by <c>(tax class, country)</c>. It qualifies on the same
+/// test channel did: something another module decides with, rather than a detail of the outlet.
+/// Adding it here rather than growing a third contract keeps one call on a resolution path that
+/// already makes it, and the record shape is what made the addition free for existing callers.
+/// </para>
+/// <para>
+/// <b>Nullable, because an address is optional</b> (<c>OUT-01</c>). A shop entered without one is
+/// classified but not placed, and a consumer that needs a jurisdiction has to say what it does about
+/// that rather than assume a default — for tax, guessing a country is guessing a rate.
+/// </para>
 /// </remarks>
-public sealed record OutletClassification(Guid OutletId, Guid ChannelId);
+/// <param name="CountryCode">ISO-3166-1 alpha-2, upper-cased, from the outlet's address.</param>
+public sealed record OutletClassification(Guid OutletId, Guid ChannelId, string? CountryCode);
 
 /// <summary>
 /// The classification other modules make decisions with (<c>OUT-01</c>).

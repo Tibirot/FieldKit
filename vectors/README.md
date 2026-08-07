@@ -45,10 +45,18 @@ running an older file fails loudly rather than silently testing yesterday's rule
 |---|---|---|
 | [`pricing/price-resolution.v1.json`](pricing/price-resolution.v1.json) | `PRD-04` / `BR-PRD-2` — which price list wins for an outlet on a date | `PriceResolutionVectorTests` (C#); the device mirror (W7) |
 | [`pricing/promotion-resolution.v1.json`](pricing/promotion-resolution.v1.json) | `PRD-06` / `BR-PRD-3` — which promotion applies to one line, at a quantity, on a date | `PromotionResolutionVectorTests` (C#); the device mirror (W7) |
+| [`pricing/tax.v1.json`](pricing/tax.v1.json) | `PRD-07` / `BR-PRD-5`, `BR-PRD-9` — which rate applies, and what it does to a line | `TaxVectorTests` (C#); the device mirror (W7) |
 
-The second file arrived without changing the format, which is the point of having decided it against
-real engine code rather than at the end. A new rule got a new case file, not a new convention, and
-the mirror learns one reader for both.
+The second and third files arrived without changing the format, which is the point of having decided
+it against real engine code rather than at the end. Each new rule got a new case file, not a new
+convention, and the mirror learns one reader for all of them.
+
+**The tax file is the one this whole apparatus was built for.** The other two decide *which* record
+wins, and a mirror that got the comparison wrong would return a visibly different id. Tax does
+arithmetic, and a mirror that got the rounding wrong returns a number one cent away — which nobody
+notices until a ledger does. Its `application` cases are paired deliberately: for every half-cent
+case where half-up and banker's rounding disagree, there is one where they agree by accident, so a
+suite cannot pass on the wrong policy.
 
 ## Hand-written today, generated later
 

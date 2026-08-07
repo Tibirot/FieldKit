@@ -110,19 +110,79 @@ Authorization: Bearer {{token.response.body.access_token}}
   "name": "VERIDIAN"
 }
 
-### Products — tax classes. The classification only: the *rate* belongs to (tax class, country)
-### and arrives with tax computation in W6 slice 9 (`PRD-07`).
+### Products — tax classes. The classification only — standard, reduced, zero-rated — because a
+### class is not a rate. Bottled water is reduced-rate in several European markets and
+### standard-rated in others, and the percentage moves without the classification moving; folding
+### them together would make a tenant selling in two countries pick which one to be wrong about.
 GET {{Server_HostAddress}}/api/products/tax-classes
 Accept: application/json
 Authorization: Bearer {{token.response.body.access_token}}
 
 ### Products — create a tax class. Requires `product:write`.
+# @name reduced
 POST {{Server_HostAddress}}/api/products/tax-classes
 Content-Type: application/json
 Authorization: Bearer {{token.response.body.access_token}}
 
 {
   "name": "Reduced"
+}
+
+### What that class costs, per country (PRD-07). A PUT replaces the set. The window is half-open, so
+### the old rate stops exactly where the new one starts — the changeover day is the one everybody
+### looks at, and an inclusive end would leave it double-covered.
+PUT {{Server_HostAddress}}/api/products/tax-classes/{{reduced.response.body.id}}/rates
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "rates": [
+    { "countryCode": "RO", "percentage": "9",  "effectiveFrom": "2026-01-01", "effectiveTo": "2026-07-01" },
+    { "countryCode": "RO", "percentage": "11", "effectiveFrom": "2026-07-01" },
+    { "countryCode": "DE", "percentage": "7",  "effectiveFrom": "2026-01-01" }
+  ]
+}
+
+### Read them back, ordered by country then start date.
+GET {{Server_HostAddress}}/api/products/tax-classes/{{reduced.response.body.id}}/rates
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### A zero rate is **allowed**, unlike a zero discount. Zero-rated is how some goods are actually
+### taxed, and forcing a tenant to express it by *omitting* a rate would make "no VAT here" and "we
+### never set this up" the same state — one of which must never be assumed.
+PUT {{Server_HostAddress}}/api/products/tax-classes/{{reduced.response.body.id}}/rates
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "rates": [
+    { "countryCode": "RO", "percentage": "0", "effectiveFrom": "2026-01-01" }
+  ]
+}
+
+### A negative rate — expect 400 `product.tax.percentageOutOfRange` naming `rates[0].percentage`.
+### A tax that pays the shop is a subsidy, and nothing downstream could sensibly handle one.
+PUT {{Server_HostAddress}}/api/products/tax-classes/{{reduced.response.body.id}}/rates
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "rates": [
+    { "countryCode": "RO", "percentage": "-1", "effectiveFrom": "2026-01-01" }
+  ]
+}
+
+### A country that is not a two-letter code — expect 400 `product.tax.countryInvalid`. Shape only,
+### like a currency: what this refuses is "Romania", "ro " and "ROU".
+PUT {{Server_HostAddress}}/api/products/tax-classes/{{reduced.response.body.id}}/rates
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "rates": [
+    { "countryCode": "Romania", "percentage": "19", "effectiveFrom": "2026-01-01" }
+  ]
 }
 
 ### A blank name — expect 400 `product.taxClass.nameRequired`.
@@ -1313,6 +1373,33 @@ Authorization: Bearer {{token.response.body.access_token}}
 ### No quantity — expect 400 `product.promotion.quantityRequired`. A quantity of 0 is refused
 ### separately, as `product.promotion.quantityTooSmall`.
 GET {{Server_HostAddress}}/api/products/outlets/{{outlet.response.body.id}}/promotions?on=2026-06-15&productId={{classified.response.body.id}}
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### Products — which tax rate applies to a product at this outlet (PRD-07). The **country comes from
+### the outlet's address**, through `IOutletClassification` — Products cannot see the address table
+### (AT-1), and having the caller pass a country would invite the client and the server to disagree
+### about which jurisdiction a shop is in.
+###
+### Expect `{ "tax": null }` here unless the product carries a tax class *and* a rate is authored for
+### its country on this date. **Null is not zero.** It means the tax is unknown — the outlet has no
+### country, the product has no class, or nobody authored a rate — and a caller that treats it as
+### zero invoices untaxed while looking deliberate about it. That is precisely why a 0% rate is
+### separately authorable: zero-rated and never-set-up must stay distinguishable.
+GET {{Server_HostAddress}}/api/products/outlets/{{outlet.response.body.id}}/tax?on=2026-06-15&productId={{classified.response.body.id}}
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### The day a rate change takes over. The outlet above is in RO, so with the two Romanian rates
+### authored earlier this answers 9.00 on 2026-06-30 and 11.00 on 2026-07-01 — the half-open window
+### doing its job on the only day anyone checks.
+GET {{Server_HostAddress}}/api/products/outlets/{{outlet.response.body.id}}/tax?on=2026-06-30&productId={{classified.response.body.id}}
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### No product — expect 400 `product.tax.productRequired`. Tax follows the product's classification,
+### so there is nothing to answer without one.
+GET {{Server_HostAddress}}/api/products/outlets/{{outlet.response.body.id}}/tax?on=2026-06-15
 Accept: application/json
 Authorization: Bearer {{token.response.body.access_token}}
 

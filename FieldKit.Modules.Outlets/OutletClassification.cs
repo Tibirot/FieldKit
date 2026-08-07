@@ -20,9 +20,13 @@ internal sealed class OutletClassifier(OutletsDbContext db) : IOutletClassificat
         // Closed outlets are classified like any other. A closed shop still has a channel, and the
         // callers asking are deciding what *would* apply to it — an assortment report, a historical
         // order's price. Filtering here would make "no classification" mean two different things.
+        // The country comes from the address, which is optional — so it is null for a shop entered
+        // without one, and the consumer decides what that means. Tax refuses to guess a rate from a
+        // guessed jurisdiction, which is the only safe reading.
         return await db.Outlets
             .Where(outlet => outletIds.Contains(outlet.Id))
-            .Select(outlet => new Contracts.OutletClassification(outlet.Id, outlet.ChannelId))
+            .Select(outlet => new Contracts.OutletClassification(
+                outlet.Id, outlet.ChannelId, outlet.Address == null ? null : outlet.Address.CountryCode))
             .ToListAsync(cancellationToken);
     }
 
