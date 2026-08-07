@@ -24,6 +24,14 @@ builder.Services.AddOpenApi();
 builder.AddKeycloakAuthentication();
 
 // Cross-cutting: the clock and the tenant context, now derived from the validated token (ADR-0008).
+// Money leaves this API as { "amount": "12.50", "currency": "EUR" } — a *string* amount, because
+// JavaScript has no decimal type and a JSON number becomes a float the moment a browser parses it
+// (BR-PRD-8, api-contracts §1). Registered here rather than attributed at each DTO: forgetting an
+// attribute would emit a float silently, in the one part of the system with a business rule against
+// them, and it would look correct in any test that round-trips through a typed client.
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new MoneyJsonConverter()));
+
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantContext, KeycloakTenantContext>();

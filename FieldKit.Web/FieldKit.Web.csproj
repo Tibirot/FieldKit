@@ -10,4 +10,14 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!--
+      Inward, and the only direction allowed: SharedKernel is dependency-free value objects at the
+      bottom of the graph (AT-4 forbids the reverse). Needed because MoneyJsonConverter decides how
+      Money appears on the wire, which is a web concern about a kernel type — the same split that
+      already puts FieldProblem here rather than in the kernel.
+    -->
+    <ProjectReference Include="..\FieldKit.SharedKernel\FieldKit.SharedKernel.csproj" />
+  </ItemGroup>
+
 </Project>
