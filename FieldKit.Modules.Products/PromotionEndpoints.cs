@@ -11,35 +11,56 @@ namespace FieldKit.Modules.Products;
 
 /// <summary>A promotion, without its targets.</summary>
 /// <remarks>
-/// <c>Value</c> carries whichever of the two the type calls for, as a string — a percentage for
-/// <see cref="PromotionType.PercentOff"/>, an amount for <see cref="PromotionType.FixedAmountOff"/>.
+/// <c>Value</c> carries whichever the type calls for, as a string — a percentage for
+/// <see cref="PromotionType.PercentOff"/>, an amount for <see cref="PromotionType.FixedAmountOff"/>,
+/// and <b>null for <see cref="PromotionType.VolumeTiered"/></b>, whose discounts live on its tiers.
 /// A string for the same reason money is one (<c>BR-PRD-8</c>): a JSON number is an IEEE-754 float
 /// the moment a browser parses it, and "12.5% off" losing its last digit is the same class of bug as
-/// a price doing so. <c>Currency</c> is null for a percentage.
+/// a price doing so. <c>Currency</c> is null for anything that is not a fixed amount.
 /// </remarks>
 public sealed record PromotionResponse(
     Guid Id,
     string Name,
     [property: JsonConverter(typeof(JsonStringEnumConverter<PromotionType>))] PromotionType Type,
-    string Value,
+    string? Value,
     string? Currency,
     DateOnly ValidFrom,
     DateOnly? ValidTo,
     int Priority);
 
 /// <summary>Author a promotion. The type is fixed at creation — see the endpoint.</summary>
+/// <remarks>
+/// <c>Value</c> and <c>Currency</c> are optional because not every type carries them: a
+/// <see cref="PromotionType.VolumeTiered"/> promotion sends neither, and is refused if it sends
+/// either.
+/// </remarks>
 public sealed record CreatePromotionRequest(
     string Name,
     [property: JsonConverter(typeof(JsonStringEnumConverter<PromotionType>))] PromotionType Type,
-    string Value,
     DateOnly ValidFrom,
+    string? Value = null,
     DateOnly? ValidTo = null,
     int Priority = 0,
     string? Currency = null);
 
 /// <summary>Re-value, re-date and re-prioritise. No type: changing it would reinterpret the value.</summary>
 public sealed record UpdatePromotionRequest(
-    string Name, string Value, DateOnly ValidFrom, DateOnly? ValidTo = null, int Priority = 0);
+    string Name, DateOnly ValidFrom, string? Value = null, DateOnly? ValidTo = null, int Priority = 0);
+
+/// <summary>One threshold of a tiered promotion: buy this many, get this off.</summary>
+public sealed record PromotionTierResponse(
+    int MinQuantity, string Value, string? Currency);
+
+/// <summary>One tier as an author sets it. The value is a string, like every other discount.</summary>
+public sealed record PromotionTierRequest(
+    int MinQuantity, string Value, string? Currency = null);
+
+/// <summary>Every threshold of a tiered promotion. A PUT replaces the set.</summary>
+/// <remarks>
+/// An empty set is a real state, not a refusal — the promotion then discounts nothing, exactly as an
+/// untargeted promotion or an unassigned price list does.
+/// </remarks>
+public sealed record SetPromotionTiersRequest(IReadOnlyList<PromotionTierRequest> Tiers);
 
 /// <summary>One thing a promotion discounts. Exactly one id is set.</summary>
 public sealed record PromotionTargetResponse(Guid? ProductId, Guid? CategoryId);
@@ -109,12 +130,16 @@ internal static class PromotionEndpoints
 
             if (problem is not null) return problem;
 
-            var created = request.Type == PromotionType.PercentOff
-                ? Promotion.PercentageOff(
-                    request.Name, value, request.ValidFrom, request.ValidTo, request.Priority)
-                : Promotion.FixedAmountOff(
-                    request.Name, value, request.Currency!, request.ValidFrom, request.ValidTo,
-                    request.Priority);
+            var created = request.Type switch
+            {
+                PromotionType.PercentOff => Promotion.PercentageOff(
+                    request.Name, value!.Value, request.ValidFrom, request.ValidTo, request.Priority),
+                PromotionType.FixedAmountOff => Promotion.FixedAmountOff(
+                    request.Name, value!.Value, request.Currency!, request.ValidFrom, request.ValidTo,
+                    request.Priority),
+                _ => Promotion.VolumeTiered(
+                    request.Name, request.ValidFrom, request.ValidTo, request.Priority),
+            };
 
             db.Promotions.Add(created);
             await db.SaveChangesAsync(ct);
@@ -208,6 +233,46 @@ internal static class PromotionEndpoints
 
             return Results.Ok(await TargetsAsync(db, id, ct));
         }).RequirePermission(ProductsPermissions.Write);
+
+        promotions.MapGet("/{id:guid}/tiers", async (
+            Guid id, ProductsDbContext db, CancellationToken ct) =>
+        {
+            if (!await db.Promotions.AnyAsync(p => p.Id == id, ct)) return Results.NotFound();
+
+            return Results.Ok(await TiersAsync(db, id, ct));
+        }).RequirePermission(ProductsPermissions.Read);
+
+        promotions.MapPut("/{id:guid}/tiers", async (
+            Guid id,
+            SetPromotionTiersRequest request,
+            ProductsDbContext db,
+            CancellationToken ct) =>
+        {
+            var promotion = await db.Promotions.SingleOrDefaultAsync(p => p.Id == id, ct);
+            if (promotion is null) return Results.NotFound();
+
+            var (tiers, problem) = TierProblem(promotion, request);
+            if (problem is not null) return problem;
+
+            // Replaced wholesale, like every other set here. Not diffed against what is stored: a
+            // tier's identity is its threshold, and an author moving "10+" to "12+" has replaced the
+            // tier rather than edited it, so keeping the row would preserve a CreatedAt that means
+            // nothing. Targets and price lines keep theirs because their identity is a product id,
+            // which does survive an edit.
+            db.PromotionTiers.RemoveRange(
+                await db.PromotionTiers.Where(tier => tier.PromotionId == id).ToListAsync(ct));
+
+            foreach (var tier in tiers)
+            {
+                db.PromotionTiers.Add(tier.Currency is { } currency
+                    ? PromotionTier.Amount(id, tier.MinQuantity, tier.Value, currency)
+                    : PromotionTier.Percentage(id, tier.MinQuantity, tier.Value));
+            }
+
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(await TiersAsync(db, id, ct));
+        }).RequirePermission(ProductsPermissions.Write);
     }
 
     private static IReadOnlyList<PromotionResponse> Respond(IEnumerable<Promotion> promotions) =>
@@ -224,11 +289,30 @@ internal static class PromotionEndpoints
             // "12.5" at creation renders as "12.5", while the same value read back from
             // numeric(5,2) renders as "12.50" — one promotion, two spellings, differing by which
             // request you asked. A client diffing the two would see a change that never happened.
-            (promotion.PercentOff ?? promotion.AmountOff ?? 0m).ToString("0.00##", CultureInfo.InvariantCulture),
+            //
+            // Null rather than "0.00" for a type whose discounts live on child rows: a zero there
+            // would read as "no discount" instead of "look at the tiers".
+            Format(promotion.PercentOff ?? promotion.AmountOff),
             promotion.Currency,
             promotion.ValidFrom,
             promotion.ValidTo,
             promotion.Priority);
+
+    /// <summary>Every discount in this API is spelled the way <c>MoneyJsonConverter</c> spells one.</summary>
+    private static string? Format(decimal? value) =>
+        value?.ToString("0.00##", CultureInfo.InvariantCulture);
+
+    private static async Task<IReadOnlyList<PromotionTierResponse>> TiersAsync(
+        ProductsDbContext db, Guid promotionId, CancellationToken ct) =>
+        [
+            .. (await db.PromotionTiers
+                    .Where(tier => tier.PromotionId == promotionId)
+                    // Ascending, which is how a tier table is read and how resolution will scan it.
+                    .OrderBy(tier => tier.MinQuantity)
+                    .ToListAsync(ct))
+                .Select(tier => new PromotionTierResponse(
+                    tier.MinQuantity, Format(tier.PercentOff ?? tier.AmountOff)!, tier.Currency)),
+        ];
 
     private static async Task<IReadOnlyList<PromotionTargetResponse>> TargetsAsync(
         ProductsDbContext db, Guid promotionId, CancellationToken ct) =>
@@ -239,44 +323,39 @@ internal static class PromotionEndpoints
             .Select(target => new PromotionTargetResponse(target.ProductId, target.CategoryId))
             .ToListAsync(ct);
 
-    /// <summary>Checks a promotion and returns its parsed value.</summary>
-    private static async Task<(decimal Value, IResult? Problem)> PromotionProblem(
-        ProductsDbContext db,
-        string name,
-        PromotionType type,
-        string rawValue,
-        string? currency,
-        DateOnly from,
-        DateOnly? to,
-        Guid? excluding,
-        CancellationToken ct)
+    /// <summary>
+    /// Parses and checks one discount — a promotion's own, or a tier's. Appends to
+    /// <paramref name="problems"/> and returns the value when it is usable.
+    /// </summary>
+    /// <remarks>
+    /// Shared because a tier's discount obeys exactly the rules a flat promotion's does: same parse,
+    /// same bounds, same currency-iff-amount pairing. Two copies would drift, and the copy that
+    /// drifted would be the one nobody reads — the tier rows, which no back-office screen renders
+    /// yet. <paramref name="field"/> is what the caller sent it under, so a refusal points at
+    /// <c>value</c> or at <c>tiers[1].value</c> rather than at whichever the last author had in mind.
+    /// </remarks>
+    private static decimal? DiscountProblem(
+        List<FieldProblem> problems, string field, string? rawValue, bool percentage, string? currency)
     {
-        var problems = new List<FieldProblem>();
-
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            problems.Add(new FieldProblem(
-                "name", "A promotion needs a name.", "product.promotion.nameRequired"));
-        }
-
         // Same parse as a price, and the same refusal of thousands separators. NumberStyles.Number
         // would make "12,50" parse to 1250 under invariant culture — a hundredfold discount that
         // reads as a plausible one.
-        var parsed = decimal.TryParse(
-            rawValue,
-            NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign,
-            CultureInfo.InvariantCulture,
-            out var value);
-
-        if (!parsed)
+        if (!decimal.TryParse(
+                rawValue,
+                NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign,
+                CultureInfo.InvariantCulture,
+                out var value))
         {
             problems.Add(new FieldProblem(
-                "value",
+                field,
                 $"'{rawValue}' is not a decimal value.",
                 "product.promotion.valueNotANumber",
                 new Dictionary<string, string> { ["value"] = rawValue ?? string.Empty }));
+
+            return null;
         }
-        else if (type == PromotionType.PercentOff)
+
+        if (percentage)
         {
             // Zero is refused along with the negatives. A 0% promotion is not a promotion that does
             // nothing — it is a rule that will win a priority contest against a real discount and
@@ -285,46 +364,87 @@ internal static class PromotionEndpoints
             if (value <= 0 || value > 100)
             {
                 problems.Add(new FieldProblem(
-                    "value",
+                    field,
                     "A percentage off is above 0 and at most 100.",
                     "product.promotion.percentOutOfRange",
-                    new Dictionary<string, string> { ["value"] = rawValue }));
+                    new Dictionary<string, string> { ["value"] = rawValue! }));
             }
-        }
-        else if (value <= 0)
-        {
-            // A fixed amount larger than the price is *not* refused here: whether that floors the
-            // line at zero or refuses the promotion is a resolution question (PRD-06), and it cannot
-            // be answered at authoring time — the same promotion meets a different price at every
-            // outlet it reaches.
-            problems.Add(new FieldProblem(
-                "value",
-                "A fixed amount off is above 0.",
-                "product.promotion.amountNotPositive",
-                new Dictionary<string, string> { ["value"] = rawValue }));
+
+            if (currency is not null)
+            {
+                // Refused rather than ignored. A caller that sent a currency with a percentage has
+                // misunderstood something, and silently dropping it means they find out when a
+                // report disagrees with what they thought they authored.
+                problems.Add(new FieldProblem(
+                    field.Replace("value", "currency"),
+                    "A percentage off has no currency.",
+                    "product.promotion.currencyNotApplicable"));
+            }
+
+            return value;
         }
 
-        if (type == PromotionType.FixedAmountOff)
+        // A fixed amount larger than the price is *not* refused: whether that floors the line at zero
+        // or disqualifies the promotion is a resolution question (PRD-06), and it cannot be answered
+        // at authoring time — the same promotion meets a different price at every outlet it reaches.
+        if (value <= 0)
         {
-            // Shape only, as on a price list — what this refuses is "Euro", "eur " and "€".
-            if (currency is not { Length: 3 } || !currency.All(char.IsAsciiLetter))
-            {
-                problems.Add(new FieldProblem(
-                    "currency",
-                    "A fixed amount off needs a three-letter ISO-4217 currency, e.g. EUR.",
-                    "product.promotion.currencyInvalid",
-                    new Dictionary<string, string> { ["currency"] = currency ?? string.Empty }));
-            }
-        }
-        else if (currency is not null)
-        {
-            // Refused rather than ignored. A caller that sent a currency with a percentage has
-            // misunderstood something, and silently dropping it means they find out when a report
-            // disagrees with what they thought they authored.
             problems.Add(new FieldProblem(
-                "currency",
-                "A percentage off has no currency.",
-                "product.promotion.currencyNotApplicable"));
+                field,
+                "A fixed amount off is above 0.",
+                "product.promotion.amountNotPositive",
+                new Dictionary<string, string> { ["value"] = rawValue! }));
+        }
+
+        // Shape only, as on a price list — what this refuses is "Euro", "eur " and "€".
+        if (currency is not { Length: 3 } || !currency.All(char.IsAsciiLetter))
+        {
+            problems.Add(new FieldProblem(
+                field.Replace("value", "currency"),
+                "A fixed amount off needs a three-letter ISO-4217 currency, e.g. EUR.",
+                "product.promotion.currencyInvalid",
+                new Dictionary<string, string> { ["currency"] = currency ?? string.Empty }));
+        }
+
+        return value;
+    }
+
+    /// <summary>Checks a promotion and returns its parsed value, if its type carries one.</summary>
+    private static async Task<(decimal? Value, IResult? Problem)> PromotionProblem(
+        ProductsDbContext db,
+        string name,
+        PromotionType type,
+        string? rawValue,
+        string? currency,
+        DateOnly from,
+        DateOnly? to,
+        Guid? excluding,
+        CancellationToken ct)
+    {
+        var problems = new List<FieldProblem>();
+        decimal? value = null;
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            problems.Add(new FieldProblem(
+                "name", "A promotion needs a name.", "product.promotion.nameRequired"));
+        }
+
+        if (Promotion.CarriesItsOwnValue(type))
+        {
+            value = DiscountProblem(
+                problems, "value", rawValue, type == PromotionType.PercentOff, currency);
+        }
+        else if (rawValue is not null || currency is not null)
+        {
+            // Refused rather than ignored, for the same reason a percentage carrying a currency is:
+            // a caller sending a value for a tiered promotion has misunderstood where the discounts
+            // live, and dropping it silently means they author tiers they think are redundant.
+            problems.Add(new FieldProblem(
+                "value",
+                $"A {type} promotion carries no value of its own — its discounts are its tiers.",
+                "product.promotion.valueNotApplicable",
+                new Dictionary<string, string> { ["type"] = type.ToString() }));
         }
 
         // Half-open, so equal dates are an empty window rather than a single day — a promotion that
@@ -350,6 +470,102 @@ internal static class PromotionEndpoints
         }
 
         return (value, problems.Count > 0 ? Problems.BadRequest(problems) : null);
+    }
+
+    /// <summary>One tier, parsed and checked.</summary>
+    private readonly record struct CheckedTier(int MinQuantity, decimal Value, string? Currency);
+
+    /// <summary>Checks a whole tier set and returns it parsed.</summary>
+    /// <remarks>
+    /// Whole-set rather than per-tier, because two of the three rules here are about the set: the
+    /// kinds have to agree, and the thresholds have to be distinct. Neither can be seen from one row,
+    /// which is also why the database enforces only the third (a tier's own value shape) — SQL can
+    /// state what a row must look like, not what its siblings must look like, and a trigger to say so
+    /// would be a rule living somewhere nobody reads.
+    /// </remarks>
+    private static (IReadOnlyList<CheckedTier> Tiers, IResult? Problem) TierProblem(
+        Promotion promotion, SetPromotionTiersRequest request)
+    {
+        var problems = new List<FieldProblem>();
+        var tiers = new List<CheckedTier>();
+
+        if (promotion.Type != PromotionType.VolumeTiered)
+        {
+            // A flat promotion with tiers would have two discounts and no rule saying which applies.
+            problems.Add(new FieldProblem(
+                "tiers",
+                $"Only a {PromotionType.VolumeTiered} promotion has tiers.",
+                "product.promotion.tiersNotApplicable",
+                new Dictionary<string, string> { ["type"] = promotion.Type.ToString() }));
+
+            return ([], Problems.BadRequest(problems));
+        }
+
+        // An empty set is allowed and means the promotion discounts nothing — the same meaning as an
+        // empty target set, and as a price list with no assignments.
+
+        for (var index = 0; index < request.Tiers.Count; index++)
+        {
+            var tier = request.Tiers[index];
+
+            // Below 2 is refused. A tier at 1 is "buy one or more", which is every order line that
+            // matched at all — a flat discount wearing a tier's clothes, and one that would silently
+            // shadow the PercentOff type it duplicates. Zero and negatives are not quantities.
+            if (tier.MinQuantity < 2)
+            {
+                problems.Add(new FieldProblem(
+                    $"tiers[{index}].minQuantity",
+                    "A tier starts at 2 or more — a tier at 1 is a flat discount.",
+                    "product.promotion.tierQuantityTooSmall",
+                    new Dictionary<string, string> { ["minQuantity"] = tier.MinQuantity.ToString() }));
+            }
+
+            var value = DiscountProblem(
+                problems, $"tiers[{index}].value", tier.Value, tier.Currency is null, tier.Currency);
+
+            if (value is { } parsed)
+            {
+                tiers.Add(new CheckedTier(tier.MinQuantity, parsed, tier.Currency?.ToUpperInvariant()));
+            }
+        }
+
+        var duplicates = request.Tiers
+            .GroupBy(tier => tier.MinQuantity)
+            .Count(group => group.Count() > 1);
+
+        if (duplicates > 0)
+        {
+            problems.Add(new FieldProblem(
+                "tiers",
+                $"{duplicates} threshold(s) appear more than once.",
+                "product.promotion.tierQuantityDuplicated",
+                new Dictionary<string, string> { ["count"] = duplicates.ToString() }));
+        }
+
+        // All percentages or all amounts. Nothing about resolution requires it — tiers are selected
+        // by quantity, not compared to each other, so a mixed set is well-defined. It is refused
+        // because "5% off at 10, three euros off at 24" is a set nobody can sanity-check at a glance,
+        // and is far more likely to be a mistake than an intention.
+        if (tiers.Select(tier => tier.Currency is null).Distinct().Count() > 1)
+        {
+            problems.Add(new FieldProblem(
+                "tiers",
+                "Every tier of one promotion is a percentage, or every tier is an amount.",
+                "product.promotion.tierKindsMixed"));
+        }
+
+        // And one currency across the amount tiers, for the reason BR-PRD-1 gives: a set that
+        // discounts by EUR at one threshold and RON at another cannot be compared or summed, and
+        // resolution would have to pick a currency the promotion never declared.
+        if (tiers.Select(tier => tier.Currency).Where(c => c is not null).Distinct().Count() > 1)
+        {
+            problems.Add(new FieldProblem(
+                "tiers",
+                "Every amount tier of one promotion is in the same currency.",
+                "product.promotion.tierCurrenciesMixed"));
+        }
+
+        return (tiers, problems.Count > 0 ? Problems.BadRequest(problems) : null);
     }
 
     private static async Task<IResult?> TargetProblem(

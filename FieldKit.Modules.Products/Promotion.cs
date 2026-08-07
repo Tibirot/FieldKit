@@ -9,10 +9,15 @@ namespace FieldKit.Modules.Products;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Two of the four types B1 names. <c>VolumeTiered</c> (buy N+ → discount) and <c>BuyXGetY</c>
-/// (BOGO / bundle) arrive in the second promotion PR: both need child rows — a tier table, a
-/// get-this-for-that pair — which is a different shape of change from the two flat ones here, and
-/// the delivery plan budgets `PRD-05` as two PRs for that reason.
+/// Three of the four types B1 names. <c>BuyXGetY</c> (BOGO / bundle) is the last, and needs a
+/// get-this-for-that pair of its own.
+/// </para>
+/// <para>
+/// <b>The first two are <i>flat</i>: one discount, whatever the quantity.</b>
+/// <see cref="VolumeTiered"/> is the first that is not — its discount is a function of how many were
+/// ordered, so the value lives on <see cref="PromotionTier"/> rows rather than on the promotion, and
+/// the promotion's own value columns are null. That split is why the check constraint on
+/// <c>promotion</c> is written per type.
 /// </para>
 /// <para>
 /// <b>Stored as a string, unlike this module's other enums</b> (<c>ProductStatus</c>,
@@ -29,6 +34,12 @@ public enum PromotionType
 
     /// <summary>A fixed sum off, in its own currency. Carries <c>AmountOff</c> and <c>Currency</c>.</summary>
     FixedAmountOff,
+
+    /// <summary>
+    /// Buy N or more → discount, with the discount rising by threshold. Carries no value of its own;
+    /// see <see cref="PromotionTier"/>.
+    /// </summary>
+    VolumeTiered,
 }
 
 /// <summary>
@@ -135,7 +146,37 @@ public sealed class Promotion : AggregateRoot, ITenantOwned, IAuditable
         };
 
     /// <summary>
-    /// Re-values, re-dates and re-prioritises. The <b>type is not here</b>, deliberately.
+    /// Buy N or more → discount. The discounts themselves live on <see cref="PromotionTier"/>.
+    /// </summary>
+    /// <remarks>
+    /// No value here, deliberately: a tiered promotion has as many discounts as it has thresholds,
+    /// and putting one of them on the promotion would make it the odd tier out — the one an author
+    /// edits in a different place from all the others.
+    /// </remarks>
+    public static Promotion VolumeTiered(string name, DateOnly from, DateOnly? to, int priority) =>
+        new()
+        {
+            Id = Guid.CreateVersion7(),
+            Name = name,
+            Type = PromotionType.VolumeTiered,
+            ValidFrom = from,
+            ValidTo = to,
+            Priority = priority,
+        };
+
+    /// <summary>Whether this type's discount lives on the promotion rather than on child rows.</summary>
+    /// <remarks>
+    /// The question the endpoint asks in three places — whether to expect a <c>value</c>, whether to
+    /// return one, whether to let an update change one. Written once here rather than as three
+    /// separate <c>is not VolumeTiered</c> checks that would each have to learn about BOGO
+    /// separately.
+    /// </remarks>
+    public static bool CarriesItsOwnValue(PromotionType type) =>
+        type is PromotionType.PercentOff or PromotionType.FixedAmountOff;
+
+    /// <summary>
+    /// Re-names, re-dates and re-prioritises; re-values only the types that carry a value.
+    /// The <b>type is not here</b>, deliberately.
     /// </summary>
     /// <remarks>
     /// Changing a promotion's type would reinterpret its value — 15 meaning "15% off" becoming 15
@@ -145,15 +186,20 @@ public sealed class Promotion : AggregateRoot, ITenantOwned, IAuditable
     /// type authors the other promotion and withdraws this one.
     /// </remarks>
     public void Update(
-        string name, decimal value, DateOnly from, DateOnly? to, int priority, IClock clock)
+        string name, decimal? value, DateOnly from, DateOnly? to, int priority, IClock clock)
     {
         Name = name;
         ValidFrom = from;
         ValidTo = to;
         Priority = priority;
 
-        if (Type == PromotionType.PercentOff) PercentOff = value;
-        else AmountOff = value;
+        // Null for the types whose discount lives on child rows. Assigning it anyway would put a
+        // value on a promotion the check constraint requires to have none.
+        if (value is { } amount)
+        {
+            if (Type == PromotionType.PercentOff) PercentOff = amount;
+            else AmountOff = amount;
+        }
 
         ModifiedAtUtc = clock.UtcNow;
     }
@@ -205,4 +251,77 @@ public sealed class PromotionTarget : AggregateRoot, ITenantOwned, IAuditable
 
     public static PromotionTarget Category(Guid promotionId, Guid categoryId) =>
         new() { Id = Guid.CreateVersion7(), PromotionId = promotionId, CategoryId = categoryId };
+}
+
+/// <summary>
+/// One threshold of a <see cref="PromotionType.VolumeTiered"/> promotion: buy this many, get this
+/// off (<c>PRD-05</c>).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Each tier carries its own discount, self-describing</b> — a percentage, or an amount with its
+/// own currency, under the same rule as a flat promotion. Storing the discount here rather than a
+/// bare number that the promotion gives units to means a row read on its own still means something,
+/// which is the same reason <see cref="Money"/> exists at all.
+/// </para>
+/// <para>
+/// <b>Tiers within one promotion must agree on kind</b> — all percentages or all amounts. Nothing
+/// about resolution requires it: tiers are selected by quantity, not compared to each other, so a
+/// mixed set is perfectly well-defined. It is refused because it is almost certainly a mistake, and
+/// because a set that means "5% off at 10, three euros off at 24" is one nobody can sanity-check at
+/// a glance. That rule spans rows, so the endpoint enforces it and the database does not — tiers are
+/// replaced wholesale in one request, which is what makes the check local enough to be reliable.
+/// </para>
+/// <para>
+/// <b>The lower bound is inclusive and there is no upper bound.</b> A tier is "N or more", and
+/// resolution takes the highest threshold the quantity reaches — so tiers do not need to say where
+/// they stop, and cannot leave a gap between them by disagreeing about it. The same instinct as the
+/// half-open date window, one dimension over.
+/// </para>
+/// </remarks>
+public sealed class PromotionTier : AggregateRoot, ITenantOwned, IAuditable
+{
+    public Guid Id { get; private set; }
+
+    public Guid PromotionId { get; private set; }
+
+    /// <summary>Inclusive. This tier applies from this quantity upward.</summary>
+    public int MinQuantity { get; private set; }
+
+    /// <summary>Set for a percentage tier, null otherwise. In <c>0 &lt; p ≤ 100</c>.</summary>
+    public decimal? PercentOff { get; private set; }
+
+    /// <summary>Set for an amount tier, null otherwise. Positive.</summary>
+    public decimal? AmountOff { get; private set; }
+
+    /// <summary>ISO-4217, upper-cased. Set with <see cref="AmountOff"/> and null without it.</summary>
+    public string? Currency { get; private set; }
+
+    public TenantId TenantId { get; set; }
+    public DateTimeOffset CreatedAtUtc { get; set; }
+    public string? CreatedBy { get; set; }
+    public DateTimeOffset? ModifiedAtUtc { get; set; }
+    public string? ModifiedBy { get; set; }
+
+    private PromotionTier() { } // EF
+
+    public static PromotionTier Percentage(Guid promotionId, int minQuantity, decimal percentOff) =>
+        new()
+        {
+            Id = Guid.CreateVersion7(),
+            PromotionId = promotionId,
+            MinQuantity = minQuantity,
+            PercentOff = percentOff,
+        };
+
+    public static PromotionTier Amount(
+        Guid promotionId, int minQuantity, decimal amountOff, string currency) =>
+        new()
+        {
+            Id = Guid.CreateVersion7(),
+            PromotionId = promotionId,
+            MinQuantity = minQuantity,
+            AmountOff = amountOff,
+            Currency = currency.ToUpperInvariant(),
+        };
 }
