@@ -401,21 +401,44 @@ public class PromotionTests(ServerFixture fixture)
     }
 
     [Fact]
-    public async Task A_promotion_with_no_target_at_all_is_refused()
+    public async Task Emptying_the_targets_withdraws_the_promotion()
     {
-        // Unlike a price list's scope, where emptying it is how a list is withdrawn. A promotion with
-        // no target is not withdrawn — it is a discount with no subject, and the resolver would have
-        // to guess whether that means everything or nothing. Withdrawing is what the window is for.
+        // The same shape and the same meaning as emptying a price list's assignments. A promotion
+        // that targets nothing discounts nothing, which is how it is taken out of play without
+        // editing its window or deleting a record other things point at.
         using var writer = fixture.CreateAuthenticatedClient();
+
         var promotion = await PromotionAsync(writer);
+        var productId = await ProductAsync(writer);
 
-        var response = await writer.PutAsJsonAsync(
-            $"{Promotions}/{promotion.Id}/targets", new SetPromotionTargetsRequest([], []));
+        Assert.Single(await SetTargetsAsync(writer, promotion.Id, [productId]));
+        Assert.Empty(await SetTargetsAsync(writer, promotion.Id));
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        // And it stays withdrawn on a re-read, rather than the PUT merely returning an empty body.
+        var read = await writer.GetFromJsonAsync<List<PromotionTargetResponse>>(
+            $"{Promotions}/{promotion.Id}/targets");
+
+        Assert.Empty(read!);
+    }
+
+    [Fact]
+    public async Task Withdrawing_and_re_targeting_are_symmetric_with_a_price_lists_scope()
+    {
+        // The asymmetry this pins used to exist: an empty target set was a 400 while an empty price
+        // list scope was meaningful. Two endpoints of the same shape behaving differently is the kind
+        // of thing a back-office screen discovers the hard way, so it is asserted rather than only
+        // fixed.
+        using var writer = fixture.CreateAuthenticatedClient();
+
+        var promotion = await PromotionAsync(writer);
+        var productId = await ProductAsync(writer);
+
+        await SetTargetsAsync(writer, promotion.Id, [productId]);
+        await SetTargetsAsync(writer, promotion.Id);
+
         Assert.Equal(
-            "product.promotion.targetRequired",
-            Assert.Single(await Refusals.ProblemsOf(response)).Code);
+            productId,
+            Assert.Single(await SetTargetsAsync(writer, promotion.Id, [productId])).ProductId);
     }
 
     [Fact]

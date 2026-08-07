@@ -345,10 +345,13 @@ GET {{Server_HostAddress}}/api/products/promotions/{{percentOff.response.body.id
 Accept: application/json
 Authorization: Bearer {{token.response.body.access_token}}
 
-### No target at all — expect 400 `product.promotion.targetRequired`. Unlike a price list's scope,
-### where emptying it is how a list is withdrawn: a promotion with no target is not withdrawn, it is
-### a discount with no subject, and the resolver would have to guess whether that means everything or
-### nothing. Withdrawing a promotion is what the validity window is for.
+### Withdraw it — an empty set is a real change, not a refusal. A promotion that targets nothing
+### discounts nothing, which is how it is taken out of play without editing its window or deleting a
+### record other things point at. The same shape and the same meaning as emptying a price list's
+### assignments; two endpoints this alike should not disagree about what empty means.
+###
+### Nothing has to be guessed for this to be safe: resolution matches target rows, and no rows is no
+### match. The dangerous reading — empty meaning *everything* — is not one anything here invites.
 PUT {{Server_HostAddress}}/api/products/promotions/{{percentOff.response.body.id}}/targets
 Content-Type: application/json
 Authorization: Bearer {{token.response.body.access_token}}

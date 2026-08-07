@@ -45,6 +45,11 @@ public sealed record UpdatePromotionRequest(
 public sealed record PromotionTargetResponse(Guid? ProductId, Guid? CategoryId);
 
 /// <summary>Everything a promotion discounts. A PUT replaces the set.</summary>
+/// <remarks>
+/// An empty set is a real state, not a refusal: the promotion then discounts nothing. That mirrors
+/// emptying a price list's assignments, which is how a list is withdrawn — and it is how a promotion
+/// is taken out of play without editing its window or deleting the record other things point at.
+/// </remarks>
 public sealed record SetPromotionTargetsRequest(
     IReadOnlyList<Guid> ProductIds, IReadOnlyList<Guid> CategoryIds);
 
@@ -355,20 +360,13 @@ internal static class PromotionEndpoints
         var productIds = request.ProductIds.Distinct().ToList();
         var categoryIds = request.CategoryIds.Distinct().ToList();
 
-        if (productIds.Count == 0 && categoryIds.Count == 0)
-        {
-            // An empty set is refused here, unlike a price list's scope where emptying it is how a
-            // list is withdrawn. The difference is what the empty state means: a promotion with no
-            // target is not "withdrawn", it is a discount with no subject — the resolver would have
-            // to decide whether that means everything or nothing, and neither reading is safe to
-            // guess. Withdrawing a promotion is what the validity window is for.
-            problems.Add(new FieldProblem(
-                "productIds",
-                "A promotion discounts at least one product or category.",
-                "product.promotion.targetRequired"));
-
-            return Problems.BadRequest(problems);
-        }
+        // An empty set is allowed, and it means the promotion discounts nothing — the same shape and
+        // the same meaning as emptying a price list's assignments, which is how a list is withdrawn.
+        //
+        // No reading has to be guessed at for it to be safe. Resolution matches target rows; no rows
+        // is no match, so "targets nothing" falls out of the data rather than needing a rule. The
+        // alternative reading — empty meaning *everything* — is the one that would be dangerous, and
+        // nothing here or in PRD-06 invites it.
 
         if (productIds.Count > 0)
         {
