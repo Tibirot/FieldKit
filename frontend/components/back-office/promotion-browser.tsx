@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Crosshair, Plus } from "lucide-react";
+import { Crosshair, Layers, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
@@ -147,6 +147,21 @@ export function PromotionBrowser() {
                   <Crosshair className="size-4" />
                   {t("targets")}
                 </LinkButton>
+
+                {/* Offered on the one type that has tiers. A flat promotion with them would carry
+                    two discounts and no rule saying which applies, so the API refuses the pairing —
+                    and a link to an editor that refuses everything is not a courtesy. */}
+                {promotion.type === "VolumeTiered" ? (
+                  <LinkButton
+                    href={`/products/promotions/${promotion.id}/tiers`}
+                    size="sm"
+                    variant="outline"
+                    aria-label={t("tiersNamed", { name: promotion.name })}
+                  >
+                    <Layers className="size-4" />
+                    {t("tiers")}
+                  </LinkButton>
+                ) : null}
 
                 {canWrite ? (
                   <Button

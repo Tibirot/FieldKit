@@ -726,7 +726,9 @@
     "cancel": "Anulează",
     "saveFailed": "Promoția nu a putut fi salvată.",
     "targets": "Ținte",
-    "targetsNamed": "Ținte pentru {name}"
+    "targetsNamed": "Ținte pentru {name}",
+    "tiers": "Praguri",
+    "tiersNamed": "Praguri pentru {name}"
   },
   "PromotionTargets": {
     "crumb": "Date de bază / Produse / Promoții / Ținte",
@@ -755,6 +757,40 @@
     "save": "Salvează țintele",
     "saving": "Se salvează…",
     "saveFailed": "Țintele nu au putut fi salvate.",
+    "unsaved": "Modificări nesalvate."
+  },
+  "PromotionTiers": {
+    "crumb": "Date de bază / Produse / Promoții / Praguri",
+    "intro": "Cumperi atâtea, scazi atâta. O linie care atinge mai multe praguri primește cea mai mare reducere la care ajunge; fără praguri, promoția nu reduce nimic.",
+    "wrongType": "Doar o promoție cu praguri de volum are praguri. Aceasta este {type}.",
+    "kind": "Ce scad pragurile",
+    "kindHint": "Un singur fel pentru toată promoția. „5% la 10, trei euro la 24” este o regulă pe care nimeni nu o poate verifica dintr-o privire, așa că nu este oferită.",
+    "percentages": "Procente",
+    "amountsIn": "Sume fixe, în",
+    "currency": "Monedă",
+    "currencyInvalid": "Trei litere, ISO 4217 — EUR, RON.",
+    "thresholds": "Praguri",
+    "thresholdsHint": "Fiecare arată cantitatea minimă care merită reducerea sa.",
+    "noThresholds": "Niciun prag încă.",
+    "buyAtLeast": "Cumperi cel puțin",
+    "takeOff": "scazi",
+    "minQuantityRow": "Cantitate minimă, pragul {row}",
+    "valueRow": "Reducere, pragul {row}",
+    "removeRow": "Elimină pragul {row}",
+    "addTier": "Adaugă un prag",
+    "tooSmall": "Un prag începe de la 2 în sus — un prag la 1 este o reducere fixă.",
+    "duplicate": "Acea cantitate are deja un prag.",
+    "notAnAmount": "Folosiți punctul zecimal — 12.50, nu 12,50.",
+    "tierCount": "{count, plural, one {# prag} few {# praguri} other {# de praguri}}.",
+    "noTiersYet": "Niciun prag. Această promoție nu reduce nimic.",
+    "fixFirst": "Corectați întâi rândurile evidențiate.",
+    "loading": "Se încarcă…",
+    "failed": "Nu s-a putut încărca.",
+    "forbidden": "Nu aveți permisiunea de a vedea promoțiile.",
+    "notFound": "Această promoție nu există.",
+    "save": "Salvează pragurile",
+    "saving": "Se salvează…",
+    "saveFailed": "Pragurile nu au putut fi salvate.",
     "unsaved": "Modificări nesalvate."
   }
 }

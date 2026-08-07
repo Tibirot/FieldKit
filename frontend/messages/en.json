@@ -726,7 +726,9 @@
     "cancel": "Cancel",
     "saveFailed": "This promotion could not be saved.",
     "targets": "Targets",
-    "targetsNamed": "Targets for {name}"
+    "targetsNamed": "Targets for {name}",
+    "tiers": "Tiers",
+    "tiersNamed": "Tiers for {name}"
   },
   "PromotionTargets": {
     "crumb": "Master data / Products / Promotions / Targets",
@@ -755,6 +757,40 @@
     "save": "Save targets",
     "saving": "Saving…",
     "saveFailed": "These targets could not be saved.",
+    "unsaved": "Unsaved changes."
+  },
+  "PromotionTiers": {
+    "crumb": "Master data / Products / Promotions / Tiers",
+    "intro": "Buy this many, get that off. A line reaching several thresholds takes the deepest one it earns; no thresholds means this promotion discounts nothing.",
+    "wrongType": "Only a volume-tiered promotion has tiers. This one is {type}.",
+    "kind": "What the tiers take off",
+    "kindHint": "One kind for the whole promotion. “5% off at 10, three euros off at 24” is a rule nobody can check at a glance, so it is not offered.",
+    "percentages": "Percentages",
+    "amountsIn": "Fixed amounts, in",
+    "currency": "Currency",
+    "currencyInvalid": "Three letters, ISO 4217 — EUR, RON.",
+    "thresholds": "Thresholds",
+    "thresholdsHint": "Each says the smallest quantity that earns its discount.",
+    "noThresholds": "No thresholds yet.",
+    "buyAtLeast": "Buy at least",
+    "takeOff": "take off",
+    "minQuantityRow": "Smallest quantity, tier {row}",
+    "valueRow": "Discount, tier {row}",
+    "removeRow": "Remove tier {row}",
+    "addTier": "Add a tier",
+    "tooSmall": "A tier starts at 2 or more — a tier at 1 is a flat discount.",
+    "duplicate": "That quantity already has a tier.",
+    "notAnAmount": "Use a decimal point — 12.50, not 12,50.",
+    "tierCount": "{count, plural, one {# threshold} other {# thresholds}}.",
+    "noTiersYet": "No thresholds. This promotion discounts nothing.",
+    "fixFirst": "Fix the highlighted rows first.",
+    "loading": "Loading…",
+    "failed": "This could not be loaded.",
+    "forbidden": "You do not have permission to view promotions.",
+    "notFound": "That promotion does not exist.",
+    "save": "Save tiers",
+    "saving": "Saving…",
+    "saveFailed": "These tiers could not be saved.",
     "unsaved": "Unsaved changes."
   }
 }
