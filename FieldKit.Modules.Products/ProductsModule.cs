@@ -63,6 +63,7 @@ public sealed class ProductsModule : IModule
         // anyway. Ordered last because it reads as the last thing Products learned to do, not because
         // it has to be.
         endpoints.MapPriceResolutionEndpoints();
+        endpoints.MapPromotionResolutionEndpoints();
     }
 }
 

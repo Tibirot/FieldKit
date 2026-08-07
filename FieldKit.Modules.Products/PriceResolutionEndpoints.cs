@@ -66,7 +66,12 @@ internal static class PriceResolutionEndpoints
             IOutletClassification classification,
             CancellationToken ct) =>
         {
-            if (ParseDate(on, out var date) is { } problem) return problem;
+            if (BusinessDate.Parse(
+                    on, "product.price.dateRequired", "product.price.dateMalformed", out var date)
+                is { } problem)
+            {
+                return problem;
+            }
 
             // Which channel this shop trades in decides which lists reach it. Through the contract,
             // because Products cannot see the outlet table (AT-1) — and tenant-filtered by it, so
@@ -161,30 +166,4 @@ internal static class PriceResolutionEndpoints
         ];
     }
 
-    /// <summary>Parses <c>?on=</c>, or explains why it could not.</summary>
-    /// <remarks>
-    /// Hand-parsed rather than bound as a <c>DateOnly?</c> parameter so a malformed date is a field
-    /// problem naming <c>on</c>, like every other refusal in this codebase, instead of the framework's
-    /// bare 400 with no body.
-    /// </remarks>
-    private static IResult? ParseDate(string? on, out DateOnly date)
-    {
-        date = default;
-
-        if (string.IsNullOrWhiteSpace(on))
-        {
-            return Problems.BadRequest(
-                "on",
-                "A date is required — resolution is never relative to the server's today.",
-                "product.price.dateRequired");
-        }
-
-        if (!DateOnly.TryParseExact(on, "yyyy-MM-dd", CultureInfo.InvariantCulture, default, out date))
-        {
-            return Problems.BadRequest(
-                "on", "Expected a date as yyyy-MM-dd.", "product.price.dateMalformed");
-        }
-
-        return null;
-    }
 }

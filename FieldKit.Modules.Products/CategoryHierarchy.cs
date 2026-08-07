@@ -36,4 +36,42 @@ internal static class CategoryHierarchy
 
         return false;
     }
+
+    /// <summary>
+    /// <paramref name="categoryId"/> and every category above it, nearest first.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// What a promotion targeting a category needs (<c>PRD-06</c>): a deal on <i>Beverages</i> covers
+    /// a product filed under <i>Beverages / Water / Still</i>, so matching walks <b>up</b> from the
+    /// product rather than expanding the category downward. Walking up is also what keeps the target
+    /// honest over time — a product moved into Still next week is covered by the Beverages deal
+    /// without anything being re-expanded, which is the whole reason authoring stores the category
+    /// rather than its members.
+    /// </para>
+    /// <para>
+    /// Self-inclusive, because a promotion targeting exactly the product's own category is the
+    /// ordinary case and a caller should not have to remember to add it.
+    /// </para>
+    /// <para>
+    /// Stops on a repeat rather than looping. <see cref="WouldCreateCycle"/> makes a cycle
+    /// unreachable through the API, but this runs on every resolution and a hang is a far worse
+    /// failure than a short answer — the same defensive stance that function takes for the same
+    /// reason.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<Guid> SelfAndAncestors(
+        Guid categoryId, IReadOnlyDictionary<Guid, Guid?> parentOf)
+    {
+        var chain = new List<Guid>();
+        var seen = new HashSet<Guid>();
+
+        for (var current = (Guid?)categoryId; current is { } id && seen.Add(id);)
+        {
+            chain.Add(id);
+            current = parentOf.TryGetValue(id, out var next) ? next : null;
+        }
+
+        return chain;
+    }
 }

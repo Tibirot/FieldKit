@@ -44,6 +44,11 @@ running an older file fails loudly rather than silently testing yesterday's rule
 | File | Covers | Consumed by |
 |---|---|---|
 | [`pricing/price-resolution.v1.json`](pricing/price-resolution.v1.json) | `PRD-04` / `BR-PRD-2` — which price list wins for an outlet on a date | `PriceResolutionVectorTests` (C#); the device mirror (W7) |
+| [`pricing/promotion-resolution.v1.json`](pricing/promotion-resolution.v1.json) | `PRD-06` / `BR-PRD-3` — which promotion applies to one line, at a quantity, on a date | `PromotionResolutionVectorTests` (C#); the device mirror (W7) |
+
+The second file arrived without changing the format, which is the point of having decided it against
+real engine code rather than at the end. A new rule got a new case file, not a new convention, and
+the mirror learns one reader for both.
 
 ## Hand-written today, generated later
 
