@@ -355,6 +355,13 @@ separately.
 > a PR would have meant ~900 hand-written lines and two unrelated rule sets reviewed at once. The
 > estimate was wrong about the shape of the work rather than its size, which is the more useful thing
 > to record.
+>
+> **7c completes `PRD-05`**, and closes something 7a opened. The `promotion` check constraint was
+> written as a `CASE` per type ending in `ELSE TRUE` — deliberate room, so each arriving type was a
+> new `WHEN` rather than an `ALTER` reasoned about against rows already stored. The cost, flagged at
+> the time, was that any unrecognised `type` string was stored unconstrained. B1 names exactly four
+> types and all four are now constrained, so the clause becomes `ELSE FALSE` and the escape closes
+> with it — scaffolding removed by the last slice it was built for, rather than left standing.
 
 **`IPricingService` is not built by slice 6, deliberately.** The resolver is a pure static function
 and the endpoint is its only caller; a cross-module contract needs a cross-module consumer, which is

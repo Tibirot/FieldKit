@@ -816,6 +816,335 @@ public class PromotionTests(ServerFixture fixture)
             (await SetTiersAsync(viewer, promotionId, new PromotionTierRequest(6, "5"))).StatusCode);
     }
 
+    // ─── BOGO / bundle (PRD-05, slice 10) ──────────────────────────────────────────────────────
+
+    private static async Task<HttpResponseMessage> CreateBundleAsync(
+        HttpClient writer,
+        BundleRequest? bundle,
+        PromotionType type = PromotionType.BuyXGetY,
+        string? value = null) =>
+        await writer.PostAsJsonAsync(
+            Promotions,
+            new CreatePromotionRequest(
+                Name: Unique("Promo"),
+                Type: type,
+                ValidFrom: Opens,
+                Value: value,
+                Bundle: bundle));
+
+    private static async Task<PromotionResponse> BogoAsync(
+        HttpClient writer, BundleRequest? bundle = null)
+    {
+        var response = await CreateBundleAsync(
+            writer, bundle ?? new BundleRequest(2, 1, "100"));
+
+        Assert.True(
+            response.StatusCode == HttpStatusCode.Created,
+            $"{response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
+
+        return (await response.Content.ReadFromJsonAsync<PromotionResponse>())!;
+    }
+
+    [Fact]
+    public async Task Buy_two_get_one_free_is_a_hundred_percent_off_the_given_unit()
+    {
+        // 100 is not a special case in the storage, only in what a shopper calls it. That is what
+        // lets "get one free" and "get one half price" be the same offer with a different number,
+        // rather than two types.
+        using var writer = fixture.CreateAuthenticatedClient();
+
+        var promotion = await BogoAsync(writer, new BundleRequest(2, 1, "100"));
+
+        Assert.Equal(PromotionType.BuyXGetY, promotion.Type);
+        Assert.NotNull(promotion.Bundle);
+        Assert.Equal(2, promotion.Bundle.BuyQuantity);
+        Assert.Equal(1, promotion.Bundle.GetQuantity);
+        Assert.Equal("100.00", promotion.Bundle.GetPercentOff);
+
+        // Null means "the same product that was bought" — there is no id to write down when the
+        // promotion targets a whole category.
+        Assert.Null(promotion.Bundle.GetProductId);
+
+        // It gives units; it does not reduce a price.
+        Assert.Null(promotion.Value);
+        Assert.Null(promotion.Currency);
+    }
+
+    [Fact]
+    public async Task A_bundle_can_give_a_different_product_at_a_partial_discount()
+    {
+        // The same mechanism as BOGO with the id filled in — a cross-sell bundle rather than a
+        // second type.
+        using var writer = fixture.CreateAuthenticatedClient();
+        var gift = await ProductAsync(writer);
+
+        var promotion = await BogoAsync(writer, new BundleRequest(3, 1, "50", gift));
+
+        Assert.Equal(gift, promotion.Bundle!.GetProductId);
+        Assert.Equal("50.00", promotion.Bundle.GetPercentOff);
+    }
+
+    [Fact]
+    public async Task The_bundle_is_one_nested_object_rather_than_four_loose_fields()
+    {
+        // Four properties that are only ever all-set or all-null belong together in the shape a
+        // caller reads: `bundle == null` instead of four checks that must agree.
+        using var writer = fixture.CreateAuthenticatedClient();
+        var bogo = await BogoAsync(writer);
+        var flat = await PromotionAsync(writer, PromotionType.PercentOff, "15");
+
+        var body = await (await writer.GetAsync($"{Promotions}/{bogo.Id}")).Content
+            .ReadAsStringAsync();
+
+        Assert.Contains("\"type\":\"BuyXGetY\"", body);
+        Assert.Contains("\"bundle\":{", body);
+        Assert.Contains("\"getPercentOff\":\"100.00\"", body);
+
+        var flatBody = await (await writer.GetAsync($"{Promotions}/{flat.Id}")).Content
+            .ReadAsStringAsync();
+
+        Assert.Contains("\"bundle\":null", flatBody);
+    }
+
+    [Fact]
+    public async Task A_bundle_promotion_without_a_bundle_is_refused()
+    {
+        // Required, unlike tiers and targets, which may be empty to mean "reaches nobody". An empty
+        // set is still a coherent promotion — one that discounts nothing. "Buy ? get ?" is not a rule
+        // at all.
+        using var writer = fixture.CreateAuthenticatedClient();
+
+        var response = await CreateBundleAsync(writer, bundle: null);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = Assert.Single(await Refusals.ProblemsOf(response));
+        Assert.Equal("bundle", problem.Field);
+        Assert.Equal("product.promotion.bundleRequired", problem.Code);
+    }
+
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(2, 0)]
+    [InlineData(-1, 1)]
+    public async Task A_bundle_with_nothing_on_one_side_is_refused(int buy, int get)
+    {
+        // "Buy none get one" gives the product away to anyone who orders anything; "buy two get none"
+        // does nothing while still winning a priority contest against a rule that would have.
+        using var writer = fixture.CreateAuthenticatedClient();
+
+        var response = await CreateBundleAsync(writer, new BundleRequest(buy, get, "100"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            "product.promotion.bundleQuantityTooSmall",
+            Assert.Single(await Refusals.ProblemsOf(response)).Code);
+    }
+
+    [Fact]
+    public async Task The_given_discount_obeys_the_same_percentage_rules_as_everything_else()
+    {
+        // Through the shared checker, so the refusal names bundle.getPercentOff rather than value.
+        using var writer = fixture.CreateAuthenticatedClient();
+
+        var tooMuch = await CreateBundleAsync(writer, new BundleRequest(2, 1, "150"));
+        var problem = Assert.Single(await Refusals.ProblemsOf(tooMuch));
+        Assert.Equal("bundle.getPercentOff", problem.Field);
+        Assert.Equal("product.promotion.percentOutOfRange", problem.Code);
+
+        var zero = await CreateBundleAsync(writer, new BundleRequest(2, 1, "0"));
+        Assert.Equal(
+            "product.promotion.percentOutOfRange",
+            Assert.Single(await Refusals.ProblemsOf(zero)).Code);
+
+        var comma = await CreateBundleAsync(writer, new BundleRequest(2, 1, "12,5"));
+        Assert.Equal(
+            "product.promotion.valueNotANumber",
+            Assert.Single(await Refusals.ProblemsOf(comma)).Code);
+    }
+
+    [Fact]
+    public async Task A_given_product_that_does_not_exist_is_refused()
+    {
+        using var writer = fixture.CreateAuthenticatedClient();
+
+        var response = await CreateBundleAsync(
+            writer, new BundleRequest(2, 1, "100", Guid.NewGuid()));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = Assert.Single(await Refusals.ProblemsOf(response));
+        Assert.Equal("bundle.getProductId", problem.Field);
+        Assert.Equal("product.promotion.bundleProductMissing", problem.Code);
+    }
+
+    [Fact]
+    public async Task Another_tenants_product_cannot_be_given_away()
+    {
+        using var tenantB = fixture.CreateAuthenticatedClient(fixture.TenantBAccessToken);
+        var productOfB = await ProductAsync(tenantB);
+
+        using var writer = fixture.CreateAuthenticatedClient();
+
+        var response = await CreateBundleAsync(
+            writer, new BundleRequest(2, 1, "100", productOfB));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            "product.promotion.bundleProductMissing",
+            Assert.Single(await Refusals.ProblemsOf(response)).Code);
+    }
+
+    [Fact]
+    public async Task A_bundle_promotion_carrying_a_value_is_refused()
+    {
+        using var writer = fixture.CreateAuthenticatedClient();
+
+        var response = await CreateBundleAsync(
+            writer, new BundleRequest(2, 1, "100"), value: "15");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            "product.promotion.valueNotApplicable",
+            Assert.Single(await Refusals.ProblemsOf(response)).Code);
+    }
+
+    [Theory]
+    [InlineData(PromotionType.PercentOff, "15")]
+    [InlineData(PromotionType.VolumeTiered, null)]
+    public async Task Only_a_bundle_promotion_gives_units_away(PromotionType type, string? value)
+    {
+        using var writer = fixture.CreateAuthenticatedClient();
+
+        var response = await CreateBundleAsync(
+            writer, new BundleRequest(2, 1, "100"), type, value);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            "product.promotion.bundleNotApplicable",
+            Assert.Single(await Refusals.ProblemsOf(response)).Code);
+    }
+
+    [Fact]
+    public async Task A_bundle_can_be_restated()
+    {
+        using var writer = fixture.CreateAuthenticatedClient();
+        var promotion = await BogoAsync(writer, new BundleRequest(2, 1, "100"));
+
+        var response = await writer.PutAsJsonAsync(
+            $"{Promotions}/{promotion.Id}",
+            new UpdatePromotionRequest(
+                promotion.Name, Opens, Bundle: new BundleRequest(3, 2, "50")));
+
+        Assert.True(
+            response.StatusCode == HttpStatusCode.OK,
+            $"{response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
+
+        var updated = (await response.Content.ReadFromJsonAsync<PromotionResponse>())!;
+
+        Assert.Equal(3, updated.Bundle!.BuyQuantity);
+        Assert.Equal(2, updated.Bundle.GetQuantity);
+        Assert.Equal("50.00", updated.Bundle.GetPercentOff);
+    }
+
+    [Fact]
+    public async Task Updating_a_bundle_promotion_without_one_is_refused()
+    {
+        // A PUT replaces, so an omitted bundle is not "leave it alone" — and letting it through would
+        // leave the promotion's quantities describing a rule the author thought they had replaced.
+        using var writer = fixture.CreateAuthenticatedClient();
+        var promotion = await BogoAsync(writer);
+
+        var response = await writer.PutAsJsonAsync(
+            $"{Promotions}/{promotion.Id}", new UpdatePromotionRequest(promotion.Name, Opens));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            "product.promotion.bundleRequired",
+            Assert.Single(await Refusals.ProblemsOf(response)).Code);
+    }
+
+    [Fact]
+    public async Task A_product_being_given_away_cannot_be_deleted()
+    {
+        // Restrict on the FK, like every other product reference in this module: the promotion
+        // promises to give this product away, and letting it vanish would leave a rule that cannot
+        // run.
+        //
+        // Asserted with raw SQL rather than through DELETE /api/products/{id}, which does not exist.
+        // Going through HTTP would have made this pass on the 405 — a green test proving nothing,
+        // which is worse than no test because it looks like coverage.
+        using var writer = fixture.CreateAuthenticatedClient();
+        var gift = await ProductAsync(writer);
+
+        await BogoAsync(writer, new BundleRequest(2, 1, "100", gift));
+
+        using var scope = fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ProductsDbContext>();
+
+        var refused = await Record.ExceptionAsync(() => db.Database.ExecuteSqlAsync(
+            $"""DELETE FROM products.product WHERE "Id" = {gift}"""));
+
+        Assert.NotNull(refused);
+        Assert.Contains("promotion", refused.ToString());
+    }
+
+    [Fact]
+    public async Task The_database_refuses_a_type_it_has_never_heard_of()
+    {
+        // The ELSE FALSE this slice closed. While the four types were arriving one slice at a time
+        // the clause was ELSE TRUE — deliberate room, so each new type was a new WHEN rather than an
+        // ALTER against stored rows, at the cost of letting any unrecognised type string through.
+        // B1 names exactly four and all four are now constrained, so the room is gone and so is the
+        // hole. This is the assertion that says so.
+        using var scope = fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ProductsDbContext>();
+
+        var refused = await Record.ExceptionAsync(() => db.Database.ExecuteSqlAsync(
+            $"""
+            INSERT INTO products.promotion
+                ("Id", "Name", "type", "percent_off", "amount_off", "currency",
+                 "buy_quantity", "get_quantity", "get_percent_off", "get_product_id",
+                 "ValidFrom", "ValidTo", "Priority", "TenantId", "CreatedAtUtc")
+            VALUES ({Guid.CreateVersion7()}, {Guid.NewGuid().ToString()}, 'PercentOf',
+                    {10m}, NULL, NULL, NULL, NULL, NULL, NULL,
+                    {Opens}, NULL, 0, {Guid.NewGuid()}, now())
+            """));
+
+        Assert.NotNull(refused);
+        Assert.Contains("ck_promotion_value_matches_type", refused.ToString());
+    }
+
+    [Fact]
+    public async Task The_database_refuses_a_bundle_on_the_wrong_type_and_a_half_stated_one()
+    {
+        using var scope = fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ProductsDbContext>();
+
+        foreach (var (type, percent, buy, get, getPercent) in
+                 new (string, object?, object?, object?, object?)[]
+                 {
+                     ("BuyXGetY", null, 2, 1, null),      // no discount stated for the given units
+                     ("BuyXGetY", null, 2, null, 100m),   // nothing said about how many are given
+                     ("BuyXGetY", 10m, 2, 1, 100m),       // reducing a price *and* giving units
+                     ("PercentOff", 10m, 2, 1, 100m),     // a flat promotion carrying a bundle
+                     ("VolumeTiered", null, 2, 1, 100m),  // a tiered promotion carrying a bundle
+                 })
+        {
+            var refused = await Record.ExceptionAsync(() => db.Database.ExecuteSqlAsync(
+                $"""
+                INSERT INTO products.promotion
+                    ("Id", "Name", "type", "percent_off", "amount_off", "currency",
+                     "buy_quantity", "get_quantity", "get_percent_off", "get_product_id",
+                     "ValidFrom", "ValidTo", "Priority", "TenantId", "CreatedAtUtc")
+                VALUES ({Guid.CreateVersion7()}, {Guid.NewGuid().ToString()}, {type},
+                        {percent}, NULL, NULL, {buy}, {get}, {getPercent}, NULL,
+                        {Opens}, NULL, 0, {Guid.NewGuid()}, now())
+                """));
+
+            Assert.NotNull(refused);
+            Assert.Contains("ck_promotion_value_matches_type", refused.ToString());
+        }
+    }
+
     [Fact]
     public async Task A_promotion_that_does_not_exist_is_not_found()
     {

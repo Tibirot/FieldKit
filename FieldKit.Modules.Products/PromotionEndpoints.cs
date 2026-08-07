@@ -26,7 +26,28 @@ public sealed record PromotionResponse(
     string? Currency,
     DateOnly ValidFrom,
     DateOnly? ValidTo,
-    int Priority);
+    int Priority,
+    BundleResponse? Bundle = null);
+
+/// <summary>What a <see cref="PromotionType.BuyXGetY"/> promotion gives away.</summary>
+/// <remarks>
+/// <para>
+/// Nested rather than four more flat fields, even though the columns behind it are flat. Four
+/// nullable properties that are only ever all-set or all-null belong together in the shape a caller
+/// reads, and a client can then ask <c>bundle == null</c> instead of checking four things that must
+/// agree.
+/// </para>
+/// <para>
+/// <c>GetProductId</c> null means <b>the same product that was bought</b> — see
+/// <c>Promotion.GetProductId</c>. <c>GetPercentOff</c> of <c>"100.00"</c> is free.
+/// </para>
+/// </remarks>
+public sealed record BundleResponse(
+    int BuyQuantity, int GetQuantity, string GetPercentOff, Guid? GetProductId);
+
+/// <summary>A bundle as an author states it.</summary>
+public sealed record BundleRequest(
+    int BuyQuantity, int GetQuantity, string GetPercentOff, Guid? GetProductId = null);
 
 /// <summary>Author a promotion. The type is fixed at creation — see the endpoint.</summary>
 /// <remarks>
@@ -41,11 +62,17 @@ public sealed record CreatePromotionRequest(
     string? Value = null,
     DateOnly? ValidTo = null,
     int Priority = 0,
-    string? Currency = null);
+    string? Currency = null,
+    BundleRequest? Bundle = null);
 
 /// <summary>Re-value, re-date and re-prioritise. No type: changing it would reinterpret the value.</summary>
 public sealed record UpdatePromotionRequest(
-    string Name, DateOnly ValidFrom, string? Value = null, DateOnly? ValidTo = null, int Priority = 0);
+    string Name,
+    DateOnly ValidFrom,
+    string? Value = null,
+    DateOnly? ValidTo = null,
+    int Priority = 0,
+    BundleRequest? Bundle = null);
 
 /// <summary>One threshold of a tiered promotion: buy this many, get this off.</summary>
 public sealed record PromotionTierResponse(
@@ -117,12 +144,13 @@ internal static class PromotionEndpoints
         promotions.MapPost("/", async (
             CreatePromotionRequest request, ProductsDbContext db, CancellationToken ct) =>
         {
-            var (value, problem) = await PromotionProblem(
+            var (value, bundle, problem) = await PromotionProblem(
                 db,
                 request.Name,
                 request.Type,
                 request.Value,
                 request.Currency,
+                request.Bundle,
                 request.ValidFrom,
                 request.ValidTo,
                 excluding: null,
@@ -137,6 +165,10 @@ internal static class PromotionEndpoints
                 PromotionType.FixedAmountOff => Promotion.FixedAmountOff(
                     request.Name, value!.Value, request.Currency!, request.ValidFrom, request.ValidTo,
                     request.Priority),
+                PromotionType.BuyXGetY => Promotion.BuyXGetY(
+                    request.Name, bundle!.Value.BuyQuantity, bundle.Value.GetQuantity,
+                    bundle.Value.GetPercentOff, bundle.Value.GetProductId, request.ValidFrom,
+                    request.ValidTo, request.Priority),
                 _ => Promotion.VolumeTiered(
                     request.Name, request.ValidFrom, request.ValidTo, request.Priority),
             };
@@ -161,12 +193,13 @@ internal static class PromotionEndpoints
             // Re-typing a promotion would reinterpret its value — 15 meaning "15% off" becoming 15
             // meaning "€15 off" — and every order already priced against it would then be explained
             // by a rule that no longer exists.
-            var (value, problem) = await PromotionProblem(
+            var (value, bundle, problem) = await PromotionProblem(
                 db,
                 request.Name,
                 promotion.Type,
                 request.Value,
                 promotion.Currency,
+                request.Bundle,
                 request.ValidFrom,
                 request.ValidTo,
                 excluding: id,
@@ -176,6 +209,16 @@ internal static class PromotionEndpoints
 
             promotion.Update(
                 request.Name, value, request.ValidFrom, request.ValidTo, request.Priority, clock);
+
+            // Restated in full, like everything else here — a PUT replaces. The quantities are not
+            // optional on the way in for this type, so there is no "leave the bundle alone" reading
+            // to be had, which is the same promise the request makes about the window and the name.
+            if (bundle is { } stated)
+            {
+                promotion.Rebundle(
+                    stated.BuyQuantity, stated.GetQuantity, stated.GetPercentOff,
+                    stated.GetProductId, clock);
+            }
 
             await db.SaveChangesAsync(ct);
 
@@ -296,7 +339,16 @@ internal static class PromotionEndpoints
             promotion.Currency,
             promotion.ValidFrom,
             promotion.ValidTo,
-            promotion.Priority);
+            promotion.Priority,
+            // All four move together or not at all, which is what makes the nesting honest rather
+            // than decorative — a caller reads one null instead of checking four that must agree.
+            promotion.BuyQuantity is { } buy
+                ? new BundleResponse(
+                    buy,
+                    promotion.GetQuantity!.Value,
+                    Format(promotion.GetPercentOff)!,
+                    promotion.GetProductId)
+                : null);
 
     /// <summary>Every discount in this API is spelled the way <c>MoneyJsonConverter</c> spells one.</summary>
     private static string? Format(decimal? value) =>
@@ -409,13 +461,18 @@ internal static class PromotionEndpoints
         return value;
     }
 
-    /// <summary>Checks a promotion and returns its parsed value, if its type carries one.</summary>
-    private static async Task<(decimal? Value, IResult? Problem)> PromotionProblem(
+    /// <summary>One bundle, parsed and checked.</summary>
+    private readonly record struct CheckedBundle(
+        int BuyQuantity, int GetQuantity, decimal GetPercentOff, Guid? GetProductId);
+
+    /// <summary>Checks a promotion and returns whichever of a value and a bundle its type carries.</summary>
+    private static async Task<(decimal? Value, CheckedBundle? Bundle, IResult? Problem)> PromotionProblem(
         ProductsDbContext db,
         string name,
         PromotionType type,
         string? rawValue,
         string? currency,
+        BundleRequest? bundleRequest,
         DateOnly from,
         DateOnly? to,
         Guid? excluding,
@@ -423,6 +480,7 @@ internal static class PromotionEndpoints
     {
         var problems = new List<FieldProblem>();
         decimal? value = null;
+        CheckedBundle? bundle = null;
 
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -438,12 +496,27 @@ internal static class PromotionEndpoints
         else if (rawValue is not null || currency is not null)
         {
             // Refused rather than ignored, for the same reason a percentage carrying a currency is:
-            // a caller sending a value for a tiered promotion has misunderstood where the discounts
-            // live, and dropping it silently means they author tiers they think are redundant.
+            // a caller sending a value for one of these types has misunderstood what it does, and
+            // dropping it silently means they go on believing they authored a discount.
             problems.Add(new FieldProblem(
                 "value",
-                $"A {type} promotion carries no value of its own — its discounts are its tiers.",
+                type == PromotionType.VolumeTiered
+                    ? "A VolumeTiered promotion carries no value of its own — its discounts are its tiers."
+                    : "A BuyXGetY promotion carries no value of its own — it gives units rather than reducing a price.",
                 "product.promotion.valueNotApplicable",
+                new Dictionary<string, string> { ["type"] = type.ToString() }));
+        }
+
+        if (type == PromotionType.BuyXGetY)
+        {
+            bundle = await BundleProblem(db, problems, bundleRequest, ct);
+        }
+        else if (bundleRequest is not null)
+        {
+            problems.Add(new FieldProblem(
+                "bundle",
+                $"Only a {PromotionType.BuyXGetY} promotion gives units away.",
+                "product.promotion.bundleNotApplicable",
                 new Dictionary<string, string> { ["type"] = type.ToString() }));
         }
 
@@ -469,7 +542,72 @@ internal static class PromotionEndpoints
                 new Dictionary<string, string> { ["name"] = name }));
         }
 
-        return (value, problems.Count > 0 ? Problems.BadRequest(problems) : null);
+        return (value, bundle, problems.Count > 0 ? Problems.BadRequest(problems) : null);
+    }
+
+    /// <summary>Checks what a <see cref="PromotionType.BuyXGetY"/> promotion gives away.</summary>
+    private static async Task<CheckedBundle?> BundleProblem(
+        ProductsDbContext db,
+        List<FieldProblem> problems,
+        BundleRequest? request,
+        CancellationToken ct)
+    {
+        if (request is null)
+        {
+            // Required, unlike tiers and targets, which may be empty to mean "reaches nobody". The
+            // difference is that an empty set is still a coherent promotion — one that discounts
+            // nothing — whereas "buy ? get ?" is not a rule at all. A BuyXGetY promotion without its
+            // quantities is not a draft; it is a row the check constraint refuses.
+            problems.Add(new FieldProblem(
+                "bundle",
+                "A BuyXGetY promotion states how many are bought and how many are given.",
+                "product.promotion.bundleRequired"));
+
+            return null;
+        }
+
+        // At least one bought and at least one given. Zero on either side is not a bundle: "buy none
+        // get one" gives the product away to anyone who orders anything, and "buy two get none" is a
+        // rule that does nothing while still winning a priority contest against one that would have.
+        if (request.BuyQuantity < 1)
+        {
+            problems.Add(new FieldProblem(
+                "bundle.buyQuantity",
+                "At least one must be bought.",
+                "product.promotion.bundleQuantityTooSmall",
+                new Dictionary<string, string> { ["quantity"] = request.BuyQuantity.ToString() }));
+        }
+
+        if (request.GetQuantity < 1)
+        {
+            problems.Add(new FieldProblem(
+                "bundle.getQuantity",
+                "At least one must be given.",
+                "product.promotion.bundleQuantityTooSmall",
+                new Dictionary<string, string> { ["quantity"] = request.GetQuantity.ToString() }));
+        }
+
+        // The same percentage rules as everywhere else in this module, through the same checker: 100
+        // is free and is the whole point of the type, 0 is a rule that gives nothing at full price.
+        var percentOff = DiscountProblem(
+            problems, "bundle.getPercentOff", request.GetPercentOff, percentage: true, currency: null);
+
+        if (request.GetProductId is { } getProductId
+            && !await db.Products.AnyAsync(product => product.Id == getProductId, ct))
+        {
+            // Tenant-filtered by the global query filter, so another tenant's product reads as
+            // missing — the only answer that does not confirm it exists elsewhere.
+            problems.Add(new FieldProblem(
+                "bundle.getProductId",
+                "That product does not exist.",
+                "product.promotion.bundleProductMissing",
+                new Dictionary<string, string> { ["productId"] = getProductId.ToString() }));
+        }
+
+        return percentOff is { } percent && problems.Count == 0
+            ? new CheckedBundle(
+                request.BuyQuantity, request.GetQuantity, percent, request.GetProductId)
+            : null;
     }
 
     /// <summary>One tier, parsed and checked.</summary>

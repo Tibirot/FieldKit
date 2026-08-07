@@ -61,6 +61,17 @@ deterministic offline. This is the most rules-heavy module — see drafted mecha
     > currency (`BR-PRD-1`) — mixed sets are well-defined, since tiers are selected by quantity and
     > never compared, but they are refused as far likelier to be a slip than an intention.
   - **BOGO / bundle** (buy X get Y)
+    > 📝 ASSUMPTION: what is given is stated as a **percentage off the given units**, so `100` is
+    > free and the classic BOGO is not a separate shape from "buy two, get one half price". Naming
+    > **no** get-product means *the same product that was bought* — which is the only workable
+    > reading when the promotion targets a whole category, since there is then no single id to write
+    > down; naming one turns the same mechanism into a cross-sell bundle. Both quantities are at
+    > least 1: "buy none, get one" gives the product to anyone who orders anything, and "buy two, get
+    > none" is a rule that does nothing while still winning the `BR-PRD-3` priority contest against
+    > one that would have.
+    >
+    > This is the one type that **does not reduce a price** — it adds units — so `PRD-06` applies it
+    > by adding an order line rather than adjusting one. It carries no `value` for the same reason.
 - Set scope (product/category/outlet/channel), validity window, and **priority**.
 
 ### F5 · Price & promo resolution (the deterministic core)

@@ -499,6 +499,102 @@ Authorization: Bearer {{token.response.body.access_token}}
   ]
 }
 
+### Products — buy X get Y (PRD-05). The last of B1's four types, and the only one that does not
+### reduce a price: it gives units. That is why it carries quantities instead of a `value`, and why
+### PRD-06 will have to add an order line rather than adjust one.
+###
+### `getPercentOff: "100"` is free — the classic BOGO. 100 is not a special case in the storage, only
+### in what a shopper calls it, which is what lets "get one free" and "get one half price" be the
+### same offer with a different number rather than two types.
+###
+### `getProductId` omitted means **the same product that was bought**. That matters when the targets
+### are a whole category: "buy two of anything in Beverages, get one free" gives one of whichever was
+### bought, and there is no single id to write down.
+# @name bogo
+POST {{Server_HostAddress}}/api/products/promotions
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Buy two, get one free — still water",
+  "type": "BuyXGetY",
+  "validFrom": "2026-06-01",
+  "priority": 300,
+  "bundle": {
+    "buyQuantity": 2,
+    "getQuantity": 1,
+    "getPercentOff": "100"
+  }
+}
+
+### The same mechanism with the id filled in — a cross-sell bundle rather than a second type.
+POST {{Server_HostAddress}}/api/products/promotions
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Buy three cases, get a crate half price",
+  "type": "BuyXGetY",
+  "validFrom": "2026-06-01",
+  "priority": 250,
+  "bundle": {
+    "buyQuantity": 3,
+    "getQuantity": 1,
+    "getPercentOff": "50",
+    "getProductId": "{{classified.response.body.id}}"
+  }
+}
+
+### Read it back — the bundle comes back as one nested object, not four loose fields. Four properties
+### that are only ever all-set or all-null belong together in the shape a caller reads, so a client
+### asks `bundle == null` instead of checking four things that have to agree. Every other type
+### answers `"bundle": null`.
+GET {{Server_HostAddress}}/api/products/promotions/{{bogo.response.body.id}}
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### No bundle at all — expect 400 `product.promotion.bundleRequired`. Required, unlike tiers and
+### targets, which may be empty to mean "reaches nobody": an empty set is still a coherent promotion,
+### one that discounts nothing, whereas "buy ? get ?" is not a rule at all.
+POST {{Server_HostAddress}}/api/products/promotions
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Buy nothing in particular",
+  "type": "BuyXGetY",
+  "validFrom": "2026-06-01"
+}
+
+### Nothing on one side — expect 400 `product.promotion.bundleQuantityTooSmall` naming
+### `bundle.getQuantity`. "Buy two get none" does nothing while still winning a priority contest
+### against a rule that would have; "buy none get one" gives the product to anyone who orders
+### anything.
+POST {{Server_HostAddress}}/api/products/promotions
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Buy two get nothing",
+  "type": "BuyXGetY",
+  "validFrom": "2026-06-01",
+  "bundle": { "buyQuantity": 2, "getQuantity": 0, "getPercentOff": "100" }
+}
+
+### A bundle on a type that does not give units — expect 400
+### `product.promotion.bundleNotApplicable`.
+POST {{Server_HostAddress}}/api/products/promotions
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Percent with a bundle",
+  "type": "PercentOff",
+  "value": "15",
+  "validFrom": "2026-06-01",
+  "bundle": { "buyQuantity": 2, "getQuantity": 1, "getPercentOff": "100" }
+}
+
 ### Four things wrong at once — expect `product.promotion.nameRequired`,
 ### `product.promotion.percentOutOfRange`, `product.promotion.currencyNotApplicable` and
 ### `product.promotion.windowInverted`, all in one envelope. Equal dates are an inverted window
