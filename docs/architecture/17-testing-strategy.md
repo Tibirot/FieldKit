@@ -29,6 +29,9 @@ flowchart TB
   Vectors are **generated / property-based** (not only hand-written) so uncovered input regions
   can't hide drift, and the TS side runs on a **decimal library with the documented rounding policy**
   — the specific defense against JS float64 vs `System.Decimal` divergence ([BR-PRD-8/9](../product/13-products-and-pricing.md#decimal-parity-resolves-finding-s4)).
+  They live in [`vectors/`](../../vectors/README.md) — outside both projects, because neither owns
+  them. Price resolution (`PRD-04`) landed there first, hand-written, one case per rule; the
+  generated suite fills the same format later without the mirror having to change.
 - **Perfect-store scoring** — weighted score across pillars, under the **same decimal-parity regime
   as pricing** (decimal lib + rounding + **generated C#≡TS vectors**): share-of-shelf ratios and
   weighted sums are a second float-vs-decimal divergence surface (BR-AUD-5/12, [Audit](../product/22-merchandising-and-audits.md)).

@@ -29,6 +29,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      The cross-language vectors (../vectors), referenced in place rather than copied into the repo
+      twice. W7's TypeScript mirror reads the same files; a suite that ran against its own copy would
+      pass while the two engines drifted, which is the one failure this suite exists to prevent.
+    -->
+    <Content Include="..\vectors\**\*.json" Link="vectors\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
 

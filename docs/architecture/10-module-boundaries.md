@@ -223,7 +223,16 @@ module contract sections — the functional "what" and the technical "how" stay 
 `FieldKit.Modules.X.Contracts` (its only public surface). IAM is the first built this way and sets
 the pattern; **Products is still a single assembly**, for the same reason Organization was until W5
 — it has no consumer yet, and `IProductCatalog` designed before Journey, Visit or Order asks for
-anything is a guess three modules would have to live with. It grows its `.Contracts` in W6.
+anything is a guess three modules would have to live with.
+
+> **It did not grow its `.Contracts` in W6, as this line used to promise.** W6 built the things those
+> contracts would wrap — assortments (`PRD-02`), price lists (`PRD-03`), price resolution
+> (`PRD-04`) — and each time, the consumer that would shape the contract turned out to be Order or
+> Sync, in Phase 3. `IAssortmentService`, `IPricingService` and `IProductCatalog` are therefore still
+> unbuilt, and the resolver is a pure static function its own endpoint calls directly. That is this
+> section's own rule applied to itself rather than an omission: the week that was supposed to add
+> them is exactly the week that showed nobody was asking. The contracts land with their first real
+> caller, as `IOutletCatalog` and `ITerritoryDirectory` did.
 
 **Products was called `Catalog` until it wasn't.** It was W1's proof that the modular monolith runs
 — the module that replaced the Aspire template's `WeatherForecast` — and it was never in this
