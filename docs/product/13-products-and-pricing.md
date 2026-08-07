@@ -69,6 +69,21 @@ This function is pure and runs **identically on server and device** (shared rule
   ([A3](decisions-and-assumptions.md#a3--internationalization-full-multi-currency--multi-language-ui)).
 - **BR-PRD-2** Price resolution specificity: **outlet override > channel > default**; ties
   broken by most-recent effective date.
+
+> 📝 ASSUMPTION: **specificity is checked before recency, and there is a third tiebreak.** Two
+> readings of "ties broken by most-recent effective date" are possible, and they disagree: a channel
+> list published *after* an outlet override either beats it or does not. It does not — a price
+> negotiated for one shop is a deliberate exception, and a channel-wide list should not erase it by
+> being newer. Recency only separates candidates already equal in specificity.
+>
+> That leaves two lists at the same scope with the same effective date, which the rule does not
+> cover. It is a data problem — an author has said two contradictory things — and no tiebreak makes
+> it *right*. What one buys is determinism: the **higher price-list id, compared as big-endian
+> bytes**, wins. Ids are UUIDv7 and creation-ordered, so this is the recency instinct applied one
+> level down, and byte order is chosen over any platform's built-in Guid comparison because
+> [.NET's sorts `ffffffff-…` below `00000001-…`](../../vectors/pricing/price-resolution.v1.json)
+> while TypeScript's string comparison does not. Both readings are pinned by the shared vectors, so
+> the device and the server cannot drift apart on either.
 - **BR-PRD-3** At most **one line-level promotion per order line**, selected by priority; order-
   level promos are separate ([B1](decisions-and-assumptions.md#b1--pricing--promotions)).
 - **BR-PRD-4** A product not in an outlet's assortment cannot be ordered there (unless the

@@ -1,0 +1,408 @@
+{
+  "version": 1,
+  "rule": "PRD-04 / BR-PRD-2",
+  "description": "Which price list applies to one product at one outlet on one date. Inputs are the candidates a caller has already gathered; the answer is one of them, or null when none covers the date. See ../README.md for the format rules — money is a string, dates are YYYY-MM-DD, enums are names.",
+  "cases": [
+    {
+      "name": "a single covering candidate is the answer",
+      "on": "2026-03-15",
+      "candidates": [
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000001",
+          "scope": "Channel",
+          "currency": "EUR",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null,
+          "amount": "12.50"
+        }
+      ],
+      "expected": {
+        "priceListId": "0195f000-0000-7000-8000-000000000001",
+        "scope": "Channel",
+        "currency": "EUR",
+        "amount": "12.50"
+      }
+    },
+    {
+      "name": "no candidates at all resolves to no price",
+      "on": "2026-03-15",
+      "candidates": [],
+      "expected": null
+    },
+    {
+      "name": "a date before the window resolves to no price",
+      "on": "2025-12-31",
+      "candidates": [
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000001",
+          "scope": "Channel",
+          "currency": "EUR",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null,
+          "amount": "12.50"
+        }
+      ],
+      "expected": null
+    },
+    {
+      "name": "the window includes its first day",
+      "on": "2026-01-01",
+      "candidates": [
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000001",
+          "scope": "Channel",
+          "currency": "EUR",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": "2026-02-01",
+          "amount": "12.50"
+        }
+      ],
+      "expected": {
+        "priceListId": "0195f000-0000-7000-8000-000000000001",
+        "scope": "Channel",
+        "currency": "EUR",
+        "amount": "12.50"
+      }
+    },
+    {
+      "name": "the window excludes its last day",
+      "why": "Half-open [from, to). This is the case an inclusive reading gets wrong, and the one that makes a successor list start on exactly the day its predecessor stops.",
+      "on": "2026-02-01",
+      "candidates": [
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000001",
+          "scope": "Channel",
+          "currency": "EUR",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": "2026-02-01",
+          "amount": "12.50"
+        }
+      ],
+      "expected": null
+    },
+    {
+      "name": "consecutive windows leave no gap and no overlap",
+      "why": "The successor of the case above, on the same day. Exactly one list covers 2026-02-01.",
+      "on": "2026-02-01",
+      "candidates": [
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000001",
+          "scope": "Channel",
+          "currency": "EUR",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": "2026-02-01",
+          "amount": "12.50"
+        },
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000002",
+          "scope": "Channel",
+          "currency": "EUR",
+          "effectiveFrom": "2026-02-01",
+          "effectiveTo": "2026-03-01",
+          "amount": "13.00"
+        }
+      ],
+      "expected": {
+        "priceListId": "0195f000-0000-7000-8000-000000000002",
+        "scope": "Channel",
+        "currency": "EUR",
+        "amount": "13.00"
+      }
+    },
+    {
+      "name": "an open-ended window still covers a distant date",
+      "on": "2099-12-31",
+      "candidates": [
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000001",
+          "scope": "Channel",
+          "currency": "EUR",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null,
+          "amount": "12.50"
+        }
+      ],
+      "expected": {
+        "priceListId": "0195f000-0000-7000-8000-000000000001",
+        "scope": "Channel",
+        "currency": "EUR",
+        "amount": "12.50"
+      }
+    },
+    {
+      "name": "an outlet price beats a channel price",
+      "on": "2026-03-15",
+      "candidates": [
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000001",
+          "scope": "Channel",
+          "currency": "EUR",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null,
+          "amount": "12.50"
+        },
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000002",
+          "scope": "Outlet",
+          "currency": "EUR",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null,
+          "amount": "11.00"
+        }
+      ],
+      "expected": {
+        "priceListId": "0195f000-0000-7000-8000-000000000002",
+        "scope": "Outlet",
+        "currency": "EUR",
+        "amount": "11.00"
+      }
+    },
+    {
+      "name": "an outlet price beats a newer channel price",
+      "why": "Specificity outranks recency, not the other way round. A price negotiated for one shop is a deliberate exception; a channel-wide list published later must not silently erase it.",
+      "on": "2026-03-15",
+      "candidates": [
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000001",
+          "scope": "Outlet",
+          "currency": "EUR",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null,
+          "amount": "11.00"
+        },
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000002",
+          "scope": "Channel",
+          "currency": "EUR",
+          "effectiveFrom": "2026-03-01",
+          "effectiveTo": null,
+          "amount": "12.50"
+        }
+      ],
+      "expected": {
+        "priceListId": "0195f000-0000-7000-8000-000000000001",
+        "scope": "Outlet",
+        "currency": "EUR",
+        "amount": "11.00"
+      }
+    },
+    {
+      "name": "an outlet price that has expired does not beat the channel price",
+      "why": "Specificity is only consulted among candidates that cover the date. An expired override falls out before the comparison, rather than winning and resolving to nothing.",
+      "on": "2026-03-15",
+      "candidates": [
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000001",
+          "scope": "Outlet",
+          "currency": "EUR",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": "2026-02-01",
+          "amount": "11.00"
+        },
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000002",
+          "scope": "Channel",
+          "currency": "EUR",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null,
+          "amount": "12.50"
+        }
+      ],
+      "expected": {
+        "priceListId": "0195f000-0000-7000-8000-000000000002",
+        "scope": "Channel",
+        "currency": "EUR",
+        "amount": "12.50"
+      }
+    },
+    {
+      "name": "within one scope the latest effective date wins",
+      "on": "2026-03-15",
+      "candidates": [
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000001",
+          "scope": "Channel",
+          "currency": "EUR",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null,
+          "amount": "12.50"
+        },
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000002",
+          "scope": "Channel",
+          "currency": "EUR",
+          "effectiveFrom": "2026-03-01",
+          "effectiveTo": null,
+          "amount": "13.00"
+        }
+      ],
+      "expected": {
+        "priceListId": "0195f000-0000-7000-8000-000000000002",
+        "scope": "Channel",
+        "currency": "EUR",
+        "amount": "13.00"
+      }
+    },
+    {
+      "name": "the order candidates arrive in does not change the answer",
+      "why": "Same set as the case above, reversed. A resolver that folds left and one that folds right must agree, because the database will not promise an order and the device's local store will not either.",
+      "on": "2026-03-15",
+      "candidates": [
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000002",
+          "scope": "Channel",
+          "currency": "EUR",
+          "effectiveFrom": "2026-03-01",
+          "effectiveTo": null,
+          "amount": "13.00"
+        },
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000001",
+          "scope": "Channel",
+          "currency": "EUR",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null,
+          "amount": "12.50"
+        }
+      ],
+      "expected": {
+        "priceListId": "0195f000-0000-7000-8000-000000000002",
+        "scope": "Channel",
+        "currency": "EUR",
+        "amount": "13.00"
+      }
+    },
+    {
+      "name": "a tie on scope and date is broken by the higher id, ordered as bytes",
+      "why": "The ids here are chosen to be hostile. .NET's Guid.CompareTo reads the first field as a signed native-endian int, which sorts ffffffff below 00000001 — the opposite of what these strings say. Any implementation that compares canonical strings, or big-endian bytes, agrees with this case; one that reaches for the platform's built-in Guid comparison does not.",
+      "on": "2026-03-15",
+      "candidates": [
+        {
+          "priceListId": "00000001-0000-7000-8000-000000000000",
+          "scope": "Channel",
+          "currency": "EUR",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null,
+          "amount": "12.50"
+        },
+        {
+          "priceListId": "ffffffff-0000-7000-8000-000000000000",
+          "scope": "Channel",
+          "currency": "EUR",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null,
+          "amount": "99.99"
+        }
+      ],
+      "expected": {
+        "priceListId": "ffffffff-0000-7000-8000-000000000000",
+        "scope": "Channel",
+        "currency": "EUR",
+        "amount": "99.99"
+      }
+    },
+    {
+      "name": "the tiebreak also looks past the first field",
+      "why": "Two ids that agree until the fourth group. Native-endian byte order within a field would flip this one while leaving the case above intact.",
+      "on": "2026-03-15",
+      "candidates": [
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000001",
+          "scope": "Outlet",
+          "currency": "EUR",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null,
+          "amount": "10.00"
+        },
+        {
+          "priceListId": "0195f000-0000-7000-80ff-000000000001",
+          "scope": "Outlet",
+          "currency": "EUR",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null,
+          "amount": "20.00"
+        }
+      ],
+      "expected": {
+        "priceListId": "0195f000-0000-7000-80ff-000000000001",
+        "scope": "Outlet",
+        "currency": "EUR",
+        "amount": "20.00"
+      }
+    },
+    {
+      "name": "every candidate out of window resolves to no price",
+      "why": "Not an error. A product with no covering list is a product this outlet cannot be sold, which is the caller's decision to make.",
+      "on": "2026-06-01",
+      "candidates": [
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000001",
+          "scope": "Outlet",
+          "currency": "EUR",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": "2026-02-01",
+          "amount": "11.00"
+        },
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000002",
+          "scope": "Channel",
+          "currency": "EUR",
+          "effectiveFrom": "2026-07-01",
+          "effectiveTo": null,
+          "amount": "12.50"
+        }
+      ],
+      "expected": null
+    },
+    {
+      "name": "a resolved amount keeps its scale",
+      "why": "12.5000 and 12.50 are the same quantity but not the same string, and BR-PRD-8 says money crosses a boundary as text. A binding that round-trips through a float loses this case; one that round-trips through a decimal keeps it.",
+      "on": "2026-03-15",
+      "candidates": [
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000001",
+          "scope": "Channel",
+          "currency": "EUR",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null,
+          "amount": "0.1234"
+        }
+      ],
+      "expected": {
+        "priceListId": "0195f000-0000-7000-8000-000000000001",
+        "scope": "Channel",
+        "currency": "EUR",
+        "amount": "0.1234"
+      }
+    },
+    {
+      "name": "the winning candidate's currency comes with it",
+      "why": "The answer carries the currency of the list that won, not of the first list examined. A resolver that returns an amount alone hands the caller a number whose units it has to guess.",
+      "on": "2026-03-15",
+      "candidates": [
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000001",
+          "scope": "Channel",
+          "currency": "EUR",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null,
+          "amount": "12.50"
+        },
+        {
+          "priceListId": "0195f000-0000-7000-8000-000000000002",
+          "scope": "Outlet",
+          "currency": "RON",
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": null,
+          "amount": "62.00"
+        }
+      ],
+      "expected": {
+        "priceListId": "0195f000-0000-7000-8000-000000000002",
+        "scope": "Outlet",
+        "currency": "RON",
+        "amount": "62.00"
+      }
+    }
+  ]
+}

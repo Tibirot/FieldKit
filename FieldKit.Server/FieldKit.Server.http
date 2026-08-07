@@ -134,107 +134,6 @@ Authorization: Bearer {{token.response.body.access_token}}
   "name": "   "
 }
 
-### Products — create a price list. One currency for the whole list (`BR-PRD-1`), and a half-open
-### window `[effectiveFrom, effectiveTo)` so a successor starts exactly where this stops.
-### `effectiveTo` may be omitted for an open-ended list.
-# @name priceList
-POST {{Server_HostAddress}}/api/products/price-lists
-Content-Type: application/json
-Authorization: Bearer {{token.response.body.access_token}}
-
-{
-  "name": "Modern Trade 2026",
-  "currency": "EUR",
-  "effectiveFrom": "2026-01-01"
-}
-
-### Set the prices. Amounts are **strings** — `BR-PRD-8`. A JSON number becomes an IEEE-754 float
-### the moment a browser parses it, and the device pricing engine would be doing float maths before
-### `decimal.js` ever saw the value.
-PUT {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}/prices
-Content-Type: application/json
-Authorization: Bearer {{token.response.body.access_token}}
-
-{
-  "prices": [
-    { "productId": "{{classified.response.body.id}}", "amount": "12.50" }
-  ]
-}
-
-### Read them back — each price comes out as `{ "amount": "12.50", "currency": "EUR" }`.
-### The currency comes from the list, not the line, so no two lines can disagree about units.
-GET {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}/prices
-Accept: application/json
-Authorization: Bearer {{token.response.body.access_token}}
-
-### A comma decimal — expect 400 `product.price.notANumber`. Under invariant culture "12,50" would
-### parse to **1250** if thousands separators were allowed: a hundredfold error that reads as a
-### plausible price, and only on machines configured a certain way.
-PUT {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}/prices
-Content-Type: application/json
-Authorization: Bearer {{token.response.body.access_token}}
-
-{
-  "prices": [
-    { "productId": "{{classified.response.body.id}}", "amount": "12,50" }
-  ]
-}
-
-### Where the list applies. A PUT replaces the whole scope — channels and outlets together.
-### Each stored row is scoped to exactly one of the two, and the database enforces that with a check
-### constraint rather than trusting this endpoint.
-###
-### Publishing here also raises `PriceListPublished` into the outbox, in the same transaction as the
-### rows (ADR-0006), which is what Sync will turn into a reference delta.
-PUT {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}/assignments
-Content-Type: application/json
-Authorization: Bearer {{token.response.body.access_token}}
-
-{
-  "channelIds": ["{{channel.response.body.id}}"],
-  "outletIds": ["{{outlet.response.body.id}}"]
-}
-
-### Read the scope back.
-GET {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}/assignments
-Accept: application/json
-Authorization: Bearer {{token.response.body.access_token}}
-
-### Withdraw it — an empty scope is a real change, not a no-op. It is how a list stops applying, and
-### it raises `PriceListPublished` too: a device that never hears this keeps pricing against a list
-### that no longer reaches it.
-PUT {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}/assignments
-Content-Type: application/json
-Authorization: Bearer {{token.response.body.access_token}}
-
-{
-  "channelIds": [],
-  "outletIds": []
-}
-
-### A channel that does not exist — expect 400 `product.priceList.channelMissing`.
-### Products cannot see the channel table (AT-1), so this is checked through
-### `IOutletClassification.ChannelExistsAsync`; without it the assignment would save and price nobody.
-PUT {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}/assignments
-Content-Type: application/json
-Authorization: Bearer {{token.response.body.access_token}}
-
-{
-  "channelIds": ["00000000-0000-0000-0000-000000000009"],
-  "outletIds": []
-}
-
-### A currency that is not a three-letter code — expect 400 `product.priceList.currencyInvalid`.
-POST {{Server_HostAddress}}/api/products/price-lists
-Content-Type: application/json
-Authorization: Bearer {{token.response.body.access_token}}
-
-{
-  "name": "Wrong currency",
-  "currency": "Euro",
-  "effectiveFrom": "2026-01-01"
-}
-
 ### Products — list products. Requires `product:read`.
 GET {{Server_HostAddress}}/api/products
 Accept: application/json
@@ -824,6 +723,152 @@ Authorization: Bearer {{token.response.body.access_token}}
     { "productId": "{{classified.response.body.id}}", "kind": "Added" },
     { "productId": "{{classified.response.body.id}}", "kind": "Removed" }
   ]
+}
+
+### Products — create a price list. One currency for the whole list (`BR-PRD-1`), and a half-open
+### window `[effectiveFrom, effectiveTo)` so a successor starts exactly where this stops.
+### `effectiveTo` may be omitted for an open-ended list.
+# @name priceList
+POST {{Server_HostAddress}}/api/products/price-lists
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Modern Trade 2026",
+  "currency": "EUR",
+  "effectiveFrom": "2026-01-01"
+}
+
+### Set the prices. Amounts are **strings** — `BR-PRD-8`. A JSON number becomes an IEEE-754 float
+### the moment a browser parses it, and the device pricing engine would be doing float maths before
+### `decimal.js` ever saw the value.
+PUT {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}/prices
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "prices": [
+    { "productId": "{{classified.response.body.id}}", "amount": "12.50" }
+  ]
+}
+
+### Read them back — each price comes out as `{ "amount": "12.50", "currency": "EUR" }`.
+### The currency comes from the list, not the line, so no two lines can disagree about units.
+GET {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}/prices
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### A comma decimal — expect 400 `product.price.notANumber`. Under invariant culture "12,50" would
+### parse to **1250** if thousands separators were allowed: a hundredfold error that reads as a
+### plausible price, and only on machines configured a certain way.
+PUT {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}/prices
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "prices": [
+    { "productId": "{{classified.response.body.id}}", "amount": "12,50" }
+  ]
+}
+
+### Where the list applies. A PUT replaces the whole scope — channels and outlets together.
+### Each stored row is scoped to exactly one of the two, and the database enforces that with a check
+### constraint rather than trusting this endpoint.
+###
+### Publishing here also raises `PriceListPublished` into the outbox, in the same transaction as the
+### rows (ADR-0006), which is what Sync will turn into a reference delta.
+PUT {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}/assignments
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "channelIds": ["{{channel.response.body.id}}"],
+  "outletIds": ["{{outlet.response.body.id}}"]
+}
+
+### Read the scope back.
+GET {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}/assignments
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### Products — what this outlet is charged, on a date (PRD-04, BR-PRD-2). Requires `product:read`:
+### a rep prices an order, and needing `product:write` for that would let the whole field force
+### reprice the tenant.
+###
+### The list above reaches this outlet twice — once through its channel, once directly — so the
+### answer names which one won. `scope: "Outlet"` here; the outlet-scoped assignment beats the
+### channel one even though both say 12.50, because specificity is decided before amount.
+GET {{Server_HostAddress}}/api/products/outlets/{{outlet.response.body.id}}/prices?on=2026-03-15
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### Narrowed to particular products. Repeat `productId` per product — a rep pricing an order asks
+### about the lines they are taking, not the whole catalogue.
+GET {{Server_HostAddress}}/api/products/outlets/{{outlet.response.body.id}}/prices?on=2026-03-15&productId={{classified.response.body.id}}
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### A date before the list opens — expect `[]`, not an error. A product with no covering list is a
+### product this outlet cannot be sold, which is the caller's decision rather than a refusal.
+GET {{Server_HostAddress}}/api/products/outlets/{{outlet.response.body.id}}/prices?on=2025-12-31
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### No date at all — expect 400 `product.price.dateRequired`. Deliberately not defaulted to today:
+### that would mean the *server's* today, and an outlet in Bucharest changes day six hours before one
+### in London (BR-PRD-6). It would also make the endpoint non-reproducible, when the whole point is
+### that an order re-priced during sync resolves to the price it was taken at.
+GET {{Server_HostAddress}}/api/products/outlets/{{outlet.response.body.id}}/prices
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### A date that is not one — expect 400 `product.price.dateMalformed`, naming `on`. Hand-parsed
+### rather than bound as a `DateOnly?`, so this is a field problem like every other refusal here
+### instead of the framework's bare 400 with no body.
+GET {{Server_HostAddress}}/api/products/outlets/{{outlet.response.body.id}}/prices?on=15-03-2026
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### An outlet that does not exist — expect 404. Another tenant's outlet gives the same answer:
+### `IOutletClassification` is tenant-filtered, so it is simply absent here, which is the only reply
+### that does not confirm it exists elsewhere.
+GET {{Server_HostAddress}}/api/products/outlets/00000000-0000-0000-0000-000000000009/prices?on=2026-03-15
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### Withdraw it — an empty scope is a real change, not a no-op. It is how a list stops applying, and
+### it raises `PriceListPublished` too: a device that never hears this keeps pricing against a list
+### that no longer reaches it.
+PUT {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}/assignments
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "channelIds": [],
+  "outletIds": []
+}
+
+### A channel that does not exist — expect 400 `product.priceList.channelMissing`.
+### Products cannot see the channel table (AT-1), so this is checked through
+### `IOutletClassification.ChannelExistsAsync`; without it the assignment would save and price nobody.
+PUT {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}/assignments
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "channelIds": ["00000000-0000-0000-0000-000000000009"],
+  "outletIds": []
+}
+
+### A currency that is not a three-letter code — expect 400 `product.priceList.currencyInvalid`.
+POST {{Server_HostAddress}}/api/products/price-lists
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Wrong currency",
+  "currency": "Euro",
+  "effectiveFrom": "2026-01-01"
 }
 
 ### An unknown time zone — expect 400. Checked against the runtime's zone database rather than a

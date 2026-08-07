@@ -310,7 +310,7 @@ Sizes are hand-written diff estimates against the ~400-line budget; generated mi
 | 3 | **Assortment + MSL** — channel assortment, MSL flags, per-outlet overrides; `IAssortmentService` | `PRD-02`, `BR-PRD-4` | 400 |
 | 4 | **Price lists** — currency + effective window, product prices, channel/outlet assignment; publishes `PriceListPublished` | `PRD-03`, `BR-PRD-1` | 400 |
 | 5 | **`IOutletClassification`** — Outlets grows the contract slice 6 needs (see below) | — | 120 |
-| 6 | **Price resolution** — specificity + effective date; `IPricingService` (price half) | `PRD-04`, `BR-PRD-2` | 350 |
+| 6 | **Price resolution** — specificity + effective date, as a pure function; decides the [vector format](../vectors/README.md) (see below) | `PRD-04`, `BR-PRD-2`, `BR-PRD-7` | 350 |
 | 7 | **Promotion authoring** — %-off and fixed-amount, then volume/tiered and BOGO/bundle | `PRD-05` | 400 ×2 |
 | 8 | **Promotion resolution** — priority selection, validity window in the outlet's timezone | `PRD-06`, `BR-PRD-3/6` | 350 |
 | 9 | **Tax** — tax class × tenant/country, on the rounded net line | `PRD-07`, `BR-PRD-5` | 250 |
@@ -329,6 +329,22 @@ both waited for a real consumer rather than being guessed at up front
 **The vector format is a W7 contract, not a slice-10 detail.** W7's TypeScript mirror consumes the
 same file, so the format is decided in **slice 6**, with the first engine code — not invented at
 slice 10, where it would be shaped by whatever C# found convenient to emit.
+
+> **Landed as [`vectors/`](../vectors/README.md)** with slice 6, hand-written, one case per rule.
+> Deciding it against a real engine paid for itself immediately: the first draft broke the tie
+> between two equally-specific lists with `Guid.CompareTo`, which reads .NET's first Guid field as a
+> *signed* int and sorts `ffffffff-…` below `00000001-…`. A TypeScript mirror comparing canonical
+> strings would have disagreed — on a rule neither author thought was interesting, in the one place
+> the two engines are supposed to agree by construction. The resolver now orders big-endian bytes,
+> which is what the canonical string spells out, and the vector file carries the hostile pair that
+> tells the two apart. Invented at slice 10 against emitted output, the format would have recorded
+> whatever C# happened to do.
+
+**`IPricingService` is not built by slice 6, deliberately.** The resolver is a pure static function
+and the endpoint is its only caller; a cross-module contract needs a cross-module consumer, which is
+Order (Phase 3). Same reasoning that keeps `IAssortmentService` and `Products.Contracts` unbuilt, and
+the same discipline the registry applies to `IRepScope` and `IOrgHierarchy`
+([module boundaries §7](architecture/10-module-boundaries.md#7-module-registry)).
 
 **`Money` crosses the wire as a string** amount + currency (`BR-PRD-8`,
 [api-contracts §1](architecture/13-api-contracts.md#1-shape--conventions)), which constrains every
