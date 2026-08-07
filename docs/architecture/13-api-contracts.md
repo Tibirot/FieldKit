@@ -18,6 +18,14 @@ this doc is the **external** API.
 - JSON, camelCase; `Money` serialized as `{ "amount": "12.50", "currency": "EUR" }` (string amount
   to avoid float loss); timestamps ISO-8601 UTC.
 
+  **Implemented** by `MoneyJsonConverter` in `FieldKit.Web`, registered globally in the host rather
+  than attributed per DTO — forgetting an attribute would emit a JSON *number*, silently, in the one
+  part of the system with a business rule against floats (`BR-PRD-8`). Amounts keep the currency's
+  minor units on the way out (`"12.50"`, not `"12.5"`), and neither direction accepts a thousands
+  separator: under invariant culture `"12,50"` parses to **1250**, a hundredfold error that reads as
+  a plausible price. A .NET consumer needs the same converter; a TypeScript one reads the string and
+  hands it to `decimal.js`, which is the point of the format.
+
 ## 2. Two API styles
 
 | Style | Used by | Characteristics |

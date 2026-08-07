@@ -26,6 +26,10 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
 
     public DbSet<OutletAssortmentOverride> AssortmentOverrides => Set<OutletAssortmentOverride>();
 
+    public DbSet<PriceList> PriceLists => Set<PriceList>();
+
+    public DbSet<PriceListLine> PriceListLines => Set<PriceListLine>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -224,6 +228,56 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
             // The read this exists for: every override for one outlet, fetched alongside its
             // channel's assortment.
             exception.HasIndex(o => new { o.TenantId, o.OutletId });
+        });
+
+        modelBuilder.Entity<PriceList>(list =>
+        {
+            list.ToTable("price_list");
+            list.HasKey(l => l.Id);
+            list.Property(l => l.Name).HasMaxLength(120).IsRequired();
+
+            // Exactly three characters, and stored as such. A varchar(3) is the schema saying what
+            // the type says — ISO-4217 alphabetic, nothing else — rather than leaving room for
+            // "Euro" to be stored and refused later.
+            list.Property(l => l.Currency).HasMaxLength(3).IsRequired().IsFixedLength();
+
+            list.HasIndex(l => new { l.TenantId, l.Name }).IsUnique();
+
+            // Resolution reads by date, and every read is tenant-first.
+            list.HasIndex(l => new { l.TenantId, l.EffectiveFrom });
+        });
+
+        modelBuilder.Entity<PriceListLine>(line =>
+        {
+            line.ToTable("price_list_line");
+            line.HasKey(l => l.Id);
+
+            // numeric(18,4), not float. The whole decimal-parity regime (BR-PRD-8/9) is worthless if
+            // the storage rounds before the engine ever sees the number. Four decimal places rather
+            // than two because a unit price in FMCG is routinely sub-cent — a case of 24 at 11.99
+            // divides to 0.4996 per unit, and truncating that at the column loses the money the
+            // rounding policy exists to control.
+            line.Property(l => l.Amount).HasPrecision(18, 4);
+
+            // A product is priced at most once per list. Two lines would make "the price" a question
+            // with two answers, and the resolver would have to break a tie that means nothing.
+            line.HasIndex(l => new { l.TenantId, l.PriceListId, l.ProductId }).IsUnique();
+
+            // Tenant-keyed to both parents, the pattern from #96. Restrict on the product so a
+            // priced product cannot vanish from under a list; Cascade on the list, because a line
+            // has no meaning without the list that gives it a currency — deleting the list and
+            // keeping its lines would leave amounts with no units.
+            line.HasOne<PriceList>()
+                .WithMany()
+                .HasForeignKey(l => new { l.TenantId, l.PriceListId })
+                .HasPrincipalKey(p => new { p.TenantId, p.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+
+            line.HasOne<Product>()
+                .WithMany()
+                .HasForeignKey(l => new { l.TenantId, l.ProductId })
+                .HasPrincipalKey(p => new { p.TenantId, p.Id })
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

@@ -53,6 +53,7 @@ public sealed class ProductsModule : IModule
         endpoints.MapTaxClassEndpoints();
         endpoints.MapProductEndpoints();
         endpoints.MapAssortmentEndpoints();
+        endpoints.MapPriceListEndpoints();
     }
 }
 

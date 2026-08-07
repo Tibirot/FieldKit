@@ -134,6 +134,63 @@ Authorization: Bearer {{token.response.body.access_token}}
   "name": "   "
 }
 
+### Products — create a price list. One currency for the whole list (`BR-PRD-1`), and a half-open
+### window `[effectiveFrom, effectiveTo)` so a successor starts exactly where this stops.
+### `effectiveTo` may be omitted for an open-ended list.
+# @name priceList
+POST {{Server_HostAddress}}/api/products/price-lists
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Modern Trade 2026",
+  "currency": "EUR",
+  "effectiveFrom": "2026-01-01"
+}
+
+### Set the prices. Amounts are **strings** — `BR-PRD-8`. A JSON number becomes an IEEE-754 float
+### the moment a browser parses it, and the device pricing engine would be doing float maths before
+### `decimal.js` ever saw the value.
+PUT {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}/prices
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "prices": [
+    { "productId": "{{classified.response.body.id}}", "amount": "12.50" }
+  ]
+}
+
+### Read them back — each price comes out as `{ "amount": "12.50", "currency": "EUR" }`.
+### The currency comes from the list, not the line, so no two lines can disagree about units.
+GET {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}/prices
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### A comma decimal — expect 400 `product.price.notANumber`. Under invariant culture "12,50" would
+### parse to **1250** if thousands separators were allowed: a hundredfold error that reads as a
+### plausible price, and only on machines configured a certain way.
+PUT {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}/prices
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "prices": [
+    { "productId": "{{classified.response.body.id}}", "amount": "12,50" }
+  ]
+}
+
+### A currency that is not a three-letter code — expect 400 `product.priceList.currencyInvalid`.
+POST {{Server_HostAddress}}/api/products/price-lists
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Wrong currency",
+  "currency": "Euro",
+  "effectiveFrom": "2026-01-01"
+}
+
 ### Products — list products. Requires `product:read`.
 GET {{Server_HostAddress}}/api/products
 Accept: application/json
