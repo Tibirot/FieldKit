@@ -1,6 +1,6 @@
 "use client";
 
-import { Boxes, Tag, Tags } from "lucide-react";
+import { BadgePercent, Boxes, Tag, Tags } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,16 @@ export function ProductActions() {
       >
         <Tag className="size-4" />
         {t("managePriceLists")}
+      </Button>
+
+      <Button
+        render={<Link href="/products/promotions" />}
+        nativeButton={false}
+        size="sm"
+        variant="outline"
+      >
+        <BadgePercent className="size-4" />
+        {t("managePromotions")}
       </Button>
 
       <Button
