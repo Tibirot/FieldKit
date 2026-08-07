@@ -108,22 +108,32 @@ export function Sidebar({ workspace }: { workspace: string | null }) {
         </span>
       </div>
 
-      {NAVIGATION.map((group) => (
-        <div key={group.key ?? "top"} className="contents">
-          {group.key ? (
-            <span className="px-2.5 pt-3.5 pb-1 font-mono text-[10px] font-bold tracking-[0.12em] text-muted-foreground/70 uppercase">
-              {t(`groups.${group.key}`)}
-            </span>
-          ) : null}
-          {group.items.filter(visible).map((item) => (
-            <NavLink
-              key={item.key}
-              item={item}
-              active={item.href !== undefined && pathname.startsWith(item.href)}
-            />
-          ))}
-        </div>
-      ))}
+      {NAVIGATION.map((group) => {
+        const items = group.items.filter(visible);
+
+        // A heading over nothing is the same dead label the items themselves are filtered to avoid:
+        // "ADMIN" with no rows under it tells the reader a section exists and then refuses to say
+        // what is in it, which is worse than not mentioning it. Filtering the items and rendering
+        // the heading unconditionally is how this went wrong — the two decisions have to be one.
+        if (items.length === 0) return null;
+
+        return (
+          <div key={group.key ?? "top"} className="contents">
+            {group.key ? (
+              <span className="px-2.5 pt-3.5 pb-1 font-mono text-[10px] font-bold tracking-[0.12em] text-muted-foreground/70 uppercase">
+                {t(`groups.${group.key}`)}
+              </span>
+            ) : null}
+            {items.map((item) => (
+              <NavLink
+                key={item.key}
+                item={item}
+                active={item.href !== undefined && pathname.startsWith(item.href)}
+              />
+            ))}
+          </div>
+        );
+      })}
     </nav>
   );
 }
