@@ -312,7 +312,7 @@ Sizes are hand-written diff estimates against the ~400-line budget; generated mi
 | 5 | **`IOutletClassification`** — Outlets grows the contract slice 6 needs (see below) | — | 120 |
 | 6 | **Price resolution** — specificity + effective date, as a pure function; decides the [vector format](../vectors/README.md) (see below) | `PRD-04`, `BR-PRD-2`, `BR-PRD-7` | 350 |
 | 7 | **Promotion authoring** — %-off and fixed-amount (7a), volume/tiered (7b), BOGO/bundle (7c), scope + `PromotionActivated` (7d) | `PRD-05` | 400 ×4 |
-| 8 | **Promotion resolution** — priority selection, validity window in the outlet's timezone | `PRD-06`, `BR-PRD-3/6` | 350 |
+| 8 | **Promotion resolution** — priority selection, validity window in the outlet's timezone; second [vector file](../vectors/README.md) | `PRD-06`, `BR-PRD-3/6` | 350 |
 | 9 | **Tax** — tax class × tenant/country, on the rounded net line | `PRD-07`, `BR-PRD-5` | 250 |
 | 10 | **Parity vector suite** — generated vectors as a committed artifact; the C# engine proves against them | `PRD-08`, `BR-PRD-8/9` | 350 |
 | 11+ | **Back-office screens** — products, assortment, price lists, promotions (3–4 PRs) | — | — |

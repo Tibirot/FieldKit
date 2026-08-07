@@ -1,0 +1,563 @@
+{
+  "version": 1,
+  "rule": "PRD-06 / BR-PRD-3",
+  "description": "Which promotion applies to one order line, given the candidates already filtered to those reaching this outlet and targeting this product. At most one, selected by priority. See ../README.md for the format rules — money and percentages are strings, dates are YYYY-MM-DD, enums are names.",
+  "cases": [
+    {
+      "name": "a single covering candidate is the answer",
+      "on": "2026-06-15",
+      "quantity": 1,
+      "candidates": [
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000001",
+          "type": "PercentOff",
+          "priority": 10,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "percentOff": "15.00"
+        }
+      ],
+      "expected": {
+        "promotionId": "0195f000-0000-7000-8000-000000000001",
+        "type": "PercentOff",
+        "priority": 10,
+        "percentOff": "15.00",
+        "amountOff": null,
+        "currency": null,
+        "bundle": null
+      }
+    },
+    {
+      "name": "no candidates at all resolves to no promotion",
+      "on": "2026-06-15",
+      "quantity": 1,
+      "candidates": [],
+      "expected": null
+    },
+    {
+      "name": "the window includes its first day",
+      "on": "2026-06-01",
+      "quantity": 1,
+      "candidates": [
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000001",
+          "type": "PercentOff",
+          "priority": 10,
+          "validFrom": "2026-06-01",
+          "validTo": "2026-07-01",
+          "percentOff": "15.00"
+        }
+      ],
+      "expected": {
+        "promotionId": "0195f000-0000-7000-8000-000000000001",
+        "type": "PercentOff",
+        "priority": 10,
+        "percentOff": "15.00",
+        "amountOff": null,
+        "currency": null,
+        "bundle": null
+      }
+    },
+    {
+      "name": "the window excludes its last day",
+      "why": "Half-open [from, to), as everywhere else. This is the case an inclusive reading gets wrong, and the one that lets a successor promotion start exactly where its predecessor stops.",
+      "on": "2026-07-01",
+      "quantity": 1,
+      "candidates": [
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000001",
+          "type": "PercentOff",
+          "priority": 10,
+          "validFrom": "2026-06-01",
+          "validTo": "2026-07-01",
+          "percentOff": "15.00"
+        }
+      ],
+      "expected": null
+    },
+    {
+      "name": "the highest priority wins, not the biggest discount",
+      "why": "The rule worth pinning hardest. A supplier-funded deal must be able to beat a bigger generic one, which is the whole reason priority is authored. A resolver that quietly preferred the larger saving would look correct on most data and be wrong exactly when it mattered.",
+      "on": "2026-06-15",
+      "quantity": 1,
+      "candidates": [
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000001",
+          "type": "PercentOff",
+          "priority": 100,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "percentOff": "5.00"
+        },
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000002",
+          "type": "PercentOff",
+          "priority": 10,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "percentOff": "40.00"
+        }
+      ],
+      "expected": {
+        "promotionId": "0195f000-0000-7000-8000-000000000001",
+        "type": "PercentOff",
+        "priority": 100,
+        "percentOff": "5.00",
+        "amountOff": null,
+        "currency": null,
+        "bundle": null
+      }
+    },
+    {
+      "name": "a negative priority still ranks",
+      "why": "Nothing forbids one, and an author reaching for -1 means 'below everything default'. A resolver treating priority as unsigned, or defaulting a missing one to zero, gets this backwards.",
+      "on": "2026-06-15",
+      "quantity": 1,
+      "candidates": [
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000001",
+          "type": "PercentOff",
+          "priority": -5,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "percentOff": "40.00"
+        },
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000002",
+          "type": "PercentOff",
+          "priority": 0,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "percentOff": "5.00"
+        }
+      ],
+      "expected": {
+        "promotionId": "0195f000-0000-7000-8000-000000000002",
+        "type": "PercentOff",
+        "priority": 0,
+        "percentOff": "5.00",
+        "amountOff": null,
+        "currency": null,
+        "bundle": null
+      }
+    },
+    {
+      "name": "the order candidates arrive in does not change the answer",
+      "why": "Same set as the priority case, reversed. A resolver that folds left and one that folds right must agree, because neither the database nor a device's local store promises an order.",
+      "on": "2026-06-15",
+      "quantity": 1,
+      "candidates": [
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000002",
+          "type": "PercentOff",
+          "priority": 10,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "percentOff": "40.00"
+        },
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000001",
+          "type": "PercentOff",
+          "priority": 100,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "percentOff": "5.00"
+        }
+      ],
+      "expected": {
+        "promotionId": "0195f000-0000-7000-8000-000000000001",
+        "type": "PercentOff",
+        "priority": 100,
+        "percentOff": "5.00",
+        "amountOff": null,
+        "currency": null,
+        "bundle": null
+      }
+    },
+    {
+      "name": "a tie on priority is broken by the higher id, ordered as bytes",
+      "why": "The same hostile pair as price resolution, for the same reason. .NET's Guid.CompareTo reads the first field as a signed native-endian int and sorts ffffffff below 00000001; any implementation comparing canonical strings or big-endian bytes agrees with this case, and one reaching for the platform's built-in comparison does not.",
+      "on": "2026-06-15",
+      "quantity": 1,
+      "candidates": [
+        {
+          "promotionId": "00000001-0000-7000-8000-000000000000",
+          "type": "PercentOff",
+          "priority": 50,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "percentOff": "5.00"
+        },
+        {
+          "promotionId": "ffffffff-0000-7000-8000-000000000000",
+          "type": "PercentOff",
+          "priority": 50,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "percentOff": "9.00"
+        }
+      ],
+      "expected": {
+        "promotionId": "ffffffff-0000-7000-8000-000000000000",
+        "type": "PercentOff",
+        "priority": 50,
+        "percentOff": "9.00",
+        "amountOff": null,
+        "currency": null,
+        "bundle": null
+      }
+    },
+    {
+      "name": "a fixed amount resolves with its own currency",
+      "on": "2026-06-15",
+      "quantity": 1,
+      "candidates": [
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000001",
+          "type": "FixedAmountOff",
+          "priority": 10,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "amountOff": "2.50",
+          "currency": "EUR"
+        }
+      ],
+      "expected": {
+        "promotionId": "0195f000-0000-7000-8000-000000000001",
+        "type": "FixedAmountOff",
+        "priority": 10,
+        "percentOff": null,
+        "amountOff": "2.50",
+        "currency": "EUR",
+        "bundle": null
+      }
+    },
+    {
+      "name": "a tiered promotion resolves to the tier the quantity reaches",
+      "why": "Highest reached, not lowest matching: tiers are 'N or more' and the author wrote them expecting the better deal as the order grows.",
+      "on": "2026-06-15",
+      "quantity": 30,
+      "candidates": [
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000001",
+          "type": "VolumeTiered",
+          "priority": 10,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "tiers": [
+            { "minQuantity": 6, "percentOff": "2.50" },
+            { "minQuantity": 24, "percentOff": "10.00" },
+            { "minQuantity": 12, "percentOff": "5.00" }
+          ]
+        }
+      ],
+      "expected": {
+        "promotionId": "0195f000-0000-7000-8000-000000000001",
+        "type": "VolumeTiered",
+        "priority": 10,
+        "percentOff": "10.00",
+        "amountOff": null,
+        "currency": null,
+        "bundle": null
+      }
+    },
+    {
+      "name": "a tier is reached at exactly its threshold",
+      "on": "2026-06-15",
+      "quantity": 12,
+      "candidates": [
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000001",
+          "type": "VolumeTiered",
+          "priority": 10,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "tiers": [
+            { "minQuantity": 6, "percentOff": "2.50" },
+            { "minQuantity": 12, "percentOff": "5.00" }
+          ]
+        }
+      ],
+      "expected": {
+        "promotionId": "0195f000-0000-7000-8000-000000000001",
+        "type": "VolumeTiered",
+        "priority": 10,
+        "percentOff": "5.00",
+        "amountOff": null,
+        "currency": null,
+        "bundle": null
+      }
+    },
+    {
+      "name": "a tiered promotion below its lowest threshold does not apply",
+      "why": "Filtered out rather than allowed to win and take nothing off — the same hazard authoring refuses when it rejects a 0% discount. Here it matters more: this candidate has the higher priority, so a resolver that let it through would suppress the promotion that does apply.",
+      "on": "2026-06-15",
+      "quantity": 3,
+      "candidates": [
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000001",
+          "type": "VolumeTiered",
+          "priority": 100,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "tiers": [{ "minQuantity": 6, "percentOff": "2.50" }]
+        },
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000002",
+          "type": "PercentOff",
+          "priority": 10,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "percentOff": "1.00"
+        }
+      ],
+      "expected": {
+        "promotionId": "0195f000-0000-7000-8000-000000000002",
+        "type": "PercentOff",
+        "priority": 10,
+        "percentOff": "1.00",
+        "amountOff": null,
+        "currency": null,
+        "bundle": null
+      }
+    },
+    {
+      "name": "a tiered promotion with no tiers authored is inert",
+      "why": "The withdrawn state from PRD-05: an empty tier set means the promotion discounts nothing. It must not win a priority contest it cannot act on.",
+      "on": "2026-06-15",
+      "quantity": 100,
+      "candidates": [
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000001",
+          "type": "VolumeTiered",
+          "priority": 100,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "tiers": []
+        }
+      ],
+      "expected": null
+    },
+    {
+      "name": "an amount tier resolves with the tier's currency",
+      "on": "2026-06-15",
+      "quantity": 12,
+      "candidates": [
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000001",
+          "type": "VolumeTiered",
+          "priority": 10,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "tiers": [
+            { "minQuantity": 6, "amountOff": "1.50", "currency": "EUR" },
+            { "minQuantity": 12, "amountOff": "4.00", "currency": "EUR" }
+          ]
+        }
+      ],
+      "expected": {
+        "promotionId": "0195f000-0000-7000-8000-000000000001",
+        "type": "VolumeTiered",
+        "priority": 10,
+        "percentOff": null,
+        "amountOff": "4.00",
+        "currency": "EUR",
+        "bundle": null
+      }
+    },
+    {
+      "name": "a bundle applies once its buy quantity is met",
+      "on": "2026-06-15",
+      "quantity": 2,
+      "candidates": [
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000001",
+          "type": "BuyXGetY",
+          "priority": 10,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "bundle": {
+            "buyQuantity": 2,
+            "getQuantity": 1,
+            "getPercentOff": "100.00",
+            "getProductId": null
+          }
+        }
+      ],
+      "expected": {
+        "promotionId": "0195f000-0000-7000-8000-000000000001",
+        "type": "BuyXGetY",
+        "priority": 10,
+        "percentOff": null,
+        "amountOff": null,
+        "currency": null,
+        "bundle": {
+          "buyQuantity": 2,
+          "getQuantity": 1,
+          "getPercentOff": "100.00",
+          "getProductId": null
+        }
+      }
+    },
+    {
+      "name": "a bundle below its buy quantity does not apply",
+      "why": "'Buy two get one' on a line of one is not a discount of zero — it is an offer that has not been earned. As with tiers, this candidate outranks the one that does apply, so letting it through would suppress a real promotion.",
+      "on": "2026-06-15",
+      "quantity": 1,
+      "candidates": [
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000001",
+          "type": "BuyXGetY",
+          "priority": 100,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "bundle": {
+            "buyQuantity": 2,
+            "getQuantity": 1,
+            "getPercentOff": "100.00",
+            "getProductId": null
+          }
+        },
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000002",
+          "type": "PercentOff",
+          "priority": 10,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "percentOff": "1.00"
+        }
+      ],
+      "expected": {
+        "promotionId": "0195f000-0000-7000-8000-000000000002",
+        "type": "PercentOff",
+        "priority": 10,
+        "percentOff": "1.00",
+        "amountOff": null,
+        "currency": null,
+        "bundle": null
+      }
+    },
+    {
+      "name": "a bundle naming a different product carries it through",
+      "why": "The get-product is part of the answer, not a lookup the caller repeats. Null would mean 'the same product that was bought', which is a different offer.",
+      "on": "2026-06-15",
+      "quantity": 3,
+      "candidates": [
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000001",
+          "type": "BuyXGetY",
+          "priority": 10,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "bundle": {
+            "buyQuantity": 3,
+            "getQuantity": 1,
+            "getPercentOff": "50.00",
+            "getProductId": "0195f000-0000-7000-8000-0000000000aa"
+          }
+        }
+      ],
+      "expected": {
+        "promotionId": "0195f000-0000-7000-8000-000000000001",
+        "type": "BuyXGetY",
+        "priority": 10,
+        "percentOff": null,
+        "amountOff": null,
+        "currency": null,
+        "bundle": {
+          "buyQuantity": 3,
+          "getQuantity": 1,
+          "getPercentOff": "50.00",
+          "getProductId": "0195f000-0000-7000-8000-0000000000aa"
+        }
+      }
+    },
+    {
+      "name": "types do not rank against each other",
+      "why": "Only priority does. A BOGO at priority 10 loses to a flat percentage at 50, and nothing about being a richer kind of offer changes that.",
+      "on": "2026-06-15",
+      "quantity": 10,
+      "candidates": [
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000001",
+          "type": "BuyXGetY",
+          "priority": 10,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "bundle": {
+            "buyQuantity": 2,
+            "getQuantity": 1,
+            "getPercentOff": "100.00",
+            "getProductId": null
+          }
+        },
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000002",
+          "type": "PercentOff",
+          "priority": 50,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "percentOff": "5.00"
+        }
+      ],
+      "expected": {
+        "promotionId": "0195f000-0000-7000-8000-000000000002",
+        "type": "PercentOff",
+        "priority": 50,
+        "percentOff": "5.00",
+        "amountOff": null,
+        "currency": null,
+        "bundle": null
+      }
+    },
+    {
+      "name": "every candidate out of window resolves to no promotion",
+      "on": "2026-06-15",
+      "quantity": 10,
+      "candidates": [
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000001",
+          "type": "PercentOff",
+          "priority": 10,
+          "validFrom": "2026-01-01",
+          "validTo": "2026-02-01",
+          "percentOff": "15.00"
+        },
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000002",
+          "type": "PercentOff",
+          "priority": 10,
+          "validFrom": "2026-09-01",
+          "validTo": null,
+          "percentOff": "20.00"
+        }
+      ],
+      "expected": null
+    },
+    {
+      "name": "a resolved discount keeps its scale",
+      "why": "Same rule as price resolution: money and percentages cross a boundary as text (BR-PRD-8), and a binding that round-trips through a float loses this case.",
+      "on": "2026-06-15",
+      "quantity": 1,
+      "candidates": [
+        {
+          "promotionId": "0195f000-0000-7000-8000-000000000001",
+          "type": "PercentOff",
+          "priority": 10,
+          "validFrom": "2026-06-01",
+          "validTo": null,
+          "percentOff": "12.50"
+        }
+      ],
+      "expected": {
+        "promotionId": "0195f000-0000-7000-8000-000000000001",
+        "type": "PercentOff",
+        "priority": 10,
+        "percentOff": "12.50",
+        "amountOff": null,
+        "currency": null,
+        "bundle": null
+      }
+    }
+  ]
+}

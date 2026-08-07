@@ -122,6 +122,26 @@ This function is pure and runs **identically on server and device** (shared rule
 - **BR-PRD-5** Prices are stored **net**; tax is computed at order time from the tax class.
 - **BR-PRD-6** Promotions apply only within their validity window (evaluated in the outlet's
   timezone).
+
+> 📝 ASSUMPTION: **the timezone is honoured by requiring the business date, not by reading a clock.**
+> Both resolution endpoints take a mandatory `?on=` and refuse a request without one. A default would
+> mean the *server's* today, and an outlet in Bucharest changes day six hours before one in London —
+> so a promotion running "1–30 June" would be live at the wrong moments for most of a tenant's
+> estate. The date is therefore computed where the timezone is known (the device, or a caller holding
+> the outlet) and handed in.
+>
+> That is also what keeps resolution **reproducible**, which `BR-PRD-7` needs and which an order
+> re-priced during sync depends on: the same line must select the same promotion days later. A
+> resolver that asked what day it is could not promise either property.
+>
+> **Selection ignores the size of the discount.** `BR-PRD-3` says "by priority" and this takes it
+> literally — the highest-priority promotion wins even when a lower one saves more. That is what makes
+> priority worth authoring, and it is pinned by a vector, because a resolver that quietly preferred
+> the bigger saving would look correct on most data and be wrong exactly when it mattered.
+>
+> A promotion that cannot act at the ordered quantity — a tier below its lowest threshold, a bundle
+> below its buy quantity — is **filtered out before the priority contest** rather than allowed to win
+> and then do nothing. Same reasoning as authoring refusing a 0% discount.
 - **BR-PRD-7** Price/promo resolution is **deterministic and side-effect-free** so it is
   identical offline and online.
 

@@ -1276,6 +1276,46 @@ Authorization: Bearer {{token.response.body.access_token}}
   "outletIds": []
 }
 
+### Products — which promotion applies to one order line (PRD-04's sibling, PRD-06). At most **one**
+### per line, selected by **priority** (`BR-PRD-3`) — deliberately not by the size of the discount,
+### so a supplier-funded deal can be made to beat a bigger generic one. That is the whole reason
+### priority is authored, and a resolver that quietly preferred the larger saving would look right on
+### most data and be wrong exactly when it mattered.
+###
+### `on` is required for the same two reasons as on `/prices`: a default would mean the *server's*
+### today, and `BR-PRD-6` evaluates a window in the **outlet's** timezone — so the business date is
+### computed where the timezone is known and handed in. It also keeps resolution reproducible, which
+### is what lets an order re-priced during sync select the promotion it was taken under.
+###
+### `quantity` is required too, and that one matters more than it looks: left out it would bind to 0,
+### and a line of zero reaches no tier and earns no bundle — so every volume deal and every BOGO
+### would silently resolve to nothing, reading as "this shop has no promotions" rather than as a
+### mistake.
+GET {{Server_HostAddress}}/api/products/outlets/{{outlet.response.body.id}}/promotions?on=2026-06-15&productId={{classified.response.body.id}}&quantity=1
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### The same line at 30. A tiered promotion resolves to **the tier the quantity reaches** — highest
+### threshold at or below it, since tiers are "N or more" — and comes back already collapsed to a
+### concrete discount rather than a table to search again.
+GET {{Server_HostAddress}}/api/products/outlets/{{outlet.response.body.id}}/promotions?on=2026-06-15&productId={{classified.response.body.id}}&quantity=30
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### A date the promotions do not cover — expect `{ "promotion": null }`, a stated answer rather than
+### a 404 or an empty body. "No promotion applies" is a fact about this line, not a missing resource.
+### The wrapper exists because ASP.NET Core writes *nothing* for a null result value, and an empty
+### body is not JSON.
+GET {{Server_HostAddress}}/api/products/outlets/{{outlet.response.body.id}}/promotions?on=2025-12-31&productId={{classified.response.body.id}}&quantity=1
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### No quantity — expect 400 `product.promotion.quantityRequired`. A quantity of 0 is refused
+### separately, as `product.promotion.quantityTooSmall`.
+GET {{Server_HostAddress}}/api/products/outlets/{{outlet.response.body.id}}/promotions?on=2026-06-15&productId={{classified.response.body.id}}
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
 ### An unknown time zone — expect 400. Checked against the runtime's zone database rather than a
 ### pattern, because "Europe/Bucuresti" is well-formed and does not exist. A visit's business day and
 ### a promotion's validity both resolve in this zone, so a wrong one is a wrong answer waiting.
