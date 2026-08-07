@@ -634,6 +634,36 @@
     "fixAmounts": "Corectați sumele marcate mai sus.",
     "savePrices": "Salvează prețurile",
     "unsaved": "Modificări nesalvate.",
-    "noMatches": "Niciun produs nu corespunde căutării „{search}”."
+    "noMatches": "Niciun produs nu corespunde căutării „{search}”.",
+    "scope": "Domeniu"
+  },
+  "PriceListScope": {
+    "crumb": "Date de bază / Produse / Liste de prețuri / Domeniu",
+    "intro": "Ce magazine plătesc aceste prețuri în {currency}. Salvarea anunță și modificarea, astfel încât dispozitivele care au această listă să știe că s-a schimbat — inclusiv când domeniul este golit, ceea ce înseamnă retragerea listei.",
+    "channels": "Canale",
+    "channelsHint": "Cazul obișnuit: fiecare punct de vânzare dintr-un canal este tarifat după listele atribuite canalului.",
+    "channelNamed": "Atribuie la {name}",
+    "noChannels": "Niciun canal încă. Creați întâi unul în secțiunea Puncte de vânzare.",
+    "outlets": "Puncte de vânzare individuale",
+    "outletsHint": "Excepția: un magazin care plătește altceva decât canalul său. Căutați-l după cod sau denumire.",
+    "noOutlets": "Niciun punct de vânzare individual. Lista se aplică doar prin canalele sale.",
+    "searchOutlets": "Caută puncte de vânzare",
+    "searchPlaceholder": "Caută după cod sau denumire — minimum două caractere…",
+    "noMatches": "Niciun punct de vânzare nu corespunde căutării „{search}”.",
+    "add": "Adaugă",
+    "added": "Adăugat",
+    "addNamed": "Adaugă {name} ({code})",
+    "removeNamed": "Elimină {name} ({code})",
+    "unknownOutlet": "Punctul de vânzare nu a putut fi încărcat",
+    "reaches": "Se aplică în {count, plural, one {# loc} few {# locuri} other {# de locuri}}.",
+    "reachesNobody": "Această listă nu se aplică nicăieri. Are prețuri, dar este retrasă.",
+    "loading": "Se încarcă…",
+    "failed": "Nu s-a putut încărca.",
+    "forbidden": "Nu aveți permisiunea de a vedea listele de prețuri.",
+    "notFound": "Această listă de prețuri nu există.",
+    "save": "Salvează domeniul",
+    "saving": "Se salvează…",
+    "saveFailed": "Domeniul nu a putut fi salvat.",
+    "unsaved": "Modificări nesalvate."
   }
 }
