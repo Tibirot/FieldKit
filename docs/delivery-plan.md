@@ -311,7 +311,7 @@ Sizes are hand-written diff estimates against the ~400-line budget; generated mi
 | 4 | **Price lists** — currency + effective window, product prices, channel/outlet assignment; publishes `PriceListPublished` | `PRD-03`, `BR-PRD-1` | 400 |
 | 5 | **`IOutletClassification`** — Outlets grows the contract slice 6 needs (see below) | — | 120 |
 | 6 | **Price resolution** — specificity + effective date, as a pure function; decides the [vector format](../vectors/README.md) (see below) | `PRD-04`, `BR-PRD-2`, `BR-PRD-7` | 350 |
-| 7 | **Promotion authoring** — %-off and fixed-amount (7a), volume/tiered (7b), BOGO/bundle (7c) | `PRD-05` | 400 ×3 |
+| 7 | **Promotion authoring** — %-off and fixed-amount (7a), volume/tiered (7b), BOGO/bundle (7c), scope + `PromotionActivated` (7d) | `PRD-05` | 400 ×4 |
 | 8 | **Promotion resolution** — priority selection, validity window in the outlet's timezone | `PRD-06`, `BR-PRD-3/6` | 350 |
 | 9 | **Tax** — tax class × tenant/country, on the rounded net line | `PRD-07`, `BR-PRD-5` | 250 |
 | 10 | **Parity vector suite** — generated vectors as a committed artifact; the C# engine proves against them | `PRD-08`, `BR-PRD-8/9` | 350 |
@@ -356,7 +356,14 @@ separately.
 > estimate was wrong about the shape of the work rather than its size, which is the more useful thing
 > to record.
 >
-> **7c completes `PRD-05`**, and closes something 7a opened. The `promotion` check constraint was
+> **7d is the scope slice, and it is a prerequisite for slice 8 rather than a tidy-up.** Promotion
+> resolution has to answer "which promotions reach this outlet" before it can pick one, exactly as
+> price resolution needed `PriceListAssignment` before it could resolve a price. `PromotionActivated`
+> — the event the [module registry](architecture/10-module-boundaries.md#7-module-registry) names —
+> belongs here for the same reason `PriceListPublished` belongs on assignment: reach is the moment a
+> rule starts affecting what a rep sees.
+>
+> **7c completed the four types**, and closed something 7a opened. The `promotion` check constraint was
 > written as a `CASE` per type ending in `ELSE TRUE` — deliberate room, so each arriving type was a
 > new `WHEN` rather than an `ALTER` reasoned about against rows already stored. The cost, flagged at
 > the time, was that any unrecognised `type` string was stored unconstrained. B1 names exactly four

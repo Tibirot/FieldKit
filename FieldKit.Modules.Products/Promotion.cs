@@ -288,6 +288,29 @@ public sealed class Promotion : AggregateRoot, ITenantOwned, IAuditable
     /// <summary>Whether this promotion is live on <paramref name="date"/> — half-open, as above.</summary>
     public bool Covers(DateOnly date) =>
         date >= ValidFrom && (ValidTo is not { } end || date < end);
+
+    /// <summary>Announces that this promotion's scope changed.</summary>
+    /// <remarks>
+    /// On the aggregate rather than at the endpoint, so the event reaches the outbox in the same
+    /// transaction as the rows that caused it (ADR-0006). Raising it from the handler after
+    /// <c>SaveChanges</c> would be a dual write: the scope committed and the announcement lost, or
+    /// the announcement sent for a scope that rolled back.
+    /// <para>
+    /// Called even when the scope is set to nothing — see <see cref="PromotionActivated"/> for why a
+    /// withdrawal is an announcement too.
+    /// </para>
+    /// </remarks>
+    public void Activate(int channelCount, int outletCount, IClock clock) =>
+        Raise(new PromotionActivated(
+            Guid.CreateVersion7(),
+            clock.UtcNow,
+            Id,
+            Type,
+            ValidFrom,
+            ValidTo,
+            Priority,
+            channelCount,
+            outletCount));
 }
 
 /// <summary>

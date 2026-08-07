@@ -1205,6 +1205,77 @@ Authorization: Bearer {{token.response.body.access_token}}
   "effectiveFrom": "2026-01-01"
 }
 
+### Products — where a promotion applies (PRD-05). The last thing it needs before it does anything:
+### type, value, targets and window all describe a rule, and this says who it happens to. Until it is
+### set, a promotion is a draft that discounts nobody — the same intermediate state a price list
+### passes through.
+###
+### These requests live here rather than beside the rest of the promotion block because they depend
+### on `channel` and `outlet`, which are created above. Sent from up there they would resolve to
+### nothing, which is the ordering bug #109 fixed for the price-list scope requests.
+###
+### A PUT replaces the whole scope, and raises `PromotionActivated` into the outbox in the same
+### transaction as the rows (ADR-0006) — the event the module registry names, and what Sync will turn
+### into a reference delta.
+PUT {{Server_HostAddress}}/api/products/promotions/{{percentOff.response.body.id}}/assignments
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "channelIds": ["{{channel.response.body.id}}"],
+  "outletIds": ["{{outlet.response.body.id}}"]
+}
+
+### Read the scope back.
+GET {{Server_HostAddress}}/api/products/promotions/{{percentOff.response.body.id}}/assignments
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### Reach is a property of a promotion, not of its type — a tiered deal is pointed at outlets exactly
+### as a flat percentage is.
+PUT {{Server_HostAddress}}/api/products/promotions/{{tiered.response.body.id}}/assignments
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "channelIds": ["{{channel.response.body.id}}"],
+  "outletIds": []
+}
+
+### And so is a BOGO.
+PUT {{Server_HostAddress}}/api/products/promotions/{{bogo.response.body.id}}/assignments
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "channelIds": [],
+  "outletIds": ["{{outlet.response.body.id}}"]
+}
+
+### Withdraw it — an empty scope raises `PromotionActivated` too, with both counts at zero. "This
+### promotion now reaches nobody" is a change a consumer needs as much as any other: a device that
+### never hears it keeps offering a deal that has been pulled.
+PUT {{Server_HostAddress}}/api/products/promotions/{{percentOff.response.body.id}}/assignments
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "channelIds": [],
+  "outletIds": []
+}
+
+### A channel that does not exist — expect 400 `product.promotion.channelMissing`. Products cannot
+### see the channel table (AT-1), so this goes through `IOutletClassification.ChannelExistsAsync`;
+### without it the scope would save cleanly and reach nobody.
+PUT {{Server_HostAddress}}/api/products/promotions/{{percentOff.response.body.id}}/assignments
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "channelIds": ["00000000-0000-0000-0000-000000000009"],
+  "outletIds": []
+}
+
 ### An unknown time zone — expect 400. Checked against the runtime's zone database rather than a
 ### pattern, because "Europe/Bucuresti" is well-formed and does not exist. A visit's business day and
 ### a promotion's validity both resolve in this zone, so a wrong one is a wrong answer waiting.
