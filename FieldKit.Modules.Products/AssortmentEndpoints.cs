@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using FieldKit.Modules.Outlets.Contracts;
 using FieldKit.SharedKernel;
 using FieldKit.Web;
@@ -17,6 +18,25 @@ public sealed record AssortmentLineRequest(Guid ProductId, bool MustStock = fals
 /// <summary>The whole assortment for a channel. A PUT replaces it — see the endpoint.</summary>
 public sealed record SetAssortmentRequest(IReadOnlyList<AssortmentLineRequest> Items);
 
+/// <summary>One outlet's departure from its channel's assortment.</summary>
+public sealed record OverrideLineRequest(
+    Guid ProductId,
+    [property: JsonConverter(typeof(JsonStringEnumConverter<AssortmentOverrideKind>))]
+    AssortmentOverrideKind Kind,
+    bool MustStock = false);
+
+/// <summary>All of an outlet's overrides. A PUT replaces them.</summary>
+public sealed record SetOverridesRequest(IReadOnlyList<OverrideLineRequest> Overrides);
+
+/// <summary>An override as stored.</summary>
+public sealed record OverrideResponse(
+    Guid ProductId,
+    string Sku,
+    string Name,
+    [property: JsonConverter(typeof(JsonStringEnumConverter<AssortmentOverrideKind>))]
+    AssortmentOverrideKind Kind,
+    bool MustStock);
+
 /// <summary>
 /// Which products belong in which outlets (<c>PRD-02</c>).
 /// </summary>
@@ -25,9 +45,11 @@ public sealed record SetAssortmentRequest(IReadOnlyList<AssortmentLineRequest> I
 /// those is the whole reason this module consumes <see cref="IOutletClassification"/>: Products
 /// knows which channel an assortment is for, and only Outlets knows which channel a shop trades in.
 /// <para>
-/// Per-outlet overrides (<c>B2</c>) and the <c>IAssortmentService</c> contract that Order and Audit
-/// will consume are the next slice. This one establishes the channel assortment and the outlet read
-/// that resolves through it.
+/// <b>The <c>IAssortmentService</c> contract is deliberately not here.</b> Its consumers are Order and
+/// Audit, both Phase 3, and the module registry keeps <c>IRepScope</c> and <c>IOrgHierarchy</c>
+/// unbuilt for exactly this reason: an interface designed before its consumer is a guess the
+/// consumer has to live with. The capability is reachable over HTTP in the meantime, which is the
+/// same state those two are in. It lands with Order, shaped by what Order actually asks for.
 /// </para>
 /// </remarks>
 internal static class AssortmentEndpoints
@@ -99,8 +121,61 @@ internal static class AssortmentEndpoints
             // are different answers: one says "no such shop", the other "nothing is sold there".
             if (classified.Count == 0) return Results.NotFound();
 
-            return Results.Ok(await ForChannelAsync(db, classified[0].ChannelId, ct));
+            return Results.Ok(await EffectiveAsync(db, outletId, classified[0].ChannelId, ct));
         }).RequirePermission(ProductsPermissions.Read);
+
+        assortments.MapGet("/outlets/{outletId:guid}/overrides", async (
+            Guid outletId, ProductsDbContext db, IOutletClassification outlets, CancellationToken ct) =>
+        {
+            if ((await outlets.ClassifyManyAsync([outletId], ct)).Count == 0) return Results.NotFound();
+
+            return Results.Ok(await OverridesAsync(db, outletId, ct));
+        }).RequirePermission(ProductsPermissions.Read);
+
+        assortments.MapPut("/outlets/{outletId:guid}/overrides", async (
+            Guid outletId,
+            SetOverridesRequest request,
+            ProductsDbContext db,
+            IOutletClassification outlets,
+            IClock clock,
+            CancellationToken ct) =>
+        {
+            if ((await outlets.ClassifyManyAsync([outletId], ct)).Count == 0) return Results.NotFound();
+            if (await OverrideProblem(db, request, ct) is { } problem) return problem;
+
+            var existing = await db.AssortmentOverrides
+                .Where(o => o.OutletId == outletId)
+                .ToListAsync(ct);
+
+            var wanted = request.Overrides.ToDictionary(line => line.ProductId);
+
+            foreach (var stored in existing)
+            {
+                if (wanted.TryGetValue(stored.ProductId, out var line))
+                {
+                    if (stored.Kind != line.Kind || stored.IsMustStock != line.MustStock)
+                    {
+                        stored.Change(line.Kind, line.MustStock, clock);
+                    }
+
+                    wanted.Remove(stored.ProductId);
+                }
+                else
+                {
+                    db.AssortmentOverrides.Remove(stored);
+                }
+            }
+
+            foreach (var line in wanted.Values)
+            {
+                db.AssortmentOverrides.Add(
+                    OutletAssortmentOverride.Create(outletId, line.ProductId, line.Kind, line.MustStock));
+            }
+
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(await OverridesAsync(db, outletId, ct));
+        }).RequirePermission(ProductsPermissions.Write);
     }
 
     /// <summary>Everything in a channel's assortment, must-stock first.</summary>
@@ -124,6 +199,120 @@ internal static class AssortmentEndpoints
             .Select(pair => new AssortmentItemResponse(
                 pair.product.Id, pair.product.Sku, pair.product.Name, pair.IsMustStock))
             .ToListAsync(ct);
+
+    /// <summary>
+    /// What is actually expected in one outlet: its channel's assortment, plus what that outlet adds,
+    /// minus what it removes.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Computed on read rather than materialised. There is no per-outlet list to keep in step, so a
+    /// change to the channel assortment is immediately true everywhere it should be — no backfill
+    /// that can half-fail and leave two shops disagreeing about the same channel.
+    /// </para>
+    /// <para>
+    /// An <c>Added</c> override for a product already in the channel assortment is not an error; it
+    /// wins, which is how an outlet raises a line to must-stock that its channel treats as optional.
+    /// A <c>Removed</c> override for a product not in the assortment is inert, and also not an
+    /// error — it is what a shop's record looks like after the channel drops a line the shop had
+    /// already excluded.
+    /// </para>
+    /// </remarks>
+    private static async Task<IReadOnlyList<AssortmentItemResponse>> EffectiveAsync(
+        ProductsDbContext db, Guid outletId, Guid channelId, CancellationToken ct)
+    {
+        var fromChannel = await ForChannelAsync(db, channelId, ct);
+        var overrides = await OverridesAsync(db, outletId, ct);
+
+        if (overrides.Count == 0) return fromChannel;
+
+        var removed = overrides
+            .Where(o => o.Kind is AssortmentOverrideKind.Removed)
+            .Select(o => o.ProductId)
+            .ToHashSet();
+
+        var added = overrides
+            .Where(o => o.Kind is AssortmentOverrideKind.Added)
+            .ToDictionary(o => o.ProductId);
+
+        var effective = fromChannel
+            .Where(item => !removed.Contains(item.ProductId))
+            .Select(item => added.TryGetValue(item.ProductId, out var over)
+                ? item with { MustStock = over.MustStock }
+                : item)
+            .ToList();
+
+        var alreadyIn = effective.Select(item => item.ProductId).ToHashSet();
+
+        effective.AddRange(
+            added.Values
+                .Where(over => !alreadyIn.Contains(over.ProductId))
+                .Select(over => new AssortmentItemResponse(
+                    over.ProductId, over.Sku, over.Name, over.MustStock)));
+
+        // Sorted here rather than in SQL, because the set is a union of two queries. Same order the
+        // channel read promises: must-stock first, then by SKU.
+        return
+        [
+            .. effective
+                .OrderByDescending(item => item.MustStock)
+                .ThenBy(item => item.Sku, StringComparer.Ordinal),
+        ];
+    }
+
+    private static async Task<IReadOnlyList<OverrideResponse>> OverridesAsync(
+        ProductsDbContext db, Guid outletId, CancellationToken ct) =>
+        await db.AssortmentOverrides
+            .Where(o => o.OutletId == outletId)
+            .Join(
+                db.Products,
+                o => o.ProductId,
+                product => product.Id,
+                (o, product) => new { o.Kind, o.IsMustStock, product })
+            .OrderBy(pair => pair.product.Sku)
+            .Select(pair => new OverrideResponse(
+                pair.product.Id, pair.product.Sku, pair.product.Name, pair.Kind, pair.IsMustStock))
+            .ToListAsync(ct);
+
+    private static async Task<IResult?> OverrideProblem(
+        ProductsDbContext db, SetOverridesRequest request, CancellationToken ct)
+    {
+        var problems = new List<FieldProblem>();
+
+        var duplicates = request.Overrides
+            .GroupBy(line => line.ProductId)
+            .Count(group => group.Count() > 1);
+
+        // The same product added and removed for one outlet has no answer, and the unique index
+        // would refuse it anyway — this makes the refusal one an admin can act on.
+        if (duplicates > 0)
+        {
+            problems.Add(new FieldProblem(
+                "overrides",
+                $"{duplicates} product(s) appear more than once.",
+                "product.assortment.duplicateOverride",
+                new Dictionary<string, string> { ["count"] = duplicates.ToString() }));
+        }
+
+        var productIds = request.Overrides.Select(line => line.ProductId).Distinct().ToList();
+
+        var known = await db.Products
+            .Where(product => productIds.Contains(product.Id))
+            .Select(product => product.Id)
+            .ToListAsync(ct);
+
+        var missing = productIds.Except(known).Count();
+        if (missing > 0)
+        {
+            problems.Add(new FieldProblem(
+                "overrides",
+                $"{missing} product(s) do not exist.",
+                "product.assortment.productMissing",
+                new Dictionary<string, string> { ["count"] = missing.ToString() }));
+        }
+
+        return problems.Count > 0 ? Problems.BadRequest(problems) : null;
+    }
 
     private static async Task<IResult?> RequestProblem(
         ProductsDbContext db,
