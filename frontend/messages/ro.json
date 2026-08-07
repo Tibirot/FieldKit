@@ -636,7 +636,9 @@
     "savePrices": "Salvează prețurile",
     "unsaved": "Modificări nesalvate.",
     "noMatches": "Niciun produs nu corespunde căutării „{search}”.",
-    "scope": "Domeniu"
+    "scope": "Domeniu",
+    "pricesNamed": "Prețuri în {name}",
+    "scopeNamed": "Domeniul listei {name}"
   },
   "PriceListScope": {
     "crumb": "Date de bază / Produse / Liste de prețuri / Domeniu",
@@ -722,6 +724,37 @@
     "save": "Salvează",
     "saving": "Se salvează…",
     "cancel": "Anulează",
-    "saveFailed": "Promoția nu a putut fi salvată."
+    "saveFailed": "Promoția nu a putut fi salvată.",
+    "targets": "Ținte",
+    "targetsNamed": "Ținte pentru {name}"
+  },
+  "PromotionTargets": {
+    "crumb": "Date de bază / Produse / Promoții / Ținte",
+    "intro": "Ce reduce această promoție. Dacă nu este ales nimic, nu reduce nimic — astfel se scoate o ofertă din joc fără a-i modifica perioada.",
+    "categories": "Categorii",
+    "categoriesHint": "O categorie acoperă și tot ce este clasificat sub ea: alegerea „Băuturi” prinde un produs din „Băuturi / Apă / Plată” fără a numi vreuna dintre ele.",
+    "categoryNamed": "Vizează {path}",
+    "noCategories": "Nicio categorie încă. Creați-le întâi în secțiunea Clasificare.",
+    "products": "Produse individuale",
+    "productsHint": "Pentru o ofertă pe linii anume, nu pe o parte întreagă din catalog.",
+    "noProducts": "Niciun produs individual. Promoția se aplică doar prin categoriile sale.",
+    "searchProducts": "Caută produse",
+    "searchPlaceholder": "Caută după SKU sau denumire…",
+    "noMatches": "Niciun produs nu corespunde căutării „{search}”.",
+    "add": "Adaugă",
+    "added": "Adăugat",
+    "addNamed": "Adaugă {name} ({sku})",
+    "removeNamed": "Elimină {name} ({sku})",
+    "unknownProduct": "Produsul nu a putut fi încărcat",
+    "discounts": "Reduce {count, plural, one {# element} few {# elemente} other {# de elemente}}.",
+    "discountsNothing": "Această promoție nu reduce nimic. Există și nu se declanșează niciodată.",
+    "loading": "Se încarcă…",
+    "failed": "Nu s-a putut încărca.",
+    "forbidden": "Nu aveți permisiunea de a vedea promoțiile.",
+    "notFound": "Această promoție nu există.",
+    "save": "Salvează țintele",
+    "saving": "Se salvează…",
+    "saveFailed": "Țintele nu au putut fi salvate.",
+    "unsaved": "Modificări nesalvate."
   }
 }

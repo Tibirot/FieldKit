@@ -20,6 +20,23 @@ const fetchProducts = vi.hoisted(() => vi.fn());
 
 vi.mock("@/components/auth-provider", () => ({ useAuth: () => auth.current }));
 
+// The list links out to the targets screen, and next-intl's Link reaches for Next's router — which
+// does not resolve outside a Next build. A plain anchor keeps this file about the promotions.
+//
+// Every prop forwarded, not just href and children. The row's link carries an `aria-label`, and a
+// lossy stub would swallow exactly the thing under test while still rendering something plausible.
+vi.mock("@/i18n/navigation", () => ({
+  Link: ({
+    href,
+    children,
+    ...rest
+  }: { href: string; children: React.ReactNode } & React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
+}));
+
 vi.mock("@/lib/api/promotions", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/promotions")>()),
   fetchPromotions: (...args: unknown[]) => fetchPromotions(...args),
@@ -125,6 +142,19 @@ describe("<PromotionBrowser>", () => {
     render(<PromotionBrowser />);
 
     expect(await screen.findByText(/buy 2, get 1 at 100.00% off/i)).toBeTruthy();
+  });
+
+  it("offers the way through to what a promotion discounts", async () => {
+    // Its own route, not a section of the form: what a deal *is* and what it *applies to* are
+    // decided at different times, and one Save covering both would let a stray tick change which
+    // products are discounted while correcting a percentage.
+    render(<PromotionBrowser />);
+
+    // Queried as a button, not a link: the shared control renders an anchor with role="button"
+    // everywhere in the back office. Named per row, or four deals would offer four identical ones.
+    const targets = await screen.findByRole("button", { name: "Targets for Summer 10% off" });
+
+    expect(targets.getAttribute("href")).toBe("/products/promotions/promo-1/targets");
   });
 
   it("sends a percentage as typed, without parsing it", async () => {
