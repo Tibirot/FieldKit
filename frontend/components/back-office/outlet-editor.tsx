@@ -8,8 +8,7 @@ import { useParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { OutletForm } from "@/components/back-office/outlet-form";
 import { OutletLifecycle } from "@/components/back-office/outlet-lifecycle";
-import { Button } from "@/components/ui/button";
-import { Link } from "@/i18n/navigation";
+import { LinkButton } from "@/components/ui/link-button";
 import { ApiError } from "@/lib/api/client";
 import { fetchOutlet, outletKey } from "@/lib/api/outlets";
 import { usePermissions } from "@/lib/auth/use-permissions";
@@ -71,15 +70,14 @@ export function OutletEditor() {
             catalogue. Gated on `product:read` because that is what the screen reads — someone who
             maintains outlets is not necessarily trusted with the catalogue. */}
         {has("product:read") ? (
-          <Button
-            render={<Link href={`/outlets/${outlet.data.id}/assortment`} />}
-            nativeButton={false}
+          <LinkButton
+            href={`/outlets/${outlet.data.id}/assortment`}
             size="sm"
             variant="outline"
           >
             <Boxes className="size-4" />
             {t("manageAssortment")}
-          </Button>
+          </LinkButton>
         ) : null}
       </header>
       {/*

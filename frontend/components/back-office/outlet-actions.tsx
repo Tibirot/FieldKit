@@ -3,8 +3,7 @@
 import { Plus, SlidersHorizontal, Tags, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { Button } from "@/components/ui/button";
-import { Link } from "@/i18n/navigation";
+import { LinkButton } from "@/components/ui/link-button";
 import { usePermissions } from "@/lib/auth/use-permissions";
 
 /**
@@ -33,44 +32,29 @@ export function OutletActions() {
   return (
     <div className="flex flex-wrap gap-2">
       {has("config:read") ? (
-        <Button
-          render={<Link href="/outlets/custom-fields" />}
-          nativeButton={false}
-          size="sm"
-          variant="outline"
-        >
+        <LinkButton href="/outlets/custom-fields" size="sm" variant="outline">
           <SlidersHorizontal className="size-4" />
           {t("manageCustomFields")}
-        </Button>
+        </LinkButton>
       ) : null}
 
       {has("channel:read") ? (
-        <Button
-          render={<Link href="/outlets/channels" />}
-          nativeButton={false}
-          size="sm"
-          variant="outline"
-        >
+        <LinkButton href="/outlets/channels" size="sm" variant="outline">
           <Tags className="size-4" />
           {t("manageChannels")}
-        </Button>
+        </LinkButton>
       ) : null}
 
       {has("outlet:write") ? (
         <>
-          <Button
-            render={<Link href="/outlets/import" />}
-            nativeButton={false}
-            size="sm"
-            variant="outline"
-          >
+          <LinkButton href="/outlets/import" size="sm" variant="outline">
             <Upload className="size-4" />
             {t("importOutlets")}
-          </Button>
-          <Button render={<Link href="/outlets/new" />} nativeButton={false} size="sm">
+          </LinkButton>
+          <LinkButton href="/outlets/new" size="sm">
             <Plus className="size-4" />
             {t("newOutlet")}
-          </Button>
+          </LinkButton>
         </>
       ) : null}
     </div>
