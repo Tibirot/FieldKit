@@ -683,13 +683,47 @@ Authorization: Bearer {{token.response.body.access_token}}
   "items": []
 }
 
-### The assortment for one **outlet**, resolved through the channel it trades in. This is the join
-### Products cannot make alone: it knows which channel an assortment is for, and only Outlets knows
-### which channel this shop is. An unknown outlet is 404, not an empty list — "no such shop" and
-### "nothing is sold there" are different answers.
+### The **effective** assortment for one outlet: its channel's list, plus what this shop adds, minus
+### what it removes. Computed on read rather than stored, so a change to the channel assortment is
+### immediately true everywhere without a backfill that can half-fail.
+###
+### The channel join is what Products cannot make alone — it knows which channel an assortment is
+### for, and only Outlets knows which channel this shop is. An unknown outlet is 404, not an empty
+### list: "no such shop" and "nothing is sold there" are different answers.
 GET {{Server_HostAddress}}/api/products/assortments/outlets/{{outlet.response.body.id}}
 Accept: application/json
 Authorization: Bearer {{token.response.body.access_token}}
+
+### This outlet refuses a line its channel carries. A PUT replaces all of its overrides.
+### `kind` is "Added" or "Removed"; `mustStock` applies only to "Added", since a product added for
+### one shop still has to say whether it is expected on that shelf.
+PUT {{Server_HostAddress}}/api/products/assortments/outlets/{{outlet.response.body.id}}/overrides
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "overrides": [
+    { "productId": "{{classified.response.body.id}}", "kind": "Removed" }
+  ]
+}
+
+### Read the overrides back — the departures themselves, not the effective list.
+GET {{Server_HostAddress}}/api/products/assortments/outlets/{{outlet.response.body.id}}/overrides
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### The same product added *and* removed — expect 400 `product.assortment.duplicateOverride`.
+### A shop where one product is both has no answer, and every read would have to pick one.
+PUT {{Server_HostAddress}}/api/products/assortments/outlets/{{outlet.response.body.id}}/overrides
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "overrides": [
+    { "productId": "{{classified.response.body.id}}", "kind": "Added" },
+    { "productId": "{{classified.response.body.id}}", "kind": "Removed" }
+  ]
+}
 
 ### An unknown time zone — expect 400. Checked against the runtime's zone database rather than a
 ### pattern, because "Europe/Bucuresti" is well-formed and does not exist. A visit's business day and

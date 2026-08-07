@@ -24,6 +24,8 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
 
     public DbSet<AssortmentItem> AssortmentItems => Set<AssortmentItem>();
 
+    public DbSet<OutletAssortmentOverride> AssortmentOverrides => Set<OutletAssortmentOverride>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -198,6 +200,30 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
             // The read this table exists for: everything in a channel, must-stock first so a
             // suggested-order list does not have to sort it again.
             item.HasIndex(i => new { i.TenantId, i.ChannelId, i.IsMustStock });
+        });
+
+        modelBuilder.Entity<OutletAssortmentOverride>(exception =>
+        {
+            exception.ToTable("outlet_assortment_override");
+            exception.HasKey(o => o.Id);
+            exception.Property(o => o.Kind).HasConversion<int>();
+
+            // One override per (outlet, product). Two would be a shop where the same product is both
+            // added and removed — a state with no answer, where every read has to pick one.
+            exception.HasIndex(o => new { o.TenantId, o.OutletId, o.ProductId }).IsUnique();
+
+            // Tenant-keyed to the product, as everywhere else. OutletId gets no key: it lives in
+            // Outlets, and a constraint across a module boundary is the coupling schema-per-module
+            // exists to prevent — the endpoint checks it through IOutletClassification instead.
+            exception.HasOne<Product>()
+                .WithMany()
+                .HasForeignKey(o => new { o.TenantId, o.ProductId })
+                .HasPrincipalKey(p => new { p.TenantId, p.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // The read this exists for: every override for one outlet, fetched alongside its
+            // channel's assortment.
+            exception.HasIndex(o => new { o.TenantId, o.OutletId });
         });
     }
 }
