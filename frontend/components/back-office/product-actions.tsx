@@ -1,6 +1,6 @@
 "use client";
 
-import { Boxes, Tags } from "lucide-react";
+import { Boxes, Tag, Tags } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,16 @@ export function ProductActions() {
           {t("manageAssortments")}
         </Button>
       ) : null}
+
+      <Button
+        render={<Link href="/products/price-lists" />}
+        nativeButton={false}
+        size="sm"
+        variant="outline"
+      >
+        <Tag className="size-4" />
+        {t("managePriceLists")}
+      </Button>
 
       <Button
         render={<Link href="/products/classification" />}

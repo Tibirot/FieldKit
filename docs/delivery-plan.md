@@ -319,7 +319,8 @@ Sizes are hand-written diff estimates against the ~400-line budget; generated mi
 | 12 | **Classification screen** — `/products/classification`, all three vocabularies on one page | `PRD-01` | 400 |
 | 13 | **Assortment screen** — `/products/assortments`, channel assortment + MSL | `PRD-02` | 400 |
 | 14 | **Per-outlet overrides** — `/outlets/[id]/assortment`, one shop's departures from its channel | `PRD-02` | 400 |
-| 15+ | **Back-office screens** — price lists, promotions | — | — |
+| 15 | **Price list screens** — `/products/price-lists` and its prices; money stays a string end to end | `PRD-03`, `BR-PRD-8` | 400 |
+| 16+ | **Back-office screens** — price list assignment, promotions | — | — |
 
 **Slice 5 is a prerequisite, and it is deliberately late.** `BR-PRD-2` resolves a price by *outlet
 override → channel → default*, so the engine must map an outlet to its channel. `Outlet.ChannelId`
