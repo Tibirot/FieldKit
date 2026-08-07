@@ -66,6 +66,42 @@ describe("<Sidebar>", () => {
     expect(screen.queryByRole("link", { name: /users/i })).toBeNull();
   });
 
+  it("drops a group heading once nothing in it is visible", async () => {
+    // Found in the browser signed in as `rep`, who holds no user or role permissions: "Users &
+    // roles" was correctly hidden and the "ADMIN" heading stayed, labelling an empty stretch of
+    // sidebar. A heading over nothing says a section exists and then refuses to say what is in it,
+    // which is the same dead label the items are filtered to avoid.
+    //
+    // The test above already produced this caller and asserted only that the links were gone —
+    // presence of one thing says nothing about the absence of another.
+    allow("outlet:read");
+
+    render(<Sidebar workspace="fieldkit-dev" />);
+
+    await screen.findByRole("link", { name: /outlets/i });
+
+    expect(screen.queryByText("Admin")).toBeNull();
+
+    // The group that still has something in it keeps its heading, so this cannot pass by hiding
+    // every heading.
+    expect(screen.getByText("Master data")).toBeTruthy();
+  });
+
+  it("keeps the ungrouped scheduled items when a caller may read nothing at all", async () => {
+    // Every built item is hidden, so both headings go — but the block at the top has no heading and
+    // holds only scheduled screens, which are a fact about the product rather than about the caller.
+    // A fix that dropped whole groups too eagerly would empty the sidebar entirely.
+    allow();
+
+    render(<Sidebar workspace="fieldkit-dev" />);
+
+    expect(await screen.findByTitle("W12")).toBeTruthy();
+
+    expect(screen.getByTitle("W12").textContent).toContain("Dashboard");
+    expect(screen.queryByText("Master data")).toBeNull();
+    expect(screen.queryByText("Admin")).toBeNull();
+  });
+
   it("shows a page holding a section this caller may read", async () => {
     // Users & roles holds two sections behind different permissions. Someone who may read roles has
     // a reason to open it, and the section they may not read refuses itself in the API's own words —
