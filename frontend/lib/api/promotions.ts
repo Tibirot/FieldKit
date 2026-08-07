@@ -90,6 +90,49 @@ export function updatePromotion(
 
 export const promotionsKey = (subject: string) => ["promotions", subject] as const;
 
+// ── What a promotion discounts ─────────────────────────────────────────────────────────────────
+
+/** One thing a promotion discounts. Exactly one of the two ids is set (`PRD-05`). */
+export type PromotionTarget = { productId: string | null; categoryId: string | null };
+
+/**
+ * The whole target set. A PUT replaces it.
+ *
+ * **An empty set is a real state**, not a refusal: the promotion then discounts nothing. That
+ * mirrors emptying a price list's assignments, which is how a list is withdrawn — and it is how a
+ * promotion is taken out of play without editing its window or deleting a record other things point
+ * at.
+ */
+export type SetPromotionTargets = { productIds: string[]; categoryIds: string[] };
+
+export function fetchTargets(
+  accessToken: string,
+  id: string,
+  signal?: AbortSignal,
+): Promise<PromotionTarget[]> {
+  return apiGet<PromotionTarget[]>(
+    `/api/products/promotions/${id}/targets`,
+    accessToken,
+    signal,
+  );
+}
+
+export function setTargets(
+  accessToken: string,
+  id: string,
+  targets: SetPromotionTargets,
+): Promise<PromotionTarget[]> {
+  return apiSend<PromotionTarget[]>(
+    "PUT",
+    `/api/products/promotions/${id}/targets`,
+    accessToken,
+    targets,
+  );
+}
+
+export const targetsKey = (subject: string, id: string) =>
+  ["promotions", subject, id, "targets"] as const;
+
 /**
  * Whether a type carries a discount of its own.
  *

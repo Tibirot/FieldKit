@@ -108,6 +108,10 @@ export function PriceListBrowser() {
                   nativeButton={false}
                   size="sm"
                   variant="outline"
+                  // Named for the same reason the edit control is: every row would otherwise offer
+                  // a link reading just "Prices", and a screen reader would announce a list of
+                  // identical ones with nothing to choose between.
+                  aria-label={t("pricesNamed", { name: list.name })}
                 >
                   <Tag className="size-4" />
                   {t("prices")}
@@ -120,6 +124,7 @@ export function PriceListBrowser() {
                   nativeButton={false}
                   size="sm"
                   variant="outline"
+                  aria-label={t("scopeNamed", { name: list.name })}
                 >
                   <Target className="size-4" />
                   {t("scope")}

@@ -636,7 +636,9 @@
     "savePrices": "Save prices",
     "unsaved": "Unsaved changes.",
     "noMatches": "No product matches “{search}”.",
-    "scope": "Scope"
+    "scope": "Scope",
+    "pricesNamed": "Prices in {name}",
+    "scopeNamed": "Scope of {name}"
   },
   "PriceListScope": {
     "crumb": "Master data / Products / Price lists / Scope",
@@ -722,6 +724,37 @@
     "save": "Save",
     "saving": "Saving…",
     "cancel": "Cancel",
-    "saveFailed": "This promotion could not be saved."
+    "saveFailed": "This promotion could not be saved.",
+    "targets": "Targets",
+    "targetsNamed": "Targets for {name}"
+  },
+  "PromotionTargets": {
+    "crumb": "Master data / Products / Promotions / Targets",
+    "intro": "What this promotion discounts. Nothing chosen means it discounts nothing — which is how a deal is taken out of play without editing its window.",
+    "categories": "Categories",
+    "categoriesHint": "A category also covers everything filed below it: targeting “Beverages” catches a product filed under “Beverages / Water / Still” without naming either.",
+    "categoryNamed": "Target {path}",
+    "noCategories": "No categories yet. Create some under Classification first.",
+    "products": "Individual products",
+    "productsHint": "For a deal on named lines rather than a whole part of the catalogue.",
+    "noProducts": "No individual products. This promotion applies through its categories only.",
+    "searchProducts": "Search products",
+    "searchPlaceholder": "Search by SKU or name…",
+    "noMatches": "No product matches “{search}”.",
+    "add": "Add",
+    "added": "Added",
+    "addNamed": "Add {name} ({sku})",
+    "removeNamed": "Remove {name} ({sku})",
+    "unknownProduct": "Product could not be loaded",
+    "discounts": "Discounts {count, plural, one {# thing} other {# things}}.",
+    "discountsNothing": "This promotion discounts nothing. It exists and never fires.",
+    "loading": "Loading…",
+    "failed": "This could not be loaded.",
+    "forbidden": "You do not have permission to view promotions.",
+    "notFound": "That promotion does not exist.",
+    "save": "Save targets",
+    "saving": "Saving…",
+    "saveFailed": "These targets could not be saved.",
+    "unsaved": "Unsaved changes."
   }
 }
