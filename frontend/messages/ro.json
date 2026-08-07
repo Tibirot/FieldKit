@@ -173,7 +173,8 @@
     "contactEmail": "E-mail",
     "addContact": "Adaugă contact",
     "removeContact": "Șterge",
-    "removeContactNumbered": "Șterge contactul {number}"
+    "removeContactNumbered": "Șterge contactul {number}",
+    "manageAssortment": "Sortiment"
   },
   "Validation": {
     "required": "Acest câmp este obligatoriu.",
@@ -566,6 +567,33 @@
     "save": "Salvează sortimentul",
     "saving": "Se salvează…",
     "saveFailed": "Sortimentul nu a putut fi salvat.",
+    "unsaved": "Modificări nesalvate."
+  },
+  "OutletAssortment": {
+    "crumb": "Date de bază / Puncte de vânzare / {code} / Sortiment",
+    "title": "Ce vinde {name}",
+    "intro": "Canalul său — {channel} — stabilește baza. Orice se definește aici este o abatere a acestui magazin: un produs pe care canalul nu îl are, unul pe care îl are dar acest magazin nu îl va stoca, sau o decizie diferită privind obligativitatea.",
+    "search": "Caută produse",
+    "searchPlaceholder": "Caută după SKU sau denumire…",
+    "summary": "{count, plural, =0 {Niciun produs în sortimentul acestui punct de vânzare} one {# produs vândut aici} few {# produse vândute aici} other {# de produse vândute aici}} conform ultimei salvări, {overrides, plural, =0 {nicio abatere} one {# abatere} few {# abateri} other {# de abateri}}.",
+    "channelCarries": "Canalul îl are",
+    "channelCarriesMustStock": "Canalul îl are · obligatoriu",
+    "channelDoesNot": "Canalul nu îl are",
+    "follow": "Urmează canalul",
+    "add": "Adaugă aici",
+    "addChangeTerms": "Adaugă aici (schimbă condițiile)",
+    "remove": "Nu se stochează",
+    "overrideNamed": "Sortiment pentru {name}",
+    "mustStock": "Obligatoriu",
+    "mustStockNamed": "Obligatoriu {name}",
+    "loading": "Se încarcă…",
+    "failed": "Nu s-a putut încărca.",
+    "forbidden": "Nu aveți permisiunea de a vedea sortimentele.",
+    "notFound": "Acest punct de vânzare nu există.",
+    "noMatches": "Niciun produs nu corespunde căutării „{search}”.",
+    "save": "Salvează abaterile",
+    "saving": "Se salvează…",
+    "saveFailed": "Abaterile nu au putut fi salvate.",
     "unsaved": "Modificări nesalvate."
   }
 }

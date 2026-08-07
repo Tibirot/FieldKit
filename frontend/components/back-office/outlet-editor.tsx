@@ -1,14 +1,18 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { Boxes } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
 
 import { useAuth } from "@/components/auth-provider";
 import { OutletForm } from "@/components/back-office/outlet-form";
 import { OutletLifecycle } from "@/components/back-office/outlet-lifecycle";
+import { Button } from "@/components/ui/button";
+import { Link } from "@/i18n/navigation";
 import { ApiError } from "@/lib/api/client";
 import { fetchOutlet, outletKey } from "@/lib/api/outlets";
+import { usePermissions } from "@/lib/auth/use-permissions";
 
 /**
  * Loads one outlet, then hands it to the form.
@@ -20,6 +24,7 @@ import { fetchOutlet, outletKey } from "@/lib/api/outlets";
 export function OutletEditor() {
   const t = useTranslations("OutletForm");
   const { user } = useAuth();
+  const { has } = usePermissions();
   const params = useParams<{ id: string }>();
 
   const accessToken = user?.access_token;
@@ -54,11 +59,28 @@ export function OutletEditor() {
 
   return (
     <div className="flex flex-col gap-4">
-      <header>
-        <p className="font-mono text-[11.5px] text-muted-foreground">
-          {t("crumbEdit", { code: outlet.data.code })}
-        </p>
-        <h1 className="text-lg font-semibold tracking-tight">{outlet.data.name}</h1>
+      <header className="flex flex-wrap items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="font-mono text-[11.5px] text-muted-foreground">
+            {t("crumbEdit", { code: outlet.data.code })}
+          </p>
+          <h1 className="text-lg font-semibold tracking-tight">{outlet.data.name}</h1>
+        </div>
+
+        {/* What this shop sells is a fact about it, so the way in is from here rather than from the
+            catalogue. Gated on `product:read` because that is what the screen reads — someone who
+            maintains outlets is not necessarily trusted with the catalogue. */}
+        {has("product:read") ? (
+          <Button
+            render={<Link href={`/outlets/${outlet.data.id}/assortment`} />}
+            nativeButton={false}
+            size="sm"
+            variant="outline"
+          >
+            <Boxes className="size-4" />
+            {t("manageAssortment")}
+          </Button>
+        ) : null}
       </header>
       {/*
         Keyed, so navigating from one outlet to another remounts the form.

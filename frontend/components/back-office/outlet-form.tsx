@@ -13,7 +13,7 @@ import { OutletContacts } from "@/components/back-office/outlet-contacts";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "@/i18n/navigation";
 import { ApiError } from "@/lib/api/client";
-import { channelsKey, fetchChannels } from "@/lib/api/channels";
+import { channelsIncluding, channelsKey, fetchChannels } from "@/lib/api/channels";
 import { fetchFieldDefinitions, fieldDefinitionsKey } from "@/lib/api/field-definitions";
 import {
   createOutlet,
@@ -408,9 +408,16 @@ export function OutletForm({ outlet }: { outlet?: OutletDetail }) {
         </Field>
 
         <Field label={t("channel")} htmlFor="channelId" required error={message("channelId")}>
+          {/* The stored channel is always an option — see `channelsIncluding`. Without it this
+              select renders before the channel list arrives, cannot hold the value RHF assigns, and
+              settles on whichever channel happens to be first: the form then shows an outlet as
+              belonging somewhere it does not. */}
           <select {...bind("channelId")}>
             <option value="" disabled />
-            {(channels.data ?? []).map((channel) => (
+            {channelsIncluding(
+              channels.data,
+              outlet && { id: outlet.channelId, name: outlet.channelName },
+            ).map((channel) => (
               <option key={channel.id} value={channel.id}>
                 {channel.name}
               </option>

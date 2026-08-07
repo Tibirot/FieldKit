@@ -173,7 +173,8 @@
     "contactEmail": "Email",
     "addContact": "Add contact",
     "removeContact": "Remove",
-    "removeContactNumbered": "Remove contact {number}"
+    "removeContactNumbered": "Remove contact {number}",
+    "manageAssortment": "Assortment"
   },
   "Validation": {
     "required": "This field is required.",
@@ -566,6 +567,33 @@
     "save": "Save assortment",
     "saving": "Saving…",
     "saveFailed": "This assortment could not be saved.",
+    "unsaved": "Unsaved changes."
+  },
+  "OutletAssortment": {
+    "crumb": "Master data / Outlets / {code} / Assortment",
+    "title": "What {name} sells",
+    "intro": "Its channel — {channel} — decides the baseline. Anything set here is this shop departing from it: a product the channel does not carry, one it does that this shop will not stock, or a different must-stock decision.",
+    "search": "Search products",
+    "searchPlaceholder": "Search by SKU or name…",
+    "summary": "{count, plural, =0 {Nothing in this outlet's assortment} one {# product sold here} other {# products sold here}} as saved, {overrides, plural, =0 {no overrides} one {# override} other {# overrides}}.",
+    "channelCarries": "Channel carries it",
+    "channelCarriesMustStock": "Channel carries it · must stock",
+    "channelDoesNot": "Channel does not carry it",
+    "follow": "Follow channel",
+    "add": "Add here",
+    "addChangeTerms": "Add here (change terms)",
+    "remove": "Do not stock",
+    "overrideNamed": "Assortment for {name}",
+    "mustStock": "Must stock",
+    "mustStockNamed": "Must stock {name}",
+    "loading": "Loading…",
+    "failed": "This could not be loaded.",
+    "forbidden": "You do not have permission to view assortments.",
+    "notFound": "That outlet does not exist.",
+    "noMatches": "No product matches “{search}”.",
+    "save": "Save overrides",
+    "saving": "Saving…",
+    "saveFailed": "These overrides could not be saved.",
     "unsaved": "Unsaved changes."
   }
 }
