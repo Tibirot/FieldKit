@@ -501,6 +501,47 @@
     "save": "Salvează",
     "saving": "Se salvează…",
     "cancel": "Anulează",
-    "saveFailed": "Produsul nu a putut fi salvat."
+    "saveFailed": "Produsul nu a putut fi salvat.",
+    "manageClassification": "Gestionează clasificarea"
+  },
+  "Classification": {
+    "crumb": "Date de bază / Produse / Clasificare",
+    "title": "Clasificare",
+    "intro": "Cum este organizat catalogul. O categorie grupează produsele pentru promoții și raportare, o marcă spune cine le produce, iar o clasă de taxare decide cum sunt impozitate. Toate trei sunt opționale pe un produs — definiți ce folosiți.",
+    "name": "Denumire",
+    "nameHint": "Unică în acest spațiu de lucru, indiferent de majuscule.",
+    "parent": "Categorie părinte",
+    "noParent": "Nivel principal",
+    "parentHint": "Lăsați la nivel principal pentru o categorie rădăcină. O categorie poate fi mutată ulterior, dar nu sub ea însăși.",
+    "loading": "Se încarcă…",
+    "failed": "Nu s-a putut încărca.",
+    "forbidden": "Nu aveți permisiunea de a vedea acest lucru.",
+    "edit": "Redenumește",
+    "editNamed": "Redenumește {name}",
+    "delete": "Șterge",
+    "deleteNamed": "Șterge {name}",
+    "save": "Salvează",
+    "saving": "Se salvează…",
+    "cancel": "Anulează",
+    "saveFailed": "Nu s-a putut salva.",
+    "deleteFailed": "Nu s-a putut șterge.",
+    "categories": {
+      "title": "Categorii",
+      "intro": "Un arbore. Promoțiile pe o categorie acoperă tot ce este clasificat sub ea.",
+      "new": "Categorie nouă",
+      "empty": "Nicio categorie încă."
+    },
+    "brands": {
+      "title": "Mărci",
+      "intro": "Cine produce articolul.",
+      "new": "Marcă nouă",
+      "empty": "Nicio marcă încă."
+    },
+    "tax-classes": {
+      "title": "Clase de taxare",
+      "intro": "Ce fel de articol este din punct de vedere fiscal — standard, redus, cotă zero. Cota per țară se definește pe clasă.",
+      "new": "Clasă de taxare nouă",
+      "empty": "Nicio clasă de taxare încă."
+    }
   }
 }
