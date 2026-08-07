@@ -35,6 +35,17 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: "true"
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
 
+  # Ryuk is Testcontainers' reaper: a sidecar that removes leftover containers when a test run dies
+  # without cleaning up. That is worth having locally, where the machine persists. On a CI runner it
+  # is not — the whole VM is destroyed after the job, so there is nothing left to reap.
+  #
+  # Disabling it removes a Docker Hub pull, and Hub is the registry that failed on 2026-08-07. It is
+  # also the one image whose tag lives inside the Testcontainers package rather than in this repo,
+  # so it is the one the pre-pull step below cannot pin without guessing.
+  #
+  # CI only. Nothing here changes how the suite runs locally.
+  TESTCONTAINERS_RYUK_DISABLED: "true"
+
 jobs:
   # ─────────────────────────────────────────────────────────────
   # Backend: build + unit + architecture + tenant-isolation + integration (Testcontainers)
@@ -63,6 +74,32 @@ jobs:
 
       - name: Build (Release)
         run: dotnet build FieldKit.slnx -c Release --no-restore
+
+      # Pulled here rather than lazily by Testcontainers, because a registry hiccup mid-suite is
+      # indistinguishable from a broken build: every container-backed test fails in ~1ms with a
+      # Docker API error, and the run reads as "30 tests broken" rather than "the registry timed
+      # out". Doing it up front turns that into one step that says which image and why.
+      #
+      # Retried because the failure it exists for is transient — a Docker Hub timeout took out a
+      # whole run on 2026-08-07 and passed on a plain re-run minutes later. Three attempts with
+      # backoff; if all three fail, Hub is genuinely unreachable and stopping is the right answer.
+      - name: Pre-pull test container images
+        run: |
+          set -euo pipefail
+          for image in postgres:16-alpine quay.io/keycloak/keycloak:26.6; do
+            for attempt in 1 2 3; do
+              if docker pull --quiet "$image"; then
+                echo "pulled $image"
+                break
+              fi
+              if [ "$attempt" = 3 ]; then
+                echo "::error title=Image pull failed::$image could not be pulled after 3 attempts."
+                exit 1
+              fi
+              echo "::warning title=Retrying pull::$image attempt $attempt failed; retrying."
+              sleep $(( attempt * 10 ))
+            done
+          done
 
       # Runs every test project it finds. Once Phase 0 adds them, this covers unit,
       # NetArchTest architecture tests, tenant-isolation, and Testcontainers integration.
