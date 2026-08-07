@@ -3,8 +3,7 @@
 import { BadgePercent, Boxes, Tag, Tags } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { Button } from "@/components/ui/button";
-import { Link } from "@/i18n/navigation";
+import { LinkButton } from "@/components/ui/link-button";
 import { usePermissions } from "@/lib/auth/use-permissions";
 
 /**
@@ -33,46 +32,26 @@ export function ProductActions() {
       {/* Assortments need `channel:read` as well: the screen is organised by channel, and someone
           who cannot see the channel list would get a selector with nothing in it. */}
       {has("channel:read") ? (
-        <Button
-          render={<Link href="/products/assortments" />}
-          nativeButton={false}
-          size="sm"
-          variant="outline"
-        >
+        <LinkButton href="/products/assortments" size="sm" variant="outline">
           <Boxes className="size-4" />
           {t("manageAssortments")}
-        </Button>
+        </LinkButton>
       ) : null}
 
-      <Button
-        render={<Link href="/products/price-lists" />}
-        nativeButton={false}
-        size="sm"
-        variant="outline"
-      >
+      <LinkButton href="/products/price-lists" size="sm" variant="outline">
         <Tag className="size-4" />
         {t("managePriceLists")}
-      </Button>
+      </LinkButton>
 
-      <Button
-        render={<Link href="/products/promotions" />}
-        nativeButton={false}
-        size="sm"
-        variant="outline"
-      >
+      <LinkButton href="/products/promotions" size="sm" variant="outline">
         <BadgePercent className="size-4" />
         {t("managePromotions")}
-      </Button>
+      </LinkButton>
 
-      <Button
-        render={<Link href="/products/classification" />}
-        nativeButton={false}
-        size="sm"
-        variant="outline"
-      >
+      <LinkButton href="/products/classification" size="sm" variant="outline">
         <Tags className="size-4" />
         {t("manageClassification")}
-      </Button>
+      </LinkButton>
     </div>
   );
 }

@@ -5,9 +5,9 @@ import { useEffect, useRef, useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
 import { LANDING } from "@/components/back-office/navigation";
-import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Link, useRouter } from "@/i18n/navigation";
+import { LinkButton } from "@/components/ui/link-button";
+import { useRouter } from "@/i18n/navigation";
 import type { OidcSettings } from "@/lib/auth/oidc";
 
 /**
@@ -50,10 +50,7 @@ export function SignInCallback({ settings }: { settings: OidcSettings | null }) 
       </CardHeader>
       {failed ? (
         <CardFooter>
-          {/* Renders an <a>, so Base UI's native-button assumption has to be switched off. */}
-          <Button nativeButton={false} render={<Link href="/login" />}>
-            {t("retry")}
-          </Button>
+          <LinkButton href="/login">{t("retry")}</LinkButton>
         </CardFooter>
       ) : null}
     </Card>

@@ -150,9 +150,10 @@ describe("<PromotionBrowser>", () => {
     // products are discounted while correcting a percentage.
     render(<PromotionBrowser />);
 
-    // Queried as a button, not a link: the shared control renders an anchor with role="button"
-    // everywhere in the back office. Named per row, or four deals would offer four identical ones.
-    const targets = await screen.findByRole("button", { name: "Targets for Summer 10% off" });
+    // A link, and queried as one. `LinkButton` borrows the button's styling and nothing else, so a
+    // control that navigates announces itself as navigation. Named per row, or four deals would
+    // offer four identical ones.
+    const targets = await screen.findByRole("link", { name: "Targets for Summer 10% off" });
 
     expect(targets.getAttribute("href")).toBe("/products/promotions/promo-1/targets");
   });

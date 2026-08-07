@@ -196,6 +196,24 @@ What follows from that:
   constraint lifts, or via a Babel transform in the vitest pipeline. Until then this section is the
   warning.
 
+## A control that navigates is a link, whatever it looks like
+
+Use [`LinkButton`](../../frontend/components/ui/link-button.tsx) for anything that goes somewhere,
+and [`Button`](../../frontend/components/ui/button.tsx) only for things that happen here. The two are
+visually identical — `LinkButton` renders an anchor styled with the same `buttonVariants` — so the
+choice is entirely about what the control *does*.
+
+**Do not reach for `<Button nativeButton={false} render={<Link/>}>`.** That was the shape everywhere
+until it was replaced, and it is wrong in a way nothing on screen shows: Base UI's `useButton`
+applies `role="button"` unconditionally whenever `native` is false, and offers no prop to suppress
+it. The result was an `<a href>` announcing itself to assistive technology as a button — "this does
+something here" said about a control that navigates. A screen reader's list of links did not contain
+it, and Base UI's key handlers bound Space, which does nothing on a real link.
+
+It survived because nothing renders differently and nothing throws. The way it was eventually found
+was reading the accessibility tree in the browser rather than looking at the page — worth doing
+whenever a screen grows a row of controls.
+
 ## Verifying a change to this setup
 
 Reproduce the failure before trusting a fix — this was originally misdiagnosed from a plausible

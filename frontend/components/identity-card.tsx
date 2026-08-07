@@ -14,7 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Link } from "@/i18n/navigation";
+import { LinkButton } from "@/components/ui/link-button";
 import { fetchIdentity, type Identity } from "@/lib/api/identity";
 
 /**
@@ -74,10 +74,7 @@ export function IdentityCard() {
           <CardDescription>{t("anonymous")}</CardDescription>
         </CardHeader>
         <CardFooter>
-          {/* Renders an <a>, so Base UI's native-button assumption has to be switched off. */}
-          <Button nativeButton={false} render={<Link href="/login" />}>
-            {t("signIn")}
-          </Button>
+          <LinkButton href="/login">{t("signIn")}</LinkButton>
         </CardFooter>
       </Card>
     );

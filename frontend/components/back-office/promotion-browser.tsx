@@ -7,7 +7,7 @@ import { useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
-import { Link } from "@/i18n/navigation";
+import { LinkButton } from "@/components/ui/link-button";
 import { ApiError } from "@/lib/api/client";
 import { looksLikeAnAmount } from "@/lib/api/price-lists";
 import { fetchProducts, productsKey, type Product } from "@/lib/api/products";
@@ -136,9 +136,8 @@ export function PromotionBrowser() {
                 {/* Separate from the form, because what a deal *is* and what it *applies to* are
                     decided at different times — and one Save covering both would let a stray tick
                     change which products are discounted while correcting a percentage. */}
-                <Button
-                  render={<Link href={`/products/promotions/${promotion.id}/targets`} />}
-                  nativeButton={false}
+                <LinkButton
+                  href={`/products/promotions/${promotion.id}/targets`}
                   size="sm"
                   variant="outline"
                   // Named, because every row's link would otherwise read "Targets" and a list of
@@ -147,7 +146,7 @@ export function PromotionBrowser() {
                 >
                   <Crosshair className="size-4" />
                   {t("targets")}
-                </Button>
+                </LinkButton>
 
                 {canWrite ? (
                   <Button

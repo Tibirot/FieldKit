@@ -7,7 +7,7 @@ import { useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
-import { Link } from "@/i18n/navigation";
+import { LinkButton } from "@/components/ui/link-button";
 import { ApiError } from "@/lib/api/client";
 import {
   createPriceList,
@@ -103,9 +103,8 @@ export function PriceListBrowser() {
               </span>
 
               <div className="ml-auto flex gap-2">
-                <Button
-                  render={<Link href={`/products/price-lists/${list.id}`} />}
-                  nativeButton={false}
+                <LinkButton
+                  href={`/products/price-lists/${list.id}`}
                   size="sm"
                   variant="outline"
                   // Named for the same reason the edit control is: every row would otherwise offer
@@ -115,20 +114,19 @@ export function PriceListBrowser() {
                 >
                   <Tag className="size-4" />
                   {t("prices")}
-                </Button>
+                </LinkButton>
 
                 {/* Separate from the prices, because pricing a catalogue and deciding which shops
                     pay those prices are different decisions made at different times. */}
-                <Button
-                  render={<Link href={`/products/price-lists/${list.id}/scope`} />}
-                  nativeButton={false}
+                <LinkButton
+                  href={`/products/price-lists/${list.id}/scope`}
                   size="sm"
                   variant="outline"
                   aria-label={t("scopeNamed", { name: list.name })}
                 >
                   <Target className="size-4" />
                   {t("scope")}
-                </Button>
+                </LinkButton>
 
                 {canWrite ? (
                   <Button
