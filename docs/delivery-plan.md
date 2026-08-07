@@ -318,7 +318,8 @@ Sizes are hand-written diff estimates against the ~400-line budget; generated mi
 | 11 | **Product catalogue screen** — `/products`, list + create/edit; nav item goes live | `PRD-01` | 400 |
 | 12 | **Classification screen** — `/products/classification`, all three vocabularies on one page | `PRD-01` | 400 |
 | 13 | **Assortment screen** — `/products/assortments`, channel assortment + MSL | `PRD-02` | 400 |
-| 14+ | **Back-office screens** — per-outlet overrides, price lists, promotions | — | — |
+| 14 | **Per-outlet overrides** — `/outlets/[id]/assortment`, one shop's departures from its channel | `PRD-02` | 400 |
+| 15+ | **Back-office screens** — price lists, promotions | — | — |
 
 **Slice 5 is a prerequisite, and it is deliberately late.** `BR-PRD-2` resolves a price by *outlet
 override → channel → default*, so the engine must map an outlet to its channel. `Outlet.ChannelId`

@@ -37,6 +37,23 @@ vi.mock("@/lib/api/assortments", async (importOriginal) => ({
   setChannelAssortment: (...args: unknown[]) => setChannelAssortment(...args),
 }));
 
+/**
+ * Waits until the permission answer has arrived.
+ *
+ * `usePermissions` lives in the keyed child, so its identity query only *starts* once that child
+ * mounts — after the channel, product and assortment queries have all settled. Until it answers,
+ * pending counts as denied and every control is disabled, so a test that reaches for a checkbox the
+ * moment the data lands can click a disabled element and assert on nothing.
+ *
+ * These tests were not failing; the sibling suite for `<OutletAssortment>` was, for exactly this
+ * reason, and only because it has more queries to settle first. That is timing rather than
+ * correctness, which is the definition of a latent flake. The Save button only renders for a writer,
+ * so its presence is the signal.
+ */
+async function ready(): Promise<void> {
+  await screen.findByRole("button", { name: "Save assortment" });
+}
+
 const CHANNELS: Channel[] = [
   { id: "c-mt", name: "Modern Trade" },
   { id: "c-ho", name: "HoReCa" },
@@ -119,8 +136,9 @@ describe("<AssortmentEditor>", () => {
   it("cannot mark something must-stock that the channel does not carry", async () => {
     // The MSL is a subset of the assortment (B2), not a parallel flag.
     render(<AssortmentEditor />);
+    await ready();
 
-    const mustStock = await screen.findByLabelText("Must stock Veridian Sparkling 0.5L");
+    const mustStock = screen.getByLabelText("Must stock Veridian Sparkling 0.5L");
 
     expect((mustStock as HTMLInputElement).disabled).toBe(true);
   });
@@ -129,8 +147,9 @@ describe("<AssortmentEditor>", () => {
     // Otherwise a must-stock entry survives for a product the channel does not carry — a state B2
     // does not have — and it would resurface the next time the product was re-added.
     render(<AssortmentEditor />);
+    await ready();
 
-    await userEvent.click(await screen.findByLabelText("Include Veridian Still 1L"));
+    await userEvent.click(screen.getByLabelText("Include Veridian Still 1L"));
     await userEvent.click(screen.getByLabelText("Include Veridian Still 1L"));
 
     expect((screen.getByLabelText("Must stock Veridian Still 1L") as HTMLInputElement).checked).toBe(false);
@@ -138,8 +157,9 @@ describe("<AssortmentEditor>", () => {
 
   it("sends the whole assortment, because the API replaces rather than merges", async () => {
     render(<AssortmentEditor />);
+    await ready();
 
-    await userEvent.click(await screen.findByLabelText("Include Veridian Sparkling 0.5L"));
+    await userEvent.click(screen.getByLabelText("Include Veridian Sparkling 0.5L"));
     await userEvent.click(screen.getByRole("button", { name: "Save assortment" }));
 
     await waitFor(() => expect(setChannelAssortment).toHaveBeenCalled());
@@ -172,8 +192,9 @@ describe("<AssortmentEditor>", () => {
     // The reason the editable half is keyed by channel rather than synced by an effect: switching
     // while mid-edit must show what HoReCa holds, not what was being done to Modern Trade.
     render(<AssortmentEditor />);
+    await ready();
 
-    await userEvent.click(await screen.findByLabelText("Include Veridian Sparkling 0.5L"));
+    await userEvent.click(screen.getByLabelText("Include Veridian Sparkling 0.5L"));
 
     fetchChannelAssortment.mockResolvedValue([]);
     await userEvent.selectOptions(screen.getByLabelText("Channel"), "c-ho");
@@ -242,8 +263,9 @@ describe("<AssortmentEditor>", () => {
     );
 
     render(<AssortmentEditor />);
+    await ready();
 
-    await userEvent.click(await screen.findByLabelText("Include Veridian Sparkling 0.5L"));
+    await userEvent.click(screen.getByLabelText("Include Veridian Sparkling 0.5L"));
     await userEvent.click(screen.getByRole("button", { name: "Save assortment" }));
 
     expect((await screen.findByRole("alert")).textContent).toContain("2 product(s) do not exist.");
