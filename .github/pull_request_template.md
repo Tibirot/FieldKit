@@ -46,7 +46,7 @@ Keep it small and single-purpose. Green CI before marking ready. Docs change wit
 - [ ] Owning spec / ADR / registry updated here (docs-in-lockstep)
 - [ ] Spec IDs + week cited; scope and non-scope stated
 - [ ] Migration reversible / expand-contract; risky work behind a flag
-- [ ] Self-reviewed with inline notes; CI green; draft → ready
+- [ ] Self-reviewed with inline notes **actually posted** (not just claimed here); CI green before merge
 - [ ] No secrets, no unrelated files, no gate weakened to pass
 
 <!-- Agents: never merge/approve; never force-push main; never bypass hooks. Stop and ask on auth/tenancy, public-contract, destructive migration, or secrets/infra changes. -->

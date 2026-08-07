@@ -22,7 +22,8 @@ must not *pre-empt* that by ignoring a rule.
 3. **If it changes behavior, it ships tests.** No exceptions for "trivial" logic.
 4. **Code and docs move together.** A behavior change updates its spec; an architectural change adds
    an ADR — *in the same PR*. FieldKit's docs are never allowed to drift from the code.
-5. **Green before review.** A PR is only marked *ready* when CI passes. Reviewers review ready PRs.
+5. **Annotated before announced, green before merged.** A PR carries its self-review from the moment
+   it is opened (§5); CI green is what gates the *merge*, not what makes it readable.
 6. **The human merges.** Agents author, self-review, and iterate; a person approves and merges.
 
 ---
@@ -110,7 +111,20 @@ Every PR answers *"what does this implement and where is that written down?"*
 - **Stacked PRs target the branch below them,** not `main` — re-target to `main` as each parent
   merges. CI runs on every PR regardless of base, so a stacked PR is gated exactly like a
   bottom-of-stack one; a green check on the parent says nothing about the child.
-- **Draft first.** Open as a **draft PR**, self-review, then mark **ready** once CI is green.
+- **Open ready, and post the self-review immediately.** Not as a draft. A review is a POST against an
+  existing PR, so it cannot literally precede the PR — what matters is that no time passes between
+  the two, and that the notes exist before anyone is asked to look.
+
+  This used to say *draft first, mark ready once CI is green*, and it did not survive contact. The
+  author here is also the reviewer, so "draft" never signalled anything to anyone; it just added a
+  promotion step before the PR could be merged, which in practice got skipped and left a queue of
+  drafts nobody was waiting on. A rule that is routinely ignored is worse than no rule, because it
+  makes the rest of this document look optional too.
+
+  What the draft state was protecting — *don't ask for attention on something unfinished* — is
+  better served by the thing it was paired with: the self-review being posted before the PR is
+  announced. **If a PR is open and has no inline notes, it is not ready, whatever its state flag
+  says.** CI green is still required to *merge* (§10); it is no longer what makes a PR reviewable.
 
 ---
 
@@ -152,7 +166,8 @@ Use the [PR template](../../.github/pull_request_template.md). It must contain:
 - Run the full local gate before opening (`build → lint → unit → arch-tests → tenant-isolation →
   integration`); only open the PR if they pass.
 - Claim no more in the PR body than the diff supports — every "verified" is a thing you actually ran.
-- Open as **draft**, fill the template, cite spec IDs, self-annotate the diff, then mark ready.
+- Self-annotate the diff **before** opening, fill the template, cite spec IDs, then open **ready**.
+  An open PR with no inline notes is an unfinished one, whatever its state flag says (§5).
 - Use `gh pr create` (see §9).
 
 **Never**
@@ -186,14 +201,18 @@ dotnet build && dotnet test          # unit + arch-tests + integration (Testcont
 # + frontend (from frontend/): npm run lint && npm test && npm run build
 #   dependency change? regenerate the lockfile — docs/engineering/frontend-toolchain.md
 
-# 4. open a DRAFT PR, template filled, spec IDs cited
-gh pr create --draft \
+# 4. open the PR — ready, not draft (§5), template filled, spec IDs cited
+gh pr create \
   --title "feat(visit): geofenced check-in (VIS-01, VIS-02)" \
   --body-file .github/pull_request_template.md   # then edit in the specifics
 
-# 5. self-review the diff, leave inline notes, wait for CI green
-# 6. mark ready
-gh pr ready
+# 5. post the self-review immediately — a review is a POST against the PR, so it
+#    cannot precede it. "Immediately" is the whole discipline: writing
+#    "self-reviewed with inline comments" in the body is a claim, not a review,
+#    and the two drifted apart for nine PRs before anyone noticed.
+gh api repos/OWNER/REPO/pulls/N/reviews --method POST --input review.json
+
+# 6. wait for CI green before merging (§10). Nothing to promote: it opened ready.
 ```
 
 ---
@@ -208,5 +227,5 @@ gh pr ready
 - [ ] Spec IDs and delivery-plan week cited; scope (and non-scope) stated.
 - [ ] UI changes have before/after screenshots.
 - [ ] Migration is reversible / expand-contract; risky work behind a flag.
-- [ ] Self-reviewed with inline notes; CI green; opened as draft → marked ready.
+- [ ] Self-reviewed with inline notes **actually posted**; CI green before merge.
 - [ ] No secrets, no unrelated files, no gate weakened to pass.
