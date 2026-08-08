@@ -2939,3 +2939,125 @@ Authorization: Bearer {{viewerToken.response.body.access_token}}
 }
 
 ###
+
+### ─── Visit workflow, per channel (VIS-03) ───────────────────────────────────────────────────────
+
+### How a visit is worked in one channel: the ordered steps, and whether the rep is expected to be
+### there. Configuration owns what a tenant may flex; Visit owns what happens when a rep works, and
+### this is the seam between them.
+###
+### Built one slice *ahead* of its consumer on purpose — BR-VIS-2's override rule cannot be written
+### without somewhere to ask whether presence was expected, so check-in depends on this rather than
+### the other way round.
+###
+### `order` is not sent. The position in the list is the order: a client that supplies its own
+### numbers can send 1, 2, 2, 7, and then every consumer has to decide what a gap or a tie means.
+PUT {{Server_HostAddress}}/api/config/visit-workflows/{{channel.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "presenceExpected": true,
+  "steps": [
+    { "type": "Audit", "mandatory": true, "label": "Shelf check" },
+    { "type": "Order", "mandatory": false, "label": "Take an order" },
+    { "type": "Note", "mandatory": false, "label": "Anything else" }
+  ]
+}
+
+### `mandatory` is a property of the *step*, not of its type — BR-VIS-3 gates check-out on it, and
+### the same kind of work is required in one channel and optional in another: an audit is the job in
+### modern trade and a courtesy in a kiosk.
+
+### A channel nobody has configured **still answers** — no steps, and presence expected. That is the
+### contract's "never null", and the direction matters: presence expected on a remote channel records
+### an exception for every ordinary call (annoying, and visible), while presence *not* expected on a
+### store channel silently stops recording the one thing BR-VIS-2 exists to capture.
+GET {{Server_HostAddress}}/api/config/visit-workflows/019fffff-ffff-7fff-bfff-ffffffffffff
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### A remote-capable channel. A phone call, a video call or a head-office meeting is legitimately not
+### at the outlet, so demanding an override reason would record an exception where nothing
+### exceptional happened — and a flag that fires on ordinary work is one supervisors learn to ignore.
+###
+### This also replaces the sequence above wholesale rather than patching it: a workflow is an
+### *ordered* thing, so a patch would need the caller to know the current order to say anything about
+### it, and two admins editing one channel would interleave into a sequence neither designed.
+PUT {{Server_HostAddress}}/api/config/visit-workflows/{{channel.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "presenceExpected": false,
+  "steps": [
+    { "type": "Order", "mandatory": true, "label": "Take the order" }
+  ]
+}
+
+### An empty step list is allowed and is not a mistake: check in, check out — a presence call is a
+### real thing, and refusing it would force an admin to invent a step to describe the simplest
+### possible visit.
+PUT {{Server_HostAddress}}/api/config/visit-workflows/{{channel.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "presenceExpected": true,
+  "steps": []
+}
+
+### Expect 400 `config.workflow.labelRequired`, and note the **indexed** field — `steps[1].label`.
+### An admin looking at eight steps cannot work out which one "a step needs a label" is about.
+PUT {{Server_HostAddress}}/api/config/visit-workflows/{{channel.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "presenceExpected": true,
+  "steps": [
+    { "type": "Audit", "mandatory": true, "label": "Shelf check" },
+    { "type": "Note", "mandatory": false, "label": "  " }
+  ]
+}
+
+### Expect 400 `config.workflow.unknownChannel`. A workflow keyed to a channel this tenant does not
+### have is one no visit will ever resolve — it would sit in the list looking configured.
+PUT {{Server_HostAddress}}/api/config/visit-workflows/019fffff-ffff-7fff-bfff-fffffffffffe
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "presenceExpected": true,
+  "steps": []
+}
+
+### Expect 400, not 500 — the step type travels by name, so a name that is not one of the names is
+### the caller's mistake. Same rule as every other enum on this API (api-contracts §3.1).
+PUT {{Server_HostAddress}}/api/config/visit-workflows/{{channel.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "presenceExpected": true,
+  "steps": [
+    { "type": "Interpretive dance", "mandatory": false, "label": "x" }
+  ]
+}
+
+### Deleting returns the channel to the default rather than leaving visits in it unworkable. There is
+### no "no workflow" state a visit has to handle, which is exactly what makes deleting one safe.
+DELETE {{Server_HostAddress}}/api/config/visit-workflows/{{channel.response.body.id}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Held to config:write, like every other thing a tenant configures — expect 403.
+PUT {{Server_HostAddress}}/api/config/visit-workflows/{{channel.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{viewerToken.response.body.access_token}}
+
+{
+  "presenceExpected": true,
+  "steps": []
+}
+
+###
