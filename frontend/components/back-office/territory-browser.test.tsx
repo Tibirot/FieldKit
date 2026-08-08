@@ -9,6 +9,7 @@ import { TerritoryBrowser } from "@/components/back-office/territory-browser";
 import { ApiError } from "@/lib/api/client";
 import { fetchIdentity } from "@/lib/api/identity";
 import type { OrgUnit, Territory } from "@/lib/api/org";
+import type { Outlet, PagedList } from "@/lib/api/outlets";
 import { render } from "@/test/render";
 
 const auth = vi.hoisted(() => ({ current: {} as AuthContextValue }));
@@ -31,9 +32,21 @@ vi.mock("next/navigation", () => ({ useSearchParams: () => search.current }));
 
 vi.mock("@/lib/api/users", () => ({ usersKey: () => ["users"], fetchUsers: () => Promise.resolve([]) }));
 
+// The detail panel's own dependencies. Mocked here rather than only in territory-outlets.test.tsx
+// because what this file tests is how the panel is *mounted*, which that file cannot see.
+const fetchOutlets = vi.hoisted(() => vi.fn());
+const assignOutlets = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/api/outlets", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api/outlets")>()),
+  fetchOutlets: (...args: unknown[]) => fetchOutlets(...args),
+}));
+
 vi.mock("@/lib/api/org", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/org")>()),
   fetchAssignments: () => Promise.resolve([]),
+  fetchTerritoryOutlets: () => Promise.resolve([]),
+  assignOutlets: (...args: unknown[]) => assignOutlets(...args),
   fetchOrgUnits: (...args: unknown[]) => fetchOrgUnits(...args),
   fetchTerritories: (...args: unknown[]) => fetchTerritories(...args),
   createTerritory: (...args: unknown[]) => createTerritory(...args),
@@ -52,6 +65,26 @@ const TERRITORIES: Territory[] = [
   { id: "t-2", name: "Iași", orgUnitId: "u-mol", outletCount: 0 },
 ];
 
+/** What the outlet search inside the detail panel answers with. */
+const MATCHES: PagedList<Outlet> = {
+  items: [
+    {
+      id: "o-3",
+      code: "OUT-3",
+      name: "Shop OUT-3",
+      channelId: "c-1",
+      channelName: "Modern Trade",
+      segment: null,
+      banner: null,
+      status: "Active",
+      territory: null,
+    },
+  ],
+  total: 1,
+  page: 1,
+  pageSize: 10,
+};
+
 describe("<TerritoryBrowser>", () => {
   beforeEach(() => {
     push.mockReset();
@@ -61,6 +94,8 @@ describe("<TerritoryBrowser>", () => {
     createTerritory.mockReset().mockResolvedValue(TERRITORIES[1]);
     updateTerritory.mockReset().mockResolvedValue(TERRITORIES[0]);
     deleteTerritory.mockReset().mockResolvedValue(undefined);
+    fetchOutlets.mockReset().mockResolvedValue(MATCHES);
+    assignOutlets.mockReset().mockResolvedValue(undefined);
 
     auth.current = {
       status: "authenticated",
@@ -231,6 +266,34 @@ describe("<TerritoryBrowser>", () => {
     render(<TerritoryBrowser />);
 
     expect(await screen.findByText("Reps covering Iași")).toBeTruthy();
+  });
+
+  it("does not carry outlets staged for one territory over to the next", async () => {
+    // The worst bug the pre-W7 sweep found, and the only one that wrote wrong data.
+    //
+    // The detail panels were rendered without a key, so switching territory changed a prop and React
+    // kept the instance — along with the ids ticked for the territory that is no longer on screen.
+    // Staging two outlets for București Nord and then opening Iași left the ticks, the search that
+    // found them, and the "Add 2 outlets" button exactly where they were, and pressing it assigned
+    // them to Iași. Nothing on screen was wrong at any point: the button said what it would do, and
+    // did it, to a territory the person had not been looking at when they chose those outlets.
+    search.current = new URLSearchParams("territory=t-1");
+
+    const { rerender } = render(<TerritoryBrowser />);
+    await screen.findByRole("table");
+
+    await userEvent.type(screen.getByLabelText("Add outlets"), "OUT");
+    await userEvent.click(await screen.findByRole("checkbox", { name: /OUT-3/ }));
+
+    expect(screen.getByRole("button", { name: "Add 1 outlet" })).toBeTruthy();
+
+    // The switch, as the URL does it — the panel is chosen by the `territory` param.
+    search.current = new URLSearchParams("territory=t-2");
+    rerender(<TerritoryBrowser />);
+
+    expect(await screen.findByText("Outlets in Iași")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Add \d+ outlet/ })).toBeNull();
+    expect((screen.getByLabelText("Add outlets") as HTMLInputElement).value).toBe("");
   });
 
   it("offers no way to change anything to a caller who may only read", async () => {

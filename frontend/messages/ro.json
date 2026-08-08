@@ -186,7 +186,8 @@
     "notAnOption": "Nu este una dintre opțiuni.",
     "mustBeDate": "Trebuie să fie o dată în formatul AAAA-LL-ZZ.",
     "between": "Trebuie să fie între {min} și {max}.",
-    "notAnEmail": "Trebuie să fie o adresă de e-mail."
+    "notAnEmail": "Trebuie să fie o adresă de e-mail.",
+    "notACountry": "Trebuie să fie un cod de țară din două litere, de ex. RO."
   },
   "OutletImport": {
     "crumb": "Date de bază / Puncte de vânzare / Import",

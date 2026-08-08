@@ -175,6 +175,48 @@ describe("<OutletForm>", () => {
     expect(sent(createOutlet).location).toBeNull();
   });
 
+  it("refuses a country that was spelled out, rather than clipping it to two letters", async () => {
+    // Found in the browser, not here. The input carried `maxLength={2}`, so typing "Bulgaria" left
+    // "Bu" in the box — the server upper-cased that to a perfectly well-formed "BU" and stored it,
+    // and the outlet sat in a country that does not exist. Bulgaria is BG. Nothing downstream could
+    // catch it: by the time the request was sent the value *was* two letters, so the server's own
+    // two-letter rule passed. The truncation had to stop happening for the check to mean anything.
+    render(<OutletForm />);
+    await waitFor(() => expect(fetchChannels).toHaveBeenCalled());
+
+    await userEvent.type(screen.getByLabelText(/^code/i), "OUT-9");
+    await userEvent.type(screen.getByLabelText(/outlet name/i), "Corner Shop");
+    await userEvent.selectOptions(screen.getByLabelText(/channel/i), "019f-c");
+    await userEvent.selectOptions(screen.getByLabelText(/time zone/i), "Europe/Bucharest");
+    await userEvent.type(screen.getByLabelText(/country code/i), "Bulgaria");
+
+    // The whole word survives the typing — this is the assertion that fails on `maxLength={2}`.
+    expect((screen.getByLabelText(/country code/i) as HTMLInputElement).value).toBe("Bulgaria");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText(/two-letter country code/i)).toBeTruthy();
+    expect(createOutlet).not.toHaveBeenCalled();
+  });
+
+  it("still takes a country that is a country", async () => {
+    render(<OutletForm />);
+    await waitFor(() => expect(fetchChannels).toHaveBeenCalled());
+
+    await userEvent.type(screen.getByLabelText(/^code/i), "OUT-9");
+    await userEvent.type(screen.getByLabelText(/outlet name/i), "Corner Shop");
+    await userEvent.selectOptions(screen.getByLabelText(/channel/i), "019f-c");
+    await userEvent.selectOptions(screen.getByLabelText(/time zone/i), "Europe/Bucharest");
+
+    // Lower case on purpose: the server upper-cases it, and refusing it here would make the form
+    // stricter than the API for no reason a user could guess.
+    await userEvent.type(screen.getByLabelText(/country code/i), "ro");
+    await userEvent.click(await screen.findByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(createOutlet).toHaveBeenCalled());
+    expect(sent(createOutlet).address).toMatchObject({ countryCode: "ro" });
+  });
+
   it("lets the browser refuse a latitude that is not a place", () => {
     // The same bounds the shared GeoPoint enforces, so the refusal happens before a request.
     render(<OutletForm />);

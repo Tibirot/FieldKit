@@ -263,8 +263,23 @@ export function TerritoryBrowser() {
       */}
       {selected ? (
         <>
-          <TerritoryOutlets territory={selected} />
-          <TerritoryAssignments territory={selected} />
+          {/*
+            Keyed by territory for the same reason the rename form above is, but with a worse failure
+            if it is not. These panels hold state *about* the open territory — staged outlet ids, the
+            search that found them, an assignment being edited — and switching territory only changes
+            the prop, so React keeps the instance and every one of those survives. Staging two outlets
+            for one territory and then opening another left the ticks and the "Add 2 outlets" button
+            in place, and clicking it assigned them to the territory now on screen. Nothing looked
+            wrong at any point: the button said exactly what it was about to do.
+
+            The keys are prefixed because the obvious version of this fix does not work. Giving both
+            panels `key={selected.id}` reads correctly and is silently inert: they are siblings, so
+            the two keys collide, and React reuses the instances instead of remounting them — the
+            staged ids survive exactly as they did with no key at all. The test below passes with
+            distinct keys and fails with either duplicate ones or none.
+          */}
+          <TerritoryOutlets key={`outlets-${selected.id}`} territory={selected} />
+          <TerritoryAssignments key={`assignments-${selected.id}`} territory={selected} />
         </>
       ) : null}
     </div>

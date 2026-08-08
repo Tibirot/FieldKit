@@ -16,7 +16,7 @@ import {
   type RepAssignment,
   type Territory,
 } from "@/lib/api/org";
-import { fetchUsers, usersKey } from "@/lib/api/users";
+import { fetchUsers, usersIncluding, usersKey } from "@/lib/api/users";
 import { useBusinessDay } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/lib/auth/use-permissions";
@@ -76,6 +76,10 @@ export function TerritoryAssignments({ territory }: { territory: Territory }) {
   // Deactivated users are filtered out of the picker rather than shown and refused: the server
   // rejects assigning one, and offering the choice only to take it back is worse than not offering
   // it. Existing assignments to a since-deactivated rep still render — their history stands.
+  //
+  // But "not offered" and "not shown" are different things, and this list was doing both. Editing an
+  // assignment whose rep has since been deactivated opened a picker with no option for them, so it
+  // showed nobody — see `usersIncluding` for why an empty picker is worse than an unhelpful one.
   const assignable = (users.data ?? []).filter((candidate) => candidate.isActive);
 
   const rows = assignments.data ?? [];
@@ -99,7 +103,7 @@ export function TerritoryAssignments({ territory }: { territory: Territory }) {
           key={editing === "new" ? "new" : editing.id}
           territoryId={territory.id}
           assignment={editing === "new" ? undefined : editing}
-          users={assignable}
+          users={editing === "new" ? assignable : usersIncluding(assignable, editing)}
           onDone={() => setEditing(null)}
           onCancel={() => setEditing(null)}
         />

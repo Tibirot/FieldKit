@@ -287,10 +287,27 @@ describe("<OutletAssortment>", () => {
 
     render(<OutletAssortment />);
 
-    const select = await screen.findByLabelText("Assortment for Veridian Still 1L");
+    await screen.findByLabelText("Assortment for Veridian Still 1L");
+
+    // `findByRole` rather than `queryByRole`, and it has to be.
+    //
+    // `usePermissions` counts pending as denied, so on this screen a caller who may only read and a
+    // caller whose answer has not arrived yet look *identical* — everything is disabled and the Save
+    // button is absent in both. A synchronous `queryByRole` therefore asserts on the pending state
+    // and passes whatever the gate says. Changing `product:write` to `product:read` in the component
+    // left this test green, which is the mutant that exposed it.
+    //
+    // Waiting for the button to appear and requiring that it does not is the assertion that actually
+    // covers the resolved state: the identity query settles well inside the timeout, so a gate that
+    // grants write to this caller renders the button and fails here.
+    await expect(
+      screen.findByRole("button", { name: "Save overrides" }),
+    ).rejects.toThrow();
+
+    // And by now the answer has definitely landed, so this says something too.
+    const select = screen.getByLabelText("Assortment for Veridian Still 1L");
 
     expect((select as HTMLSelectElement).disabled).toBe(true);
-    expect(screen.queryByRole("button", { name: "Save overrides" })).toBeNull();
   });
 
   it("passes on a refusal in the API's own words", async () => {

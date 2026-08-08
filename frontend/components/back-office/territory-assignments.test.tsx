@@ -169,6 +169,51 @@ describe("<TerritoryAssignments>", () => {
     expect(options.map((option) => option.textContent)).not.toContain("Bogdan Pop");
   });
 
+  it("still shows the rep an existing assignment is about, deactivated or not", async () => {
+    // The other half of the rule above, and the half that was missing. Filtering the picker to
+    // active users is right when choosing somebody and wrong when displaying who was already
+    // chosen: deactivating Bogdan left every assignment he holds opening on an empty picker.
+    //
+    // A `<select>` cannot hold a value it has no `<option>` for, so it settled on nothing and
+    // reported "". An admin who opened this to push an end date back was told a rep is required,
+    // and the obvious way out — pick someone from the list — quietly reassigns the territory.
+    fetchAssignments.mockResolvedValue([
+      {
+        id: "a-3",
+        territoryId: "t-1",
+        userId: "sub-bogdan",
+        displayName: "Bogdan Pop",
+        from: "2026-02-01",
+        to: "2026-05-31",
+        isCurrent: false,
+      },
+    ]);
+
+    render(<TerritoryAssignments territory={TERRITORY} />);
+    await screen.findAllByRole("listitem");
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit the assignment for Bogdan Pop" }));
+
+    const rep = screen.getByLabelText(/^rep/i) as HTMLSelectElement;
+
+    expect(rep.value).toBe("sub-bogdan");
+    expect(rep.selectedIndex).toBeGreaterThan(-1);
+    expect(rep.options[rep.selectedIndex]?.textContent).toBe("Bogdan Pop");
+  });
+
+  it("still keeps a deactivated rep out of a new assignment's picker", async () => {
+    // The fix above must not become a way to assign one. Only the person this form is already
+    // about is added back, and a new assignment is about nobody yet.
+    render(<TerritoryAssignments territory={TERRITORY} />);
+    await screen.findAllByRole("listitem");
+
+    await userEvent.click(screen.getByRole("button", { name: "Assign a rep" }));
+
+    const options = [...screen.getByLabelText(/^rep/i).querySelectorAll("option")];
+
+    expect(options.map((option) => option.textContent)).not.toContain("Bogdan Pop");
+  });
+
   it("puts an overlap refusal under the date it is about", async () => {
     // BR-ORG-2 is the server's rule and is not re-checked here — two people can be editing the same
     // territory, so a client-side answer is a guess about a set it does not own. The refusal names

@@ -33,7 +33,6 @@ const CONTROL =
   "h-9 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground"
   + " focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
 
-/** Trimmed, and empty becomes absent — the shape every optional string on the API expects. */
 /** How the API nests custom fields — the one place its naming and this form's disagree. */
 const CustomFieldPrefix = "customFields.";
 
@@ -43,11 +42,21 @@ const ContactPath = /^contacts\[(\d+)\]\./;
 /** A path into this form, as react-hook-form names them. */
 type FieldPath = RhfFieldPath<Record<string, unknown>>;
 
+/** Trimmed, and empty becomes absent — the shape every optional string on the API expects. */
 const optionalText = z
   .string()
   .trim()
   .transform((value) => (value === "" ? null : value))
   .nullable();
+
+/**
+ * Two ASCII letters — the same rule `Address.IsCountryCode` applies on the server.
+ *
+ * Shallow on purpose, like the email check below: this is not a table of the world's countries. What
+ * it catches is a country *name* typed into a box that wants a code, which is the mistake that
+ * actually happens — nothing about the label tells someone that Bulgaria is `BG`.
+ */
+const isCountryCode = (value: string) => /^[A-Za-z]{2}$/.test(value);
 
 /**
  * The fields every outlet has, whatever a tenant added to them.
@@ -79,7 +88,15 @@ function fixedSchema(t: ReturnType<typeof useTranslations<"OutletForm">>, m: Val
     street: optionalText,
     city: optionalText,
     postalCode: optionalText,
-    countryCode: optionalText,
+
+    // Checked for shape rather than clipped to two characters, which is what the input used to do.
+    // `maxLength={2}` silently turned a typed "Bulgaria" into "Bu", the server upper-cased it to a
+    // well-formed "BU", and the outlet sat in a country that does not exist — matching no tax rate,
+    // which is indistinguishable from a tax class nobody has priced (`PRD-07`). Nothing could catch
+    // it downstream: by the time the request left the browser the value *was* two letters.
+    countryCode: optionalText.refine((value) => value === null || isCountryCode(value), {
+      message: m.notACountry,
+    }),
 
     // Text in, number out. An emptied number input holds `""`, and `z.number()` would reject that
     // as "expected number" for a field nobody filled in on purpose.
@@ -487,7 +504,9 @@ export function OutletForm({ outlet }: { outlet?: OutletDetail }) {
         </Field>
 
         <Field label={t("countryCode")} htmlFor="countryCode" error={message("countryCode")}>
-          <input {...bind("countryCode")} maxLength={2} />
+          {/* No maxLength: clipping the value is how a wrong country got in. The other inputs keep
+              theirs because clipping an overlong street is a truncated street, not a different one. */}
+          <input {...bind("countryCode")} />
         </Field>
 
         <Field label={t("latitude")} htmlFor="latitude" error={message("latitude")}>

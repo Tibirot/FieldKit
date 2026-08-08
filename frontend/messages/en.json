@@ -186,7 +186,8 @@
     "notAnOption": "Not one of the options.",
     "mustBeDate": "Must be a date as YYYY-MM-DD.",
     "between": "Must be between {min} and {max}.",
-    "notAnEmail": "Must be an email address."
+    "notAnEmail": "Must be an email address.",
+    "notACountry": "Must be a two-letter country code, e.g. RO."
   },
   "OutletImport": {
     "crumb": "Master data / Outlets / Import",
