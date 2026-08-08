@@ -36,7 +36,15 @@ Visit. It is designed **offline-first**: the entire flow works with zero connect
 ### F1 · Check in
 1. Rep opens a planned (or unplanned) outlet.
 2. App captures location; validates against the outlet **geofence** (radius, [OUT-08](12-outlets-master-data.md)).
+   > 📝 ASSUMPTION: until OUT-08 makes the radius per-outlet, every outlet uses **150 m**
+   > (`IOutletGeofence.DefaultRadiusMetres`). It is deliberately loose: a consumer GPS fix is
+   > routinely tens of metres out, and a radius tight enough to be precise would flag honest reps —
+   > which is the same failure mode BR-VIS-2's assumption guards against. The value lives on the
+   > contract rather than in Visit, so the day it becomes per-outlet the query changes and the
+   > check-in rule does not.
 3. If outside the geofence → allowed with an **override reason** (flagged for the supervisor).
+   The refusal that asks for it carries the **distance** and the radius, not just a verdict:
+   eighty metres and two kilometres are different conversations.
 4. Visit starts; timer + step list appear.
 
 ### F2 · Work the steps
@@ -109,8 +117,10 @@ Geo capture uses the device sensors offline; geofence data is part of the synced
 - `IVisitContext` — the current/opened visit a step attaches to (used by Audit, Order).
 - `IVisitQuery` — visits for an outlet/rep/day (reporting).
 - `IVisitIngest` — apply a pushed visit through this module, used by **Sync** ([module boundaries §7](../architecture/10-module-boundaries.md#7-module-registry)).
-- Consumes `IJourneyQuery`, `IOutletCatalog` (geofence), and `IVisitWorkflow`
-  (Configuration — the config-driven step sequence, VIS-03).
+- Consumes `IJourneyQuery`, `IOutletGeofence` (Outlets — where the shop is and how close counts as
+  there; separate from `IOutletCatalog` so a rep's device syncs coordinates without the commercial
+  record), `IOutletClassification` (which channel the outlet is in), and `IVisitWorkflow`
+  (Configuration — presence policy and the config-driven step sequence, VIS-03).
 - Publishes `VisitCompleted` (with children summary) → reporting/Sync. An **amended** child order
   (BR-ORD-9) re-emits a `VisitCompleted`-correction so reporting/strike-rate stay accurate.
 

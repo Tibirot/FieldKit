@@ -40,6 +40,9 @@ public sealed class OutletsModule : IModule
         // to that — the implementation is internal to this module by convention (AT-2).
         services.AddScoped<IOutletCatalog, OutletCatalog>();
         services.AddScoped<IOutletClassification, OutletClassifier>();
+
+        // Where the shop is, for deciding whether a rep is at it (OUT-08, BR-VIS-2).
+        services.AddScoped<IOutletGeofence, OutletGeofences>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

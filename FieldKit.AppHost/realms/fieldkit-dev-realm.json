@@ -21,6 +21,14 @@
         "description": "View call frequencies and journey plans (Journey module)."
       },
       {
+        "name": "visit:read",
+        "description": "View visits and where they were checked in (Visit module)."
+      },
+      {
+        "name": "visit:write",
+        "description": "Check in at an outlet and work a visit (Visit module)."
+      },
+      {
         "name": "journey:annotate",
         "description": "Report on a round: not-visited reasons, unplanned calls, moves (Journey module)."
       },
@@ -183,7 +191,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["product:read", "role:read", "orgunit:read", "position:read", "outlet:read", "channel:read", "territory:read", "journey:read", "config:read"]
+      "realmRoles": ["product:read", "role:read", "orgunit:read", "position:read", "outlet:read", "channel:read", "territory:read", "journey:read", "visit:read", "config:read"]
     },
     {
       "username": "admin",
@@ -199,7 +207,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["role:read", "role:write", "user:read", "user:write", "orgunit:read", "orgunit:write", "position:read", "position:write", "outlet:read", "outlet:write", "channel:read", "channel:write", "territory:read", "territory:write", "journey:read", "journey:annotate", "journey:write", "config:read", "config:write"]
+      "realmRoles": ["role:read", "role:write", "user:read", "user:write", "orgunit:read", "orgunit:write", "position:read", "position:write", "outlet:read", "outlet:write", "channel:read", "channel:write", "territory:read", "territory:write", "journey:read", "journey:annotate", "visit:read", "visit:write", "journey:write", "config:read", "config:write"]
     }
   ]
 }

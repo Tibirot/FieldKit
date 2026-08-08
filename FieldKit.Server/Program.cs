@@ -5,6 +5,7 @@ using FieldKit.Modules.Journey;
 using FieldKit.Modules.Org;
 using FieldKit.Modules.Outlets;
 using FieldKit.Modules.Products;
+using FieldKit.Modules.Visit;
 using FieldKit.Server;
 using FieldKit.SharedKernel;
 using FieldKit.Web;
@@ -71,6 +72,7 @@ IReadOnlyList<IModule> modules =
     new OutletsModule(),
     new ProductsModule(),
     new JourneyModule(),
+    new VisitModule(),
 ];
 builder.Services.AddModules(builder.Configuration, modules);
 

@@ -2,6 +2,7 @@ using System.Reflection;
 using FieldKit.Modules.Iam;
 using FieldKit.Modules.Iam.Contracts;
 using FieldKit.Modules.Journey;
+using FieldKit.Modules.Visit;
 using FieldKit.Modules.Org;
 using FieldKit.Modules.Configuration;
 using FieldKit.Modules.Configuration.Contracts;
@@ -36,6 +37,7 @@ public class ModuleBoundaryTests
     private static readonly Assembly OrgContracts = typeof(RepAssignmentChanged).Assembly;
     private static readonly Assembly ConfigurationModuleAssembly = typeof(ConfigurationModule).Assembly;
     private static readonly Assembly JourneyModuleAssembly = typeof(JourneyModule).Assembly;
+    private static readonly Assembly VisitModuleAssembly = typeof(VisitModule).Assembly;
     private static readonly Assembly ConfigurationContracts = typeof(IFieldDefinitionCatalog).Assembly;
 
     /// <summary>Module <b>implementation</b> assemblies — the ones nothing outside may reference.</summary>
@@ -47,6 +49,7 @@ public class ModuleBoundaryTests
         "FieldKit.Modules.Outlets",
         "FieldKit.Modules.Configuration",
         "FieldKit.Modules.Journey",
+        "FieldKit.Modules.Visit",
     ];
 
     [Fact] // AT-1 — the core boundary.
@@ -58,6 +61,7 @@ public class ModuleBoundaryTests
         AssertReferencesNoOtherModule(OutletsModuleAssembly);
         AssertReferencesNoOtherModule(ConfigurationModuleAssembly);
         AssertReferencesNoOtherModule(JourneyModuleAssembly);
+        AssertReferencesNoOtherModule(VisitModuleAssembly);
     }
 
     [Fact] // AT-3 — entities cannot leak, because contracts cannot see them.

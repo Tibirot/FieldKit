@@ -227,7 +227,7 @@ the document a module author trusts when deciding what to depend on.
 |---|---|---|---|---|
 | IAM | `…Modules.Iam` (+ `.Contracts`) | `iam` | **`IUserDirectory`**, **`ITenantRegistry`** | `UserDeactivated` |
 | Organization | `…Modules.Org` (+ `.Contracts`) | `org` | **`ITerritoryDirectory`**, **`IRepScope`**, `IOrgHierarchy` | `RepAssignmentChanged` |
-| Outlets | `…Modules.Outlets` (+ `.Contracts`) | `outlets` | **`IOutletCatalog`**, **`IOutletClassification`**, `IReferenceChangeFeed`, `IOutletProposalIngest` | `OutletChanged`, `OutletClosed` |
+| Outlets | `…Modules.Outlets` (+ `.Contracts`) | `outlets` | **`IOutletCatalog`**, **`IOutletClassification`**, **`IOutletGeofence`**, `IReferenceChangeFeed`, `IOutletProposalIngest` | `OutletChanged`, `OutletClosed` |
 | Products & Pricing | `…Modules.Products` | `products` | `IProductCatalog`, `IAssortmentService`, `IPricingService`, `IReferenceChangeFeed` | `PriceListPublished`, `PromotionActivated` |
 | Configuration | `…Modules.Configuration` (+ `.Contracts`) | `config` | **`IFieldDefinitionCatalog`**, **`IVisitWorkflow`**, `ISurveyForms`, `IScoreWeights`, `IReferenceChangeFeed` | `ConfigurationPublished` |
 | Journey | `…Modules.Journey` | `journey` | `IJourneyQuery`, `IReferenceChangeFeed`, `IJourneyIngest` | `JourneyPublished`, `PlannedVisitMarkedNotVisited` |
@@ -328,6 +328,22 @@ relationship rather than a provider one: it reads `IOutletClassification` for an
 > instead of the interface growing a method." Adding `Segment` cost existing callers nothing, which
 > is the second time the record shape has paid for itself. Banner still does not qualify, and stays
 > off.
+
+**Visit arrived in W7 as a single assembly too, and as a pure consumer.** It reads three contracts —
+`IOutletGeofence`, `IOutletClassification` and `IVisitWorkflow` — and exposes none. `IVisitContext`,
+`IVisitQuery` and `IVisitIngest` are all specified, and all three have their first caller in Phase 3
+(Audit, Order, Sync); by this section's own rule they wait for it. Its schema is `visit`, and the
+planned visit it fulfils is a **bare `Guid`, not a foreign key** — the plan lives in Journey's schema,
+which `AT-1` puts out of reach, and a nullable id is also the honest shape for an unplanned call.
+
+> **`IOutletGeofence` is a separate contract rather than three more properties on
+> `IOutletCatalog`.** Coordinates are the one thing about an outlet a rep's *device* needs, and it
+> needs them offline (`§7` of the visit spec) — while `IOutletCatalog` is the back-office record a
+> territory validates against. Folding the two together would mean a phone syncing the commercial
+> shape of every shop to answer "how close am I?", and it would put a per-outlet radius (`OUT-08`,
+> unbuilt) on an interface whose existing callers have no use for one. The default radius lives on
+> the contract as a constant for the same reason: when `OUT-08` lands, the query behind it changes
+> and no consumer does.
 
 **Outlets grew its `.Contracts` assembly when territories needed it** — `IOutletCatalog`, designed
 against Organization as an actual caller rather than guessed at when the module was created. That is

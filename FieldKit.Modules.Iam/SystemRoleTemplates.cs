@@ -64,6 +64,10 @@ public static class SystemRoleTemplates
             // the cycle. Deliberately not journey:write — a rep reports on the round they walked,
             // they do not decide what the round is.
             "journey:annotate",
+            // Checking in *is* the field job, which makes visit:write a rep's permission rather
+            // than an administrator's — the only write in this system that works that way round.
+            "visit:read",
+            "visit:write",
         ]),
 
         // Reads the hierarchy because a supervisor's job is defined by their branch of it, and reads
@@ -81,6 +85,9 @@ public static class SystemRoleTemplates
             // Reviews the plans their branch is working, and argues with them. Cannot regenerate
             // one: that changes what a rep is holding, which is sales ops' act rather than theirs.
             "journey:read",
+            // Reads visits, including where a rep checked in from — oversight. Performing one is
+            // not something a supervisor does on somebody's behalf, so there is no visit:write.
+            "visit:read",
             IamPermissions.UserRead,
         ]),
 
@@ -106,6 +113,7 @@ public static class SystemRoleTemplates
             // decision, and it is the input the whole plan is derived from.
             "journey:read",
             "journey:write",
+            "visit:read",
             // And can correct a round after the fact — sales ops fields the phone call when a rep
             // could not get in somewhere and the plan still says otherwise.
             "journey:annotate",
