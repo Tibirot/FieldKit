@@ -1,13 +1,15 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Percent, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/link-button";
 import { ApiError } from "@/lib/api/client";
+import { refusalTexts } from "@/lib/api/refusals";
 import {
   createVocabulary,
   deleteVocabulary,
@@ -49,6 +51,9 @@ export function VocabularyBrowser({
   hierarchical?: boolean;
 }) {
   const t = useTranslations("Classification");
+
+  // Server refusals, in the reader's language (ADR-0012 stage 2).
+  const refusals = useTranslations("Refusals");
   const { user } = useAuth();
   const client = useQueryClient();
   const { has } = usePermissions();
@@ -97,7 +102,7 @@ export function VocabularyBrowser({
     // first." names the count and the next step. "Could not delete" names neither.
     setRefused(
       error instanceof ApiError && error.problems.length > 0
-        ? error.problems.map((problem) => problem.message)
+        ? refusalTexts(refusals, error.problems)
         : [fallback],
     );
   }
@@ -246,8 +251,26 @@ export function VocabularyBrowser({
                 {hierarchical ? (pathOf.get(entry.id) ?? entry.name) : entry.name}
               </span>
 
-              {canWrite ? (
-                <div className="ml-auto flex gap-2">
+              <div className="ml-auto flex gap-2">
+                {/* A tax class is what kind of thing a product is; the rate is what that kind costs
+                    in one country at one time, and it changes when a government changes it. Two
+                    lifetimes, so two screens — and without this one `PRD-07` can be classified and
+                    never priced. Gated on read, like the screen it sits on; the editor gates its
+                    own writes. */}
+                {kind === "tax-classes" ? (
+                  <LinkButton
+                    href={`/products/classification/tax-classes/${entry.id}/rates`}
+                    size="sm"
+                    variant="outline"
+                    aria-label={t("ratesNamed", { name: entry.name })}
+                  >
+                    <Percent className="size-4" />
+                    {t("rates")}
+                  </LinkButton>
+                ) : null}
+
+                {canWrite ? (
+                  <>
                   <Button
                     type="button"
                     size="sm"
@@ -267,8 +290,9 @@ export function VocabularyBrowser({
                   >
                     {t("delete")}
                   </Button>
-                </div>
-              ) : null}
+                  </>
+                ) : null}
+              </div>
             </li>
           ))}
         </ul>

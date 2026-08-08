@@ -546,7 +546,9 @@
       "intro": "Ce fel de articol este din punct de vedere fiscal — standard, redus, cotă zero. Cota per țară se definește pe clasă.",
       "new": "Clasă de taxare nouă",
       "empty": "Nicio clasă de taxare încă."
-    }
+    },
+    "rates": "Cote",
+    "ratesNamed": "Cote pentru {name}"
   },
   "Assortments": {
     "crumb": "Date de bază / Produse / Sortimente",
@@ -822,6 +824,145 @@
     "save": "Salvează domeniul",
     "saving": "Se salvează…",
     "saveFailed": "Domeniul nu a putut fi salvat.",
+    "unsaved": "Modificări nesalvate."
+  },
+  "Refusals": {
+    "product": {
+      "assortment": {
+        "channelMissing": "Acel canal nu există.",
+        "duplicateProduct": "{count} produs(e) apar de mai multe ori.",
+        "duplicateOverride": "{count} produs(e) apar de mai multe ori.",
+        "productMissing": "{count} produs(e) nu există."
+      },
+      "priceList": {
+        "nameRequired": "O listă de prețuri are nevoie de o denumire.",
+        "nameTaken": "Există deja o listă de prețuri numită „{name}”.",
+        "currencyInvalid": "O monedă este un cod ISO-4217 din trei litere, de ex. EUR.",
+        "windowInverted": "O listă de prețuri se încheie după ce începe.",
+        "channelMissing": "Acel canal nu există.",
+        "outletMissing": "{count} punct(e) de vânzare nu există."
+      },
+      "price": {
+        "duplicateProduct": "{count} produs(e) au preț de mai multe ori.",
+        "notANumber": "„{amount}” nu este o valoare zecimală.",
+        "negative": "Un preț nu este negativ.",
+        "productMissing": "{count} produs(e) nu există.",
+        "dateRequired": "Data este obligatorie — rezolvarea nu este niciodată raportată la ziua serverului.",
+        "dateMalformed": "Se așteaptă o dată în formatul yyyy-MM-dd."
+      },
+      "sku": {
+        "required": "Un produs are nevoie de un SKU.",
+        "taken": "Există deja un produs cu SKU-ul „{sku}”."
+      },
+      "name": {
+        "required": "Un produs are nevoie de o denumire."
+      },
+      "brand": {
+        "missing": "Acel brand nu există.",
+        "nameRequired": "Un brand are nevoie de o denumire.",
+        "nameTaken": "Există deja un brand numit „{name}”.",
+        "inUse": "{count} produs(e) au brandul „{name}”. Reclasificați-le întâi."
+      },
+      "category": {
+        "missing": "Acea categorie nu există.",
+        "nameRequired": "O categorie are nevoie de o denumire.",
+        "nameTaken": "O categorie soră se numește deja „{name}”.",
+        "parentMissing": "Categoria părinte nu există.",
+        "ownParent": "O categorie nu poate fi propriul părinte.",
+        "cycle": "Acea mutare ar pune categoria în propria ei ramură.",
+        "hasChildren": "„{name}” mai are {count} subcategorie/subcategorii. Mutați-le sau ștergeți-le întâi.",
+        "inUse": "{count} produs(e) sunt clasificate în „{name}”. Reclasificați-le întâi."
+      },
+      "taxClass": {
+        "missing": "Acea clasă de taxare nu există.",
+        "nameRequired": "O clasă de taxare are nevoie de o denumire.",
+        "nameTaken": "Există deja o clasă de taxare numită „{name}”.",
+        "inUse": "{count} produs(e) sunt taxate ca „{name}”. Reclasificați-le întâi."
+      },
+      "packSize": {
+        "notPositive": "Mărimea bax-ului este cel puțin 1 sau lipsește."
+      },
+      "unitOfMeasure": {
+        "tooLong": "Unitatea de măsură are cel mult 16 caractere."
+      },
+      "promotion": {
+        "nameRequired": "O promoție are nevoie de o denumire.",
+        "nameTaken": "Există deja o promoție numită „{name}”.",
+        "windowInverted": "O promoție se încheie după ce începe.",
+        "valueNotANumber": "„{value}” nu este o valoare zecimală.",
+        "percentOutOfRange": "Un procent de reducere este peste 0 și cel mult 100.",
+        "amountNotPositive": "O sumă fixă de reducere este peste 0.",
+        "currencyInvalid": "O sumă fixă de reducere are nevoie de o monedă ISO-4217 din trei litere, de ex. EUR.",
+        "currencyNotApplicable": "Un procent de reducere nu are monedă.",
+        "valueNotApplicable": "O promoție de tip {type} nu are o valoare proprie.",
+        "bundleNotApplicable": "Doar o promoție „Cumperi X, primești Y” oferă unități, nu una de tip {type}.",
+        "bundleRequired": "O promoție „Cumperi X, primești Y” precizează câte se cumpără și câte se oferă.",
+        "bundleQuantityTooSmall": "Cel puțin una trebuie cumpărată și cel puțin una oferită.",
+        "bundleProductMissing": "Acel produs nu există.",
+        "tiersNotApplicable": "Doar o promoție cu praguri de volum are praguri, nu una de tip {type}.",
+        "tierQuantityTooSmall": "Un prag începe de la 2 în sus — un prag la 1 este o reducere fixă.",
+        "tierQuantityDuplicated": "{count} prag(uri) apar de mai multe ori.",
+        "tierKindsMixed": "Fiecare prag al unei promoții este procent sau fiecare este sumă.",
+        "tierCurrenciesMixed": "Toate pragurile cu sumă ale unei promoții sunt în aceeași monedă.",
+        "channelMissing": "Acel canal nu există.",
+        "outletMissing": "{count} punct(e) de vânzare nu există.",
+        "productMissing": "{count} produs(e) nu există.",
+        "categoryMissing": "{count} categorie/categorii nu există.",
+        "productRequired": "Produsul este obligatoriu — promoțiile se rezolvă pe linie.",
+        "quantityRequired": "Cantitatea este obligatorie — pragurile de volum și pachetele depind de ea.",
+        "quantityTooSmall": "O cantitate este cel puțin 1.",
+        "dateRequired": "Data este obligatorie — rezolvarea nu este niciodată raportată la ziua serverului.",
+        "dateMalformed": "Se așteaptă o dată în formatul yyyy-MM-dd."
+      },
+      "tax": {
+        "countryInvalid": "O țară este un cod ISO-3166-1 din două litere, de ex. RO.",
+        "percentageNotANumber": "„{percentage}” nu este o valoare zecimală.",
+        "percentageOutOfRange": "O cotă de taxare este între 0 și 100.",
+        "windowInverted": "O cotă se încheie după ce începe.",
+        "rateDuplicated": "{count} pereche(i) de țară și dată de început apar de mai multe ori.",
+        "dateRequired": "Data este obligatorie — rezolvarea nu este niciodată raportată la ziua serverului.",
+        "dateMalformed": "Se așteaptă o dată în formatul yyyy-MM-dd.",
+        "productRequired": "Produsul este obligatoriu — taxa urmează clasificarea produsului."
+      },
+      "customField": {
+        "unknown": "„{key}” nu este un câmp personalizat definit.",
+        "required": "„{key}” este obligatoriu.",
+        "tooLong": "„{key}” are cel mult {max} caractere.",
+        "notAnOption": "„{key}” trebuie să fie una dintre: {options}.",
+        "tooSmall": "„{key}” este cel puțin {min}.",
+        "tooLarge": "„{key}” este cel mult {max}.",
+        "invalid": "„{key}” nu este valid."
+      }
+    }
+  },
+  "TaxRates": {
+    "crumb": "Date de bază / Produse / Clasificare / Cote de taxare",
+    "intro": "Cu cât este taxată această clasă, pe țară și în timp. Lipsa oricărei cote înseamnă necunoscut, nu zero — o clasă cu cotă zero are o cotă de 0 scrisă de cineva.",
+    "country": "Țară",
+    "rate": "Cotă",
+    "from": "de la",
+    "to": "până la",
+    "countryRow": "Țara, cota {row}",
+    "rateRow": "Procentul, cota {row}",
+    "fromRow": "Se aplică de la, cota {row}",
+    "toRow": "Se aplică până la, cota {row}",
+    "removeRow": "Elimină cota {row}",
+    "addRate": "Adaugă o cotă",
+    "noRates": "Nicio cotă încă.",
+    "noRatesYet": "Nicio cotă. Taxa pentru această clasă este necunoscută, nu zero.",
+    "rateCount": "{count, plural, one {# cotă} few {# cote} other {# de cote}}.",
+    "countryInvalid": "O țară este un cod ISO-3166-1 din două litere, de ex. RO.",
+    "duplicate": "Acea țară are deja o cotă care începe la acea dată.",
+    "notAnAmount": "Folosiți punctul zecimal — 19.00, nu 19,00.",
+    "windowInverted": "O cotă se încheie după ce începe.",
+    "fixFirst": "Corectați întâi rândurile evidențiate.",
+    "loading": "Se încarcă…",
+    "failed": "Nu s-a putut încărca.",
+    "forbidden": "Nu aveți permisiunea de a vedea clasele de taxare.",
+    "notFound": "Această clasă de taxare nu există.",
+    "save": "Salvează cotele",
+    "saving": "Se salvează…",
+    "saveFailed": "Cotele nu au putut fi salvate.",
     "unsaved": "Modificări nesalvate."
   }
 }

@@ -546,7 +546,9 @@
       "intro": "What kind of thing this is for tax — standard, reduced, zero-rated. The rate per country is set against the class.",
       "new": "New tax class",
       "empty": "No tax classes yet."
-    }
+    },
+    "rates": "Rates",
+    "ratesNamed": "Rates for {name}"
   },
   "Assortments": {
     "crumb": "Master data / Products / Assortments",
@@ -822,6 +824,145 @@
     "save": "Save scope",
     "saving": "Saving…",
     "saveFailed": "This scope could not be saved.",
+    "unsaved": "Unsaved changes."
+  },
+  "Refusals": {
+    "product": {
+      "assortment": {
+        "channelMissing": "That channel does not exist.",
+        "duplicateProduct": "{count} product(s) appear more than once.",
+        "duplicateOverride": "{count} product(s) appear more than once.",
+        "productMissing": "{count} product(s) do not exist."
+      },
+      "priceList": {
+        "nameRequired": "A price list needs a name.",
+        "nameTaken": "A price list named “{name}” already exists.",
+        "currencyInvalid": "A currency is a three-letter ISO-4217 code, e.g. EUR.",
+        "windowInverted": "A price list ends after it starts.",
+        "channelMissing": "That channel does not exist.",
+        "outletMissing": "{count} outlet(s) do not exist."
+      },
+      "price": {
+        "duplicateProduct": "{count} product(s) are priced more than once.",
+        "notANumber": "“{amount}” is not a decimal amount.",
+        "negative": "A price is not negative.",
+        "productMissing": "{count} product(s) do not exist.",
+        "dateRequired": "A date is required — resolution is never relative to the server’s today.",
+        "dateMalformed": "Expected a date as yyyy-MM-dd."
+      },
+      "sku": {
+        "required": "A product needs an SKU.",
+        "taken": "A product with SKU “{sku}” already exists."
+      },
+      "name": {
+        "required": "A product needs a name."
+      },
+      "brand": {
+        "missing": "That brand does not exist.",
+        "nameRequired": "A brand needs a name.",
+        "nameTaken": "A brand named “{name}” already exists.",
+        "inUse": "{count} product(s) are branded “{name}”. Reclassify them first."
+      },
+      "category": {
+        "missing": "That category does not exist.",
+        "nameRequired": "A category needs a name.",
+        "nameTaken": "A sibling category is already named “{name}”.",
+        "parentMissing": "The parent category does not exist.",
+        "ownParent": "A category cannot be its own parent.",
+        "cycle": "That move would put the category inside its own branch.",
+        "hasChildren": "“{name}” still has {count} child categor(ies). Move or delete them first.",
+        "inUse": "{count} product(s) are filed under “{name}”. Reclassify them first."
+      },
+      "taxClass": {
+        "missing": "That tax class does not exist.",
+        "nameRequired": "A tax class needs a name.",
+        "nameTaken": "A tax class named “{name}” already exists.",
+        "inUse": "{count} product(s) are taxed as “{name}”. Reclassify them first."
+      },
+      "packSize": {
+        "notPositive": "A pack size is at least 1, or absent."
+      },
+      "unitOfMeasure": {
+        "tooLong": "A unit of measure is at most 16 characters."
+      },
+      "promotion": {
+        "nameRequired": "A promotion needs a name.",
+        "nameTaken": "A promotion named “{name}” already exists.",
+        "windowInverted": "A promotion ends after it starts.",
+        "valueNotANumber": "“{value}” is not a decimal value.",
+        "percentOutOfRange": "A percentage off is above 0 and at most 100.",
+        "amountNotPositive": "A fixed amount off is above 0.",
+        "currencyInvalid": "A fixed amount off needs a three-letter ISO-4217 currency, e.g. EUR.",
+        "currencyNotApplicable": "A percentage off has no currency.",
+        "valueNotApplicable": "A {type} promotion carries no value of its own.",
+        "bundleNotApplicable": "Only a Buy X get Y promotion gives units away, not a {type} one.",
+        "bundleRequired": "A Buy X get Y promotion states how many are bought and how many are given.",
+        "bundleQuantityTooSmall": "At least one must be bought, and at least one given.",
+        "bundleProductMissing": "That product does not exist.",
+        "tiersNotApplicable": "Only a volume-tiered promotion has tiers, not a {type} one.",
+        "tierQuantityTooSmall": "A tier starts at 2 or more — a tier at 1 is a flat discount.",
+        "tierQuantityDuplicated": "{count} threshold(s) appear more than once.",
+        "tierKindsMixed": "Every tier of one promotion is a percentage, or every tier is an amount.",
+        "tierCurrenciesMixed": "Every amount tier of one promotion is in the same currency.",
+        "channelMissing": "That channel does not exist.",
+        "outletMissing": "{count} outlet(s) do not exist.",
+        "productMissing": "{count} product(s) do not exist.",
+        "categoryMissing": "{count} categor(ies) do not exist.",
+        "productRequired": "A product is required — promotions resolve per line.",
+        "quantityRequired": "A quantity is required — volume tiers and bundles depend on it.",
+        "quantityTooSmall": "A quantity is at least 1.",
+        "dateRequired": "A date is required — resolution is never relative to the server’s today.",
+        "dateMalformed": "Expected a date as yyyy-MM-dd."
+      },
+      "tax": {
+        "countryInvalid": "A country is a two-letter ISO-3166-1 code, e.g. RO.",
+        "percentageNotANumber": "“{percentage}” is not a decimal value.",
+        "percentageOutOfRange": "A tax rate is between 0 and 100.",
+        "windowInverted": "A rate ends after it starts.",
+        "rateDuplicated": "{count} country and start date pair(s) appear more than once.",
+        "dateRequired": "A date is required — resolution is never relative to the server’s today.",
+        "dateMalformed": "Expected a date as yyyy-MM-dd.",
+        "productRequired": "A product is required — tax follows the product’s classification."
+      },
+      "customField": {
+        "unknown": "“{key}” is not a defined custom field.",
+        "required": "“{key}” is required.",
+        "tooLong": "“{key}” must be at most {max} characters.",
+        "notAnOption": "“{key}” must be one of: {options}.",
+        "tooSmall": "“{key}” must be at least {min}.",
+        "tooLarge": "“{key}” must be at most {max}.",
+        "invalid": "“{key}” is not valid."
+      }
+    }
+  },
+  "TaxRates": {
+    "crumb": "Master data / Products / Classification / Tax rates",
+    "intro": "What this class is taxed at, per country and over time. No rates at all means unknown, not zero — a zero-rated class is a rate of 0 somebody wrote down.",
+    "country": "Country",
+    "rate": "Rate",
+    "from": "from",
+    "to": "to",
+    "countryRow": "Country, rate {row}",
+    "rateRow": "Percentage, rate {row}",
+    "fromRow": "Applies from, rate {row}",
+    "toRow": "Applies until, rate {row}",
+    "removeRow": "Remove rate {row}",
+    "addRate": "Add a rate",
+    "noRates": "No rates yet.",
+    "noRatesYet": "No rates. Tax on this class resolves to unknown, not to zero.",
+    "rateCount": "{count, plural, one {# rate} other {# rates}}.",
+    "countryInvalid": "A country is a two-letter ISO-3166-1 code, e.g. RO.",
+    "duplicate": "That country already has a rate starting on that date.",
+    "notAnAmount": "Use a decimal point — 19.00, not 19,00.",
+    "windowInverted": "A rate ends after it starts.",
+    "fixFirst": "Fix the highlighted rows first.",
+    "loading": "Loading…",
+    "failed": "This could not be loaded.",
+    "forbidden": "You do not have permission to view tax classes.",
+    "notFound": "That tax class does not exist.",
+    "save": "Save rates",
+    "saving": "Saving…",
+    "saveFailed": "These rates could not be saved.",
     "unsaved": "Unsaved changes."
   }
 }

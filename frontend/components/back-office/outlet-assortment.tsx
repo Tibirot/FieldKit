@@ -20,6 +20,7 @@ import {
   type OverrideKind,
 } from "@/lib/api/assortments";
 import { ApiError } from "@/lib/api/client";
+import { refusalTexts } from "@/lib/api/refusals";
 import { fetchOutlet, outletKey, type OutletDetail } from "@/lib/api/outlets";
 import { fetchProducts, productsKey, type Product } from "@/lib/api/products";
 import { usePermissions } from "@/lib/auth/use-permissions";
@@ -167,6 +168,8 @@ function OutletOverrides({
   effective: readonly AssortmentItem[];
 }) {
   const t = useTranslations("OutletAssortment");
+  // Server refusals, in the reader's language (ADR-0012 stage 2).
+  const refusals = useTranslations("Refusals");
   const client = useQueryClient();
   const { user } = useAuth();
   const { has } = usePermissions();
@@ -206,7 +209,7 @@ function OutletOverrides({
     onError: (error) =>
       setRefused(
         error instanceof ApiError && error.problems.length > 0
-          ? error.problems.map((problem) => problem.message)
+          ? refusalTexts(refusals, error.problems)
           : [t("saveFailed")],
       ),
   });

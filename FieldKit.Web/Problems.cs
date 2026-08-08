@@ -23,8 +23,10 @@ namespace FieldKit.Web;
 /// <c>resource:action</c> shape of permission strings.
 /// <para>
 /// <b>Part of the API contract.</b> Renaming one is a breaking change, the same as renaming a field.
-/// Null on endpoints not yet migrated, which is every endpoint today — the client falls back to
-/// <paramref name="Message"/>, exactly as it does now.
+/// Null on endpoints not yet migrated — Organization, Outlets, IAM and Configuration, at the time of
+/// writing — where the client falls back to <paramref name="Message"/> and reads English. Products
+/// emits a code on every refusal; it was written that way rather than migrated, since W6 is the week
+/// ADR-0012 was decided for.
 /// </para>
 /// </param>
 /// <param name="Args">

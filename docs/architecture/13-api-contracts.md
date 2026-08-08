@@ -69,26 +69,35 @@ re-declare the rules client-side to produce its own field keys, which is a secon
 server owns. The bulk import had already answered this way (`{ row, column, message }`); this is the
 same idea for a request with no rows.
 
-#### `message` is English, and that is a known gap
+#### `message` is English; `code` is what makes a refusal translatable
 
-**`message` is the only thing an error carries today, and it is always English** — so a user on
-`/ro` gets an English message under a Romanian form control. That is the current behaviour, not an
-oversight in this document.
-
-[ADR-0012](adr/0012-server-message-localization.md) decides the fix: refusals gain a stable
-`code` and named `args`, resolved client-side through the existing `next-intl` catalogs, with
-`message` demoted to an English fallback.
+A refusal carries a stable `code` and named `args` alongside `message`, resolved client-side through
+the existing `next-intl` catalogs ([ADR-0012](adr/0012-server-message-localization.md)). `message`
+stays, demoted to the **English fallback**: a code the catalog has no entry for renders as a correct
+sentence rather than as a raw dotted name.
 
 ```jsonc
-// The target shape. NOT YET IMPLEMENTED — no endpoint emits `code` or `args` today.
-{ "field": "name", "code": "channel.name.taken",
+{ "field": "name", "code": "product.priceList.nameTaken",
   "args": { "name": "Modern Trade" },
-  "message": "A channel named 'Modern Trade' already exists." }
+  "message": "A price list named 'Modern Trade' already exists." }
 ```
 
 The change is additive: `field` and `message` keep their meaning, and a client that ignores `code`
-behaves exactly as it does now. This section will describe `code` as shipped once modules begin
-emitting it — see the ADR for the staging.
+behaves exactly as one did before.
+
+**Which modules emit a code, today:**
+
+| Module | Codes | Prefix |
+|---|---|---|
+| Products & Pricing | all refusals | `product.*` |
+| Organization, Outlets, IAM, Configuration | none yet | — |
+
+Products was written with codes from the start rather than migrated, because W6 is the week the ADR
+was decided for. The other four are ADR-0012 stage 3 and carry `message` only until then — the
+client falls back, and a `/ro` user reads those four modules' refusals in English. **That is the
+remaining gap**, and it is now the only one: the client resolver
+([`lib/api/refusals.ts`](../../frontend/lib/api/refusals.ts)) exists, and the `Refusals` catalog
+covers every code Products can emit.
 
 ### Unhandled failures
 

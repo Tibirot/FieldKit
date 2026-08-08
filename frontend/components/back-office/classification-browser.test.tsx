@@ -21,6 +21,20 @@ const deleteVocabulary = vi.hoisted(() => vi.fn());
 
 vi.mock("@/components/auth-provider", () => ({ useAuth: () => auth.current }));
 
+// A tax class links out to its rates, and next-intl's Link reaches for Next's router — which does
+// not resolve outside a Next build. Every prop forwarded, so the row's `aria-label` survives.
+vi.mock("@/i18n/navigation", () => ({
+  Link: ({
+    href,
+    children,
+    ...rest
+  }: { href: string; children: React.ReactNode } & React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
+}));
+
 vi.mock("@/lib/api/products", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/products")>()),
   fetchBrands: (...args: unknown[]) => fetchBrands(...args),

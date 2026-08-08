@@ -138,9 +138,33 @@ messages should not be written in the old shape and migrated a month later.
 Until a module is migrated, its refusals carry `message` only and the client falls back to English —
 the behaviour that exists today, unchanged.
 
-**Stage 1 has landed.** `FieldProblem` carries `Code` and `Args`, and `Problems.*` has overloads that
-accept them; both fields are omitted from the JSON when absent, so every existing endpoint's response
-is byte-identical to before. **Stages 2–4 have not**: no endpoint emits a code, and the client does
-not yet resolve one. The envelope in
-[API contracts §3](../13-api-contracts.md#3-error-model--rfc-7807-problem-details) still describes
-what ships today, with the target shape marked as such.
+**Stages 1 and 2 have landed, and stage 3 is part-done.**
+
+- **Stage 1** — `FieldProblem` carries `Code` and `Args`, and `Problems.*` has overloads that accept
+  them; both are omitted from the JSON when absent, so an endpoint that emits neither responds
+  byte-identically to before.
+- **Stage 2** — [`lib/api/refusals.ts`](../../../frontend/lib/api/refusals.ts) resolves a code
+  through `next-intl` and falls back to `message` when the catalog has no entry. Wired into every
+  Products screen; the other modules' screens are untouched, because a fallback that never fires
+  changes nothing for them.
+- **Stage 3** — **Products only**, and it was never a migration: W6 wrote codes from the start, as
+  planned above. Organization (29), Outlets (21), IAM (10) and Configuration (2) still carry
+  `message` alone, so their refusals read in English on `/ro`. That is the remaining work, and it is
+  now the *whole* remaining work for those modules — the mechanism is built and the pattern is
+  proved on 80 codes.
+- **Stage 4** has not. Nothing walks the codes the server can emit and checks them against the
+  catalogs, so server-to-catalog drift is still caught by a person rather than a test.
+
+> **The gap stage 2 turned out to be hiding.** Between W6 shipping and this being written, Products
+> emitted 80 codes that the client typed away: `FieldProblem` declared `{ field, message }` and
+> nothing else, so every code was parsed and dropped. The refusals still *read* correctly, in
+> English, which is exactly why it survived a week of review — the fallback the ADR designed was
+> indistinguishable from the feature not existing. Worth remembering for stages 3 and 4: this design
+> degrades so gracefully that only a test or a Romanian reader notices it is not finished.
+>
+> **One code is deliberately absent from the catalog.** `product.customField.wrongType` covers four
+> sentences — must be text, a number, true or false, a date — and the word that distinguishes them
+> lives only in the English `message`, not in `Args`. A single entry could only say "has the wrong
+> type", which is less useful than what the server already sends, so that code takes the fallback on
+> purpose. Carrying the expected type as an arg is the fix, and it belongs in `CustomFieldRules`,
+> which Outlets shares — so it lands with Outlets' stage 3 rather than alone.

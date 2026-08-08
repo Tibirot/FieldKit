@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { channelsKey, fetchChannels, type Channel } from "@/lib/api/channels";
 import { ApiError } from "@/lib/api/client";
+import { refusalTexts } from "@/lib/api/refusals";
 import {
   assignmentsKey,
   fetchAssignments,
@@ -145,6 +146,8 @@ function ScopeEditor({
   assignedOutlets: readonly OutletPick[];
 }) {
   const t = useTranslations("PriceListScope");
+  // Server refusals, in the reader's language (ADR-0012 stage 2).
+  const refusals = useTranslations("Refusals");
   const client = useQueryClient();
   const { user } = useAuth();
   const { has } = usePermissions();
@@ -180,7 +183,7 @@ function ScopeEditor({
     onError: (error) =>
       setRefused(
         error instanceof ApiError && error.problems.length > 0
-          ? error.problems.map((problem) => problem.message)
+          ? refusalTexts(refusals, error.problems)
           : [t("saveFailed")],
       ),
   });

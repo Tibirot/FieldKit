@@ -9,6 +9,7 @@ import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import { LinkButton } from "@/components/ui/link-button";
 import { ApiError } from "@/lib/api/client";
+import { refusalTexts } from "@/lib/api/refusals";
 import {
   createPriceList,
   fetchPriceLists,
@@ -159,6 +160,8 @@ function PriceListForm({
   onCancel: () => void;
 }) {
   const t = useTranslations("PriceLists");
+  // Server refusals, in the reader's language (ADR-0012 stage 2).
+  const refusals = useTranslations("Refusals");
   const { user } = useAuth();
 
   const accessToken = user?.access_token;
@@ -192,7 +195,7 @@ function PriceListForm({
     onError: (error) =>
       setRefused(
         error instanceof ApiError && error.problems.length > 0
-          ? error.problems.map((problem) => problem.message)
+          ? refusalTexts(refusals, error.problems)
           : [t("saveFailed")],
       ),
   });

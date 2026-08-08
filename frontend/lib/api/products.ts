@@ -175,3 +175,59 @@ export function withAncestry(categories: readonly Category[]): { id: string; pat
     .map((category) => ({ id: category.id, path: path(category) }))
     .sort((left, right) => left.path.localeCompare(right.path));
 }
+
+// ── Tax rates ──────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * One rate of a tax class, in one country, over one half-open window (`PRD-07`).
+ *
+ * `percentage` is a string for the same reason a price is (`BR-PRD-8`): it is a decimal the device
+ * pricing engine will compute with, and a JSON number is an IEEE-754 double the moment a browser
+ * parses it.
+ */
+export type TaxRate = {
+  id: string;
+  countryCode: string;
+  percentage: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+};
+
+/** One rate as an author states it — no id, because a PUT replaces the set rather than editing it. */
+export type TaxRateWrite = {
+  countryCode: string;
+  percentage: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+};
+
+export function fetchTaxRates(
+  accessToken: string,
+  taxClassId: string,
+  signal?: AbortSignal,
+): Promise<TaxRate[]> {
+  return apiGet<TaxRate[]>(`/api/products/tax-classes/${taxClassId}/rates`, accessToken, signal);
+}
+
+/**
+ * Replaces every rate of a tax class.
+ *
+ * **An empty set is a real state**: the class then has no rate anywhere, which resolves to *unknown*
+ * rather than to zero. A zero-rated class is a rate of `0`, authored deliberately — the difference
+ * between "we have not said" and "we have said none", which `TaxEngine.Resolve` keeps.
+ */
+export function setTaxRates(
+  accessToken: string,
+  taxClassId: string,
+  rates: readonly TaxRateWrite[],
+): Promise<TaxRate[]> {
+  return apiSend<TaxRate[]>(
+    "PUT",
+    `/api/products/tax-classes/${taxClassId}/rates`,
+    accessToken,
+    { rates },
+  );
+}
+
+export const taxRatesKey = (subject: string, taxClassId: string) =>
+  ["tax-classes", subject, taxClassId, "rates"] as const;

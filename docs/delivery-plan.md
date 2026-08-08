@@ -301,8 +301,16 @@ promo types + tax + the resolver + a decimal-parity vector suite) in one week; b
 > engine resolves prices, promotions and tax as pure functions checked by hand-written and generated
 > [vectors](../vectors/README.md) plus property tests, and the back office can author every one of its
 > inputs: catalogue, classification, assortments and per-outlet overrides, price lists with their
-> prices and scope, and promotions with their targets, tiers and scope. The last slice closed the loop
-> end to end — a promotion authored, targeted and scoped through the UI resolves for a real outlet.
+> prices and scope, promotions with their targets, tiers and scope, and tax rates per class and
+> country. The last slice closed the loop end to end — a promotion authored, targeted and scoped
+> through the UI resolves for a real outlet.
+>
+> > **"The back office is complete" was written here one slice early.** Tax *rates* had no screen —
+> > `PRD-07`'s engine, endpoints and vectors were all done, and the only way to give a tax class a
+> > rate was the `.http` file, so a tenant could file a product under a class and never tax it. Found
+> > by walking the app before W7 rather than by any test, because nothing was broken: every screen
+> > that existed worked. The row for it is slice 21 below, added after the fact rather than
+> > backdated.
 >
 > The overrun was the promotion children being three screens rather than one row's worth — targets,
 > tiers and scope are three different questions — on top of `PRD-05` needing three type slices rather
@@ -337,7 +345,8 @@ Sizes are hand-written diff estimates against the ~400-line budget; generated mi
 | 17 | **Promotions screen** — `/products/promotions`, all four `B1` types in one form; type and currency fixed after creation | `PRD-05` | 400 |
 | 18 | **Promotion targets** — `/products/promotions/[id]/targets`, categories with their ancestry and products by name; an empty set takes a deal out of play | `PRD-05` | 300 |
 | 19 | **Promotion tiers** — `/products/promotions/[id]/tiers`, one kind for the whole ladder; offered on the one type that has tiers | `PRD-05` | 350 |
-| 20 | **Promotion scope** — channels and outlets; the outlet picker extracted rather than copied from a price list's scope. **W6's back office is complete** | `PRD-05` | 300 |
+| 20 | **Promotion scope** — channels and outlets; the outlet picker extracted rather than copied from a price list's scope | `PRD-05` | 300 |
+| 21 | **Tax rates, and the refusal codes nobody was reading** — a rate editor per tax class, ADR-0012 stage 2, and the docs W6 falsified | `PRD-07`, `BR-PRD-9` | 700 |
 
 **Slice 5 is a prerequisite, and it is deliberately late.** `BR-PRD-2` resolves a price by *outlet
 override → channel → default*, so the engine must map an outlet to its channel. `Outlet.ChannelId`
