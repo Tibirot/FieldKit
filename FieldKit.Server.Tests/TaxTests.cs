@@ -45,10 +45,8 @@ public class TaxTests(ServerFixture fixture)
                 Unique("OUT"),
                 "Corner Shop",
                 channelId,
-                null,
-                null,
                 "Europe/Bucharest",
-                countryCode is null
+                Address: countryCode is null
                     ? null
                     : new Address("Calea Dorobanți 172", "București", "010581", countryCode)));
 

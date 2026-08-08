@@ -203,6 +203,11 @@ internal static class TerritoryEndpoints
             return Problems.BadRequest("name", "A territory needs a name.");
         }
 
+        if (TextLimits.TooLong("name", request.Name, 200, "territory.name.tooLong") is { } tooLong)
+        {
+            return Problems.BadRequest([tooLong]);
+        }
+
         if (!await db.OrgUnits.AnyAsync(unit => unit.Id == request.OrgUnitId, ct))
         {
             return Problems.BadRequest("orgUnitId", "The org unit does not exist.");

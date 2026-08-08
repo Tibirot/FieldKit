@@ -30,7 +30,7 @@ public class AssortmentOverrideTests(ServerFixture fixture)
     {
         var response = await admin.PostAsJsonAsync(
             "/api/outlets",
-            new CreateOutletRequest(Unique("OUT"), "Corner Shop", channelId, null, null, "Europe/Bucharest"));
+            new CreateOutletRequest(Unique("OUT"), "Corner Shop", channelId, "Europe/Bucharest"));
 
         Assert.True(
             response.StatusCode == HttpStatusCode.Created,

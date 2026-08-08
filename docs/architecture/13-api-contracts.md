@@ -124,6 +124,36 @@ The mapping is deliberately narrow ([`ProblemDetailsExtensions`](../../FieldKit.
 Everything else stays a `500`. Widening it further would trade a misreported client error for a
 worse one — a genuine server fault reported as the caller's problem is a fault nobody investigates.
 
+### 3.2 A body the server can read but cannot use
+
+Two more shapes used to be `500`s, and both are the caller's mistake:
+
+**An omitted field that the contract declares non-nullable** is a `400`. The host sets
+`RespectNullableAnnotations` and `RespectRequiredConstructorParameters`
+([`Program.cs`](../../FieldKit.Server/Program.cs)) — the first refuses an explicit
+`"permissions": null`, the second refuses `permissions` being absent, and only the pair covers both.
+Without them, `{"name":"Supervisor"}` to `POST /api/iam/roles` bound `Permissions` to null and the
+handler's first `.Where(...)` was a `NullReferenceException`: a `500` blaming the server for a field
+the caller never sent. Nine endpoints across IAM and Products answered that way.
+
+This is a **parse-level** refusal, so it carries `detail` and a JSON path rather than the `errors[]`
+envelope and an ADR-0012 `code` — the same class as the bad enum name in §3.1, and for the same
+reason: the handler never runs. Refusals that name a field and a code are the ones a handler chose.
+
+> **What "optional" means on the wire.** Under those options a `?` alone no longer makes a field
+> optional — only an explicit `= null` does. `Guid? ParentId` and `Guid? ParentId = null` are the
+> same C# and different APIs. This is enforced by an architecture test
+> ([`RequestContractTests`](../../FieldKit.ArchitectureTests/RequestContractTests.cs)) rather than
+> left to review, because the mistake is invisible from the server: every C# test constructs these
+> records positionally and so always passes every argument. It only shows up for a caller that omits
+> the field, which is to say in the browser. The same rule is why `CreateOutletRequest` now lists its
+> required parameters first — an optional parameter cannot precede a required one in C#, so a field
+> in the wrong position cannot be made optional at all.
+
+**A value wider than its column** is a `400` naming the field, not a `DbUpdateException` and a `500`
+([`TextLimits`](../../FieldKit.Web/TextLimits.cs)). The refusal carries `max` and `length` in `args`,
+so a form can say both what the limit is and how far over the caller went.
+
 ## 4. Idempotency
 
 - **Sync push:** every mutation carries a client **`mutationId`**; the server dedupes and returns

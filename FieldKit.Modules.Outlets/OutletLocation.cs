@@ -10,7 +10,20 @@ namespace FieldKit.Modules.Outlets;
 /// can be recorded means a half-known outlet cannot be recorded at all, and onboarding data is
 /// routinely half-known.
 /// </remarks>
-public sealed record Address(string? Street, string? City, string? PostalCode, string? CountryCode);
+public sealed record Address(
+    string? Street = null, string? City = null, string? PostalCode = null, string? CountryCode = null)
+{
+    /// <summary>Two ASCII letters, or absent. Anything else never matches a tax rate.</summary>
+    /// <remarks>
+    /// Here rather than in the endpoint that first needed it, because an outlet has two doors: the
+    /// API and the CSV import. The import wrote whatever the spreadsheet held, which after
+    /// upper-casing meant a cell reading "Romania" arrived at a <c>varchar(2)</c> column as
+    /// "ROMANIA" — the same <c>DbUpdateException</c>-shaped <c>500</c> this rule exists to prevent,
+    /// reached by the door nobody checked.
+    /// </remarks>
+    public static bool IsCountryCode(string? countryCode) =>
+        countryCode is null || (countryCode.Length == 2 && countryCode.All(char.IsAsciiLetter));
+}
 
 /// <summary>
 /// Coordinates as they arrive from a caller — untrusted, and not yet known to be a real place.
@@ -40,4 +53,5 @@ public sealed record Coordinates(double Latitude, double Longitude);
 /// today, removing a contact from the outlet is the only deletion path, and it is a real delete
 /// rather than a flag.
 /// </remarks>
-public sealed record OutletContact(string Name, string? Role, string? Phone, string? Email);
+public sealed record OutletContact(
+    string Name, string? Role = null, string? Phone = null, string? Email = null);

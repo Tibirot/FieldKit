@@ -2061,6 +2061,85 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
 
 ["not", "an", "object"]
 
+### Expect 400 — a body the server reads perfectly and then finds a hole in. `permissions` is
+### declared non-nullable, so leaving it out is the caller's mistake; before the host set
+### RespectRequiredConstructorParameters it deserialized to null and the handler's first
+### `.Where(...)` was a NullReferenceException, which is to say a 500 blaming the server for a field
+### the caller never sent. Nine endpoints across IAM and Products answered that way.
+POST {{Server_HostAddress}}/api/iam/roles
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Supervisor"
+}
+
+### The same hole one level down — `{}` to a PUT that replaces a set. Note what this is *not*: an
+### omitted array does not mean "leave the prices alone", and it is refused rather than read as an
+### empty set, because the two differ by every price on the list.
+PUT {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}/prices
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{}
+
+### Expect 400 `product.name.tooLong`, with `max` and `length` in `args` so a form can say both what
+### the limit is and how far over it the caller went. This was a DbUpdateException and a 500 — the
+### column is varchar(200) and nothing checked before the write, so the API reported a typed name as
+### a server fault.
+POST {{Server_HostAddress}}/api/products
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "sku": "SKU-TOO-LONG-1",
+  "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+}
+
+### Expect 400 `outlet.countryCode.invalid`. Refused rather than truncated: "Romania" cut to "Ro"
+### fits the column and then matches no tax rate for the rest of the outlet's life.
+POST {{Server_HostAddress}}/api/outlets
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "code": "RO-BUC-0200",
+  "name": "Country Spelled Out",
+  "channelId": "{{channel.response.body.id}}",
+  "timeZoneId": "Europe/Bucharest",
+  "address": { "countryCode": "Romania" }
+}
+
+### And a well-formed one is stored upper-cased — send "ro", read back "RO". The bug this replaces
+### was silent in the worst way: TaxRate.Create upper-cases its country, the outlet's was stored as
+### typed, and resolution compares the two directly. So "ro" matched no rate, tax resolution answered
+### "no tax", and that is indistinguishable from a tax class nobody has priced — the very distinction
+### PRD-07 exists to keep. Nothing errored and nothing logged.
+# @name lowerCaseCountry
+POST {{Server_HostAddress}}/api/outlets
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "code": "RO-BUC-0201",
+  "name": "Lower Case Country",
+  "channelId": "{{channel.response.body.id}}",
+  "timeZoneId": "Europe/Bucharest",
+  "address": { "street": "Str. Dorobanti 1", "city": "Bucharest", "postalCode": "010001", "countryCode": "ro" }
+}
+
+### It survives an update typed the same way — the normalisation is on the write path, not on create.
+PUT {{Server_HostAddress}}/api/outlets/{{lowerCaseCountry.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "{{lowerCaseCountry.response.body.name}}",
+  "channelId": "{{channel.response.body.id}}",
+  "timeZoneId": "Europe/Bucharest",
+  "address": { "street": "Str. Dorobanti 1", "city": "Bucharest", "postalCode": "010001", "countryCode": "ro" }
+}
+
 ###
 
 ### ─── Bulk import of outlets (OUT-05) ────────────────────────────────────────────────────────────

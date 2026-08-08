@@ -36,6 +36,11 @@ internal static class ChannelEndpoints
                 return Problems.BadRequest("name", "A channel needs a name.");
             }
 
+            if (TextLimits.TooLong("name", request.Name, 100, "channel.name.tooLong") is { } tooLong)
+            {
+                return Problems.BadRequest([tooLong]);
+            }
+
             if (await db.Channels.AnyAsync(channel => channel.Name.ToLower() == request.Name.ToLower(), ct))
             {
                 return Problems.Conflict("name", $"A channel named '{request.Name}' already exists.");
@@ -55,6 +60,11 @@ internal static class ChannelEndpoints
             if (string.IsNullOrWhiteSpace(request.Name))
             {
                 return Problems.BadRequest("name", "A channel needs a name.");
+            }
+
+            if (TextLimits.TooLong("name", request.Name, 100, "channel.name.tooLong") is { } tooLong)
+            {
+                return Problems.BadRequest([tooLong]);
             }
 
             var channel = await db.Channels.SingleOrDefaultAsync(c => c.Id == id, ct);

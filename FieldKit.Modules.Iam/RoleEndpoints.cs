@@ -124,6 +124,11 @@ internal static class RoleEndpoints
             return Problems.BadRequest("name", "A role needs a name.");
         }
 
+        if (TextLimits.TooLong("name", request.Name, 100, "role.name.tooLong") is { } tooLong)
+        {
+            return Problems.BadRequest([tooLong]);
+        }
+
         var unknown = request.Permissions
             .Where(permission => !catalog.Contains(permission))
             .ToList();

@@ -205,6 +205,7 @@ internal static class OutletImporter
         var channelId = ResolveChannel(row, channels, issues);
         var timeZone = ResolveTimeZone(row, issues);
         var location = ResolveLocation(row, issues);
+        var address = ResolveAddress(row, issues);
         var customFields = ResolveCustomFields(row, definitions, definedKeys, issues);
 
         if (issues.Count > 0 || code is null || name is null || channelId is null || timeZone is null) return null;
@@ -216,7 +217,7 @@ internal static class OutletImporter
             Text(row, Column.Segment),
             Text(row, Column.Banner),
             timeZone,
-            Address(row),
+            address,
             location,
             contacts: null,
             customFields);
@@ -356,12 +357,20 @@ internal static class OutletImporter
         return coerced;
     }
 
-    private static Address? Address(OutletImportRow row)
+    private static Address? ResolveAddress(OutletImportRow row, List<(string?, string)> issues)
     {
         var street = Text(row, Column.Street);
         var city = Text(row, Column.City);
         var postalCode = Text(row, Column.PostalCode);
         var countryCode = Text(row, Column.CountryCode);
+
+        // The same rule the API applies, and for the same reason: an outlet whose country is not a
+        // country matches no tax rate. A spreadsheet is the likelier place to find "Romania" spelled
+        // out, since nothing in a CSV hints that the column wants a code.
+        if (!Address.IsCountryCode(countryCode))
+        {
+            issues.Add((Column.CountryCode, $"'{countryCode}' is not a two-letter ISO-3166-1 code, e.g. RO."));
+        }
 
         return street is null && city is null && postalCode is null && countryCode is null
             ? null

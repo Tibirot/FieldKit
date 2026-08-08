@@ -40,7 +40,7 @@ public class MalformedRequestTests(ServerFixture fixture)
         var outlet = await client.PostAsJsonAsync(
             "/api/outlets",
             new CreateOutletRequest(
-                $"OUT-{Guid.NewGuid():N}"[..20], "Corner Shop", channelId, null, null, "UTC"));
+                $"OUT-{Guid.NewGuid():N}"[..20], "Corner Shop", channelId, "UTC"));
 
         return (await outlet.Content.ReadFromJsonAsync<OutletResponse>())!.Id;
     }

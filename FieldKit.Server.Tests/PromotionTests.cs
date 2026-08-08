@@ -1164,7 +1164,7 @@ public class PromotionTests(ServerFixture fixture)
         var response = await admin.PostAsJsonAsync(
             "/api/outlets",
             new CreateOutletRequest(
-                Unique("OUT"), "Corner Shop", channelId, null, null, "Europe/Bucharest"));
+                Unique("OUT"), "Corner Shop", channelId, "Europe/Bucharest"));
 
         Assert.True(
             response.StatusCode == HttpStatusCode.Created,

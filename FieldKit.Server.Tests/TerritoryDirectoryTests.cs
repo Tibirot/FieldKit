@@ -35,7 +35,7 @@ public class TerritoryDirectoryTests(ServerFixture fixture)
         var response = await client.PostAsJsonAsync(
             "/api/outlets",
             new CreateOutletRequest(
-                Unique("OUT"), "Corner Shop", await ChannelAsync(client), null, null, Zone));
+                Unique("OUT"), "Corner Shop", await ChannelAsync(client), Zone));
 
         return (await response.Content.ReadFromJsonAsync<OutletResponse>())!;
     }

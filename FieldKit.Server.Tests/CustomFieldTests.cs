@@ -54,7 +54,7 @@ public class CustomFieldTests(ServerFixture fixture)
         await client.PostAsJsonAsync(
             "/api/outlets",
             new CreateOutletRequest(
-                Unique("OUT"), "Corner Shop", channelId, null, null, Zone, CustomFields: customFields));
+                Unique("OUT"), "Corner Shop", channelId, Zone, CustomFields: customFields));
 
     [Fact]
     public async Task A_definition_describes_what_a_tenant_may_record()
@@ -265,7 +265,7 @@ public class CustomFieldTests(ServerFixture fixture)
         var cleared = await client.PutAsJsonAsync(
             $"/api/outlets/{created!.Id}",
             new UpdateOutletRequest(
-                created.Name, channelId, null, null, Zone,
+                created.Name, channelId, Zone,
                 CustomFields: new Dictionary<string, JsonElement>()));
 
         Assert.Equal(HttpStatusCode.OK, cleared.StatusCode);

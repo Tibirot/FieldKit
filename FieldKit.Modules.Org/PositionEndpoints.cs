@@ -84,6 +84,13 @@ internal static class PositionEndpoints
                 return Problems.BadRequest("title", "A position needs a title.");
             }
 
+            // Repeated rather than shared with ValidateAsync: this path deliberately does not run it
+            // (a retitle resolves no user and no unit), so the one field it does accept is checked here.
+            if (TextLimits.TooLong("title", request.Title, 100, "position.title.tooLong") is { } tooLong)
+            {
+                return Problems.BadRequest([tooLong]);
+            }
+
             var position = await db.Positions.SingleOrDefaultAsync(p => p.Id == id, ct);
             if (position is null) return Results.NotFound();
 
@@ -155,6 +162,13 @@ internal static class PositionEndpoints
         if (string.IsNullOrWhiteSpace(request.Title))
         {
             return Problems.BadRequest("title", "A position needs a title.");
+        }
+
+        // The column. `userId` needs no such check: it is resolved against the user directory below,
+        // so one too long for the column simply matches nobody and is refused by name.
+        if (TextLimits.TooLong("title", request.Title, 100, "position.title.tooLong") is { } tooLong)
+        {
+            return Problems.BadRequest([tooLong]);
         }
 
         if (!await db.OrgUnits.AnyAsync(unit => unit.Id == request.OrgUnitId, ct))

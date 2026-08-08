@@ -325,6 +325,43 @@ public class OutletImportTests(ServerFixture fixture)
         Assert.False(await ExistsAsync(client, code));
     }
 
+    /// <summary>
+    /// The import is the outlet's second door, and it has to refuse what the API refuses.
+    /// </summary>
+    /// <remarks>
+    /// A spreadsheet is the likelier place to find a country spelled out — nothing in a CSV header
+    /// says the column wants a code. Before this the cell went through unchecked and, once
+    /// upper-cased, reached a <c>varchar(2)</c> column as "ROMANIA": a <c>DbUpdateException</c> that
+    /// failed the whole import with a stack trace where the admin needed a row number.
+    /// </remarks>
+    [Fact]
+    public async Task A_country_that_is_not_a_code_is_a_row_problem_not_a_failed_import()
+    {
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+        var channel = await ChannelAsync(client);
+        var good = Unique("OUT");
+        var bad = Unique("OUT");
+
+        var result = await ImportAsync(client, $"""
+            code,name,channel,time_zone,country_code
+            {good},Corner Shop,{channel},{Zone},ro
+            {bad},Spelled Out,{channel},{Zone},Romania
+            """, OutletImportMode.Partial);
+
+        Assert.Equal(1, result.Imported);
+
+        Assert.Contains(
+            result.Problems,
+            problem => problem.Column == "country_code" && problem.Message.Contains("ISO-3166-1"));
+
+        // And the row that was fine is stored upper-cased, by the same rule the API applies.
+        var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>(
+            $"/api/outlets?pageSize={Paging.MaxSize}"))!.Items;
+
+        Assert.Equal("RO", outlets!.Single(outlet => outlet.Code == good).Address!.CountryCode);
+        Assert.False(await ExistsAsync(client, bad));
+    }
+
     [Fact]
     public async Task A_code_twice_in_one_file_is_caught_before_the_database_sees_it()
     {

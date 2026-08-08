@@ -188,6 +188,11 @@ internal static class PriceListEndpoints
             problems.Add(new FieldProblem("name", "A price list needs a name.", "product.priceList.nameRequired"));
         }
 
+        if (TextLimits.TooLong("name", name, 120, "product.priceList.nameTooLong") is { } tooLong)
+        {
+            problems.Add(tooLong);
+        }
+
         // Shape only — this is not a table of the world's currencies. What it refuses is "Euro",
         // "eur " and "€", which are the ways a caller gets this wrong in practice.
         if (currency is not { Length: 3 } || !currency.All(char.IsAsciiLetter))

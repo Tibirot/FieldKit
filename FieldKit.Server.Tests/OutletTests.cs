@@ -32,7 +32,7 @@ public class OutletTests(ServerFixture fixture)
     {
         var response = await client.PostAsJsonAsync(
             "/api/outlets",
-            new CreateOutletRequest(code ?? Unique("OUT"), "Corner Shop", channelId, "A", "Veridian Group", Zone));
+            new CreateOutletRequest(code ?? Unique("OUT"), "Corner Shop", channelId, Zone, "A", "Veridian Group"));
 
         // The body on failure, not just the code: the host runs in Development, so a 500 carries the
         // exception — and a bare "expected Created, actual InternalServerError" costs a debug cycle
@@ -71,9 +71,9 @@ public class OutletTests(ServerFixture fixture)
             Unique("OUT"),
             "Mega Image Dorobanți",
             channel.Id,
+            Zone,
             "A",
             "Mega Image",
-            Zone,
             new Address("Calea Dorobanți 172", "București", "010578", "RO"),
             new Coordinates(44.4638, 26.0946),
             [new OutletContact("Ana Ionescu", "Store manager", "+40 721 000 000", "ana@example.ro")]));
@@ -101,7 +101,7 @@ public class OutletTests(ServerFixture fixture)
         {
             var response = await client.PostAsJsonAsync(
                 "/api/outlets",
-                new CreateOutletRequest(Unique("OUT"), "Bad zone", channel.Id, null, null, bad));
+                new CreateOutletRequest(Unique("OUT"), "Bad zone", channel.Id, bad));
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
@@ -120,13 +120,13 @@ public class OutletTests(ServerFixture fixture)
         var outlet = await OutletAsync(client, channel.Id);
 
         var withContacts = await client.PutAsJsonAsync($"/api/outlets/{outlet.Id}", new UpdateOutletRequest(
-            outlet.Name, channel.Id, null, null, Zone,
+            outlet.Name, channel.Id, Zone,
             Contacts: [new OutletContact("Ana", "Buyer", null, null), new OutletContact("Bogdan", null, null, null)]));
 
         Assert.Equal(2, (await withContacts.Content.ReadFromJsonAsync<OutletResponse>())!.Contacts.Count);
 
         var erased = await client.PutAsJsonAsync($"/api/outlets/{outlet.Id}", new UpdateOutletRequest(
-            outlet.Name, channel.Id, null, null, Zone, Contacts: []));
+            outlet.Name, channel.Id, Zone, Contacts: []));
 
         Assert.Empty((await erased.Content.ReadFromJsonAsync<OutletResponse>())!.Contacts);
     }
@@ -140,7 +140,7 @@ public class OutletTests(ServerFixture fixture)
         var channel = await ChannelAsync(client);
 
         var response = await client.PostAsJsonAsync("/api/outlets", new CreateOutletRequest(
-            Unique("OUT"), "Corner Shop", channel.Id, null, null, Zone,
+            Unique("OUT"), "Corner Shop", channel.Id, Zone,
             Contacts: [new OutletContact("   ", "Buyer", null, null)]));
 
         var problem = Assert.Single(await ProblemsOf(response));
@@ -159,7 +159,7 @@ public class OutletTests(ServerFixture fixture)
         var channel = await ChannelAsync(client);
 
         var response = await client.PostAsJsonAsync("/api/outlets", new CreateOutletRequest(
-            Unique("OUT"), "Corner Shop", channel.Id, null, null, Zone,
+            Unique("OUT"), "Corner Shop", channel.Id, Zone,
             Contacts:
             [
                 new OutletContact(new string('n', 201), null, null, null),
@@ -184,7 +184,7 @@ public class OutletTests(ServerFixture fixture)
         var channel = await ChannelAsync(client);
 
         var response = await client.PostAsJsonAsync("/api/outlets", new CreateOutletRequest(
-            Unique("OUT"), "Corner Shop", channel.Id, null, null, Zone,
+            Unique("OUT"), "Corner Shop", channel.Id, Zone,
             Contacts:
             [
                 new OutletContact("Ana", "Buyer", null, "ana@example.com"),
@@ -205,7 +205,7 @@ public class OutletTests(ServerFixture fixture)
         var channel = await ChannelAsync(client);
 
         var response = await client.PostAsJsonAsync("/api/outlets", new CreateOutletRequest(
-            Unique("OUT"), "Corner Shop", channel.Id, null, null, Zone,
+            Unique("OUT"), "Corner Shop", channel.Id, Zone,
             Contacts: [new OutletContact("Ana", null, null, "ana+shop@sub.example-store.co.uk")]));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -229,7 +229,7 @@ public class OutletTests(ServerFixture fixture)
         {
             var refused = await client.PostAsJsonAsync(
                 "/api/outlets",
-                new CreateOutletRequest(Unique("OUT"), "Off earth", channel.Id, null, null, Zone,
+                new CreateOutletRequest(Unique("OUT"), "Off earth", channel.Id, Zone,
                     Location: offEarth));
 
             Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
@@ -239,7 +239,7 @@ public class OutletTests(ServerFixture fixture)
             HttpStatusCode.Created,
             (await client.PostAsJsonAsync(
                 "/api/outlets",
-                new CreateOutletRequest(Unique("OUT"), "No location", channel.Id, null, null, Zone)))
+                new CreateOutletRequest(Unique("OUT"), "No location", channel.Id, Zone)))
                 .StatusCode);
     }
 
@@ -251,7 +251,7 @@ public class OutletTests(ServerFixture fixture)
         using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
 
         var response = await client.PostAsJsonAsync(
-            "/api/outlets", new CreateOutletRequest(Unique("OUT"), "No Channel", Guid.NewGuid(), null, null, Zone));
+            "/api/outlets", new CreateOutletRequest(Unique("OUT"), "No Channel", Guid.NewGuid(), Zone));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -266,7 +266,7 @@ public class OutletTests(ServerFixture fixture)
         await OutletAsync(client, channel.Id, code);
 
         var duplicate = await client.PostAsJsonAsync(
-            "/api/outlets", new CreateOutletRequest(code, "Same code", channel.Id, null, null, Zone));
+            "/api/outlets", new CreateOutletRequest(code, "Same code", channel.Id, Zone));
 
         Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
 
@@ -274,7 +274,7 @@ public class OutletTests(ServerFixture fixture)
         // over lower(Code), so it holds against a concurrent write and not only against this check.
         var recased = await client.PostAsJsonAsync(
             "/api/outlets",
-            new CreateOutletRequest(code.ToLowerInvariant(), "Same code, quieter", channel.Id, null, null, Zone));
+            new CreateOutletRequest(code.ToLowerInvariant(), "Same code, quieter", channel.Id, Zone));
 
         Assert.Equal(HttpStatusCode.Conflict, recased.StatusCode);
     }
@@ -291,7 +291,7 @@ public class OutletTests(ServerFixture fixture)
         var outlet = await OutletAsync(client, channel.Id);
 
         var response = await client.PutAsJsonAsync(
-            $"/api/outlets/{outlet.Id}", new UpdateOutletRequest("Renamed", channel.Id, "B", null, Zone));
+            $"/api/outlets/{outlet.Id}", new UpdateOutletRequest("Renamed", channel.Id, Zone, "B"));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
@@ -346,7 +346,7 @@ public class OutletTests(ServerFixture fixture)
 
         // …then an ordinary edit, which is what used to destroy the record of the closure.
         await client.PutAsJsonAsync(
-            $"/api/outlets/{outlet.Id}", new UpdateOutletRequest("Renamed after closing", channel.Id, null, null, Zone));
+            $"/api/outlets/{outlet.Id}", new UpdateOutletRequest("Renamed after closing", channel.Id, Zone));
 
         var history = await client.GetFromJsonAsync<List<OutletStatusChangeResponse>>(
             $"/api/outlets/{outlet.Id}/status-history");
@@ -610,7 +610,7 @@ public class OutletTests(ServerFixture fixture)
         Assert.Equal(
             HttpStatusCode.Forbidden,
             (await rep.PostAsJsonAsync(
-                "/api/outlets", new CreateOutletRequest("X", "Nope", Guid.NewGuid(), null, null, Zone))).StatusCode);
+                "/api/outlets", new CreateOutletRequest("X", "Nope", Guid.NewGuid(), Zone))).StatusCode);
     }
 
     [Fact]
@@ -628,12 +628,12 @@ public class OutletTests(ServerFixture fixture)
         // `rep-b` deliberately holds outlet:write, so this is 404 from the query filter rather than
         // 403 from the permission check — otherwise the assertion proves nothing.
         var byId = await tenantB.PutAsJsonAsync(
-            $"/api/outlets/{mine.Id}", new UpdateOutletRequest("Hijacked", channel.Id, null, null, Zone));
+            $"/api/outlets/{mine.Id}", new UpdateOutletRequest("Hijacked", channel.Id, Zone));
         Assert.Equal(HttpStatusCode.NotFound, byId.StatusCode);
 
         // A's channel is not B's either, so B cannot even classify against it.
         var stolenChannel = await tenantB.PostAsJsonAsync(
-            "/api/outlets", new CreateOutletRequest("B-1", "Theirs", channel.Id, null, null, Zone));
+            "/api/outlets", new CreateOutletRequest("B-1", "Theirs", channel.Id, Zone));
         Assert.Equal(HttpStatusCode.BadRequest, stolenChannel.StatusCode);
     }
 }
