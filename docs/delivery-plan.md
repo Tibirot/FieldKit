@@ -477,6 +477,16 @@ the [registry](architecture/10-module-boundaries.md#7-module-registry) since W1 
 because until now no module asked. The generator is its first real caller, so it gets designed against
 the generator and nothing else.
 
+> **Slice 4 shipped the publish half and left `IJourneyQuery` where its consumer is.** The row below
+> assigns both to it, on the reasoning that Visit consumes the contract *inside this week* — but when
+> slice 4 was built Visit still did not exist, and designing the interface then would have been the
+> guess this plan spends the next paragraph warning against. `JourneyPublished` shipped anyway, and
+> the split is the useful distinction: **an event is a statement about something that happened and is
+> true whether or not anyone is listening** (`PriceListPublished` has been emitted into an empty room
+> since W6), while **an interface is a promise to a caller**, and a promise made before the caller
+> arrives is one they have to live with. `IJourneyQuery` lands with slice 7, shaped by what Visit
+> asks for.
+
 **Journey gets a `.Contracts` assembly; Visit does not, yet.** Visit consumes `IJourneyQuery`, so
 Journey has a real cross-module consumer inside this week and splits accordingly. Visit's own
 contracts — `IVisitContext`, `IVisitQuery` — are consumed by Audit and Order, which are Phase 3. They

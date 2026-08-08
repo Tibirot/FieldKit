@@ -16,6 +16,12 @@
       the same check a rep assignment makes, and for the same reason: a user id is a bare string.
     -->
     <ProjectReference Include="..\FieldKit.Modules.Iam.Contracts\FieldKit.Modules.Iam.Contracts.csproj" />
+    <!--
+      And Organization, for which outlets a rep covers — `IRepScope`, built in W7 slice 0 against
+      this module as its only caller. BR-JRN-1 plans for the rep's active territory, and only
+      Organization knows what that is.
+    -->
+    <ProjectReference Include="..\FieldKit.Modules.Org.Contracts\FieldKit.Modules.Org.Contracts.csproj" />
   </ItemGroup>
 
   <!--

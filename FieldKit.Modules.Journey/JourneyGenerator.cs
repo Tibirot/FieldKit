@@ -36,8 +36,16 @@ public sealed record ExcludedOutlet(Guid OutletId, ExclusionReason Reason);
 /// </remarks>
 public sealed record Shortfall(Guid OutletId, int Required, int Planned);
 
-/// <summary>One call, on one day.</summary>
-public sealed record PlannedVisit(DateOnly Date, Guid OutletId);
+/// <summary>
+/// One call, on one day, as generation produced it.
+/// </summary>
+/// <remarks>
+/// Distinct from <see cref="PlannedVisit"/>, which is the same call once it has been stored on a
+/// plan. The names are worth keeping apart: this one is the output of a pure function and has no
+/// identity, and confusing the two is how a domain entity ends up in a signature that promised to
+/// be side-effect-free.
+/// </remarks>
+public sealed record GeneratedVisit(DateOnly Date, Guid OutletId);
 
 /// <summary>What generation was asked for.</summary>
 /// <param name="From">First day of the window, inclusive.</param>
@@ -54,7 +62,7 @@ public sealed record GenerationRequest(
 
 /// <summary>A plan, and everything it could not do.</summary>
 public sealed record GeneratedPlan(
-    IReadOnlyList<PlannedVisit> Visits,
+    IReadOnlyList<GeneratedVisit> Visits,
     IReadOnlyList<ExcludedOutlet> Excluded,
     IReadOnlyList<Shortfall> Shortfalls);
 
@@ -174,7 +182,7 @@ public static class JourneyGenerator
         var codes = request.Outlets.ToDictionary(outlet => outlet.OutletId, outlet => outlet.Code);
 
         var visits = placed
-            .SelectMany(entry => entry.Value.Select(date => new PlannedVisit(date, entry.Key)))
+            .SelectMany(entry => entry.Value.Select(date => new GeneratedVisit(date, entry.Key)))
             .OrderBy(visit => visit.Date)
             .ThenBy(visit => codes[visit.OutletId], StringComparer.Ordinal)
             .ToList();

@@ -59,12 +59,14 @@ public sealed class JourneyModule : IModule
         // Internal to the module: their only caller is generation, which lives here too.
         services.AddScoped<FrequencyResolver>();
         services.AddScoped<CalendarReader>();
+        services.AddScoped<JourneyPlanner>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         endpoints.MapFrequencyEndpoints();
         endpoints.MapCalendarEndpoints();
+        endpoints.MapPlanEndpoints();
     }
 }
 
