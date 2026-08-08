@@ -11,6 +11,11 @@
       not have; it knows nothing about how Outlets stores either.
     -->
     <ProjectReference Include="..\FieldKit.Modules.Outlets.Contracts\FieldKit.Modules.Outlets.Contracts.csproj" />
+    <!--
+      Likewise. A working calendar names a rep, and only IAM knows whether this tenant has them —
+      the same check a rep assignment makes, and for the same reason: a user id is a bare string.
+    -->
+    <ProjectReference Include="..\FieldKit.Modules.Iam.Contracts\FieldKit.Modules.Iam.Contracts.csproj" />
   </ItemGroup>
 
   <!--

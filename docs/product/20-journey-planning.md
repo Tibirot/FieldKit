@@ -25,6 +25,24 @@ in-store work. (Not a route optimizer — sequencing is by simple rules, not VRP
 - **Call frequency** — how often an outlet should be visited: *visits per cycle* over a **cycle
   length** (e.g. 1×/week). May derive from outlet segment.
 - **Working calendar** — the rep's working days/hours, holidays, capacity (visits/day).
+
+  > **What `JRN-02` actually built, and what it left out.** A calendar is a *weekly pattern* (which
+  > days) plus a *capacity* (how many calls a day holds), and holidays are tenant-wide dates that
+  > subtract from it. Three deliberate omissions:
+  >
+  > - **Hours are not modelled**, though the phrase above says "days/hours". `BR-JRN-3` is written in
+  >   visits per day, so the generator packs a day by count rather than by clock time. Hours would
+  >   only matter to a generator that scheduled appointments, which is `JRN-09` in Phase 3.
+  > - **No per-rep leave.** A holiday is the exception everybody shares. One rep being away is either
+  >   an absence the business tracks elsewhere or `JRN-08`'s rescheduling, and a half-built leave
+  >   calendar a supervisor half-trusts is worse than none. If it lands it lands as its own entity —
+  >   "a day nobody works" and "a day this person does not" resolve differently, and one nullable
+  >   owner would make one query answer two questions.
+  > - **No tenant-wide default calendar**, unlike frequency's segment default. A segment is a
+  >   classification several outlets genuinely share; a calendar default would key on nothing but the
+  >   tenant, which is a fallback rather than a classification. A rep with no calendar is
+  >   *unconfigured* and generation says so, rather than planning against an assumed Monday-to-Friday
+  >   nobody chose.
 - **Journey plan** — the generated schedule mapping outlets → days for a rep over a period.
 - **Journey (day)** — the ordered list of scheduled visits for one rep on one day.
 - **Planned visit** — an entry on a journey (outlet + date + expected). Becomes an actual

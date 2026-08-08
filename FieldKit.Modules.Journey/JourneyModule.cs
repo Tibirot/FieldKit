@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using FieldKit.Infrastructure;
 using FieldKit.Web;
 using Microsoft.AspNetCore.Routing;
@@ -40,11 +41,31 @@ public sealed class JourneyModule : IModule
         services.AddModuleDbContext<JourneyDbContext>(connectionString, JourneyDbContext.SchemaName);
         services.AddHostedService<ModuleMigrator<JourneyDbContext>>();
 
-        // Internal to the module: its only caller is generation, which lives here too.
+        /*
+         * Days of the week travel as their names — ["Monday","Wednesday"] — never as ordinals.
+         *
+         * The same rule every other enum on this API follows, and it matters more here than usual:
+         * `DayOfWeek`'s ordinals start the week on *Sunday*, so a plan built from numbers would be
+         * off by one in a way nobody reading the JSON would question.
+         *
+         * A converter rather than a `[JsonConverter]` attribute on the property, because the
+         * property is a *collection* of enums and the attribute form cannot describe that — it
+         * throws at first use, which is how this was found. Registered by the module rather than in
+         * the host so the rule travels with the code that needs it.
+         */
+        services.ConfigureHttpJsonOptions(options =>
+            options.SerializerOptions.Converters.Add(new JsonStringEnumConverter<DayOfWeek>()));
+
+        // Internal to the module: their only caller is generation, which lives here too.
         services.AddScoped<FrequencyResolver>();
+        services.AddScoped<CalendarReader>();
     }
 
-    public void MapEndpoints(IEndpointRouteBuilder endpoints) => endpoints.MapFrequencyEndpoints();
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapFrequencyEndpoints();
+        endpoints.MapCalendarEndpoints();
+    }
 }
 
 /// <summary>
