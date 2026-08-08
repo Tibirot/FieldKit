@@ -72,7 +72,47 @@ Per [B8](../product/decisions-and-assumptions.md#b8--privacy--gdpr-posture):
 - Validation on all inputs (FluentValidation); custom-field values validated against the
   definition catalog ([ADR-0009](adr/0009-config-driven-customization.md)).
 - Parameterized queries / EF Core (no string SQL); output encoding in React by default.
-- Security headers, CORS locked to known origins, rate limiting on `/sync` and auth paths.
+- CORS locked to known origins, rate limiting on `/sync` and auth paths.
+
+### 6.1 Content-Security-Policy
+
+Every document response from the front end carries a **strict CSP**
+([`lib/security/csp.ts`](../../frontend/lib/security/csp.ts), served from
+[`proxy.ts`](../../frontend/proxy.ts)), alongside `X-Content-Type-Options: nosniff` and
+`Referrer-Policy: strict-origin-when-cross-origin`.
+
+**It is the control the token decision rests on.** Authorization code + PKCE puts an access token in
+the browser ([ADR-0008](adr/0008-identity-and-multi-tenancy.md)) so the field app can refresh after
+going offline mid-shift; the trade is that an XSS on this origin reaches those tokens. A CSP is what
+makes injected script hard to execute in the first place.
+
+> **This section is here because the claim came first.** `lib/auth/oidc.ts` justified keeping tokens
+> in the browser partly on the grounds that the app "ships a strict CSP", and no CSP was ever sent —
+> found by an audit reading the code against the docs. A security control that exists only in the
+> prose justifying something else is the worst state for one to be in.
+
+`script-src` is `'self'` + a **per-request nonce** + `'strict-dynamic'` — never `'unsafe-inline'`,
+which would allow exactly the injected script the tokens need protecting from. `style-src` does
+allow `'unsafe-inline'`: Next injects critical CSS inline and does not nonce it, and injected style
+cannot execute. `connect-src` names this origin and Keycloak's — the API is same-origin, proxied
+under `/api/` — so it also bounds where a successful injection could send anything.
+
+**The cost is that the app renders per request.** A nonce must be fresh per response, and a
+prerendered document carries the nonce it was built with; with static rendering the header and the
+HTML disagree on every request and every script is refused. Measured, not assumed: a static build
+serves **zero** `nonce=` attributes against a header that has one. So the locale layout sets
+`dynamic = "force-dynamic"`. That is cheap here — these pages are shells that fetch their data in
+the browser after hydrating — and it is the reason to revisit this if a genuinely static, cacheable
+page ever matters more than the policy.
+
+Development relaxes two things and only two: `'unsafe-eval'` and `ws:`, because the dev server
+compiles with `eval` and talks over a websocket. Both are asserted absent from the production
+policy ([`csp.test.ts`](../../frontend/lib/security/csp.test.ts)).
+
+Not covered, deliberately: `/api/*` and static assets are outside the proxy's matcher — a CSP
+governs documents, and the API serves JSON. **HSTS is not set yet**; it belongs with the TLS
+termination that comes with real deployment, and setting it from the app in a dev environment served
+over plain HTTP would be a header nobody could act on.
 - Secrets via Aspire/user-secrets in dev and the platform secret store in prod — never in source.
 - **Dependency auditing:** `NuGetAudit` runs on every restore (transitive included) and CI surfaces
   advisories; known transitive CVEs are pinned to patched versions with a comment citing the GHSA.

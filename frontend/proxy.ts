@@ -1,6 +1,8 @@
 import createMiddleware from "next-intl/middleware";
+import { NextRequest } from "next/server";
 
 import { routing } from "./i18n/routing";
+import { contentSecurityPolicy, newNonce, originOf } from "./lib/security/csp";
 
 /**
  * Negotiates the locale (URL prefix → `NEXT_LOCALE` cookie → `Accept-Language` → default) and
@@ -9,7 +11,54 @@ import { routing } from "./i18n/routing";
  * `proxy.ts` is Next 16's replacement for the deprecated `middleware.ts` convention — same
  * contract, new file name.
  */
-export default createMiddleware(routing);
+const negotiateLocale = createMiddleware(routing);
+
+/**
+ * Aspire's service-discovery keys for Keycloak, mirroring `lib/auth/settings.ts`.
+ *
+ * Read here as well as there because the two need it for different reasons and at different times:
+ * that one hands the browser an address to talk to, this one names the address the browser is
+ * *allowed* to talk to. Keeping them in step matters — a CSP that omits Keycloak breaks sign-in with
+ * a console error and no message on screen.
+ */
+const KEYCLOAK_KEYS = ["services__keycloak__https__0", "services__keycloak__http__0"];
+
+function keycloakOrigin(): string | null {
+  return originOf(KEYCLOAK_KEYS.map((key) => process.env[key]).find(Boolean) ?? process.env.KEYCLOAK_URL);
+}
+
+/**
+ * Locale negotiation, plus the security headers every document response carries.
+ *
+ * The CSP is set on the **request** headers as well as the response. That is not belt-and-braces:
+ * it is how Next.js learns the nonce. It reads the policy off the incoming request, extracts the
+ * nonce, and stamps it onto the script tags it renders itself — without this, its own bootstrap is
+ * refused by the very policy this sets and the page renders blank.
+ */
+export default function proxy(request: NextRequest) {
+  const nonce = newNonce();
+  const policy = contentSecurityPolicy({
+    nonce,
+    keycloak: keycloakOrigin(),
+    development: process.env.NODE_ENV !== "production",
+  });
+
+  const headers = new Headers(request.headers);
+  headers.set("content-security-policy", policy);
+  headers.set("x-nonce", nonce);
+
+  const response = negotiateLocale(new NextRequest(request, { headers }));
+
+  response.headers.set("content-security-policy", policy);
+
+  // Not part of the CSP, and cheap. `nosniff` stops a response being executed as a type it did not
+  // declare; the referrer policy keeps a full URL — which for this app can name a territory or an
+  // outlet — from leaving with an outbound request.
+  response.headers.set("x-content-type-options", "nosniff");
+  response.headers.set("referrer-policy", "strict-origin-when-cross-origin");
+
+  return response;
+}
 
 export const config = {
   // Everything except API routes, Next internals, and files with an extension (static assets,

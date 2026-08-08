@@ -8,8 +8,13 @@ import { realmForWorkspace } from "./workspace";
  * The tokens live in the browser rather than behind a server session on purpose: the field app has
  * to tolerate going offline mid-shift and refresh on reconnect ([IAM §7]), which a server-side
  * cookie session cannot do once the server is unreachable. That is a deliberate trade — an XSS on
- * this origin reaches the tokens — and it is why the app ships a strict CSP and why no third-party
- * script is loaded into it.
+ * this origin reaches the tokens — and it is why the app ships a strict CSP (`lib/security/csp.ts`,
+ * served from `proxy.ts`) and why no third-party script is loaded into it.
+ *
+ * **This paragraph was false until the CSP was written**, which is worth leaving on the record: the
+ * sentence justifying the trade named a control that did not exist, so the reasoning had already
+ * been accepted on the strength of it. If the policy is ever weakened, this is the comment that has
+ * to change with it.
  *
  * [IAM §7]: docs/product/10-identity-and-access.md#7-offline-behavior
  */
