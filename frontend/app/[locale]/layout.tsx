@@ -18,10 +18,26 @@ type LocaleLayoutProps = Readonly<{
   params: Promise<{ locale: string }>;
 }>;
 
-/** Pre-render every locale at build time instead of on first request. */
+/** Which locales exist. Still enumerated so every locale's metadata and routes are known. */
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
+
+/**
+ * Rendered per request, which is the price of the Content-Security-Policy.
+ *
+ * The policy nonces Next's own inline bootstrap, and a nonce has to be fresh per response or it is
+ * not a nonce. A prerendered document carries whatever nonce existed at build time — so with static
+ * rendering the header and the HTML disagree on every request, every script is refused, and the app
+ * renders a blank page. That is not a theory: it is what the first version of this change did, and
+ * the console said so 25 times.
+ *
+ * The cost is small *here* specifically. These pages are shells — every one of them fetches its data
+ * from the API in the browser after hydrating, so prerendering was saving a render of markup that
+ * contains no data, not a round trip. Offline still works: the service worker caches the document
+ * together with its response headers, so a cached page keeps the nonce it was served with.
+ */
+export const dynamic = "force-dynamic";
 
 /**
  * `theme_color` in the manifest is the brand teal — it tints the splash screen and the task
