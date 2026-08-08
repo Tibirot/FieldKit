@@ -143,3 +143,54 @@ export const targetsKey = (subject: string, id: string) =>
 export function carriesItsOwnValue(type: PromotionType): boolean {
   return type === "PercentOff" || type === "FixedAmountOff";
 }
+
+// ── The thresholds a tiered promotion discounts by ─────────────────────────────────────────────
+
+/**
+ * One threshold: buy this many, get this off (`PRD-05`).
+ *
+ * `currency` is set on an amount tier and null on a percentage one — the same pairing a flat
+ * promotion's value obeys. A promotion's tiers are all one or all the other; see `SetPromotionTiers`.
+ */
+export type PromotionTier = { minQuantity: number; value: string; currency: string | null };
+
+/**
+ * Every threshold of a tiered promotion. A PUT replaces the set.
+ *
+ * **An empty set is a real state**, not a refusal: the promotion then discounts nothing, exactly as
+ * an untargeted promotion or an unassigned price list does.
+ */
+export type SetPromotionTiers = { tiers: PromotionTier[] };
+
+export function fetchTiers(
+  accessToken: string,
+  id: string,
+  signal?: AbortSignal,
+): Promise<PromotionTier[]> {
+  return apiGet<PromotionTier[]>(`/api/products/promotions/${id}/tiers`, accessToken, signal);
+}
+
+export function setTiers(
+  accessToken: string,
+  id: string,
+  tiers: readonly PromotionTier[],
+): Promise<PromotionTier[]> {
+  return apiSend<PromotionTier[]>(
+    "PUT",
+    `/api/products/promotions/${id}/tiers`,
+    accessToken,
+    { tiers },
+  );
+}
+
+export const tiersKey = (subject: string, id: string) =>
+  ["promotions", subject, id, "tiers"] as const;
+
+/**
+ * The smallest threshold a tier may start at.
+ *
+ * A tier at 1 is "buy one or more", which is every line that matched at all — a flat discount
+ * wearing a tier's clothes, and one that would silently shadow the `PercentOff` type it duplicates.
+ * The API refuses it; stating the number here lets the form say so before the round trip.
+ */
+export const SMALLEST_TIER = 2;
