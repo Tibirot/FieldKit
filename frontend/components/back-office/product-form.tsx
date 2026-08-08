@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
-import { useForm, type FieldPath as RhfFieldPath } from "react-hook-form";
+import { useForm, type FieldErrors, type FieldPath as RhfFieldPath } from "react-hook-form";
 import { z } from "zod";
 
 import { useAuth } from "@/components/auth-provider";
@@ -269,7 +269,27 @@ export function ProductForm({
     return field in form.getValues() ? (field as FieldPath) : undefined;
   }
 
-  const errors = form.formState.errors;
+  /**
+   * The form's errors, rebuilt into a new object every render.
+   *
+   * The same line every other form in this directory carries, and this was the one that missed it —
+   * so a server refusal reached the component and never reached the screen. `setError` writes into
+   * the `formState.errors` object that already exists, and the React Compiler (`reactCompiler: true`)
+   * memoises the markup below on that object's identity: the component re-renders, reads the same
+   * reference, and reuses the inputs it rendered last time — no message, no `aria-invalid`.
+   * Client-side errors escape it because the resolver returns a fresh object each run, which is why
+   * the form looks fine until the API is the one refusing.
+   *
+   * No component test can catch this: vitest transforms with esbuild and never runs the compiler
+   * (see frontend-toolchain.md), so the spread is invisible to the suite either way. It is here
+   * because the same bug was found on screen in outlet-form, and this file was written from the
+   * version that predates that fix.
+   */
+  // Not cast to `FieldErrors` the way the other forms do it: this one reads its own fields by name,
+  // and widening here makes `errors.sku?.message` a `FieldError` rather than a string. The cast
+  // belongs at the one place that needs it — `CustomFields`, which addresses tenant-defined paths
+  // this type cannot know about.
+  const errors = { ...form.formState.errors };
   const categoryOptions = useMemo(() => withAncestry(categories.data ?? []), [categories.data]);
 
   const onSubmit = form.handleSubmit((values) => {
@@ -425,7 +445,7 @@ export function ProductForm({
       <CustomFields
         definitions={definitions.data ?? []}
         control={form.control as never}
-        errors={errors}
+        errors={errors as FieldErrors}
       />
 
       {refused.length > 0 ? (
