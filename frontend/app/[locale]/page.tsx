@@ -19,6 +19,18 @@ import { routing } from "@/i18n/routing";
  * Stand-in figures until the real modules land — enough to prove that money, quantities and
  * timestamps are formatted by the locale rather than hard-coded. A fixed instant (not `new Date()`)
  * keeps the page deterministic: no hydration mismatch, no snapshot churn.
+ *
+ * **`price` is a `number`, and that is not a `BR-PRD-8` violation — but it is one line away from
+ * looking like the sanctioned way to render money.** The rule governs amounts that *came from the
+ * API*: the server emits `{ amount: "12.50", currency }` with the amount as a string precisely so
+ * that `JSON.parse` never makes an IEEE-754 double of a value the pricing engine will compute with.
+ * Nothing here came from the API and nothing computes with it — it is a literal in a marketing card
+ * whose entire subject is `Intl` formatting.
+ *
+ * The real back office does the opposite, and deliberately: it holds every amount as a string from
+ * the input to the wire and renders it verbatim beside its currency code, never through
+ * `format.number`. If you are looking for the pattern to copy, copy that one — see
+ * [`price-list-prices.tsx`](../../components/back-office/price-list-prices.tsx).
  */
 const SAMPLE = {
   price: 1249.5,

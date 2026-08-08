@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthContextValue } from "@/components/auth-provider";
 import { OutletForm } from "@/components/back-office/outlet-form";
 import { ApiError } from "@/lib/api/client";
+import { fetchIdentity } from "@/lib/api/identity";
 import type { OutletDetail } from "@/lib/api/outlets";
 import { render } from "@/test/render";
 
@@ -66,6 +67,14 @@ describe("<OutletForm>", () => {
     updateOutlet.mockReset().mockResolvedValue(OUTLET);
     fetchChannels.mockReset().mockResolvedValue([{ id: "019f-c", name: "Modern Trade" }]);
     fetchFieldDefinitions.mockReset().mockResolvedValue([]);
+
+    // Restated per test, because the form now gates on `outlet:write` and the one test that narrows
+    // the caller would otherwise leave every test after it looking at a read-only form.
+    vi.mocked(fetchIdentity).mockResolvedValue({
+      subject: "subject-a",
+      tenant: "fieldkit-dev",
+      permissions: ["outlet:read", "outlet:write", "channel:read", "config:read"],
+    });
 
     auth.current = {
       status: "authenticated",
@@ -134,7 +143,7 @@ describe("<OutletForm>", () => {
     await userEvent.type(screen.getByLabelText(/outlet name/i), "Corner Shop");
     await userEvent.selectOptions(screen.getByLabelText(/channel/i), "019f-c");
     await userEvent.selectOptions(screen.getByLabelText(/time zone/i), "Europe/Bucharest");
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(createOutlet).toHaveBeenCalled());
 
@@ -160,7 +169,7 @@ describe("<OutletForm>", () => {
     await userEvent.selectOptions(screen.getByLabelText(/channel/i), "019f-c");
     await userEvent.selectOptions(screen.getByLabelText(/time zone/i), "Europe/Bucharest");
     await userEvent.type(screen.getByLabelText(/latitude/i), "44.4682");
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(createOutlet).toHaveBeenCalled());
     expect(sent(createOutlet).location).toBeNull();
@@ -201,7 +210,7 @@ describe("<OutletForm>", () => {
     expect((chillers as HTMLInputElement).value).toBe("");
 
     await userEvent.type(chillers, "7");
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(updateOutlet).toHaveBeenCalled());
     expect(sent(updateOutlet).customFields).toEqual({ chillers: 7 });
@@ -213,7 +222,12 @@ describe("<OutletForm>", () => {
     await userEvent.type(screen.getByLabelText(/outlet name/i), "Corner Shop");
     await userEvent.selectOptions(screen.getByLabelText(/channel/i), "019f-c");
     await userEvent.selectOptions(screen.getByLabelText(/time zone/i), "Europe/Bucharest");
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    // `findBy`, not `getBy`. The form gates Save on `outlet:write`, and `usePermissions` counts a
+    // pending answer as denied — so Save is genuinely absent for the tick before the identity query
+    // lands. A `getBy` here would fail on a form that is about to work, and a test that clicked
+    // nothing would pass by asserting nothing.
+    await userEvent.click(await screen.findByRole("button", { name: "Save" }));
   }
 
   it("puts a refusal the server attributed under the control it is about", async () => {
@@ -248,6 +262,49 @@ describe("<OutletForm>", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("outlet allowance");
+  });
+
+  it("says something when the API refuses without saying why", async () => {
+    // The regression. A 403, a 404, or a 500 with no body all arrive as `ApiError` with an empty
+    // `problems`, so the loop that routes problems to controls ran zero times and the fallback sat
+    // on the branch above it — the screen went completely silent and a Save button looked broken.
+    // Found by clicking Save as a reader with `outlet:read` and watching nothing happen.
+    createOutlet.mockRejectedValue(new ApiError(403));
+
+    render(<OutletForm />);
+    await waitFor(() => expect(fetchChannels).toHaveBeenCalled());
+    await submitValid();
+
+    expect((await screen.findByRole("alert")).textContent).toBeTruthy();
+  });
+
+  it("offers no way to save to a caller who may only read outlets", async () => {
+    // Every Products screen gates its own writes on `product:write`; this one gated nothing, so a
+    // reader got a filled-in form and a Save that always 403s. The server was refusing correctly
+    // throughout — what was missing was the screen admitting it before the round trip.
+    vi.mocked(fetchIdentity).mockResolvedValue({
+      subject: "subject-a",
+      tenant: "fieldkit-dev",
+      permissions: ["outlet:read", "channel:read", "config:read"],
+    });
+
+    render(<OutletForm />);
+
+    expect(await screen.findByText(/do not have permission to change outlets/i)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Save$/ })).toBeNull();
+
+    // Hiding Save is not enough on its own. A form that accepts an hour of edits and then offers
+    // nowhere to put them is a worse lie than one that refuses on save — so every control goes
+    // down with it, including the contacts rows and the tenant's own custom fields.
+    // `matches(":disabled")`, not `.disabled`. The property reflects the element's own attribute,
+    // and these controls do not have one — they are disabled by the `fieldset` around them, which
+    // only the pseudo-class sees. Asserting `.disabled` here passed as `false` on a form that was
+    // genuinely dead.
+    await waitFor(() =>
+      expect(screen.getByLabelText(/outlet name/i).matches(":disabled")).toBe(true),
+    );
+    expect(screen.getByLabelText(/channel/i).matches(":disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: /add contact/i }).matches(":disabled")).toBe(true);
   });
 
   it("attaches a custom-field refusal despite the API nesting it differently", async () => {
@@ -310,7 +367,7 @@ describe("<OutletForm>", () => {
 
     await userEvent.clear(screen.getByLabelText(/outlet name/i));
     await userEvent.type(screen.getByLabelText(/outlet name/i), "Renamed Market");
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(updateOutlet).toHaveBeenCalled());
 
@@ -329,7 +386,7 @@ describe("<OutletForm>", () => {
     const names = screen.getAllByLabelText(/^name/i);
     await userEvent.type(names[names.length - 1], "Carmen Dinu");
 
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Save" }));
     await waitFor(() => expect(updateOutlet).toHaveBeenCalled());
 
     expect(sent(updateOutlet).contacts).toEqual([
@@ -344,7 +401,7 @@ describe("<OutletForm>", () => {
     render(<OutletForm outlet={OUTLET} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Add contact" }));
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Save" }));
 
     const names = screen.getAllByLabelText(/^name/i);
     const message = await screen.findByText("This field is required.");
@@ -364,7 +421,7 @@ describe("<OutletForm>", () => {
     );
 
     render(<OutletForm outlet={OUTLET} />);
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Save" }));
 
     const message = await screen.findByText(/not an email address/);
 
@@ -380,7 +437,7 @@ describe("<OutletForm>", () => {
     );
 
     render(<OutletForm outlet={OUTLET} />);
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Save" }));
 
     expect((await screen.findByRole("alert")).textContent).toContain("A contact needs a name.");
   });
@@ -395,7 +452,7 @@ describe("<OutletForm>", () => {
 
     expect((screen.getByLabelText(/time zone/i) as HTMLSelectElement).value).toBe("UTC");
 
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Save" }));
     await waitFor(() => expect(updateOutlet).toHaveBeenCalled());
 
     expect(sent(updateOutlet).timeZoneId).toBe("UTC");
@@ -405,7 +462,7 @@ describe("<OutletForm>", () => {
 
     render(<OutletForm outlet={OUTLET} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(push).toHaveBeenCalledWith("/outlets/019f-1"));
   });

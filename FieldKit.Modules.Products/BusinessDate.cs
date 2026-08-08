@@ -9,8 +9,8 @@ namespace FieldKit.Modules.Products;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Always a parameter, never a clock read</b>, and both resolution endpoints refuse a request
-/// without one. Two reasons, and they are the same two for prices and promotions:
+/// <b>Always a parameter, never a clock read</b>, and all three resolution endpoints refuse a
+/// request without one. Two reasons, and they are the same two for prices, promotions and tax:
 /// </para>
 /// <para>
 /// A default would mean the <i>server's</i> today, and an outlet in Bucharest changes day six hours

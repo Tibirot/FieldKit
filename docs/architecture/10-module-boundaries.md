@@ -36,8 +36,11 @@ FieldKit.Modules.Orders/
 
 1. **One assembly (project) per module.** Boundaries are assembly boundaries — the strongest
    enforcement .NET gives, and what architecture tests inspect.
-2. **`Contracts/` is the public API.** Types outside `Contracts/` are `internal` — physically
-   unreferenceable from other modules.
+2. **`Contracts/` is the public API.** Types outside `Contracts/` should be `internal` — physically
+   unreferenceable from other modules. This is the intent, and it is **not** what AT-2 checks:
+   [§5](#5-enforcement--architecture-tests) enforces the narrower rule that contract
+   *implementations* are internal, and several modules have public types that would fail the broader
+   one. AT-1 is what actually makes the boundary hold, because it is an assembly-reference check.
 3. **Contracts expose behavior and DTOs, never domain entities.** An aggregate (`Order`) never
    leaves its module; a `OrderSummaryDto` does. Prevents another module binding to your internals.
 4. **Own schema, own `DbContext`** (`order` schema, [ADR-0005](adr/0005-postgres-schema-per-module.md)).
@@ -142,7 +145,7 @@ Boundaries that rely on goodwill rot. FieldKit encodes them as **executable test
 | # | Rule | Intent |
 |---|---|---|
 | AT-1 | No module implementation assembly may reference another module's **implementation** assembly (only its `.Contracts`). | The core boundary. |
-| AT-2 | Types outside a module's `Contracts` namespace are `internal`. | Contracts are the only public surface. |
+| AT-2 | A module's **contract implementations** are `internal` — nothing outside can bind to a concrete one. | Contracts are the only public surface. |
 | AT-3 | No type in `Contracts` exposes a `Domain` type (return/param). | Entities never leak. |
 | AT-4 | `BuildingBlocks`/`SharedKernel` reference **no** module. | Dependencies point inward. |
 | AT-5 | Each module's `DbContext` maps only its own schema. | Data isolation ([ADR-0005](adr/0005-postgres-schema-per-module.md)). |
@@ -152,10 +155,27 @@ Boundaries that rely on goodwill rot. FieldKit encodes them as **executable test
 | AT-9 | No `IgnoreQueryFilters` or `ExecuteSqlRaw` in production code. | The tenant filter is the isolation guarantee ([ADR-0008](adr/0008-authentication-and-multitenancy.md), BR-IAM-1). |
 | AT-10 | The graph of **contract implementations depending on other modules' contracts** is acyclic. | Two modules may reference each other's contracts; their *implementations* may not call in a circle. |
 
-**Two enforcement mechanisms, not one.** AT-1…AT-6, AT-8 and AT-10 are *tests* — they inspect assemblies,
-so they need the assemblies to exist. **AT-7 and AT-9 are compile-time**, via the banned-API
-analyzer: banning a symbol outright is stronger than asserting nobody used it, because the failure
-lands on the developer who typed it rather than on CI minutes later.
+**Two enforcement mechanisms, and a third category that is neither.**
+
+- ***Tests*** — AT-1, AT-2, AT-3, AT-4, AT-8 and AT-10, in
+  [`FieldKit.ArchitectureTests`](../../FieldKit.ArchitectureTests). They inspect assemblies, so they
+  need the assemblies to exist.
+- ***Compile-time*** — AT-7 and AT-9, via the banned-API analyzer. Banning a symbol outright is
+  stronger than asserting nobody used it, because the failure lands on the developer who typed it
+  rather than on CI minutes later.
+- ***Neither, yet*** — **AT-5 and AT-6 have no test and no analyzer.** Both hold today by
+  construction: every `DbContext` derives from `ModuleDbContext`, which sets one schema
+  ([ADR-0005](adr/0005-postgres-schema-per-module.md)), and there are no integration-event handlers
+  to register wrongly until Sync (W8). Neither is checked, so both are conventions rather than gates,
+  and AT-6 in particular should get its test with the first handler rather than after.
+
+> **This list said "AT-1…AT-6" until a pre-W7 audit counted the tests.** AT-5 and AT-6 were never
+> written, and AT-2 was written narrower than the rule above it claimed — the test asserts contract
+> *implementations* are internal, not that every type outside `Contracts` is. The rule has been
+> narrowed to what is enforced rather than the enforcement being described as wider than it is; the
+> broader ambition is real but is not a gate, and Products has ~60 public types that would fail it.
+> A registry that overstates its surface is the failure this document was already corrected for once
+> — the same applies to a gate list.
 
 Both are wired in [`Directory.Build.props`](../../Directory.Build.props), so a new module inherits
 them at creation instead of when someone remembers to copy a `csproj` fragment. `RS0030` is escalated
@@ -207,7 +227,7 @@ the document a module author trusts when deciding what to depend on.
 |---|---|---|---|---|
 | IAM | `…Modules.Iam` (+ `.Contracts`) | `iam` | **`IUserDirectory`**, **`ITenantRegistry`** | `UserDeactivated` |
 | Organization | `…Modules.Org` (+ `.Contracts`) | `org` | **`ITerritoryDirectory`**, `IRepScope`, `IOrgHierarchy` | `RepAssignmentChanged` |
-| Outlets | `…Modules.Outlets` (+ `.Contracts`) | `outlets` | **`IOutletCatalog`**, `IOutletClassification`, `IReferenceChangeFeed`, `IOutletProposalIngest` | `OutletChanged`, `OutletClosed` |
+| Outlets | `…Modules.Outlets` (+ `.Contracts`) | `outlets` | **`IOutletCatalog`**, **`IOutletClassification`**, `IReferenceChangeFeed`, `IOutletProposalIngest` | `OutletChanged`, `OutletClosed` |
 | Products & Pricing | `…Modules.Products` | `products` | `IProductCatalog`, `IAssortmentService`, `IPricingService`, `IReferenceChangeFeed` | `PriceListPublished`, `PromotionActivated` |
 | Configuration | `…Modules.Configuration` (+ `.Contracts`) | `config` | **`IFieldDefinitionCatalog`**, `IVisitWorkflow`, `ISurveyForms`, `IScoreWeights`, `IReferenceChangeFeed` | `ConfigurationPublished` |
 | Journey | `…Modules.Journey` | `journey` | `IJourneyQuery`, `IReferenceChangeFeed`, `IJourneyIngest` | `JourneyPublished`, `PlannedVisitMarkedNotVisited` |

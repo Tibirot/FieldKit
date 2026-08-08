@@ -199,11 +199,18 @@ Rules that make it correct rather than merely present:
 
 ## 8. Representative endpoints (illustrative)
 
+> **Illustrative means the shape, not the route list.** The rows below are real where a module has
+> shipped and sketches where it has not — `/sync/*` in particular is W8's design, not an endpoint.
+> The one thing a sketch may not invent is a **permission string**: those come from
+> `IModule.Permissions` and are checked at startup, so a plausible-looking one here sends a reader
+> looking for something that cannot exist. This table carried `pricing:manage` against a
+> `price-lists/{id}/publish` route until W6 shipped neither.
+
 | Method | Path | Permission | Notes |
 |---|---|---|---|
 | `GET` | `/api/outlets?search=&channelId=&status=&sort=&page=` | `outlet:read` | Back office list; paged envelope |
 | `POST` | `/api/outlets` | `outlet:write` | Create; `201` + Location |
-| `POST` | `/api/products/price-lists/{id}/publish` | `pricing:manage` | Emits `PriceListPublished` |
+| `PUT` | `/api/products/price-lists/{id}/assignments` | `product:write` | Where a list applies; emits `PriceListPublished` |
 | `POST` | `/sync/pull` | authenticated | Reference delta by watermark |
 | `POST` | `/sync/push` | authenticated | Idempotent mutation batch |
 | `POST` | `/sync/photos/presign` | authenticated | Presigned URL for photo upload |

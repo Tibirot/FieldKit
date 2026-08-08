@@ -44,7 +44,7 @@
     "signOut": "Deconectare",
     "signedInAs": "Autentificat în {workspace}.",
     "subjectLabel": "Utilizator",
-    "tenantLabel": "Tenant",
+    "tenantLabel": "Organizație",
     "permissionsLabel": "Permisiuni",
     "apiUnreachable": "Ești autentificat, dar API-ul nu a acceptat token-ul. Poate fi indisponibil."
   },
@@ -64,7 +64,7 @@
     "hint": "Instalează FieldKit pe ecranul principal ca să funcționeze și în zonele fără semnal."
   },
   "Nav": {
-    "label": "Back office",
+    "label": "Navigare back office",
     "brand": "FieldKit",
     "noWorkspace": "fără spațiu de lucru",
     "groups": {
@@ -174,7 +174,8 @@
     "addContact": "Adaugă contact",
     "removeContact": "Șterge",
     "removeContactNumbered": "Șterge contactul {number}",
-    "manageAssortment": "Sortiment"
+    "manageAssortment": "Sortiment",
+    "readOnly": "Nu aveți permisiunea de a modifica punctele de vânzare."
   },
   "Validation": {
     "required": "Acest câmp este obligatoriu.",
@@ -560,7 +561,7 @@
     "summary": "{included, plural, =0 {Niciun produs în acest sortiment} one {# produs} few {# produse} other {# de produse}}, {mustStock, plural, =0 {niciunul obligatoriu} one {# obligatoriu} few {# obligatorii} other {# obligatorii}}.",
     "mustStock": "Obligatoriu",
     "mustStockNamed": "Obligatoriu {name}",
-    "includeNamed": "Include {name}",
+    "includeNamed": "Adaugă {name}",
     "discontinued": "Discontinuat",
     "loading": "Se încarcă…",
     "failed": "Nu s-a putut încărca.",

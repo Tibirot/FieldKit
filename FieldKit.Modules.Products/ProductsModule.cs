@@ -20,9 +20,18 @@ namespace FieldKit.Modules.Products;
 /// of that work rather than during it — see
 /// <c>docs/architecture/10-module-boundaries.md</c> §7.
 /// <para>
-/// What is here today is still that proof and nothing more: a product is an SKU and a name.
-/// Assortments, price lists, promotions and the <c>IProductCatalog</c> / <c>IAssortmentService</c> /
-/// <c>IPricingService</c> contracts arrive in W6 (<c>PRD-*</c>, <c>PRC-*</c>).
+/// It stopped being that proof in W6. The module now owns the catalogue and its classification,
+/// assortments, price lists and prices, promotions with their targets, tiers and scope, tax rates,
+/// and the three resolvers behind <c>PRD-04</c>, <c>PRD-06</c> and <c>PRD-07</c> — spread across the
+/// endpoint files beside this one.
+/// </para>
+/// <para>
+/// <b>The cross-module contracts still do not exist</b>, and that is deliberate rather than
+/// unfinished: <c>IProductCatalog</c>, <c>IAssortmentService</c> and <c>IPricingService</c> are all
+/// consumed by Order, which is Phase 3. W6 built the things they would wrap and found no caller to
+/// design them against, so they wait for one — the discipline
+/// <c>docs/architecture/10-module-boundaries.md</c> §7 applies to every planned contract. Products
+/// is therefore still a single assembly with no <c>.Contracts</c>.
 /// </para>
 /// </remarks>
 public sealed class ProductsModule : IModule

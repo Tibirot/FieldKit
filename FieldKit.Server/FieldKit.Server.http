@@ -110,6 +110,16 @@ Authorization: Bearer {{token.response.body.access_token}}
   "name": "VERIDIAN"
 }
 
+### Products — rename a brand. Requires `product:write`. The id survives, so every product filed
+### under it stays filed: a rename corrects a label, it does not reclassify anything.
+PUT {{Server_HostAddress}}/api/products/brands/{{veridian.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Veridian Beverages"
+}
+
 ### Products — tax classes. The classification only — standard, reduced, zero-rated — because a
 ### class is not a rate. Bottled water is reduced-rate in several European markets and
 ### standard-rated in others, and the percentage moves without the classification moving; folding
@@ -193,6 +203,23 @@ Authorization: Bearer {{token.response.body.access_token}}
 {
   "name": "   "
 }
+
+### Products — rename a tax class. Requires `product:write`. The rates hang off the id, so renaming
+### "Reduced" to "Reduced rate" leaves every percentage and window exactly where it was.
+PUT {{Server_HostAddress}}/api/products/tax-classes/{{reduced.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Reduced rate"
+}
+
+### Products — delete a tax class. Requires `product:write`. Refused with 409
+### `product.taxClass.inUse` while any product is taxed as it, and the message names how many and
+### what to do — "3 product(s) are taxed as 'Reduced rate'. Reclassify them first." is an
+### instruction; "could not delete" is not.
+DELETE {{Server_HostAddress}}/api/products/tax-classes/{{reduced.response.body.id}}
+Authorization: Bearer {{token.response.body.access_token}}
 
 ### Products — list products. Requires `product:read`.
 GET {{Server_HostAddress}}/api/products
@@ -361,6 +388,39 @@ Authorization: Bearer {{token.response.body.access_token}}
   "validFrom": "2026-06-01",
   "validTo": "2026-09-01",
   "priority": 100
+}
+
+### Products — re-value, re-date and re-prioritise a promotion. Requires `product:write`.
+### **No `type` and no `currency`**: the server reads both off the stored row. Re-typing would
+### reinterpret the value — 15 meaning "15% off" becoming 15 meaning "€15 off" — and every order
+### already priced against this rule would then be explained by a rule that no longer exists.
+### Everything else is restated in full, because this is a PUT: a field left out is a field cleared.
+PUT {{Server_HostAddress}}/api/products/promotions/{{percentOff.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Summer 12.5% — still water",
+  "value": "12.5",
+  "validFrom": "2026-06-01",
+  "validTo": "2026-09-01",
+  "priority": 120
+}
+
+### The same PUT with a `value` a percentage cannot take — expect 400
+### `product.promotion.percentOutOfRange`. Zero is refused alongside the negatives: a 0% promotion
+### is not a rule that does nothing, it is a rule that wins a priority contest and *then* does
+### nothing, which is worse than having no rule at all.
+PUT {{Server_HostAddress}}/api/products/promotions/{{percentOff.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Summer 12.5% — still water",
+  "value": "0",
+  "validFrom": "2026-06-01",
+  "validTo": "2026-09-01",
+  "priority": 120
 }
 
 ### A fixed amount off, which carries **its own** currency rather than borrowing a price list's.
@@ -1131,6 +1191,26 @@ Authorization: Bearer {{token.response.body.access_token}}
   "name": "Modern Trade 2026",
   "currency": "EUR",
   "effectiveFrom": "2026-01-01"
+}
+
+### Products — list price lists. Requires `product:read`. Without their prices: authoring a list and
+### pricing several hundred products into one are different sittings, so the index stays small.
+GET {{Server_HostAddress}}/api/products/price-lists
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### Products — rename a list and move its window. Requires `product:write`. **No `currency`** — the
+### API has no parameter for it, because changing it would reinterpret every amount in the list
+### rather than convert one: 12.50 EUR becoming 12.50 RON is not a conversion. A tenant needing the
+### same prices in another currency needs another list, priced for it.
+PUT {{Server_HostAddress}}/api/products/price-lists/{{priceList.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "name": "Modern Trade 2026 (H1)",
+  "effectiveFrom": "2026-01-01",
+  "effectiveTo": "2026-07-01"
 }
 
 ### Set the prices. Amounts are **strings** — `BR-PRD-8`. A JSON number becomes an IEEE-754 float
