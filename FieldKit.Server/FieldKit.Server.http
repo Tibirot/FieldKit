@@ -2481,3 +2481,122 @@ code,name,channel,time_zone
 RO-GRID-3,Corner Shop,Modern Trade,Europe/Bucharest
 
 ###
+
+### ─── Call frequency (JRN-01) ────────────────────────────────────────────────────────────────────
+
+### The default for a segment: A-grade shops are called on weekly. This is the rule an admin writes
+### once instead of four thousand times, which is the whole reason a default exists.
+###
+### PUT keyed by the segment rather than POST, because a segment has at most one frequency — so
+### saving twice has set it once. A second POST would have been a 409 about a row nobody asked to
+### create.
+PUT {{Server_HostAddress}}/api/journey/frequencies/segments/A
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "visitsPerCycle": 1,
+  "cycleLengthDays": 7
+}
+
+### Idempotent, and case-insensitive about which rule it means. "a" edits the rule "A" created
+### rather than making a second one — two rules for one grade would leave resolution with two
+### answers and a plan that changes between runs with nothing having been edited. The stored casing
+### stays whatever created it.
+PUT {{Server_HostAddress}}/api/journey/frequencies/segments/a
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "visitsPerCycle": 2,
+  "cycleLengthDays": 7
+}
+
+### What the tenant has graded.
+GET {{Server_HostAddress}}/api/journey/frequencies/segments
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### The exception: this particular shop is the chain's flagship and is worth four calls a month
+### whatever its grade says. Without a per-outlet answer the only way to say this is to invent a
+### segment for one shop, which corrupts the vocabulary every report groups by.
+PUT {{Server_HostAddress}}/api/journey/frequencies/outlets/{{outlet.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "visitsPerCycle": 4,
+  "cycleLengthDays": 28
+}
+
+### Resolution — the ladder, and the answer generation actually consumes. Expect `source: "Outlet"`
+### for the shop above, because the most specific rule that names it wins (the same shape BR-PRD-2
+### resolves a price with: outlet → channel → default).
+###
+### `source` is returned rather than just the numbers because "why is this shop planned four times a
+### month?" is the question an admin asks, and a number alone cannot answer it.
+GET {{Server_HostAddress}}/api/journey/frequencies/resolve?outletId={{outlet.response.body.id}}
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Removing the exception falls back to the segment rather than to nothing — expect
+### `source: "Segment"` from the same request above. That is the point of a ladder, and it is why
+### this is a delete rather than "set it back to the default by hand".
+DELETE {{Server_HostAddress}}/api/journey/frequencies/outlets/{{outlet.response.body.id}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### An outlet nobody has graded, and nobody has overridden, is **absent** from the answer rather
+### than present with a zero. A gap in configuration and a decision to never visit are different
+### things, and only the first is something a screen should be able to list.
+GET {{Server_HostAddress}}/api/journey/frequencies/resolve?outletId={{customOutlet.response.body.id}}
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Expect 400 `journey.frequency.visitsTooFew`. Zero is refused rather than stored as "never":
+### a rule that plans nothing and no rule at all are the same outcome and different intentions, and
+### the second is already expressible by not having a rule.
+PUT {{Server_HostAddress}}/api/journey/frequencies/segments/Z
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "visitsPerCycle": 0,
+  "cycleLengthDays": 7
+}
+
+### Expect 400 `journey.frequency.cycleOutOfRange`, with the bound in `args`. A cycle longer than
+### the planning horizon is a typo — 3650 for 365 — and it produces a rule that schedules nothing
+### while looking configured.
+PUT {{Server_HostAddress}}/api/journey/frequencies/segments/Z
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "visitsPerCycle": 1,
+  "cycleLengthDays": 3650
+}
+
+### Expect 400 `journey.frequency.unknownOutlet`. The outlet id is not a foreign key — Outlets is
+### another module's schema (AT-1) — so this refusal is the only thing standing between a typo and a
+### rule that resolves against nothing, forever, silently.
+PUT {{Server_HostAddress}}/api/journey/frequencies/outlets/019fffff-ffff-7fff-bfff-ffffffffffff
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "visitsPerCycle": 1,
+  "cycleLengthDays": 7
+}
+
+### Held to journey:write. Expect 403 with the read-only token — setting how often a rep is sent
+### somewhere is a sales-operations decision, and reading the plan is not the same as deciding it.
+PUT {{Server_HostAddress}}/api/journey/frequencies/segments/A
+Content-Type: application/json
+Authorization: Bearer {{viewerToken.response.body.access_token}}
+
+{
+  "visitsPerCycle": 1,
+  "cycleLengthDays": 7
+}
+
+###

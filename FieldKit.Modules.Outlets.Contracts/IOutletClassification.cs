@@ -20,8 +20,21 @@ namespace FieldKit.Modules.Outlets.Contracts;
 /// that rather than assume a default — for tax, guessing a country is guessing a rate.
 /// </para>
 /// </remarks>
+/// <para>
+/// <b><see cref="Segment"/> is the third dimension, and it is the one this record's doc predicted</b>
+/// — "when something does [branch on segment], this grows a property instead of the interface
+/// growing a method". Journey is that something: a call frequency may be set per outlet or derived
+/// from its segment (<c>JRN-01</c>), so the generator has to know which segment a shop is in. It
+/// qualifies on the same test channel and country did — something another module *decides with*,
+/// rather than a detail of the outlet. Banner still does not, and stays off.
+/// </para>
 /// <param name="CountryCode">ISO-3166-1 alpha-2, upper-cased, from the outlet's address.</param>
-public sealed record OutletClassification(Guid OutletId, Guid ChannelId, string? CountryCode);
+/// <param name="Segment">
+/// The tenant's own segmentation label (A, B, C…), or null for a shop nobody has segmented. Free
+/// text on the outlet, so it is compared as the tenant typed it — see <c>SegmentFrequency</c>.
+/// </param>
+public sealed record OutletClassification(
+    Guid OutletId, Guid ChannelId, string? CountryCode, string? Segment);
 
 /// <summary>
 /// The classification other modules make decisions with (<c>OUT-01</c>).

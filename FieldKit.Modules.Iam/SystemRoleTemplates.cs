@@ -54,7 +54,13 @@ public static class SystemRoleTemplates
     [
         // Reads the outlet base and the vocabulary it is classified by, because that is the round
         // they walk. Changes neither.
-        new("Field Rep", ["product:read", "outlet:read", "channel:read", "territory:read", "config:read"]),
+        new("Field Rep",
+        [
+            "product:read", "outlet:read", "channel:read", "territory:read", "config:read",
+            // Reads the plan they are meant to walk. Working it is JRN-05 and lands with the
+            // offline app in W9; reading it is theirs from the moment there is one.
+            "journey:read",
+        ]),
 
         // Reads the hierarchy because a supervisor's job is defined by their branch of it, and reads
         // positions because that is who is in it. Cannot redraw either — both are back-office acts.
@@ -68,6 +74,9 @@ public static class SystemRoleTemplates
             "territory:read",
             // Reads the catalogue because the outlet screens a supervisor looks at render from it.
             "config:read",
+            // Reviews the plans their branch is working, and argues with them. Cannot regenerate
+            // one: that changes what a rep is holding, which is sales ops' act rather than theirs.
+            "journey:read",
             IamPermissions.UserRead,
         ]),
 
@@ -88,6 +97,11 @@ public static class SystemRoleTemplates
             // scope (BR-ORG-3), which is squarely sales ops' job rather than org design's.
             "territory:read",
             "territory:write",
+            // Sets call frequencies and generates plans, per the Journey spec's own role table. The
+            // same reasoning as territory: how often a shop is called on is a sales-operations
+            // decision, and it is the input the whole plan is derived from.
+            "journey:read",
+            "journey:write",
             "config:read",
         ]),
 

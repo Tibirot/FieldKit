@@ -300,6 +300,21 @@ is reachable over HTTP (`GET /api/org/users/{id}/scope`, backed by an internal `
 helper), but the in-process contract Visit is specified to consume has no consumer yet. It lands with
 it, shaped by what it actually asks for.
 
+**Journey arrived in W7 as a single assembly**, and its `.Contracts` is deliberately still absent —
+the same call Organization made until W5 and Products is still making. `IJourneyQuery` is specified
+and its consumer is Visit, which does not exist yet; it lands with the published plan (`JRN-04`),
+shaped by what Visit actually asks for. What Journey does have on day one is a **consumer**
+relationship rather than a provider one: it reads `IOutletClassification` for an outlet's segment and
+`IOutletCatalog` to refuse a rule about a shop this tenant does not have.
+
+> **`IOutletClassification` grew its third dimension the way the second one did.** Call frequency may
+> be set per outlet or derived from segment (`JRN-01`), so Journey is the first module to *decide*
+> with a segment — and the record's own doc had already named this: "Segment and banner are plain
+> strings on the outlet and nothing branches on them yet; when something does, this grows a property
+> instead of the interface growing a method." Adding `Segment` cost existing callers nothing, which
+> is the second time the record shape has paid for itself. Banner still does not qualify, and stays
+> off.
+
 **Outlets grew its `.Contracts` assembly when territories needed it** — `IOutletCatalog`, designed
 against Organization as an actual caller rather than guessed at when the module was created. That is
 the sequencing this note describes working as intended: the interface exposes exactly what a
