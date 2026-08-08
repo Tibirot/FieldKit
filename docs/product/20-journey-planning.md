@@ -97,6 +97,17 @@ server/back-office activity; the rep receives the result.
 - `IJourneyIngest` — apply pushed journey annotations (not-visited reason, unplanned visit,
   reschedule) through this module, used by **Sync** ([§7](#7-offline-behavior)).
 - Consumes `IOutletCatalog`, `ITerritoryDirectory`, `IRepScope`.
+
+> **`IRepScope` was built for this module and answers one day at a time.** `BR-JRN-1` plans only for
+> outlets in the rep's active territory, and "active" is a fact about a *day*: an assignment that
+> ends mid-cycle covers the first half of it and not the second. So the contract takes a date and
+> returns the territory and outlet ids in scope on it, and generation asks per day rather than
+> receiving a period and re-deriving the boundaries itself.
+>
+> **It returns ids, not outlets, and that split is deliberate.** Organization owns who covers what;
+> whether an outlet is *closed* is Outlets' answer, so `BR-JRN-1`'s exclusion of closed outlets is
+> applied by the generator through `IOutletCatalog` rather than silently by a contract filtering on
+> data it does not own.
 - Publishes `JourneyPublished` → Sync; `PlannedVisitMarkedNotVisited` → reporting.
 
 ## 9. Acceptance criteria (sample)

@@ -226,7 +226,7 @@ the document a module author trusts when deciding what to depend on.
 | Module | Assembly | Schema | Key contracts | Publishes |
 |---|---|---|---|---|
 | IAM | `…Modules.Iam` (+ `.Contracts`) | `iam` | **`IUserDirectory`**, **`ITenantRegistry`** | `UserDeactivated` |
-| Organization | `…Modules.Org` (+ `.Contracts`) | `org` | **`ITerritoryDirectory`**, `IRepScope`, `IOrgHierarchy` | `RepAssignmentChanged` |
+| Organization | `…Modules.Org` (+ `.Contracts`) | `org` | **`ITerritoryDirectory`**, **`IRepScope`**, `IOrgHierarchy` | `RepAssignmentChanged` |
 | Outlets | `…Modules.Outlets` (+ `.Contracts`) | `outlets` | **`IOutletCatalog`**, **`IOutletClassification`**, `IReferenceChangeFeed`, `IOutletProposalIngest` | `OutletChanged`, `OutletClosed` |
 | Products & Pricing | `…Modules.Products` | `products` | `IProductCatalog`, `IAssortmentService`, `IPricingService`, `IReferenceChangeFeed` | `PriceListPublished`, `PromotionActivated` |
 | Configuration | `…Modules.Configuration` (+ `.Contracts`) | `config` | **`IFieldDefinitionCatalog`**, `IVisitWorkflow`, `ISurveyForms`, `IScoreWeights`, `IReferenceChangeFeed` | `ConfigurationPublished` |
@@ -283,11 +283,22 @@ migration that drops a schema is a data-loss statement running unattended at sta
 Postgres keeps a data volume, so clear it once, by hand: `DROP SCHEMA catalog CASCADE;`
 **Organization's `.Contracts` assembly arrived with its first real contract**, `ITerritoryDirectory`
 (W5), exactly as planned — it stayed single-assembly until then because an interface designed before
-its consumer is a guess other modules have to live with. `IRepScope` and `IOrgHierarchy` are still
-in that state and still unbuilt: the capability behind them exists and is reachable over HTTP
-(`GET /api/org/users/{id}/scope`, backed by an internal `OrgHierarchy` helper), but the in-process
-contract Journey and Visit are specified to consume has no consumer yet. It lands with them in
-Phase 2, shaped by what they actually ask for.
+its consumer is a guess other modules have to live with.
+
+**`IRepScope` was built in W7 slice 0, and the wait is what shaped it.** Named here since W1 and left
+unbuilt for six weeks, it was finally written against journey generation as its only caller — and the
+generator wanted something narrower than a guess would have produced: ids and no names, a flat outlet
+list rather than one grouped by territory, and **a single day rather than a range**. The day is the
+part that would not have survived a guess. Coverage is a per-day fact — an assignment ending
+mid-cycle covers half of it — so a range would have had to answer "covered *when*?" and hand back
+periods, which is Organization's model leaking into a caller that only wants a list. It is also the
+opposite of the bulk shape `ITerritoryDirectory` took, for a reason that is entirely about its
+caller: that one is handed a page of outlets, this one is asked once per rep per generation run.
+
+`IOrgHierarchy` is still in the original state and still unbuilt: the capability behind it exists and
+is reachable over HTTP (`GET /api/org/users/{id}/scope`, backed by an internal `OrgHierarchy`
+helper), but the in-process contract Visit is specified to consume has no consumer yet. It lands with
+it, shaped by what it actually asks for.
 
 **Outlets grew its `.Contracts` assembly when territories needed it** — `IOutletCatalog`, designed
 against Organization as an actual caller rather than guessed at when the module was created. That is

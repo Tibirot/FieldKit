@@ -39,6 +39,9 @@ public sealed class OrgModule : IModule
 
         // Organization owns which territory covers an outlet; this is how Outlets asks (ORG-05).
         services.AddScoped<ITerritoryDirectory, TerritoryDirectory>();
+
+        // …and which outlets a rep covers on a day, which is how Journey generation asks (ORG-04).
+        services.AddScoped<IRepScope, RepScope>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
