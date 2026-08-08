@@ -61,6 +61,28 @@ in-store work. (Not a route optimizer — sequencing is by simple rules, not VRP
 3. Sequence each day's outlets (by proximity/segment heuristic — not optimization).
 4. Publish → the plan syncs to the rep's device.
 
+> **What `JRN-03` decided, because steps 1 and 2 each hide a choice.**
+>
+> **Step 1 — how a frequency becomes a number for *this* window.** The window's share of a cycle,
+> rounded **half-up**: 28 days at 1×/week owes four calls, 11 days owes two rather than one and a
+> half, and a window shorter than half a cycle owes **nothing**. One formula rather than separate
+> rules for whole and partial cycles, because the special cases are where a rule stops being
+> explainable to whoever is arguing with the plan. Integer arithmetic throughout — a plan that
+> differs by one call depending on how a `double` rounded is the irreproducibility `BR-PRD-9` banned
+> from money for the same reason.
+>
+> **Step 2 — what gives when capacity runs out.** `BR-JRN-3` caps a day, so something has to. Visits
+> are placed **round-robin by visit number**: every outlet gets its first call before any outlet gets
+> its second. Planning outlet-by-outlet would produce the same total shortfall concentrated on
+> whichever shops sorted last — a rule nobody would defend aloud once they saw it happen. A displaced
+> call moves to the nearest working day **either side** of its ideal, not the next one forward, so
+> pressure does not drift every late visit into the end of the window.
+>
+> **What could not be planned is reported, never dropped.** A plan carries the outlets it excluded
+> (closed, per `BR-JRN-5`; or with no frequency at all) and the shortfalls it ran into, with required
+> and planned counts. Without that, a plan 25% short looks exactly like a complete one and the rep is
+> the one who finds out.
+
 ### F3 · Adjust a plan
 - Supervisor/admin can move, add, or drop planned visits; reps can **reschedule within the
   cycle** and add **unplanned** visits.
