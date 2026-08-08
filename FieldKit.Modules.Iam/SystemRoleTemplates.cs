@@ -60,6 +60,10 @@ public static class SystemRoleTemplates
             // Reads the plan they are meant to walk. Working it is JRN-05 and lands with the
             // offline app in W9; reading it is theirs from the moment there is one.
             "journey:read",
+            // …and reports on it: a shop that was shut, a call nobody planned, a day swapped within
+            // the cycle. Deliberately not journey:write — a rep reports on the round they walked,
+            // they do not decide what the round is.
+            "journey:annotate",
         ]),
 
         // Reads the hierarchy because a supervisor's job is defined by their branch of it, and reads
@@ -102,6 +106,9 @@ public static class SystemRoleTemplates
             // decision, and it is the input the whole plan is derived from.
             "journey:read",
             "journey:write",
+            // And can correct a round after the fact — sales ops fields the phone call when a rep
+            // could not get in somewhere and the plan still says otherwise.
+            "journey:annotate",
             "config:read",
         ]),
 

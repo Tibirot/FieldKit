@@ -119,6 +119,19 @@ in-store work. (Not a route optimizer — sequencing is by simple rules, not VRP
   respects it; manual overrides warn).
 - **BR-JRN-4** Rescheduling is allowed **within the cycle**; moving outside the cycle requires
   supervisor action.
+
+  > **"The cycle" is the frequency's, not the plan's window, and each call carries its own
+  > (`JRN-06`).** A 28-day plan at 1×/week holds four cycles, so moving a Monday call to the Wednesday
+  > of the same week is a rep organising their days, while moving it a week on covers the shop twice
+  > in one cycle and not at all in the next — which changes `BR-JRN-6` compliance for both, and is
+  > why that one needs a supervisor. The cycle length is **stored on the call at generation**, not
+  > looked up when somebody tries to move it: the frequency may have been edited since, and judging
+  > an old plan by a new rule would make a reschedule legal or not depending on a screen the rep
+  > never saw.
+  >
+  > An **unplanned** call belongs to no cycle and so cannot be moved at all. That is not an omission
+  > — `BR-JRN-4` is about moving a call within the cycle its frequency put it in, and a call nobody
+  > planned was never in one. A rep who wants it on a different day adds it on that day.
 - **BR-JRN-5** Closed/inactive outlets are excluded from new plans (BR-OUT-4).
 - **BR-JRN-6** Frequency compliance (did the outlet get its required visits this cycle?) is a
   reportable metric.

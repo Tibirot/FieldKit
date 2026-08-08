@@ -31,6 +31,7 @@ public sealed class JourneyModule : IModule
     [
         new(JourneyPermissions.Read, "View call frequencies and journey plans."),
         new(JourneyPermissions.Write, "Set call frequencies and generate journey plans."),
+        new(JourneyPermissions.Annotate, "Report on the round: not-visited reasons, unplanned calls, moves."),
     ];
 
     public void AddModule(IServiceCollection services, IConfiguration configuration)
@@ -82,4 +83,15 @@ public static class JourneyPermissions
 {
     public const string Read = "journey:read";
     public const string Write = "journey:write";
+
+    /// <summary>
+    /// What a rep may do to the plan they are holding — and nothing else.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="Write"/> on purpose. A rep reports on the round they walked; they do
+    /// not decide what the round is. Folding the two together to let somebody record a closed shop
+    /// would also let them generate and publish plans for anyone, which is the difference between a
+    /// permission model and a tier list.
+    /// </remarks>
+    public const string Annotate = "journey:annotate";
 }

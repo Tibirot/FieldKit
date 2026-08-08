@@ -21,6 +21,10 @@
         "description": "View call frequencies and journey plans (Journey module)."
       },
       {
+        "name": "journey:annotate",
+        "description": "Report on a round: not-visited reasons, unplanned calls, moves (Journey module)."
+      },
+      {
         "name": "journey:write",
         "description": "Set call frequencies and generate journey plans (Journey module)."
       },
@@ -200,7 +204,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["product:read", "product:write", "role:read", "orgunit:read", "orgunit:write", "position:read", "position:write", "outlet:read", "outlet:write", "channel:read", "channel:write", "territory:read", "territory:write", "journey:read", "journey:write", "config:read", "config:write"]
+      "realmRoles": ["product:read", "product:write", "role:read", "orgunit:read", "orgunit:write", "position:read", "position:write", "outlet:read", "outlet:write", "channel:read", "channel:write", "territory:read", "territory:write", "journey:read", "journey:annotate", "journey:write", "config:read", "config:write"]
     }
   ]
 }
