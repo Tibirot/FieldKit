@@ -19,12 +19,19 @@ public sealed record VisitStepRequest(VisitStepType Type, bool Mandatory, string
 /// <summary>A channel's visit workflow, as an admin sets it.</summary>
 public sealed record VisitWorkflowRequest(bool PresenceExpected, IReadOnlyList<VisitStepRequest> Steps);
 
-/// <summary>One step, as stored.</summary>
-public sealed record VisitStepResponse(int Order, string Type, bool Mandatory, string Label);
+/// <summary>
+/// One step, as stored — what an admin configured, not what a rep has done with it.
+/// </summary>
+/// <remarks>
+/// Named for the workflow rather than the visit because Visit has its own <c>VisitStepResponse</c>
+/// for a step in progress, and the two are genuinely different things: this one has no status and
+/// no timestamps, and it is the same for every visit in the channel.
+/// </remarks>
+public sealed record WorkflowStepResponse(int Order, string Type, bool Mandatory, string Label);
 
 /// <summary>A channel's visit workflow, as stored.</summary>
 public sealed record VisitWorkflowResponse(
-    Guid ChannelId, bool PresenceExpected, IReadOnlyList<VisitStepResponse> Steps);
+    Guid ChannelId, bool PresenceExpected, IReadOnlyList<WorkflowStepResponse> Steps);
 
 /// <summary>
 /// The per-channel visit workflow (<c>VIS-03</c>).
@@ -73,7 +80,7 @@ internal static class VisitWorkflowEndpoints
                 workflow.ChannelId,
                 workflow.PresenceExpected,
                 [.. workflow.Steps.Select(step =>
-                    new VisitStepResponse(step.Order, step.Type.ToString(), step.Mandatory, step.Label))]));
+                    new WorkflowStepResponse(step.Order, step.Type.ToString(), step.Mandatory, step.Label))]));
         }).RequirePermission(ConfigurationPermissions.Read);
 
         workflows.MapPut("/{channelId:guid}", async (
@@ -198,6 +205,6 @@ internal static class VisitWorkflowEndpoints
             described.ChannelId,
             described.PresenceExpected,
             [.. described.Steps.Select(step =>
-                new VisitStepResponse(step.Order, step.Type.ToString(), step.Mandatory, step.Label))]);
+                new WorkflowStepResponse(step.Order, step.Type.ToString(), step.Mandatory, step.Label))]);
     }
 }
