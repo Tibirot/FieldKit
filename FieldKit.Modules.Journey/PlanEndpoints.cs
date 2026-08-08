@@ -1,3 +1,4 @@
+using FieldKit.Modules.Outlets.Contracts;
 using FieldKit.Modules.Iam.Contracts;
 using FieldKit.SharedKernel;
 using FieldKit.Web;
@@ -12,7 +13,23 @@ namespace FieldKit.Modules.Journey;
 public sealed record GeneratePlanRequest(string UserId, DateOnly From, DateOnly To);
 
 /// <summary>One call on a plan.</summary>
-public sealed record PlannedVisitResponse(Guid Id, DateOnly Date, Guid OutletId);
+public sealed record PlannedVisitResponse(
+    Guid Id,
+    DateOnly Date,
+    Guid OutletId,
+    string Status,
+    string Source,
+    string? NotVisitedReason,
+    DateOnly? RescheduledFrom);
+
+/// <summary>Why a rep could not make a call.</summary>
+public sealed record NotVisitedRequest(string Reason);
+
+/// <summary>Where a rep is moving a call to.</summary>
+public sealed record RescheduleRequest(DateOnly Date);
+
+/// <summary>A call the rep made that nobody planned.</summary>
+public sealed record UnplannedVisitRequest(Guid OutletId, DateOnly Date);
 
 /// <summary>An outlet the plan could not call on as often as its frequency asks.</summary>
 public sealed record ShortfallResponse(Guid OutletId, int Required, int Planned);
@@ -91,7 +108,7 @@ internal static class PlanEndpoints
                 summary,
                 [.. plan.Visits
                     .OrderBy(visit => visit.Date)
-                    .Select(visit => new PlannedVisitResponse(visit.Id, visit.Date, visit.OutletId))],
+                    .Select(visit => Respond(visit))],
                 [.. plan.Shortfalls.Select(shortfall =>
                     new ShortfallResponse(shortfall.OutletId, shortfall.Required, shortfall.Planned))]));
         }).RequirePermission(JourneyPermissions.Read);
@@ -128,7 +145,7 @@ internal static class PlanEndpoints
                     plan = summary,
                     visits = plan.Visits
                         .OrderBy(visit => visit.Date)
-                        .Select(visit => new PlannedVisitResponse(visit.Id, visit.Date, visit.OutletId)),
+                        .Select(visit => Respond(visit)),
                     shortfalls = plan.Shortfalls.Select(shortfall =>
                         new ShortfallResponse(shortfall.OutletId, shortfall.Required, shortfall.Planned)),
                     excluded = generated.Excluded.Select(row => new
@@ -167,7 +184,147 @@ internal static class PlanEndpoints
 
             return Results.Ok((await SummariesAsync([new PlanCounts(plan, plan.Visits.Count, plan.Shortfalls.Count)], users, ct)).Single());
         }).RequirePermission(JourneyPermissions.Write);
+
+        /*
+         * The rep's own three acts, and they are held to `journey:annotate` rather than
+         * `journey:write`.
+         *
+         * A rep reports on the round they walked; they do not decide what the round is. Giving them
+         * `journey:write` to record a closed shop would also let them generate and publish plans —
+         * for anyone — which is the difference between a permission model and a tier list.
+         *
+         * **There is no delete.** `BR-JRN-2` is explicit, and the absence is the enforcement: a
+         * skipped shop is a fact about the round, and letting it disappear would make coverage look
+         * complete and turn `BR-JRN-6` into a measure of what was left on the plan.
+         */
+        plans.MapPost("/{id:guid}/visits/{visitId:guid}/not-visited", async (
+            Guid id, Guid visitId, NotVisitedRequest request, JourneyDbContext db, IClock clock,
+            CancellationToken ct) =>
+        {
+            if (ReasonProblem(request.Reason) is { } problem) return problem;
+
+            var (plan, visit, missing) = await FindVisitAsync(db, id, visitId, ct);
+            if (missing is not null) return missing;
+
+            var refusal = plan!.TryMarkNotVisited(visit!, request.Reason, clock);
+            if (refusal is not JourneyPlan.AnnotationRefusal.None) return Refuse(refusal);
+
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(Respond(visit!));
+        }).RequirePermission(JourneyPermissions.Annotate);
+
+        plans.MapPost("/{id:guid}/visits/{visitId:guid}/reschedule", async (
+            Guid id, Guid visitId, RescheduleRequest request, JourneyDbContext db, IClock clock,
+            CancellationToken ct) =>
+        {
+            var (plan, visit, missing) = await FindVisitAsync(db, id, visitId, ct);
+            if (missing is not null) return missing;
+
+            var refusal = plan!.TryReschedule(visit!, request.Date, clock);
+            if (refusal is not JourneyPlan.AnnotationRefusal.None) return Refuse(refusal);
+
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(Respond(visit!));
+        }).RequirePermission(JourneyPermissions.Annotate);
+
+        plans.MapPost("/{id:guid}/visits", async (
+            Guid id, UnplannedVisitRequest request, JourneyDbContext db, IOutletCatalog outlets,
+            IClock clock, CancellationToken ct) =>
+        {
+            var plan = await db.JourneyPlans
+                .Include(row => row.Visits)
+                .SingleOrDefaultAsync(row => row.Id == id, ct);
+
+            if (plan is null) return Results.NotFound();
+
+            // The outlet is Outlets' to confirm. A rep adding a shop that does not exist in this
+            // tenant is a client bug, and storing it would put an unresolvable id on a plan that
+            // reporting later has to explain.
+            if ((await outlets.FindManyAsync([request.OutletId], ct)).Count == 0)
+            {
+                return Problems.BadRequest(
+                    "outletId", "No such outlet in this tenant.", "journey.visit.unknownOutlet");
+            }
+
+            var refusal = plan.TryAddUnplanned(request.OutletId, request.Date, clock, out var added);
+            if (refusal is not JourneyPlan.AnnotationRefusal.None) return Refuse(refusal);
+
+            // Added through the context as well as through the aggregate, and it is not redundant:
+            // the id is client-generated (`Guid.CreateVersion7`), so EF sees a non-default key on an
+            // entity reached through a navigation and settles on `Modified` — issuing an UPDATE that
+            // matches no row and failing as a concurrency exception. Saying `Added` outright is the
+            // fix; the collection still holds it, which is what keeps the response honest.
+            db.Set<PlannedVisit>().Add(added!);
+
+            await db.SaveChangesAsync(ct);
+
+            return Results.Created($"/api/journey/plans/{plan.Id}", Respond(added!));
+        }).RequirePermission(JourneyPermissions.Annotate);
     }
+
+    /// <summary>Loads a plan and one of its calls, or the 404 that says which is missing.</summary>
+    private static async Task<(JourneyPlan? Plan, PlannedVisit? Visit, IResult? Missing)> FindVisitAsync(
+        JourneyDbContext db, Guid planId, Guid visitId, CancellationToken ct)
+    {
+        var plan = await db.JourneyPlans
+            .Include(row => row.Visits)
+            .SingleOrDefaultAsync(row => row.Id == planId, ct);
+
+        if (plan is null) return (null, null, Results.NotFound());
+
+        // Found through the plan rather than by id alone, so a call can only be annotated by way of
+        // the plan it is on — a visit id from another plan is simply not here.
+        var visit = plan.Visits.SingleOrDefault(row => row.Id == visitId);
+
+        return visit is null ? (null, null, Results.NotFound()) : (plan, visit, null);
+    }
+
+    /// <summary>Turns the domain's refusal into the API's.</summary>
+    private static IResult Refuse(JourneyPlan.AnnotationRefusal refusal) => refusal switch
+    {
+        JourneyPlan.AnnotationRefusal.NotPublished => Problems.Conflict(
+            field: null,
+            "A draft plan is not a rep's round yet. Publish it first.",
+            "journey.visit.planNotPublished"),
+
+        JourneyPlan.AnnotationRefusal.AlreadyNotVisited => Problems.Conflict(
+            field: null,
+            "This call is already recorded as not visited.",
+            "journey.visit.alreadyNotVisited"),
+
+        JourneyPlan.AnnotationRefusal.OutsideWindow => Problems.BadRequest(
+            "date", "That day is outside the plan's window.", "journey.visit.outsideWindow"),
+
+        JourneyPlan.AnnotationRefusal.OutsideCycle => Problems.BadRequest(
+            "date",
+            "A call can move within its cycle. Moving it outside needs a supervisor.",
+            "journey.visit.outsideCycle"),
+
+        _ => Results.Ok(),
+    };
+
+    private static IResult? ReasonProblem(string reason) =>
+        string.IsNullOrWhiteSpace(reason)
+            ? Problems.BadRequest(
+                "reason",
+                "Say why the call did not happen. A skipped shop with no reason is a gap nobody can act on.",
+                "journey.visit.reasonRequired")
+            : TextLimits.TooLong(
+                "reason", reason.Trim(), PlannedVisit.MaximumReasonLength,
+                "journey.visit.reasonTooLong") is { } tooLong
+                ? Problems.BadRequest([tooLong])
+                : null;
+
+    private static PlannedVisitResponse Respond(PlannedVisit visit) => new(
+        visit.Id,
+        visit.Date,
+        visit.OutletId,
+        visit.Status.ToString(),
+        visit.Source.ToString(),
+        visit.NotVisitedReason,
+        visit.RescheduledFrom);
 
     /// <summary>
     /// The window a plan may be generated for.

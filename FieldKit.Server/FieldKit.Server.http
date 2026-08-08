@@ -2838,3 +2838,104 @@ Authorization: Bearer {{viewerToken.response.body.access_token}}
 }
 
 ###
+
+### ─── What a rep may do to their round (JRN-06) ──────────────────────────────────────────────────
+
+### Held to **journey:annotate**, not journey:write. A rep reports on the round they walked; they do
+### not decide what the round is. Folding the two together to let somebody record a closed shop would
+### also let them generate and publish plans for anyone — the difference between a permission model
+### and a tier list.
+
+### A call that did not happen, and why. This is where VIS-07 lives: capturing the reason against the
+### *planned* call means the Visit module never grows a state for a visit that did not happen — no
+### half-created visit with no check-in, no outcome, and a reason field that is null for every real
+### one.
+###
+### The reason is required. A skipped shop with no explanation is a gap nobody can act on, and
+### BR-JRN-6 would inherit the blank.
+POST {{Server_HostAddress}}/api/journey/plans/{{plan.response.body.plan.id}}/visits/{{plan.response.body.visits.0.id}}/not-visited
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "reason": "Shutters down, no answer"
+}
+
+### The call stays on the plan — it does not disappear. **BR-JRN-2**, and the absence of a DELETE
+### route is the enforcement: a shop that was skipped is a fact about the round, and letting a rep
+### remove it would make coverage look complete and turn BR-JRN-6 into a measure of what was left on
+### the plan rather than of what was done.
+GET {{Server_HostAddress}}/api/journey/plans/{{plan.response.body.plan.id}}
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Expect 409 `journey.visit.alreadyNotVisited`. The first reason is what the rep saw on the day;
+### silently replacing it would leave two different answers to "why was this shop missed".
+POST {{Server_HostAddress}}/api/journey/plans/{{plan.response.body.plan.id}}/visits/{{plan.response.body.visits.0.id}}/not-visited
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "reason": "Changed my mind"
+}
+
+### Moving a call **within its cycle** — a rep organising their own week. No event: nothing outside
+### this module changes, because the outlet still gets its call in the cycle its frequency asked for.
+POST {{Server_HostAddress}}/api/journey/plans/{{plan.response.body.plan.id}}/visits/{{plan.response.body.visits.1.id}}/reschedule
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "date": "2026-03-05"
+}
+
+### Expect 400 `journey.visit.outsideCycle` — **BR-JRN-4**. A week later is the next cycle: the shop
+### would be covered twice in one and not at all in the other, which changes compliance for both.
+### That is a supervisor's decision, not a rep's.
+POST {{Server_HostAddress}}/api/journey/plans/{{plan.response.body.plan.id}}/visits/{{plan.response.body.visits.1.id}}/reschedule
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "date": "2026-03-16"
+}
+
+### A call nobody planned — a shop the rep passed, or one that asked them in. It joins the plan as
+### `Unplanned`, which is what keeps "did the plan work?" answerable separately from "what did the
+### rep actually do?".
+###
+### It belongs to no cycle, so it cannot be rescheduled: BR-JRN-4 is about moving a call within the
+### cycle its *frequency* put it in, and this one was never in one. A rep who wants it on another day
+### adds it on that day.
+POST {{Server_HostAddress}}/api/journey/plans/{{plan.response.body.plan.id}}/visits
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outletId": "{{outlet.response.body.id}}",
+  "date": "2026-03-04"
+}
+
+### Expect 400 `journey.visit.unknownOutlet`. A rep adding a shop this tenant does not have is a
+### client bug, and storing it would put an unresolvable id on a plan that reporting later has to
+### explain.
+POST {{Server_HostAddress}}/api/journey/plans/{{plan.response.body.plan.id}}/visits
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outletId": "019fffff-ffff-7fff-bfff-ffffffffffff",
+  "date": "2026-03-04"
+}
+
+### Expect 403 with the read-only token: it holds journey:read and neither journey:write nor
+### journey:annotate. Reading a plan and reporting on one are different acts.
+POST {{Server_HostAddress}}/api/journey/plans/{{plan.response.body.plan.id}}/visits/{{plan.response.body.visits.0.id}}/not-visited
+Content-Type: application/json
+Authorization: Bearer {{viewerToken.response.body.access_token}}
+
+{
+  "reason": "Closed"
+}
+
+###

@@ -158,10 +158,22 @@ public sealed class JourneyDbContext(DbContextOptions<JourneyDbContext> options,
         {
             visit.HasKey(row => row.Id);
 
+            // Both by name, never as ordinals — a member inserted in the middle would silently
+            // re-interpret every stored row rather than breaking a build.
+            visit.Property(row => row.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
+            visit.Property(row => row.Source).HasConversion<string>().HasMaxLength(20).IsRequired();
+
+            visit.Property(row => row.NotVisitedReason).HasMaxLength(PlannedVisit.MaximumReasonLength);
+
             // The rep's day: "what am I doing on the 4th" — the query the device makes every morning.
             visit.HasIndex(row => new { row.TenantId, row.JourneyPlanId, row.Date });
 
-            visit.ToTable("planned_visit");
+            // BR-JRN-2's other half, in SQL. A skipped call must say why, and a call still to do must
+            // not carry a reason — without this, "not visited" could be recorded with no explanation
+            // by anything that writes the table, and the compliance metric would inherit blanks.
+            visit.ToTable("planned_visit", table => table.HasCheckConstraint(
+                "ck_planned_visit_reason",
+                @"(""Status"" = 'NotVisited') = (""NotVisitedReason"" IS NOT NULL)"));
         });
 
         modelBuilder.Entity<PlanShortfall>(shortfall =>

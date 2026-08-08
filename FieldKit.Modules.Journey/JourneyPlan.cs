@@ -13,14 +13,45 @@ public enum JourneyPlanStatus
     Published,
 }
 
+/// <summary>How a call came to be on the plan.</summary>
+public enum VisitSource
+{
+    /// <summary>Generation put it there (<c>JRN-03</c>).</summary>
+    Generated,
+
+    /// <summary>The rep added it in the field — a shop that was not on the plan (<c>JRN-06</c>).</summary>
+    Unplanned,
+}
+
+/// <summary>Where a call has got to.</summary>
+public enum PlannedVisitStatus
+{
+    /// <summary>Still to do.</summary>
+    Planned,
+
+    /// <summary>
+    /// The rep was not able to make it, and said why (<c>JRN-06</c>, <c>VIS-07</c>).
+    /// </summary>
+    /// <remarks>
+    /// <b>There is no <c>Deleted</c>.</b> <c>BR-JRN-2</c> is explicit that a rep cannot remove a
+    /// planned call — a shop that was skipped is a fact about the round, and letting it disappear
+    /// would make coverage look complete and make <c>BR-JRN-6</c>'s compliance metric a measure of
+    /// what was left on the plan rather than of what was done.
+    /// </remarks>
+    NotVisited,
+}
+
 /// <summary>One call on a plan, on one day (<c>JRN-04</c>).</summary>
 /// <remarks>
-/// The stored form of <see cref="GeneratedVisit"/>. It has an identity because things will later
-/// happen *to* it — a rep marks it not-visited with a reason (<c>JRN-06</c>), or it becomes an
-/// actual Visit — and none of those can name a row that has no id.
+/// The stored form of <see cref="GeneratedVisit"/>. It has an identity because things happen *to*
+/// it — a rep marks it not-visited with a reason (<c>JRN-06</c>), moves it within its cycle, or it
+/// becomes an actual Visit — and none of those can name a row that has no id.
 /// </remarks>
 public sealed class PlannedVisit : ITenantOwned
 {
+    /// <summary>The column width for a not-visited reason.</summary>
+    public const int MaximumReasonLength = 500;
+
     public Guid Id { get; private set; }
 
     public Guid JourneyPlanId { get; private set; }
@@ -30,12 +61,97 @@ public sealed class PlannedVisit : ITenantOwned
     /// <summary>The day it is planned for. A date, in no timezone — see <see cref="JourneyPlan"/>.</summary>
     public DateOnly Date { get; private set; }
 
+    /// <summary>
+    /// The length of the cycle this call belongs to, from the frequency that generated it.
+    /// </summary>
+    /// <remarks>
+    /// Zero for an unplanned call, which belongs to no cycle — see <see cref="AddUnplanned"/>.
+    /// </remarks>
+    public int CycleLengthDays { get; private set; }
+
+    public VisitSource Source { get; private set; }
+
+    public PlannedVisitStatus Status { get; private set; }
+
+    /// <summary>Why the rep could not make it. Null until they say so, and required when they do.</summary>
+    public string? NotVisitedReason { get; private set; }
+
+    /// <summary>The day it was originally planned for, once it has been moved. Null if it never was.</summary>
+    /// <remarks>
+    /// Kept because a moved call and a call that was always on Thursday are different things to
+    /// anybody reviewing the round, and the original date is the only evidence of the first.
+    /// </remarks>
+    public DateOnly? RescheduledFrom { get; private set; }
+
     public TenantId TenantId { get; set; }
 
     private PlannedVisit() { } // EF
 
-    internal static PlannedVisit Create(Guid planId, DateOnly date, Guid outletId) =>
-        new() { Id = Guid.CreateVersion7(), JourneyPlanId = planId, Date = date, OutletId = outletId };
+    internal static PlannedVisit Create(Guid planId, GeneratedVisit visit) => new()
+    {
+        Id = Guid.CreateVersion7(),
+        JourneyPlanId = planId,
+        Date = visit.Date,
+        OutletId = visit.OutletId,
+        CycleLengthDays = visit.CycleLengthDays,
+        Source = VisitSource.Generated,
+        Status = PlannedVisitStatus.Planned,
+    };
+
+    /// <summary>
+    /// A call the rep added in the field.
+    /// </summary>
+    /// <remarks>
+    /// <b>It belongs to no cycle</b>, so <see cref="CycleLengthDays"/> is zero and it cannot be
+    /// rescheduled. That is not an omission: <c>BR-JRN-4</c>'s rule is about moving a call *within
+    /// the cycle its frequency put it in*, and a call nobody planned was never in one. A rep who
+    /// wants it on a different day adds it on that day — the plan is theirs to add to.
+    /// </remarks>
+    internal static PlannedVisit AddUnplanned(Guid planId, DateOnly date, Guid outletId) => new()
+    {
+        Id = Guid.CreateVersion7(),
+        JourneyPlanId = planId,
+        Date = date,
+        OutletId = outletId,
+        CycleLengthDays = 0,
+        Source = VisitSource.Unplanned,
+        Status = PlannedVisitStatus.Planned,
+    };
+
+    /// <summary>Records that the rep could not make it, and why. False if it is already recorded.</summary>
+    internal bool TryMarkNotVisited(string reason)
+    {
+        if (Status == PlannedVisitStatus.NotVisited) return false;
+
+        Status = PlannedVisitStatus.NotVisited;
+        NotVisitedReason = reason.Trim();
+
+        return true;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="date"/> is in the same cycle this call was planned in
+    /// (<c>BR-JRN-4</c>).
+    /// </summary>
+    /// <remarks>
+    /// Cycles tile forward from the plan's first day, so the cycle a date falls in is how many whole
+    /// cycles have passed since then. Moving inside one is the rep's own call; moving across a
+    /// boundary changes which cycle the outlet was covered in, which changes <c>BR-JRN-6</c>
+    /// compliance for two cycles at once — and that is a supervisor's decision, not a rep's.
+    /// </remarks>
+    internal bool IsSameCycle(DateOnly date, DateOnly planStart)
+    {
+        if (CycleLengthDays < 1) return false;
+
+        return (Date.DayNumber - planStart.DayNumber) / CycleLengthDays
+            == (date.DayNumber - planStart.DayNumber) / CycleLengthDays;
+    }
+
+    internal void MoveTo(DateOnly date)
+    {
+        RescheduledFrom ??= Date;
+        Date = date;
+    }
 }
 
 /// <summary>
@@ -141,7 +257,7 @@ public sealed class JourneyPlan : AggregateRoot, ITenantOwned, IAuditable
         };
 
         plan._visits.AddRange(
-            generated.Visits.Select(visit => PlannedVisit.Create(plan.Id, visit.Date, visit.OutletId)));
+            generated.Visits.Select(visit => PlannedVisit.Create(plan.Id, visit)));
 
         plan._shortfalls.AddRange(
             generated.Shortfalls.Select(shortfall =>
@@ -173,7 +289,110 @@ public sealed class JourneyPlan : AggregateRoot, ITenantOwned, IAuditable
 
         return true;
     }
+
+    /// <summary>Why an annotation was refused. <see cref="None"/> means it was not.</summary>
+    public enum AnnotationRefusal
+    {
+        None,
+
+        /// <summary>The plan is still a draft — there is nothing for a rep to be annotating.</summary>
+        NotPublished,
+
+        /// <summary>Already recorded as not-visited.</summary>
+        AlreadyNotVisited,
+
+        /// <summary>The new date is outside the window this plan covers.</summary>
+        OutsideWindow,
+
+        /// <summary>The new date is in a different cycle (<c>BR-JRN-4</c>).</summary>
+        OutsideCycle,
+    }
+
+    /// <summary>
+    /// Records that a rep could not make a call, and announces it (<c>JRN-06</c>, <c>VIS-07</c>).
+    /// </summary>
+    /// <remarks>
+    /// <b>Only on a published plan.</b> A draft is a supervisor's experiment; there is no round for a
+    /// rep to be reporting on, and allowing it would let an annotation vanish when the plan it was
+    /// against was superseded by the next generation run.
+    /// </remarks>
+    public AnnotationRefusal TryMarkNotVisited(PlannedVisit visit, string reason, IClock clock)
+    {
+        if (Status != JourneyPlanStatus.Published) return AnnotationRefusal.NotPublished;
+        if (!visit.TryMarkNotVisited(reason)) return AnnotationRefusal.AlreadyNotVisited;
+
+        ModifiedAtUtc = clock.UtcNow;
+
+        Raise(new PlannedVisitMarkedNotVisited(
+            Guid.CreateVersion7(), clock.UtcNow, Id, visit.Id, visit.OutletId, UserId, visit.Date, reason.Trim()));
+
+        return AnnotationRefusal.None;
+    }
+
+    /// <summary>
+    /// Moves a call to another day inside its own cycle (<c>JRN-06</c>, <c>BR-JRN-4</c>).
+    /// </summary>
+    /// <remarks>
+    /// No event. A reschedule inside a cycle changes nothing anybody outside this module reasons
+    /// about — the outlet still gets its call in the cycle its frequency asked for, so compliance is
+    /// unchanged and Sync is already carrying the plan. Announcing every day a rep shuffles would be
+    /// a stream of messages with no consumer and no decision behind them.
+    /// </remarks>
+    public AnnotationRefusal TryReschedule(PlannedVisit visit, DateOnly date, IClock clock)
+    {
+        if (Status != JourneyPlanStatus.Published) return AnnotationRefusal.NotPublished;
+        if (date < FromDate || date > ToDate) return AnnotationRefusal.OutsideWindow;
+        if (!visit.IsSameCycle(date, FromDate)) return AnnotationRefusal.OutsideCycle;
+
+        visit.MoveTo(date);
+        ModifiedAtUtc = clock.UtcNow;
+
+        return AnnotationRefusal.None;
+    }
+
+    /// <summary>Adds a call the rep made that nobody planned (<c>JRN-06</c>).</summary>
+    public AnnotationRefusal TryAddUnplanned(
+        Guid outletId, DateOnly date, IClock clock, out PlannedVisit? added)
+    {
+        added = null;
+
+        if (Status != JourneyPlanStatus.Published) return AnnotationRefusal.NotPublished;
+        if (date < FromDate || date > ToDate) return AnnotationRefusal.OutsideWindow;
+
+        added = PlannedVisit.AddUnplanned(Id, date, outletId);
+        _visits.Add(added);
+        ModifiedAtUtc = clock.UtcNow;
+
+        return AnnotationRefusal.None;
+    }
 }
+
+/// <summary>
+/// A rep reported that a planned call did not happen, and why (<c>JRN-06</c>, <c>VIS-07</c>).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>This is where "not visited" lives, and it is deliberately not a Visit.</b> `VIS-07` is the
+/// same requirement seen from the other side: capturing the reason against the *planned* call means
+/// the Visit module never grows a state for a visit that did not happen — no half-created visit with
+/// no check-in, no outcome and a reason field that is null for every real one.
+/// </para>
+/// <para>
+/// Announced because it is the one rep-side annotation another module reasons about: `BR-JRN-6`
+/// measures whether an outlet got its calls, and reporting will want the reasons in aggregate —
+/// "forty per cent of misses this month were 'closed on arrival'" is a fact about the territory, not
+/// about one round. A reschedule inside a cycle raises nothing, because nothing outside changes.
+/// </para>
+/// </remarks>
+public sealed record PlannedVisitMarkedNotVisited(
+    Guid Id,
+    DateTimeOffset OccurredOn,
+    Guid JourneyPlanId,
+    Guid PlannedVisitId,
+    Guid OutletId,
+    string UserId,
+    DateOnly Date,
+    string Reason) : IIntegrationEvent;
 
 /// <summary>
 /// A rep's journey plan was published (<c>JRN-04</c>).

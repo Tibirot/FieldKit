@@ -45,7 +45,14 @@ public sealed record Shortfall(Guid OutletId, int Required, int Planned);
 /// identity, and confusing the two is how a domain entity ends up in a signature that promised to
 /// be side-effect-free.
 /// </remarks>
-public sealed record GeneratedVisit(DateOnly Date, Guid OutletId);
+/// <param name="CycleLengthDays">
+/// The cycle this call belongs to, as a length in days — enough, with the plan's start, to work out
+/// which cycle any date falls in. Carried because <c>BR-JRN-4</c> lets a rep reschedule <i>within</i>
+/// a cycle, and the frequency that decided this plan may be edited before anybody tries: judging an
+/// old plan by a new rule would make a reschedule legal or not depending on what somebody changed
+/// on a screen the rep never saw.
+/// </param>
+public sealed record GeneratedVisit(DateOnly Date, Guid OutletId, int CycleLengthDays);
 
 /// <summary>What generation was asked for.</summary>
 /// <param name="From">First day of the window, inclusive.</param>
@@ -109,7 +116,7 @@ public static class JourneyGenerator
     public static GeneratedPlan Generate(GenerationRequest request)
     {
         var excluded = new List<ExcludedOutlet>();
-        var plannable = new List<(PlannableOutlet Outlet, int Required)>();
+        var plannable = new List<(PlannableOutlet Outlet, int Required, int CycleLengthDays)>();
 
         // Ordered by code up front, so everything downstream — placement, tie-breaks, the emitted
         // plan — is deterministic without needing to sort again.
@@ -131,12 +138,12 @@ public static class JourneyGenerator
 
             // Zero required is not a shortfall and not an exclusion: the window is simply too short
             // to owe this outlet a call. A monthly shop in a three-day window is not being skipped.
-            if (required > 0) plannable.Add((outlet, required));
+            if (required > 0) plannable.Add((outlet, required, frequency.CycleLengthDays));
         }
 
         var days = request.WorkingDays.OrderBy(day => day.Date).ToArray();
         var remaining = days.Select(day => day.Capacity).ToArray();
-        var placed = new Dictionary<Guid, List<DateOnly>>();
+        var placed = new Dictionary<Guid, List<GeneratedVisit>>();
 
         /*
          * Round-robin by visit number, not outlet by outlet.
@@ -151,7 +158,7 @@ public static class JourneyGenerator
 
         for (var round = 0; round < maxRequired; round++)
         {
-            foreach (var (outlet, required) in plannable)
+            foreach (var (outlet, required, cycleLengthDays) in plannable)
             {
                 if (round >= required) continue;
 
@@ -162,12 +169,12 @@ public static class JourneyGenerator
 
                 remaining[day.Value]--;
 
-                if (!placed.TryGetValue(outlet.OutletId, out var dates))
+                if (!placed.TryGetValue(outlet.OutletId, out var calls))
                 {
-                    placed[outlet.OutletId] = dates = [];
+                    placed[outlet.OutletId] = calls = [];
                 }
 
-                dates.Add(days[day.Value].Date);
+                calls.Add(new GeneratedVisit(days[day.Value].Date, outlet.OutletId, cycleLengthDays));
             }
         }
 
@@ -175,14 +182,14 @@ public static class JourneyGenerator
             .Select(entry => new Shortfall(
                 entry.Outlet.OutletId,
                 entry.Required,
-                placed.TryGetValue(entry.Outlet.OutletId, out var dates) ? dates.Count : 0))
+                placed.TryGetValue(entry.Outlet.OutletId, out var calls) ? calls.Count : 0))
             .Where(shortfall => shortfall.Planned < shortfall.Required)
             .ToList();
 
         var codes = request.Outlets.ToDictionary(outlet => outlet.OutletId, outlet => outlet.Code);
 
         var visits = placed
-            .SelectMany(entry => entry.Value.Select(date => new GeneratedVisit(date, entry.Key)))
+            .SelectMany(entry => entry.Value)
             .OrderBy(visit => visit.Date)
             .ThenBy(visit => codes[visit.OutletId], StringComparer.Ordinal)
             .ToList();
