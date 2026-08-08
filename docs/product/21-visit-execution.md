@@ -60,8 +60,15 @@ Visit. It is designed **offline-first**: the entire flow works with zero connect
   > conference or a head-office meeting is legitimately not at the outlet, so demanding an override
   > reason records an exception where nothing exceptional happened — and a flag that fires on
   > ordinary work is a flag supervisors learn to ignore. The visit type should carry whether presence
-  > is expected, configured per channel through `IVisitWorkflow` (Configuration module). Not built:
-  > `VIS-01`/`VIS-02` are Phase 2 and the Configuration module lands first.
+  > is expected, configured per channel through `IVisitWorkflow` (Configuration module).
+  >
+  > **Built in W7 slice 6, one slice before check-in uses it** — the ordering is the point rather
+  > than an accident: this rule cannot be written without somewhere to ask the question, so check-in
+  > depends on the contract existing and not the other way round. A channel nobody has configured
+  > answers **presence expected**, because the two mistakes are not equal: presence expected on a
+  > remote channel records an exception for every ordinary call, which is annoying and *visible*,
+  > while presence not expected on a store channel silently stops recording the one thing this rule
+  > exists to capture.
   >
   > This is also the correct home for the question a per-tenant "geo validation" flag briefly tried
   > to answer in the Outlets module (#56, reverted): whether coordinates are *valid* is data

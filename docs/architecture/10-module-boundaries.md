@@ -229,7 +229,7 @@ the document a module author trusts when deciding what to depend on.
 | Organization | `…Modules.Org` (+ `.Contracts`) | `org` | **`ITerritoryDirectory`**, **`IRepScope`**, `IOrgHierarchy` | `RepAssignmentChanged` |
 | Outlets | `…Modules.Outlets` (+ `.Contracts`) | `outlets` | **`IOutletCatalog`**, **`IOutletClassification`**, `IReferenceChangeFeed`, `IOutletProposalIngest` | `OutletChanged`, `OutletClosed` |
 | Products & Pricing | `…Modules.Products` | `products` | `IProductCatalog`, `IAssortmentService`, `IPricingService`, `IReferenceChangeFeed` | `PriceListPublished`, `PromotionActivated` |
-| Configuration | `…Modules.Configuration` (+ `.Contracts`) | `config` | **`IFieldDefinitionCatalog`**, `IVisitWorkflow`, `ISurveyForms`, `IScoreWeights`, `IReferenceChangeFeed` | `ConfigurationPublished` |
+| Configuration | `…Modules.Configuration` (+ `.Contracts`) | `config` | **`IFieldDefinitionCatalog`**, **`IVisitWorkflow`**, `ISurveyForms`, `IScoreWeights`, `IReferenceChangeFeed` | `ConfigurationPublished` |
 | Journey | `…Modules.Journey` | `journey` | `IJourneyQuery`, `IReferenceChangeFeed`, `IJourneyIngest` | `JourneyPublished`, `PlannedVisitMarkedNotVisited` |
 | Visit | `…Modules.Visit` | `visit` | `IVisitContext`, `IVisitQuery`, `IVisitIngest` | `VisitCompleted` |
 | Audit | `…Modules.Audit` | `audit` | `IAuditQuery`, `IPerfectStoreScore`, `IAuditIngest` | `AuditCompleted` |
@@ -299,6 +299,20 @@ caller: that one is handed a page of outlets, this one is asked once per rep per
 is reachable over HTTP (`GET /api/org/users/{id}/scope`, backed by an internal `OrgHierarchy`
 helper), but the in-process contract Visit is specified to consume has no consumer yet. It lands with
 it, shaped by what it actually asks for.
+
+> **`IVisitWorkflow` is the one contract built *before* its consumer, and the exception proves the
+> rule.** Everywhere else here — `IRepScope`, `IOutletCatalog`, `IJourneyQuery` — the interface waits
+> until somebody asks, because a shape guessed early is one the caller has to live with. Visit is one
+> slice away and this went first anyway, because `BR-VIS-2` cannot be *implemented* without it: the
+> rule is "demand an override reason unless presence was not expected", and there was nowhere to ask
+> the second half. A contract that a rule depends on is not the same as a contract a caller would
+> like; the first is a prerequisite, the second is a guess.
+>
+> It also put Configuration and Outlets on **mutually referencing contracts** — Outlets already read
+> the custom-field catalogue, and a workflow is keyed by a channel only Outlets can confirm. That is
+> exactly the arrangement `AT-1` permits and `AT-10` polices, and there is no runtime cycle:
+> `VisitWorkflowCatalog`, the class behind the contract, reads only Configuration's own schema. The
+> channel check lives in the authoring endpoint, which nothing calls back through.
 
 **Journey arrived in W7 as a single assembly**, and its `.Contracts` is deliberately still absent —
 the same call Organization made until W5 and Products is still making. `IJourneyQuery` is specified

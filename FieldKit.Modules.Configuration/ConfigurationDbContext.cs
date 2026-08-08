@@ -15,6 +15,8 @@ public sealed class ConfigurationDbContext(
 
     public DbSet<FieldDefinition> FieldDefinitions => Set<FieldDefinition>();
 
+    public DbSet<VisitWorkflow> VisitWorkflows => Set<VisitWorkflow>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -43,6 +45,46 @@ public sealed class ConfigurationDbContext(
             // The catalogue's one hot query: "every field for this entity", asked on every write of
             // every outlet.
             definition.HasIndex(d => new { d.TenantId, d.Entity });
+        });
+
+        modelBuilder.Entity<VisitWorkflow>(workflow =>
+        {
+            workflow.HasKey(w => w.Id);
+
+            // One workflow per channel. Two would be two answers to "how is a visit worked here",
+            // and check-in would take whichever the database returned first.
+            workflow.HasIndex(w => new { w.TenantId, w.ChannelId }).IsUnique();
+
+            // No foreign key to the channel: it lives in Outlets' schema (AT-1). An id that no
+            // longer resolves simply answers the default, which is what an unconfigured channel
+            // does — see VisitWorkflowCatalog.
+            workflow.HasMany(w => w.Steps)
+                .WithOne()
+                .HasForeignKey(step => new { step.TenantId, step.VisitWorkflowId })
+                .HasPrincipalKey(w => new { w.TenantId, w.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+
+            workflow.Navigation(w => w.Steps).HasField("_steps").UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            workflow.ToTable("visit_workflow");
+        });
+
+        modelBuilder.Entity<VisitWorkflowStep>(step =>
+        {
+            step.HasKey(s => s.Id);
+
+            // By name, never as an ordinal — a step type inserted in the middle of the enum would
+            // silently re-interpret every stored workflow rather than breaking a build.
+            step.Property(s => s.Type).HasConversion<string>().HasMaxLength(20).IsRequired();
+
+            step.Property(s => s.Label).HasMaxLength(VisitWorkflowStep.MaximumLabelLength).IsRequired();
+
+            // The sequence is the point of the thing, so two steps cannot claim one position. The
+            // domain assigns them contiguously; this is what holds if anything else writes the table.
+            step.HasIndex(s => new { s.TenantId, s.VisitWorkflowId, s.Order }).IsUnique();
+
+            step.ToTable("visit_workflow_step", table => table.HasCheckConstraint(
+                "ck_visit_workflow_step_order", @"""Order"" >= 1"));
         });
     }
 }

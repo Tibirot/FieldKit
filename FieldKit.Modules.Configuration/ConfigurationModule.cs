@@ -51,7 +51,14 @@ public sealed class ConfigurationModule : IModule
         // The public surface. Registered against the Contracts interface so consumers can only bind
         // to that — the implementation is internal to this module by convention (AT-2).
         services.AddScoped<IFieldDefinitionCatalog, FieldDefinitionCatalog>();
+
+        // …and how a visit is worked in a channel, which is how Visit will ask (VIS-03).
+        services.AddScoped<IVisitWorkflow, VisitWorkflowCatalog>();
     }
 
-    public void MapEndpoints(IEndpointRouteBuilder endpoints) => endpoints.MapFieldDefinitionEndpoints();
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapFieldDefinitionEndpoints();
+        endpoints.MapVisitWorkflowEndpoints();
+    }
 }
