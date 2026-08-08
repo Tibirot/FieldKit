@@ -102,7 +102,10 @@ export function TerritoryForm({
         }
       }
 
-      setRefused(unattributed);
+      // A refusal the API attached to nothing — a 403, a 404, a 500 with no body — still has to say
+      // something. Without this the loop above runs zero times and the screen goes silent, which reads
+      // as a Save button that does nothing rather than as a refusal.
+      setRefused(error.problems.length > 0 ? unattributed : [t("saveFailed")]);
     },
   });
 

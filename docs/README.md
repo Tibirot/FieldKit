@@ -57,7 +57,8 @@ docs/
 │     ├─ 0008-authentication-and-multitenancy.md
 │     ├─ 0009-config-driven-customization.md
 │     ├─ 0010-internationalization.md
-│     └─ 0011-deployment-azure-container-apps.md
+│     ├─ 0011-deployment-azure-container-apps.md
+│     └─ 0012-server-message-localization.md
 │
 ├─ engineering/                  ← how we work
 │  ├─ pull-requests.md           ← PR rules for humans & agents (small · tested · docs-in-lockstep)
@@ -122,6 +123,7 @@ Legend: ✅ written · 🚧 draft in progress · ⬜ planned
 - ✅ 0009 Config-driven customization model
 - ✅ 0010 Internationalization (currency & language)
 - ✅ 0011 Deployment target: Azure Container Apps
+- ✅ 0012 Server message localization (refusal codes resolved client-side)
 
 ### UX (ux/)
 - ✅ Wireframes — field-app golden path (5 screens) + back office (7 views: dashboard, outlets, products/pricing, territories, journey planning, users/roles, workflow builder), with an interactive Artifact

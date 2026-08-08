@@ -174,7 +174,8 @@
     "addContact": "Add contact",
     "removeContact": "Remove",
     "removeContactNumbered": "Remove contact {number}",
-    "manageAssortment": "Assortment"
+    "manageAssortment": "Assortment",
+    "readOnly": "You do not have permission to change outlets."
   },
   "Validation": {
     "required": "This field is required.",

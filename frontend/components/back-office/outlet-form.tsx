@@ -23,6 +23,7 @@ import {
   type OutletDetail,
   type OutletWrite,
 } from "@/lib/api/outlets";
+import { usePermissions } from "@/lib/auth/use-permissions";
 import { customFieldSchema, type ValidationMessages } from "@/lib/forms/custom-field-schema";
 import { zonesIncluding } from "@/lib/time-zones";
 import { useValidationMessages } from "@/lib/forms/use-validation-messages";
@@ -171,9 +172,11 @@ export function OutletForm({ outlet }: { outlet?: OutletDetail }) {
   const router = useRouter();
   const client = useQueryClient();
   const { user } = useAuth();
+  const permissions = usePermissions();
 
   const accessToken = user?.access_token;
   const subject = user?.profile.sub;
+  const canWrite = permissions.has("outlet:write");
 
   const channels = useQuery({
     enabled: Boolean(accessToken && subject),
@@ -262,7 +265,10 @@ export function OutletForm({ outlet }: { outlet?: OutletDetail }) {
         else unattributed.push(problem.message);
       }
 
-      setRefused(unattributed);
+      // A refusal the API attached to nothing — a 403, a 404, a 500 with no body — still has to say
+      // something. Without this the loop above runs zero times and the screen goes silent, which reads
+      // as a Save button that does nothing rather than as a refusal.
+      setRefused(error.problems.length > 0 ? unattributed : [t("failed")]);
     },
   });
 
@@ -380,6 +386,24 @@ export function OutletForm({ outlet }: { outlet?: OutletDetail }) {
     // differently-worded refusal for the same field. The constraints stay on the controls for the
     // keyboard they choose on a phone; the messages come from one place.
     <form onSubmit={submit} noValidate className="flex max-w-2xl flex-col gap-4">
+      {/*
+        A `fieldset`, because `disabled` on one propagates to every control inside it — including
+        the contacts rows and the tenant's custom fields, which are built from data and would each
+        have needed the flag threaded to them. `display: contents` keeps it out of the layout; the
+        propagation is by DOM ancestry, not by box.
+
+        Hiding Save alone was not enough. A reader with `outlet:read` could still type into every
+        box, and a form that accepts an hour of edits and then offers nowhere to put them is a
+        worse lie than one that refuses on save.
+
+        `!isPending &&` matters, and it is the opposite rule from the Save button below.
+        `usePermissions` counts a pending answer as denied, which is right for *offering* a control —
+        the flash of Save arriving a moment late is harmless. It is wrong for *disabling* one: a form
+        that starts editable, goes dead when the identity query resolves, and comes back is exactly
+        the "appears and is then taken away" failure the hook's own comment warns about, and it eats
+        whatever a fast typist put in the first box.
+      */}
+      <fieldset disabled={!permissions.isPending && !canWrite} className="contents">
       {refused.length > 0 ? (
         // The server's own words. It knows things this form cannot — a code taken a second ago, a
         // rule only the catalogue holds — and replacing those with "something went wrong" throws
@@ -488,14 +512,23 @@ export function OutletForm({ outlet }: { outlet?: OutletDetail }) {
         errors={errors}
       />
 
-      <div className="flex gap-2">
-        <Button type="submit" disabled={save.isPending}>
-          {save.isPending ? t("saving") : t("save")}
-        </Button>
-        <Button type="button" variant="outline" onClick={() => router.push("/outlets")}>
-          {t("cancel")}
-        </Button>
-      </div>
+      {/* Gated the way every Products screen gates its own writes. Without this a reader with
+          `outlet:read` alone got a filled-in form and a Save that always 403s — and, until the
+          fallback above landed, a 403 that said nothing at all. The server was refusing correctly
+          throughout; what was missing was the screen admitting it. */}
+      {canWrite ? (
+        <div className="flex gap-2">
+          <Button type="submit" disabled={save.isPending}>
+            {save.isPending ? t("saving") : t("save")}
+          </Button>
+          <Button type="button" variant="outline" onClick={() => router.push("/outlets")}>
+            {t("cancel")}
+          </Button>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">{t("readOnly")}</p>
+      )}
+      </fieldset>
     </form>
   );
 }

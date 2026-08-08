@@ -86,10 +86,17 @@ public sealed class Promotion : AggregateRoot, ITenantOwned, IAuditable
     /// <summary>ISO-4217, upper-cased. Set with <see cref="AmountOff"/> and null without it.</summary>
     /// <remarks>
     /// A fixed-amount discount carries its own currency rather than borrowing the price list's,
-    /// because a promotion is authored once and may reach outlets priced in more than one. Resolution
-    /// refusing to discount a EUR line by an RON amount is <c>BR-PRD-1</c> holding — a mismatch is a
-    /// promotion that does not apply, not a conversion. That check belongs to <c>PRD-06</c>; storing
-    /// the currency is what makes it possible to make.
+    /// because a promotion is authored once and may reach outlets priced in more than one. Refusing
+    /// to discount a EUR line by an RON amount is <c>BR-PRD-1</c> holding — a mismatch is a promotion
+    /// that does not apply, not a conversion.
+    /// <para>
+    /// <b>Nothing makes that check yet.</b> This comment said it belonged to <c>PRD-06</c> until
+    /// <c>PRD-06</c> shipped without it, and the reason is structural rather than an omission:
+    /// <see cref="PromotionResolver.Resolve"/> is given candidates, a quantity and a date — it never
+    /// sees a price, so it has no currency to compare against. The comparison first becomes possible
+    /// where the two meet, which is Order applying a resolved promotion to a resolved price, in
+    /// Phase 3. Storing the currency is what keeps it possible to make.
+    /// </para>
     /// </remarks>
     public string? Currency { get; private set; }
 

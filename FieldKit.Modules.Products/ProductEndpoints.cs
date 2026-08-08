@@ -69,7 +69,7 @@ public sealed record UpdateProductRequest(
 /// </summary>
 /// <remarks>
 /// Moved out of <c>ProductsModule</c> when it grew validation. The module is a composition root; the
-/// four endpoint files beside it are where the rules live.
+/// endpoint files beside it are where the rules live.
 /// </remarks>
 internal static class ProductEndpoints
 {
