@@ -70,6 +70,13 @@ from what the strings say. Each hand-written file carries that exact pair.
 | [`pricing/price-resolution.v1.json`](pricing/price-resolution.v1.json) | `PRD-04` / `BR-PRD-2` — which price list wins for an outlet on a date | `PriceResolutionVectorTests` (C#); the device mirror (W7) |
 | [`pricing/promotion-resolution.v1.json`](pricing/promotion-resolution.v1.json) | `PRD-06` / `BR-PRD-3` — which promotion applies to one line, at a quantity, on a date | `PromotionResolutionVectorTests` (C#); the device mirror (W7) |
 | [`pricing/tax.v1.json`](pricing/tax.v1.json) | `PRD-07` / `BR-PRD-5`, `BR-PRD-9` — which rate applies, and what it does to a line | `TaxVectorTests` (C#); the device mirror (W7) |
+| [`pricing/price-resolution.generated.v1.json`](pricing/price-resolution.generated.v1.json) | the same rules, swept rather than chosen | `GeneratedVectorTests` (C#); the device mirror (W7) |
+| [`pricing/promotion-resolution.generated.v1.json`](pricing/promotion-resolution.generated.v1.json) | ditto | `GeneratedVectorTests` (C#); the device mirror (W7) |
+| [`pricing/tax-application.generated.v1.json`](pricing/tax-application.generated.v1.json) | ditto | `GeneratedVectorTests` (C#); the device mirror (W7) |
+
+**A mirror consumes all six.** The generated three are the same format and the same reader — that is
+the whole point of having settled the format against real engine code — so "read the vectors" means
+this table, not the hand-written half of it.
 
 The second and third files arrived without changing the format, which is the point of having decided
 it against real engine code rather than at the end. Each new rule got a new case file, not a new
@@ -82,12 +89,20 @@ notices until a ledger does. Its `application` cases are paired deliberately: fo
 case where half-up and banker's rounding disagree, there is one where they agree by accident, so a
 suite cannot pass on the wrong policy.
 
-## Hand-written today, generated later
+## Hand-written and generated, side by side
 
-These cases are written by hand, one per rule, each named after the rule it pins. That is enough to
-make the format real and to hold the C# engine to it.
+The `*.v1.json` cases are written by hand, one per rule, each named after the rule it pins. That is
+enough to make the format real and to hold the C# engine to it.
 
 It is **not** enough for `BR-PRD-8/9`. The testing strategy asks for *generated / property-based*
 vectors precisely because hand-written cases cover the regions someone thought of, and decimal
-divergence hides in the ones they did not. The generated suite is W6 slice 10; it will emit into this
-same format, so the mirror does not have to change to consume it.
+divergence hides in the ones they did not.
+
+**The generated suite landed with W6 slice 10**, in the `*.generated.v1.json` files above. It emits
+into this same format, so the mirror needs one reader rather than two. `VectorGenerator` produces
+them from a fixed seed and `GeneratedVectorTests` checks the committed artifacts against a fresh run
+— a regenerated file that differs is either a rule change or a bug, and either way it shows up as a
+diff rather than as a silent pass.
+
+Neither kind replaces the other. The hand-written cases say *why* a rule exists and are readable as
+documentation; the generated ones say the engine holds across a range nobody would type out.

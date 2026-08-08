@@ -11,6 +11,7 @@ import { useAuth } from "@/components/auth-provider";
 import { CustomFields } from "@/components/back-office/custom-fields";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api/client";
+import { refusalText } from "@/lib/api/refusals";
 import { fetchFieldDefinitions, fieldDefinitionsKey } from "@/lib/api/field-definitions";
 import {
   brandsKey,
@@ -141,6 +142,10 @@ export function ProductForm({
   onCancel: () => void;
 }) {
   const t = useTranslations("Products");
+
+  // Server refusals, in the reader's language (ADR-0012 stage 2).
+
+  const refusals = useTranslations("Refusals");
   const client = useQueryClient();
   const { user } = useAuth();
 
@@ -231,8 +236,8 @@ export function ProductForm({
       for (const problem of error.problems) {
         const path = formPath(problem.field);
 
-        if (path) form.setError(path as never, { type: "server", message: problem.message });
-        else unattributed.push(problem.message);
+        if (path) form.setError(path as never, { type: "server", message: refusalText(refusals, problem) });
+        else unattributed.push(refusalText(refusals, problem));
       }
 
       setRefused(unattributed);

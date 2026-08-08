@@ -7,7 +7,27 @@
  */
 export type FieldProblem = {
   field: string | null;
+
+  /**
+   * The server's English sentence.
+   *
+   * Kept even now that `code` exists, because it is the fallback: a rule this catalogue has no entry
+   * for degrades to a correct English sentence rather than to a raw dotted name
+   * ([ADR-0012](../../../docs/architecture/adr/0012-server-message-localization.md)).
+   */
   message: string;
+
+  /**
+   * Which rule was broken — `product.priceList.nameTaken` — or absent on a module not yet migrated.
+   *
+   * This is what makes a refusal translatable at all: the server says which rule and about what, and
+   * the language is chosen here, when the message is read. A refusal stored offline then renders in
+   * whatever language the device is in *now*, which is the property `Accept-Language` cannot give.
+   */
+  code?: string | null;
+
+  /** What the rule was broken *about* — the values the catalogue's placeholders take. */
+  args?: Record<string, string> | null;
 };
 
 /**

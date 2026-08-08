@@ -14,6 +14,7 @@ import {
 } from "@/lib/api/assortments";
 import { channelsKey, fetchChannels } from "@/lib/api/channels";
 import { ApiError } from "@/lib/api/client";
+import { refusalTexts } from "@/lib/api/refusals";
 import { fetchProducts, productsKey, type Product } from "@/lib/api/products";
 import { usePermissions } from "@/lib/auth/use-permissions";
 
@@ -152,6 +153,8 @@ function ChannelAssortment({
   products: readonly Product[];
 }) {
   const t = useTranslations("Assortments");
+  // Server refusals, in the reader's language (ADR-0012 stage 2).
+  const refusals = useTranslations("Refusals");
   const client = useQueryClient();
   const { user } = useAuth();
   const { has } = usePermissions();
@@ -185,7 +188,7 @@ function ChannelAssortment({
     onError: (error) =>
       setRefused(
         error instanceof ApiError && error.problems.length > 0
-          ? error.problems.map((problem) => problem.message)
+          ? refusalTexts(refusals, error.problems)
           : [t("saveFailed")],
       ),
   });
