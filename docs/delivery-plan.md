@@ -296,6 +296,19 @@ promo types + tax + the resolver + a decimal-parity vector suite) in one week; b
 
 **Done when:** pricing resolves deterministically; the vector suite passes.
 
+> **✅ W6 has landed**, in 26 PRs against the 24 the decomposition below budgets (21 rows, one of them
+> ×4), plus a handful of untagged fixes found while checking the screens in a browser. The
+> engine resolves prices, promotions and tax as pure functions checked by hand-written and generated
+> [vectors](../vectors/README.md) plus property tests, and the back office can author every one of its
+> inputs: catalogue, classification, assortments and per-outlet overrides, price lists with their
+> prices and scope, and promotions with their targets, tiers and scope. The last slice closed the loop
+> end to end — a promotion authored, targeted and scoped through the UI resolves for a real outlet.
+>
+> The overrun was the promotion children being three screens rather than one row's worth — targets,
+> tiers and scope are three different questions — on top of `PRD-05` needing three type slices rather
+> than two (see below). Neither was a surprise about *size*; both were about shape, which is the part
+> an estimate is worst at.
+
 #### Decomposition
 
 A week is many PRs ([pull-requests §2](engineering/pull-requests.md)), and this one is the heaviest
@@ -417,6 +430,96 @@ per-line, currency per price list rather than per tenant.
 - **Pricing engine TS mirror** on **`decimal.js` + the documented rounding policy** (never native `number`); a **generated/property-based** parity harness running the *same* vectors on C# and TS ([BR-PRD-8/9](product/13-products-and-pricing.md#decimal-parity-resolves-finding-s4)).
 
 **Done when:** journeys generate; visit lifecycle works online; C# and TS pricing agree on every vector. **⚠︎ Heavy** — budget ~1.5 weeks.
+
+#### Decomposition
+
+Two new modules and a second implementation of an engine that already exists. Sliced below in
+stacking order; as in W6, the prerequisite contracts come first and are designed against their actual
+callers rather than guessed at.
+
+**The TS mirror is independent of Journey and Visit** — it consumes [`vectors/`](../vectors/README.md)
+and nothing else in this week. It is listed last for readability, not sequenced last; it can be built
+alongside, and it is the slice that most rewards being started early, because a parity failure is a
+question about the *spec* and those take a while to settle.
+
+| # | Slice | Requirements | ~Size |
+|---|---|---|---|
+| 0 | **`IRepScope`** — Organization grows the contract journey generation needs: which outlets a rep covers on a given day | — | 150 |
+| 1 | **Journey module + call frequency** — new assembly and `journey` schema; visits-per-cycle and cycle length, per outlet or derived from segment | `JRN-01` | 400 |
+| 2 | **Working calendar** — the rep's working days, holidays and daily capacity | `JRN-02` | 300 |
+| 3 | **Generation, as a pure function** — frequency × territory × calendar → planned visits; capacity respected, closed outlets excluded | `JRN-03`, `BR-JRN-1/3/5` | 400 |
+| 4 | **Publish + `IJourneyQuery` + `JourneyPublished`** — a generated plan becomes a thing others can read | `JRN-04` | 350 |
+| 5 | **Rep-side annotations** — not-visited with reason, unplanned visit, reschedule within cycle; `PlannedVisitMarkedNotVisited` | `JRN-06`, `BR-JRN-2/4` | 400 |
+| 6 | **`IVisitWorkflow`** — Configuration grows the per-channel step sequence, and whether presence is expected | `VIS-03` | 250 |
+| 7 | **Visit module + check-in** — new assembly and `visit` schema; geo capture, geofence check, override reason | `VIS-01/02`, `BR-VIS-2` | 400 |
+| 8 | **Steps and mandatory gating** — the workflow instantiated per visit; check-out refused while a mandatory step is open | `VIS-03/04`, `BR-VIS-3` | 400 |
+| 9 | **Check-out and seal** — outcome, time-on-site, check-out geo-stamp, reference snapshot version; sealed thereafter; `VisitCompleted` | `VIS-05`, `BR-VIS-4/5/6` | 400 |
+| 10 | **Back-office screens** — frequency, calendar, generate-and-publish, plan review | `JRN-01/02/03` | 400 ×2 |
+| 11 | **TS `Money` and the rounding policy** — `decimal.js`, never a native `number`; half-up away from zero | `BR-PRD-8/9` | 300 |
+| 12 | **TS price resolution** — the mirror of `PriceResolver`, against `pricing/price-resolution.v1.json` | `PRD-04` | 300 |
+| 13 | **TS promotion resolution** — the mirror of `PromotionResolver`, including the tiebreak | `PRD-06` | 350 |
+| 14 | **TS tax** — the mirror of `TaxEngine`, on the rounded net line | `PRD-07` | 250 |
+| 15 | **The parity harness in CI** — both languages, the same vectors, one job that fails on either | `PRD-08` | 300 |
+
+**Slice 0 is W6's slice 5 again, and the shape is worth reusing.** `BR-JRN-1` generates only for
+outlets in the rep's **active territory**. `ITerritoryDirectory` is built and answers what a territory
+contains; nothing answers *which territories this rep covers today*, which is `IRepScope` — planned in
+the [registry](architecture/10-module-boundaries.md#7-module-registry) since W1 and still unbuilt,
+because until now no module asked. The generator is its first real caller, so it gets designed against
+the generator and nothing else.
+
+**Journey gets a `.Contracts` assembly; Visit does not, yet.** Visit consumes `IJourneyQuery`, so
+Journey has a real cross-module consumer inside this week and splits accordingly. Visit's own
+contracts — `IVisitContext`, `IVisitQuery` — are consumed by Audit and Order, which are Phase 3. They
+stay unbuilt for the same reason `IPricingService` did through all of W6: a contract designed before
+its consumer asks is a guess the consumer then has to live with. `IJourneyIngest` and `IVisitIngest`
+are Sync's, and land with W8.
+
+**Generation is a pure function before it is an endpoint**, exactly as `PriceResolver` was. It is the
+most rule-dense thing in the week — frequency, capacity, territory, working days, exclusions — and it
+is the one part a supervisor will argue with, so it has to be testable without a database.
+
+**Day sequencing is not in this week, and the generator has to say so.** `F2` step 3 sequences a day's
+outlets by a proximity/segment heuristic, which reads like part of generation — but it is `JRN-09`, a
+*Should* at **Phase 3**, while everything else here is a Phase 2 *Must*. So generation emits a stable,
+arbitrary order (by outlet code) and the heuristic replaces it later. Worth stating rather than
+leaving implicit, because "the order looks wrong" is otherwise a bug report against a slice that never
+claimed to order anything.
+
+**Check-in and check-out are separate slices because they fail differently.** Check-in is about
+whether a rep may start work somewhere they may not be standing — and `BR-VIS-2` says *never block,
+always record*, which is a rule that reads as a bug until it is written down. Check-out is about
+whether a visit is finished and, once it is, that it can never change again (`BR-VIS-4`). Reviewing
+"we let them in" and "we sealed it shut" in one diff would flatten two opposite instincts into one.
+
+> **`BR-VIS-2`'s assumption needs slice 7 to exist.** Remote-capable visit types skip the override,
+> because a phone call is legitimately not at the outlet and demanding a reason records an exception
+> where nothing exceptional happened. That is a per-channel policy, so it lives on `IVisitWorkflow` —
+> which is why Configuration grows the contract *before* check-in is built rather than after, and why
+> slice 7 is a prerequisite rather than a tidy-up.
+
+**The parity harness is the week's actual deliverable.** `PRD-08` is why the vectors were written
+against a real engine in W6 rather than emitted from one — the format had to state rules a second
+language could implement. Slices 12–16 are that claim being tested for the first time, and slice 16 is
+the only one that makes the guarantee permanent: two implementations agreeing once is an anecdote, and
+a CI job that fails when they stop agreeing is the guarantee.
+
+**Two of the week's requirements have no row of their own, on purpose.** `VIS-07` (not-visited
+handling) is `JRN-06` seen from the other side — the reason is captured against the *planned* visit,
+so it lands in slice 5 and Visit never grows a state for a visit that did not happen. `VIS-06` (notes
+and photos as steps) is a *Should*: notes fall out of slice 8 as an ordinary step type, and photos
+need the upload path, which is **W11**.
+
+**Not in W7:** `JRN-05` (the rep works the journey) and the on-device visit UI are **W9**, because
+they are the offline PWA and there is no sync engine until W8. `JRN-07/08/09/10` and `VIS-08/09/10`
+are *Should*/*Could* at Phase 3 and stay there. `IReferenceChangeFeed` for Journey lands with W8, for
+the same reason Products' does.
+
+> **Seventeen PRs against a ~1.5-week budget** (16 rows, one of them ×2). W6 was budgeted at 24 the
+> same way and took 26. Recorded rather than adjusted, because the estimate is the plan's own claim
+> and rewriting it after the fact would hide what a decomposition is for: two new modules, two
+> prerequisite contracts and a second implementation of a rules engine is closer to two weeks than one
+> and a half, and it is better to say so before starting than to explain it afterwards.
 
 ### Week 8 · Sync engine v1 (server + client) ⚠︎
 **Goal:** the hard part — offline round-trip for reference + visits.
