@@ -158,6 +158,25 @@ describe("<PromotionBrowser>", () => {
     expect(targets.getAttribute("href")).toBe("/products/promotions/promo-1/targets");
   });
 
+  it("offers tiers on the one type that has them, and nothing else", async () => {
+    // A flat promotion with tiers would carry two discounts and no rule saying which applies, so
+    // the API refuses the pairing — a link to an editor that refuses everything is not a courtesy.
+    render(<PromotionBrowser />);
+
+    await screen.findByRole("link", { name: "Targets for Summer 10% off" });
+    expect(screen.queryByRole("link", { name: "Tiers for Summer 10% off" })).toBeNull();
+  });
+
+  it("offers the way through to where a promotion runs", async () => {
+    // Scope is not targets: one says what is discounted, the other where the discount runs. A deal
+    // needs both, and either one left empty means it never fires.
+    render(<PromotionBrowser />);
+
+    const scope = await screen.findByRole("link", { name: "Scope of Summer 10% off" });
+
+    expect(scope.getAttribute("href")).toBe("/products/promotions/promo-1/scope");
+  });
+
   it("sends a percentage as typed, without parsing it", async () => {
     render(<PromotionBrowser />);
     await openNew();

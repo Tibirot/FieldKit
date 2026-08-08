@@ -15,31 +15,30 @@ import { Button } from "@/components/ui/button";
 import { channelsKey, fetchChannels, type Channel } from "@/lib/api/channels";
 import { ApiError } from "@/lib/api/client";
 import {
-  assignmentsKey,
-  fetchAssignments,
-  fetchPriceLists,
-  priceListsKey,
-  setAssignments,
-  type PriceList,
-  type PriceListAssignment,
-} from "@/lib/api/price-lists";
+  fetchPromotions,
+  fetchPromotionScope,
+  promotionScopeKey,
+  promotionsKey,
+  setPromotionScope,
+  type Promotion,
+  type PromotionAssignment,
+} from "@/lib/api/promotions";
 import { usePermissions } from "@/lib/auth/use-permissions";
 
 /**
- * Which channels and outlets a price list reaches (`PRD-03`).
+ * Which channels and outlets a promotion reaches (`PRD-05`).
  *
- * **A list is priced before it is pointed anywhere.** Until this screen is used it is a draft: it
- * exists, it has prices, and it reaches nobody. Saving here is also what *announces* it — the server
- * raises `PriceListPublished` into the outbox in the same transaction, which Sync turns into a
+ * **The last thing a promotion needs before it does anything.** Type, value, targets and window all
+ * describe a rule; this says who it happens to. Saving is also what *announces* it — the server
+ * raises `PromotionActivated` into the outbox in the same transaction, which Sync turns into a
  * reference delta.
  *
- * **Channels are the ordinary case; outlets are the exception** (`B1` assigns per channel with an
- * optional per-outlet override). That asymmetry is why the two halves of this screen look different:
- * a tenant has a handful of channels and can be shown all of them, and has thousands of outlets and
- * must search for the few that need special pricing.
+ * **Scope is not the same question as targets.** Targets say *what* is discounted (products and
+ * categories); this says *where* the discount runs. A deal on Veridian Still that reaches only
+ * Modern Trade needs both, and either one left empty means it never fires.
  */
-export function PriceListScope() {
-  const t = useTranslations("PriceListScope");
+export function PromotionScope() {
+  const t = useTranslations("PromotionScope");
   const { user } = useAuth();
   const params = useParams<{ id: string }>();
 
@@ -48,10 +47,10 @@ export function PriceListScope() {
   const id = params.id;
   const enabled = Boolean(accessToken && subject && id);
 
-  const lists = useQuery({
+  const promotions = useQuery({
     enabled,
-    queryKey: priceListsKey(subject ?? ""),
-    queryFn: ({ signal }) => fetchPriceLists(accessToken!, signal),
+    queryKey: promotionsKey(subject ?? ""),
+    queryFn: ({ signal }) => fetchPromotions(accessToken!, signal),
   });
 
   const channels = useQuery({
@@ -60,28 +59,28 @@ export function PriceListScope() {
     queryFn: ({ signal }) => fetchChannels(accessToken!, signal),
   });
 
-  const assignments = useQuery({
+  const scope = useQuery({
     enabled,
-    queryKey: assignmentsKey(subject ?? "", id ?? ""),
-    queryFn: ({ signal }) => fetchAssignments(accessToken!, id, signal),
+    queryKey: promotionScopeKey(subject ?? "", id ?? ""),
+    queryFn: ({ signal }) => fetchPromotionScope(accessToken!, id, signal),
   });
 
   const assignedOutletIds = useMemo(
     () =>
-      (assignments.data ?? [])
+      (scope.data ?? [])
         .map((assignment) => assignment.outletId)
         .filter((outletId): outletId is string => outletId !== null),
-    [assignments.data],
+    [scope.data],
   );
 
   const assigned = useAssignedOutlets(assignedOutletIds, t("unknownOutlet"), enabled);
 
-  const failed = [lists, channels, assignments].find((query) => query.isError);
+  const failed = [promotions, channels, scope].find((query) => query.isError);
 
   if (failed) {
     const error = failed.error;
 
-    // The assignments read 404s on a list this tenant does not have, which is also what another
+    // The scope read 404s on a promotion this tenant does not have, which is also what another
     // tenant's id looks like from here.
     if (error instanceof ApiError && error.status === 404) {
       return (
@@ -98,13 +97,13 @@ export function PriceListScope() {
     );
   }
 
-  if (!lists.data || !channels.data || !assignments.data || assigned.pending) {
+  if (!promotions.data || !channels.data || !scope.data || assigned.pending) {
     return <p className="text-sm text-muted-foreground">{t("loading")}</p>;
   }
 
-  const list = lists.data.find((candidate) => candidate.id === id);
+  const promotion = promotions.data.find((candidate) => candidate.id === id);
 
-  if (!list) {
+  if (!promotion) {
     return (
       <p role="alert" className="text-sm text-destructive">
         {t("notFound")}
@@ -116,16 +115,16 @@ export function PriceListScope() {
     <div className="flex max-w-3xl flex-col gap-4">
       <header>
         <p className="font-mono text-[11.5px] text-muted-foreground">{t("crumb")}</p>
-        <h1 className="text-lg font-semibold tracking-tight">{list.name}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("intro", { currency: list.currency })}</p>
+        <h1 className="text-lg font-semibold tracking-tight">{promotion.name}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t("intro")}</p>
       </header>
 
       <ScopeEditor
-        // Remounted per list, so the boxes reseed from what the server holds.
-        key={list.id}
-        list={list}
+        // Remounted per promotion, so the boxes reseed from what the server holds.
+        key={promotion.id}
+        promotion={promotion}
         channels={channels.data}
-        assignments={assignments.data}
+        scope={scope.data}
         assignedOutlets={assigned.outlets}
       />
     </div>
@@ -134,17 +133,17 @@ export function PriceListScope() {
 
 /** The editable half, seeded once from what the server holds. */
 function ScopeEditor({
-  list,
+  promotion,
   channels,
-  assignments,
+  scope,
   assignedOutlets,
 }: {
-  list: PriceList;
+  promotion: Promotion;
   channels: readonly Channel[];
-  assignments: readonly PriceListAssignment[];
+  scope: readonly PromotionAssignment[];
   assignedOutlets: readonly OutletPick[];
 }) {
-  const t = useTranslations("PriceListScope");
+  const t = useTranslations("PromotionScope");
   const client = useQueryClient();
   const { user } = useAuth();
   const { has } = usePermissions();
@@ -154,11 +153,11 @@ function ScopeEditor({
   const storedChannels = useMemo(
     () =>
       new Set(
-        assignments
+        scope
           .map((assignment) => assignment.channelId)
           .filter((channelId): channelId is string => channelId !== null),
       ),
-    [assignments],
+    [scope],
   );
 
   const [chosenChannels, setChosenChannels] = useState<Set<string>>(() => new Set(storedChannels));
@@ -167,14 +166,14 @@ function ScopeEditor({
 
   const save = useMutation({
     mutationFn: () =>
-      setAssignments(accessToken!, list.id, {
+      setPromotionScope(accessToken!, promotion.id, {
         channelIds: [...chosenChannels],
         outletIds: chosenOutlets.map((outlet) => outlet.id),
       }),
 
     onSuccess: async () => {
       setRefused([]);
-      await client.invalidateQueries({ queryKey: ["price-lists"] });
+      await client.invalidateQueries({ queryKey: ["promotions"] });
     },
 
     onError: (error) =>

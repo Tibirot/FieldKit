@@ -728,7 +728,9 @@
     "targets": "Targets",
     "targetsNamed": "Targets for {name}",
     "tiers": "Tiers",
-    "tiersNamed": "Tiers for {name}"
+    "tiersNamed": "Tiers for {name}",
+    "scope": "Scope",
+    "scopeNamed": "Scope of {name}"
   },
   "PromotionTargets": {
     "crumb": "Master data / Products / Promotions / Targets",
@@ -791,6 +793,35 @@
     "save": "Save tiers",
     "saving": "Saving…",
     "saveFailed": "These tiers could not be saved.",
+    "unsaved": "Unsaved changes."
+  },
+  "PromotionScope": {
+    "crumb": "Master data / Products / Promotions / Scope",
+    "intro": "Where this deal runs. Saving also announces the change, so devices holding it know it moved — including when the scope is emptied, which is how a promotion is taken out of play.",
+    "channels": "Channels",
+    "channelsHint": "The ordinary case: every outlet trading in a channel gets the deals assigned to it.",
+    "channelNamed": "Run in {name}",
+    "noChannels": "No channels yet. Create one under Outlets first.",
+    "outlets": "Individual outlets",
+    "outletsHint": "The exception: a shop that gets this deal when its channel does not. Search for it by code or name.",
+    "noOutlets": "No individual outlets. This promotion runs through its channels only.",
+    "searchOutlets": "Search outlets",
+    "searchPlaceholder": "Search by code or name — at least two characters…",
+    "noMatches": "No outlet matches “{search}”.",
+    "add": "Add",
+    "added": "Added",
+    "addNamed": "Add {name} ({code})",
+    "removeNamed": "Remove {name} ({code})",
+    "unknownOutlet": "Outlet could not be loaded",
+    "reaches": "Runs in {count, plural, one {# place} other {# places}}.",
+    "reachesNobody": "This promotion runs nowhere. It exists and never fires.",
+    "loading": "Loading…",
+    "failed": "This could not be loaded.",
+    "forbidden": "You do not have permission to view promotions.",
+    "notFound": "That promotion does not exist.",
+    "save": "Save scope",
+    "saving": "Saving…",
+    "saveFailed": "This scope could not be saved.",
     "unsaved": "Unsaved changes."
   }
 }
