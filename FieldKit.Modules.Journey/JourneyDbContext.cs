@@ -36,6 +36,8 @@ public sealed class JourneyDbContext(DbContextOptions<JourneyDbContext> options,
 
     public DbSet<Holiday> Holidays => Set<Holiday>();
 
+    public DbSet<JourneyPlan> JourneyPlans => Set<JourneyPlan>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -111,6 +113,65 @@ public sealed class JourneyDbContext(DbContextOptions<JourneyDbContext> options,
             holiday.HasIndex(row => new { row.TenantId, row.Date }).IsUnique();
 
             holiday.ToTable("holiday");
+        });
+
+        modelBuilder.Entity<JourneyPlan>(plan =>
+        {
+            plan.HasKey(row => row.Id);
+
+            plan.Property(row => row.UserId).HasMaxLength(64).IsRequired();
+            plan.Property(row => row.FromDate).HasColumnName("from_date").IsRequired();
+            plan.Property(row => row.ToDate).HasColumnName("to_date").IsRequired();
+
+            // By name, never as an ordinal — a member inserted in the middle would silently
+            // re-interpret every stored plan rather than breaking a build.
+            plan.Property(row => row.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
+
+            // "What has this rep got, and when" — the query every screen and, later, Sync makes.
+            plan.HasIndex(row => new { row.TenantId, row.UserId, row.FromDate });
+
+            // Regular entities rather than owned types, because `ModuleDbContext` applies the tenant
+            // filter to every `ITenantOwned` type it finds — which makes them non-owned by the time
+            // this runs, and EF refuses the contradiction. Being filtered in their own right is the
+            // better outcome anyway: a query that reaches a visit without going through its plan is
+            // still tenant-scoped.
+            plan.HasMany(row => row.Visits)
+                .WithOne()
+                .HasForeignKey(visit => new { visit.TenantId, visit.JourneyPlanId })
+                .HasPrincipalKey(row => new { row.TenantId, row.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+
+            plan.HasMany(row => row.Shortfalls)
+                .WithOne()
+                .HasForeignKey(shortfall => new { shortfall.TenantId, shortfall.JourneyPlanId })
+                .HasPrincipalKey(row => new { row.TenantId, row.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+
+            plan.Navigation(row => row.Visits).HasField("_visits").UsePropertyAccessMode(PropertyAccessMode.Field);
+            plan.Navigation(row => row.Shortfalls).HasField("_shortfalls").UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            plan.ToTable("journey_plan", table => table.HasCheckConstraint(
+                "ck_journey_plan_window", @"""to_date"" >= ""from_date"""));
+        });
+
+        modelBuilder.Entity<PlannedVisit>(visit =>
+        {
+            visit.HasKey(row => row.Id);
+
+            // The rep's day: "what am I doing on the 4th" — the query the device makes every morning.
+            visit.HasIndex(row => new { row.TenantId, row.JourneyPlanId, row.Date });
+
+            visit.ToTable("planned_visit");
+        });
+
+        modelBuilder.Entity<PlanShortfall>(shortfall =>
+        {
+            shortfall.HasKey(row => row.Id);
+
+            // A shortfall that is not short is a contradiction, and the row would be noise on a
+            // screen whose whole job is to list the real ones.
+            shortfall.ToTable("plan_shortfall", table => table.HasCheckConstraint(
+                "ck_plan_shortfall_is_short", @"""Planned"" < ""Required"""));
         });
     }
 }

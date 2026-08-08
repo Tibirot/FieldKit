@@ -2732,3 +2732,109 @@ Authorization: Bearer {{viewerToken.response.body.access_token}}
 }
 
 ###
+
+### ─── Journey plans (JRN-04) ─────────────────────────────────────────────────────────────────────
+
+### Generate a plan. A POST that **writes**, not a GET that computes: a plan is the artefact a
+### supervisor reviews, changes the inputs of, and regenerates — so each run is a thing with an id
+### they can come back to and compare, rather than a number that vanishes with the tab.
+###
+### Four things must already be configured for this to contain anything: the rep covers a territory
+### (ORG-04), that territory holds outlets, those outlets have a frequency (JRN-01), and the rep has
+### a working calendar (JRN-02). Each missing one shows up differently in the response below.
+# @name plan
+POST {{Server_HostAddress}}/api/journey/plans
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "userId": "{{newUser.response.body.subjectId}}",
+  "from": "2026-03-02",
+  "to": "2026-03-29"
+}
+
+### The response is deliberately more than the visits. `shortfalls` names outlets the calendar could
+### not fit as often as their frequency asks — the sentence a supervisor needs, because a plan that
+### is 25% short otherwise looks exactly like a complete one. `excluded` names the shops that were
+### skipped outright and why: `Closed` (BR-JRN-5) or `NoFrequency` (nobody has graded it).
+###
+### Note which of the two is **stored**: shortfalls are, exclusions are not. A shortfall is a
+### statement about *this* plan against the capacity it had, and nothing else records it; an
+### exclusion is recoverable at any time from Outlets or the frequency screen.
+GET {{Server_HostAddress}}/api/journey/plans/{{plan.response.body.plan.id}}
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Publishing is a separate act, and that separation is the point. Until it happens the plan is an
+### experiment — generation is cheap and repeatable, so a supervisor runs it, changes a frequency and
+### runs it again, and none of those should be something a device is downloading.
+###
+### This is also what raises `JourneyPublished` to the outbox. Sync is the consumer and does not
+### exist yet (W8); an event is true whether or not anyone is listening, which is the same shape
+### `PriceListPublished` has had since W6.
+POST {{Server_HostAddress}}/api/journey/plans/{{plan.response.body.plan.id}}/publish
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Expect 409 `journey.plan.alreadyPublished`. Refused rather than treated as a no-op: a second
+### publish is either a double-click or somebody expecting it to re-announce a changed plan, and the
+### second is a misunderstanding worth correcting. A published plan does not change — the rep may
+### already have walked half of it, and rewriting the rows underneath them would discard the visits
+### they have completed. Replanning produces a *new* plan.
+POST {{Server_HostAddress}}/api/journey/plans/{{plan.response.body.plan.id}}/publish
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### What this rep has been given, newest window first.
+GET {{Server_HostAddress}}/api/journey/plans?userId={{newUser.response.body.subjectId}}
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Expect 400 `journey.plan.unknownUser`. Without it, a mistyped subject produces an *empty* plan —
+### which reads as "this rep covers nothing", a coverage problem rather than a typo, and the two are
+### fixed in completely different places.
+POST {{Server_HostAddress}}/api/journey/plans
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "userId": "00000000-0000-0000-0000-0000deadbeef",
+  "from": "2026-03-02",
+  "to": "2026-03-29"
+}
+
+### Expect 400 `journey.plan.windowBackwards`. Refused rather than quietly producing an empty plan,
+### for the same reason as above: an empty plan says something about the rep, not about the request.
+POST {{Server_HostAddress}}/api/journey/plans
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "userId": "{{newUser.response.body.subjectId}}",
+  "from": "2026-03-29",
+  "to": "2026-03-02"
+}
+
+### Expect 400 `journey.plan.windowTooLong`, with the bound in `args`. Generation walks the window
+### day by day, so an unbounded range is an unbounded loop reachable from a request body.
+POST {{Server_HostAddress}}/api/journey/plans
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "userId": "{{newUser.response.body.subjectId}}",
+  "from": "2026-01-01",
+  "to": "2030-01-01"
+}
+
+### Held to journey:write — expect 403. Generating a plan decides what a rep will be sent to do, so
+### it is a sales-operations act rather than a reading one.
+POST {{Server_HostAddress}}/api/journey/plans
+Content-Type: application/json
+Authorization: Bearer {{viewerToken.response.body.access_token}}
+
+{
+  "userId": "{{newUser.response.body.subjectId}}",
+  "from": "2026-03-02",
+  "to": "2026-03-29"
+}
+
+###

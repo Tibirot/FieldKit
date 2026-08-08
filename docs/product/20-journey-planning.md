@@ -61,6 +61,23 @@ in-store work. (Not a route optimizer — sequencing is by simple rules, not VRP
 3. Sequence each day's outlets (by proximity/segment heuristic — not optimization).
 4. Publish → the plan syncs to the rep's device.
 
+> **A plan is a draft until somebody publishes it (`JRN-04`).** Generation is cheap and repeatable —
+> a supervisor runs it, changes a frequency, runs it again — so a generated plan is nobody's work
+> yet. Publishing is the moment it becomes the thing a rep is holding, and the moment
+> `JourneyPublished` announces it. Without the two states every experiment would be a plan some
+> device tried to download.
+>
+> **A published plan is sealed.** Publishing again is refused rather than treated as a no-op: the rep
+> may already have walked half of it, and rewriting the rows underneath them would silently discard
+> visits they completed. Replanning produces a *new* plan; what happens when two overlap is `JRN-08`,
+> and slice 4 deliberately refuses rather than guessing.
+>
+> **Shortfalls are stored with the plan; exclusions are not.** A shortfall is a statement about this
+> plan against the capacity it had, and nothing else records it — re-deriving it later would need the
+> frequencies and calendar exactly as they were at generation, which nobody keeps. An exclusion is
+> recoverable at any time: whether an outlet is closed is Outlets' to answer, and whether it has a
+> frequency is one screen away. So the plan carries only the fact that would otherwise be lost.
+
 > **What `JRN-03` decided, because steps 1 and 2 each hide a choice.**
 >
 > **Step 1 — how a frequency becomes a number for *this* window.** The window's share of a cycle,
