@@ -32,5 +32,6 @@
     <ProjectReference Include="..\FieldKit.Modules.Outlets\FieldKit.Modules.Outlets.csproj" />
     <ProjectReference Include="..\FieldKit.Modules.Configuration\FieldKit.Modules.Configuration.csproj" />
     <ProjectReference Include="..\FieldKit.Modules.Journey\FieldKit.Modules.Journey.csproj" />
+    <ProjectReference Include="..\FieldKit.Modules.Visit\FieldKit.Modules.Visit.csproj" />
   </ItemGroup>
 </Project>

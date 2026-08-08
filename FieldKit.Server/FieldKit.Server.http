@@ -3061,3 +3061,121 @@ Authorization: Bearer {{viewerToken.response.body.access_token}}
 }
 
 ###
+
+# ---------------------------------------------------------------------------------------------
+# Visit — check-in (VIS-01, VIS-02, BR-VIS-2), W7 slice 7
+#
+# The rep is never in the body. Every request below is "whoever this token is, at this outlet" —
+# a field the caller could fill in is a field they could fill in wrong, and the visit is the
+# record of who was where.
+#
+# `outlet` above is at 44.4638, 26.0946 with a 150 m default radius, so the two positions used
+# here are the doorway and a point ~2.2 km north of it.
+# ---------------------------------------------------------------------------------------------
+
+### Standing in the shop. Expect 201, `wasInsideGeofence: true`, no override reason.
+# @name visit
+POST {{Server_HostAddress}}/api/visits/check-in
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outletId": "{{outlet.response.body.id}}",
+  "latitude": 44.4638,
+  "longitude": 26.0946
+}
+
+### Somewhere else entirely. Expect 400 `visit.checkIn.overrideReasonRequired` — and read the
+### `args`: the refusal carries the distance and the radius, because "eighty metres" and "two
+### kilometres" are different conversations and a rep deserves to see which one this is.
+POST {{Server_HostAddress}}/api/visits/check-in
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outletId": "{{outlet.response.body.id}}",
+  "latitude": 44.4838,
+  "longitude": 26.0946
+}
+
+### The same position with a sentence attached. Expect 201 — BR-VIS-2 asks, it does not refuse.
+### The distance is kept alongside the reason so a supervisor reviewing it sees both.
+POST {{Server_HostAddress}}/api/visits/check-in
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outletId": "{{outlet.response.body.id}}",
+  "latitude": 44.4838,
+  "longitude": 26.0946,
+  "overrideReason": "Owner asked me to meet him at the depot"
+}
+
+### A device with no fix at a shop that has one. Expect 400 — nothing can be measured, and that is
+### precisely why it needs saying: this is also how a check-in would be faked.
+POST {{Server_HostAddress}}/api/visits/check-in
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outletId": "{{outlet.response.body.id}}"
+}
+
+### Half a position — expect 400 `visit.checkIn.halfPosition`. A latitude on its own is not a place.
+POST {{Server_HostAddress}}/api/visits/check-in
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outletId": "{{outlet.response.body.id}}",
+  "latitude": 44.4638
+}
+
+### Not on the earth — expect 400 `visit.checkIn.latitudeOutOfRange`, not a stored impossibility.
+POST {{Server_HostAddress}}/api/visits/check-in
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outletId": "{{outlet.response.body.id}}",
+  "latitude": 91,
+  "longitude": 26.0946
+}
+
+### An outlet this tenant does not have — expect 400 `visit.checkIn.unknownOutlet`. Another
+### tenant's outlet answers identically; an existence check that did not would leak the id.
+POST {{Server_HostAddress}}/api/visits/check-in
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outletId": "019fffff-ffff-7fff-bfff-fffffffffffe",
+  "latitude": 44.4638,
+  "longitude": 26.0946
+}
+
+### The visit as it was recorded — position, distance, verdict and reason, not just the verdict.
+GET {{Server_HostAddress}}/api/visits/{{visit.response.body.id}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### A rep's own day, or a supervisor looking at one shop. Held to visit:read.
+GET {{Server_HostAddress}}/api/visits?outletId={{outlet.response.body.id}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Reading is visit:read — the viewer has it, so expect 200.
+GET {{Server_HostAddress}}/api/visits
+Authorization: Bearer {{viewerToken.response.body.access_token}}
+
+### Checking in is visit:write, which the viewer does not have — expect 403. This is the first
+### write in the system a field rep holds and a back-office viewer does not.
+POST {{Server_HostAddress}}/api/visits/check-in
+Content-Type: application/json
+Authorization: Bearer {{viewerToken.response.body.access_token}}
+
+{
+  "outletId": "{{outlet.response.body.id}}",
+  "latitude": 44.4638,
+  "longitude": 26.0946
+}
+
+###

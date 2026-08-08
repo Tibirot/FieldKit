@@ -462,7 +462,7 @@ question about the *spec* and those take a while to settle.
 | 6 | **`IVisitWorkflow`** — Configuration grows the per-channel step sequence, and whether presence is expected | `VIS-03` | 250 |
 | 7 | **Visit module + check-in** — new assembly and `visit` schema; geo capture, geofence check, override reason | `VIS-01/02`, `BR-VIS-2` | 400 |
 | 8 | **Steps and mandatory gating** — the workflow instantiated per visit; check-out refused while a mandatory step is open | `VIS-03/04`, `BR-VIS-3` | 400 |
-| 9 | **Check-out and seal** — outcome, time-on-site, check-out geo-stamp, reference snapshot version; sealed thereafter; `VisitCompleted` | `VIS-05`, `BR-VIS-4/5/6` | 400 |
+| 9 | **Check-out and seal** — outcome, time-on-site, check-out geo-stamp, reference snapshot version; sealed thereafter; `VisitCompleted`; `IJourneyQuery` (see below) | `VIS-05`, `BR-VIS-4/5/6` | 400 |
 | 10 | **Back-office screens** — frequency, calendar, generate-and-publish, plan review | `JRN-01/02/03` | 400 ×2 |
 | 11 | **TS `Money` and the rounding policy** — `decimal.js`, never a native `number`; half-up away from zero | `BR-PRD-8/9` | 300 |
 | 12 | **TS price resolution** — the mirror of `PriceResolver`, against `pricing/price-resolution.v1.json` | `PRD-04` | 300 |
@@ -486,6 +486,17 @@ the generator and nothing else.
 > since W6), while **an interface is a promise to a caller**, and a promise made before the caller
 > arrives is one they have to live with. `IJourneyQuery` lands with slice 7, shaped by what Visit
 > asks for.
+>
+> **It did not, and the reason is worth more than the prediction was.** Slice 7 built check-in and
+> asked Journey *nothing*. A visit carries the id of the planned call it fulfils and needs no other
+> fact about the plan: the rep's device already has the round, and check-in's questions are all about
+> where the rep is standing. So `PlannedVisitId` is a nullable, unvalidated `Guid` — deliberately not
+> a foreign key, because the plan lives in Journey's schema (`AT-1`), and deliberately unchecked,
+> because there is nothing yet that would notice a wrong one. **`IJourneyQuery` moves to slice 9**,
+> where `VisitCompleted` carries the planned id out to reporting and a fabricated one would start
+> counting as coverage — that is the first moment anybody genuinely asks Journey a question, and the
+> question ("is this planned call this rep's, at this outlet?") is a better interface than the one
+> slice 4 or slice 7 would have guessed. Journey's `.Contracts` assembly splits then, not now.
 
 **Journey gets a `.Contracts` assembly; Visit does not, yet.** Visit consumes `IJourneyQuery`, so
 Journey has a real cross-module consumer inside this week and splits accordingly. Visit's own
@@ -516,6 +527,16 @@ whether a visit is finished and, once it is, that it can never change again (`BR
 > where nothing exceptional happened. That is a per-channel policy, so it lives on `IVisitWorkflow` —
 > which is why Configuration grows the contract *before* check-in is built rather than after, and why
 > slice 7 is a prerequisite rather than a tidy-up.
+
+> **Slice 7 also needed a contract this plan did not budget: `IOutletGeofence`.** A geofence check
+> needs the outlet's coordinates and its radius, and `IOutletCatalog` — designed in W5 against
+> territories — deliberately exposes neither. Growing it to would have handed every existing caller
+> a location it has no use for, and put `OUT-08`'s per-outlet radius on an interface the back office
+> reads. So Outlets got a second small contract instead, on the same test the registry applies
+> throughout: it answers one question one caller asks. The **default radius (150 m) is a constant on
+> the contract**, not a number Visit knows, so the day `OUT-08` makes it per-outlet the query behind
+> it changes and check-in does not. That is one contract more than the row's 400 lines assumed, and
+> `IJourneyQuery` moving to slice 9 is roughly what paid for it.
 
 **The parity harness is the week's actual deliverable.** `PRD-08` is why the vectors were written
 against a real engine in W6 rather than emitted from one — the format had to state rules a second

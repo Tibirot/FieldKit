@@ -409,9 +409,15 @@ review queue on the server). This keeps outlets conflict-free ([B7](decisions-an
 
 ## 8. Module contract (exposed to others)
 
-- `IOutletCatalog` — resolve outlet by id; list by territory/channel; geofence, timezone,
-  order-block flag.
+- `IOutletCatalog` — resolve outlet by id; list by territory/channel; timezone, order-block flag.
 - `IOutletClassification` — channel/segment of an outlet (used by Products, Journey, Audit).
+- `IOutletGeofence` — where the outlet is and how close counts as being there (used by Visit,
+  `VIS-01`). Separate from `IOutletCatalog`, which this line used to promise the geofence would
+  live on: coordinates are what a rep's *device* needs offline, while the catalogue is the
+  back-office record a territory validates against, and folding them together would sync the
+  commercial shape of every shop to answer "how close am I?". Until [OUT-08](#6-requirements) makes
+  the radius per-outlet it is a constant on the contract, so that day changes one query and no
+  caller.
 - `IReferenceChangeFeed` (sync source) — territory-scoped, row-version delta of outlets with
   tombstones, for **Sync** ([module boundaries §7](../architecture/10-module-boundaries.md#7-module-registry)).
 - `IOutletProposalIngest` — apply a pushed outlet **proposal** (correction / new-outlet request)
