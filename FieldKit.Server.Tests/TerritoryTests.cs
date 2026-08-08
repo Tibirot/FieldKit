@@ -58,7 +58,7 @@ public class TerritoryTests(ServerFixture fixture)
 
         var response = await client.PostAsJsonAsync(
             "/api/outlets",
-            new CreateOutletRequest(code ?? Unique("OUT"), "Corner Shop", channelId, null, null, Zone));
+            new CreateOutletRequest(code ?? Unique("OUT"), "Corner Shop", channelId, Zone));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<OutletResponse>())!.Id;

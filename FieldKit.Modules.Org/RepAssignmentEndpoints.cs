@@ -24,7 +24,7 @@ public sealed record RepAssignmentResponse(
     bool IsCurrent);
 
 /// <summary>Assign a rep, or change an existing assignment. <paramref name="To"/> null means open-ended.</summary>
-public sealed record RepAssignmentRequest(string UserId, DateOnly From, DateOnly? To);
+public sealed record RepAssignmentRequest(string UserId, DateOnly From, DateOnly? To = null);
 
 /// <summary>
 /// Rep–territory assignments (<c>ORG-04</c>).

@@ -51,6 +51,18 @@ membership rules key off (`ORG-07`), and a single string would make those rules 
 part is optional — onboarding data is routinely half-known, and an address that must be complete
 before it can be recorded means a half-known outlet cannot be recorded at all.
 
+**The country is the one part that is normalised, because another module decides with it.** It is
+stored upper-cased and refused unless it is two letters (`outlet.countryCode.invalid`), which is the
+only shape [ISO 3166-1 alpha-2](https://www.iso.org/iso-3166-country-codes.html) has. Optional still
+means optional: the rule applies to a country that was given, not to one that was left out.
+
+Both halves fix a silent failure rather than a loud one. `TaxRate.Create` upper-cases its country and
+tax resolution compares the two directly ([PRD-07](13-products-and-pricing.md)), so an outlet stored
+as `"ro"` matched no rate — and "no rate" is indistinguishable from a tax class nobody has priced,
+which is the distinction `PRD-07` exists to keep. Nothing errored and nothing logged; the outlet was
+simply untaxed. Refusing `"Romania"` rather than truncating it to `"Ro"` is the same failure avoided
+from the other end: the truncation fits the column and is wrong forever after.
+
 **The time zone is required and explicit** — `Europe/Bucharest`, never an offset, and never derived
 from the coordinates. A visit's business "day" and a promotion's validity ([BR-PRD-6](13-products-and-pricing.md#5-business-rules))
 both resolve in it, a rep may cross zones during a shift, and an offset is wrong twice a year.

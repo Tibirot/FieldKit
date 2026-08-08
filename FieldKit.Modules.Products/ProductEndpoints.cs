@@ -179,6 +179,13 @@ internal static class ProductEndpoints
             problems.Add(new FieldProblem("name", "A product needs a name.", "product.name.required"));
         }
 
+        // The columns. `unitOfMeasure` is already checked above — it was the one field that had this.
+        problems.AddRange(new[]
+        {
+            TextLimits.TooLong("sku", sku, 64, "product.sku.tooLong"),
+            TextLimits.TooLong("name", name, 200, "product.name.tooLong"),
+        }.OfType<FieldProblem>());
+
         if (sku is not null && !string.IsNullOrWhiteSpace(sku)
             && await db.Products.AnyAsync(p => p.Sku.ToLower() == sku.ToLower(), ct))
         {

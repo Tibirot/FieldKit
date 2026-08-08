@@ -15,7 +15,7 @@ namespace FieldKit.Modules.Org;
 public sealed record OrgUnitResponse(Guid Id, string Name, Guid? ParentId);
 
 /// <summary>Create or update an org unit. <paramref name="ParentId"/> null means a root.</summary>
-public sealed record OrgUnitRequest(string Name, Guid? ParentId);
+public sealed record OrgUnitRequest(string Name, Guid? ParentId = null);
 
 /// <summary>
 /// The sales hierarchy (<c>ORG-01</c>) — configurable depth, tenant-chosen labels.
@@ -43,6 +43,11 @@ internal static class OrgUnitEndpoints
                 return Problems.BadRequest("name", "An org unit needs a name.");
             }
 
+            if (TextLimits.TooLong("name", request.Name, 200, "orgUnit.name.tooLong") is { } tooLong)
+            {
+                return Problems.BadRequest([tooLong]);
+            }
+
             if (await ParentProblem(db, request.ParentId, ct) is { } parentProblem) return parentProblem;
             if (await NameTakenProblem(db, request, excluding: null, ct) is { } nameProblem) return nameProblem;
 
@@ -64,6 +69,11 @@ internal static class OrgUnitEndpoints
             if (string.IsNullOrWhiteSpace(request.Name))
             {
                 return Problems.BadRequest("name", "An org unit needs a name.");
+            }
+
+            if (TextLimits.TooLong("name", request.Name, 200, "orgUnit.name.tooLong") is { } tooLong)
+            {
+                return Problems.BadRequest([tooLong]);
             }
 
             var unit = await db.OrgUnits.SingleOrDefaultAsync(u => u.Id == id, ct);

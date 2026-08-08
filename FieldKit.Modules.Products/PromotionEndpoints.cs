@@ -488,6 +488,11 @@ internal static class PromotionEndpoints
                 "name", "A promotion needs a name.", "product.promotion.nameRequired"));
         }
 
+        if (TextLimits.TooLong("name", name, 120, "product.promotion.nameTooLong") is { } nameTooLong)
+        {
+            problems.Add(nameTooLong);
+        }
+
         if (Promotion.CarriesItsOwnValue(type))
         {
             value = DiscountProblem(

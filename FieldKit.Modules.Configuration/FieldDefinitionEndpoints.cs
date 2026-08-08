@@ -200,6 +200,13 @@ internal static class FieldDefinitionEndpoints
             errors.Add(new("minimum", "Minimum cannot be greater than maximum."));
         }
 
+        // The columns, so an overlong key or label is a 400 rather than a 500 from the write.
+        errors.AddRange(new[]
+        {
+            TextLimits.TooLong("key", key, 60, "config.field.key.tooLong"),
+            TextLimits.TooLong("label", label, 200, "config.field.label.tooLong"),
+        }.OfType<FieldProblem>());
+
         return errors.Count == 0 ? null : Problems.BadRequest(errors);
     }
 

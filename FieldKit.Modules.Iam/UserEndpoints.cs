@@ -151,6 +151,19 @@ internal static class UserEndpoints
             errors.Add(new("roleIds", "A user must hold at least one role (BR-IAM-3)."));
         }
 
+        // The columns, so an overlong value is a 400 rather than a DbUpdateException and a 500.
+        // Locale and time zone are already checked for *meaning* above, which is stricter than
+        // length — but only for values this runtime happens to recognise, and the check below is
+        // what stops a 200-character string reaching a varchar(35) if that ever loosens.
+        errors.AddRange(new[]
+        {
+            TextLimits.TooLong("subjectId", request.SubjectId, 64, "user.subjectId.tooLong"),
+            TextLimits.TooLong("email", request.Email, 320, "user.email.tooLong"),
+            TextLimits.TooLong("displayName", request.DisplayName, 200, "user.displayName.tooLong"),
+            TextLimits.TooLong("locale", request.Locale, 35, "user.locale.tooLong"),
+            TextLimits.TooLong("timeZone", request.TimeZone, 64, "user.timeZone.tooLong"),
+        }.OfType<FieldProblem>());
+
         if (errors.Count > 0) return Problems.BadRequest(errors);
 
         // Roles are tenant-scoped and so is this query — a role id from another tenant simply does

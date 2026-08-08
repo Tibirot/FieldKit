@@ -90,10 +90,18 @@ internal static class TaxClassEndpoints
         }).RequirePermission(ProductsPermissions.Write);
     }
 
-    private static IResult? NameProblem(string name) =>
-        string.IsNullOrWhiteSpace(name)
-            ? Problems.BadRequest("name", "A tax class needs a name.", "product.taxClass.nameRequired")
+    private static IResult? NameProblem(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return Problems.BadRequest("name", "A tax class needs a name.", "product.taxClass.nameRequired");
+        }
+
+        // The column, so a 121-character name is a 400 rather than a 500 from the write.
+        return TextLimits.TooLong("name", name, 120, "product.taxClass.nameTooLong") is { } tooLong
+            ? Problems.BadRequest([tooLong])
             : null;
+    }
 
     private static async Task<IResult?> TakenProblem(
         ProductsDbContext db, string name, Guid? excluding, CancellationToken ct)

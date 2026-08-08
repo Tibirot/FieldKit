@@ -44,13 +44,13 @@ public class FieldProblemTests(ServerFixture fixture)
         var code = Unique("OUT");
 
         await client.PostAsJsonAsync(
-            "/api/outlets", new CreateOutletRequest(code, "First", channelId, null, null, Zone));
+            "/api/outlets", new CreateOutletRequest(code, "First", channelId, Zone));
 
         var badRequest = await client.PostAsJsonAsync(
-            "/api/outlets", new CreateOutletRequest("", "No code", channelId, null, null, Zone));
+            "/api/outlets", new CreateOutletRequest("", "No code", channelId, Zone));
 
         var conflict = await client.PostAsJsonAsync(
-            "/api/outlets", new CreateOutletRequest(code, "Duplicate", channelId, null, null, Zone));
+            "/api/outlets", new CreateOutletRequest(code, "Duplicate", channelId, Zone));
 
         Assert.Equal(HttpStatusCode.BadRequest, badRequest.StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
@@ -68,14 +68,14 @@ public class FieldProblemTests(ServerFixture fixture)
 
         var unknownChannel = await client.PostAsJsonAsync(
             "/api/outlets",
-            new CreateOutletRequest(Unique("OUT"), "Corner Shop", Guid.CreateVersion7(), null, null, Zone));
+            new CreateOutletRequest(Unique("OUT"), "Corner Shop", Guid.CreateVersion7(), Zone));
 
         Assert.Equal("channelId", Assert.Single(await ProblemsOf(unknownChannel)).Field);
 
         var badZone = await client.PostAsJsonAsync(
             "/api/outlets",
             new CreateOutletRequest(
-                Unique("OUT"), "Corner Shop", await ChannelAsync(client), null, null, "Mars/Olympus_Mons"));
+                Unique("OUT"), "Corner Shop", await ChannelAsync(client), "Mars/Olympus_Mons"));
 
         Assert.Equal("timeZoneId", Assert.Single(await ProblemsOf(badZone)).Field);
     }
@@ -95,7 +95,7 @@ public class FieldProblemTests(ServerFixture fixture)
         var response = await client.PostAsJsonAsync(
             "/api/outlets",
             new CreateOutletRequest(
-                Unique("OUT"), "Corner Shop", await ChannelAsync(client), null, null, Zone,
+                Unique("OUT"), "Corner Shop", await ChannelAsync(client), Zone,
                 CustomFields: new Dictionary<string, JsonElement>
                 {
                     [key] = JsonSerializer.SerializeToElement(900),

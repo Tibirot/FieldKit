@@ -44,9 +44,9 @@ public sealed record CreateOutletRequest(
     string Code,
     string Name,
     Guid ChannelId,
-    string? Segment,
-    string? Banner,
     string TimeZoneId,
+    string? Segment = null,
+    string? Banner = null,
     Address? Address = null,
     Coordinates? Location = null,
     IReadOnlyList<OutletContact>? Contacts = null,
@@ -63,9 +63,9 @@ public sealed record CreateOutletRequest(
 public sealed record UpdateOutletRequest(
     string Name,
     Guid ChannelId,
-    string? Segment,
-    string? Banner,
     string TimeZoneId,
+    string? Segment = null,
+    string? Banner = null,
     Address? Address = null,
     Coordinates? Location = null,
     IReadOnlyList<OutletContact>? Contacts = null,
@@ -196,6 +196,12 @@ internal static class OutletEndpoints
 
             if (ContactProblem(request.Contacts) is { } contactProblem) return contactProblem;
 
+            if (TextProblem(request.Code, request.Name, request.Segment, request.Banner,
+                    request.TimeZoneId, request.Address) is { } textProblem)
+            {
+                return textProblem;
+            }
+
             if (await db.Outlets.AnyAsync(outlet => outlet.Code.ToLower() == request.Code.ToLower(), ct))
             {
                 return Problems.Conflict("code", $"An outlet with code '{request.Code}' already exists.");
@@ -250,6 +256,13 @@ internal static class OutletEndpoints
             }
 
             if (ContactProblem(request.Contacts) is { } contactProblem) return contactProblem;
+
+            // No code: it is not editable, so there is nothing here for the caller to get wrong.
+            if (TextProblem(null, request.Name, request.Segment, request.Banner,
+                    request.TimeZoneId, request.Address) is { } textProblem)
+            {
+                return textProblem;
+            }
 
             outlet.Update(
                 request.Name,
@@ -413,6 +426,52 @@ internal static class OutletEndpoints
 
         return problems.Count == 0 ? null : Problems.BadRequest(problems);
     }
+
+    /// <summary>
+    /// Refuses text that would not survive the write, and a country code that is not one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The same failure <see cref="ContactValidator"/> was written for, on the fields beside the
+    /// contacts: Postgres errors on an overlong <c>varchar</c> rather than truncating, so a
+    /// 201-character name reached the caller as a <c>500</c>. Contacts got the fix; the outlet's own
+    /// columns did not, until a pre-W7 sweep posted a 300-character name and got one.
+    /// </para>
+    /// <para>
+    /// <b>The country code is checked for shape, not just length.</b> Two characters that are not
+    /// letters would fit the column and then match no tax rate for the rest of the outlet's life —
+    /// see <c>Outlet.Canonical</c>. "Romania" is the mistake worth naming, and truncating it to "Ro"
+    /// would be worse than refusing it.
+    /// </para>
+    /// </remarks>
+    private static IResult? TextProblem(
+        string? code, string name, string? segment, string? banner, string timeZoneId, Address? address)
+    {
+        var problems = new[]
+        {
+            TextLimits.TooLong("code", code, 50, "outlet.code.tooLong"),
+            TextLimits.TooLong("name", name, 200, "outlet.name.tooLong"),
+            TextLimits.TooLong("segment", segment, 50, "outlet.segment.tooLong"),
+            TextLimits.TooLong("banner", banner, 100, "outlet.banner.tooLong"),
+            TextLimits.TooLong("timeZoneId", timeZoneId, 64, "outlet.timeZoneId.tooLong"),
+            TextLimits.TooLong("address.street", address?.Street, 200, "outlet.address.street.tooLong"),
+            TextLimits.TooLong("address.city", address?.City, 100, "outlet.address.city.tooLong"),
+            TextLimits.TooLong("address.postalCode", address?.PostalCode, 20, "outlet.address.postalCode.tooLong"),
+            CountryProblem(address?.CountryCode),
+        }.OfType<FieldProblem>().ToList();
+
+        return problems.Count > 0 ? Problems.BadRequest(problems) : null;
+    }
+
+    /// <summary>The API's wording for the rule <see cref="Address.IsCountryCode"/> states.</summary>
+    private static FieldProblem? CountryProblem(string? countryCode) =>
+        Address.IsCountryCode(countryCode)
+            ? null
+            : new FieldProblem(
+                "address.countryCode",
+                "A country is a two-letter ISO-3166-1 code, e.g. RO.",
+                "outlet.countryCode.invalid",
+                new Dictionary<string, string> { ["countryCode"] = countryCode });
 
     /// <summary>
     /// Refuses contacts that would not survive the write, or that name nobody.

@@ -95,10 +95,18 @@ internal static class BrandEndpoints
         }).RequirePermission(ProductsPermissions.Write);
     }
 
-    private static IResult? NameProblem(string name) =>
-        string.IsNullOrWhiteSpace(name)
-            ? Problems.BadRequest("name", "A brand needs a name.", "product.brand.nameRequired")
+    private static IResult? NameProblem(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return Problems.BadRequest("name", "A brand needs a name.", "product.brand.nameRequired");
+        }
+
+        // The column, so a 121-character name is a 400 rather than a 500 from the write.
+        return TextLimits.TooLong("name", name, 120, "product.brand.nameTooLong") is { } tooLong
+            ? Problems.BadRequest([tooLong])
             : null;
+    }
 
     private static async Task<IResult?> TakenProblem(
         ProductsDbContext db, string name, Guid? excluding, CancellationToken ct)

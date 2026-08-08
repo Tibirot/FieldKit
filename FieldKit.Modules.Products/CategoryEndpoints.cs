@@ -16,7 +16,7 @@ namespace FieldKit.Modules.Products;
 public sealed record CategoryResponse(Guid Id, string Name, Guid? ParentId);
 
 /// <summary>Create or update a category. <paramref name="ParentId"/> null means a root.</summary>
-public sealed record CategoryRequest(string Name, Guid? ParentId);
+public sealed record CategoryRequest(string Name, Guid? ParentId = null);
 
 /// <summary>
 /// The product classification tree a tenant works with (<c>PRD-01</c>).
@@ -143,10 +143,18 @@ internal static class CategoryEndpoints
         }).RequirePermission(ProductsPermissions.Write);
     }
 
-    private static IResult? NameProblem(string name) =>
-        string.IsNullOrWhiteSpace(name)
-            ? Problems.BadRequest("name", "A category needs a name.", "product.category.nameRequired")
+    private static IResult? NameProblem(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return Problems.BadRequest("name", "A category needs a name.", "product.category.nameRequired");
+        }
+
+        // The column, so a 121-character name is a 400 rather than a 500 from the write.
+        return TextLimits.TooLong("name", name, 120, "product.category.nameTooLong") is { } tooLong
+            ? Problems.BadRequest([tooLong])
             : null;
+    }
 
     /// <summary>Rejects a parent that does not exist.</summary>
     /// <remarks>

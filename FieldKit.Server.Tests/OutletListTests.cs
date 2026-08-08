@@ -46,7 +46,7 @@ public class OutletListTests(ServerFixture fixture)
             var created = await client.PostAsJsonAsync(
                 "/api/outlets",
                 new CreateOutletRequest(
-                    $"{prefix}-{index:D3}", $"Shop {index:D3}", channelId, null, null, Zone));
+                    $"{prefix}-{index:D3}", $"Shop {index:D3}", channelId, Zone));
 
             if (status != OutletStatus.Active)
             {
@@ -107,7 +107,7 @@ public class OutletListTests(ServerFixture fixture)
 
         await client.PostAsJsonAsync(
             "/api/outlets",
-            new CreateOutletRequest(code, "Alimentara Voievozilor", channelId, null, null, Zone));
+            new CreateOutletRequest(code, "Alimentara Voievozilor", channelId, Zone));
 
         Assert.Single((await ListAsync(client, $"search={code.ToLowerInvariant()}")).Items);
         Assert.Contains(
@@ -127,7 +127,7 @@ public class OutletListTests(ServerFixture fixture)
 
         await client.PostAsJsonAsync(
             "/api/outlets",
-            new CreateOutletRequest(code, "50% Off Store", channelId, null, null, Zone));
+            new CreateOutletRequest(code, "50% Off Store", channelId, Zone));
 
         var literal = await ListAsync(client, "search=50%25");
 
@@ -161,7 +161,7 @@ public class OutletListTests(ServerFixture fixture)
 
         await client.PostAsJsonAsync(
             "/api/outlets",
-            new CreateOutletRequest($"{prefix}-900", "Elsewhere", otherChannel, null, null, Zone));
+            new CreateOutletRequest($"{prefix}-900", "Elsewhere", otherChannel, Zone));
 
         var all = await ListAsync(client, $"search={prefix}");
         var narrowed = await ListAsync(client, $"search={prefix}&channelId={channelId}");

@@ -63,6 +63,39 @@ public class PositionTests(ServerFixture fixture)
         Assert.Equal("Supervisor", created.Title);
     }
 
+    /// <summary>
+    /// A title wider than its column is refused on both writes, not raised by the database.
+    /// </summary>
+    /// <remarks>
+    /// Both, because the PUT does not share the POST's validator — a retitle resolves no user and no
+    /// unit, so it validates the one field it accepts on its own. That is exactly the shape where a
+    /// check gets added to one path and forgotten on the other.
+    /// </remarks>
+    [Fact]
+    public async Task A_title_wider_than_its_column_is_refused_on_create_and_on_retitle()
+    {
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var unit = await UnitAsync(client, Unique("Area"));
+        var userId = await UserAsync(client);
+        var tooLong = new string('t', 101);
+
+        var refused = await client.PostAsJsonAsync(
+            "/api/org/positions", new PositionRequest(userId, unit.Id, tooLong));
+
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+
+        var created = await client.PostAsJsonAsync(
+            "/api/org/positions", new PositionRequest(userId, unit.Id, "Supervisor"));
+
+        var position = (await created.Content.ReadFromJsonAsync<PositionResponse>())!;
+
+        var retitled = await client.PutAsJsonAsync(
+            $"/api/org/positions/{position.Id}", new PositionRequest(userId, unit.Id, tooLong));
+
+        Assert.Equal(HttpStatusCode.BadRequest, retitled.StatusCode);
+    }
+
     [Fact]
     public async Task A_position_must_name_a_user_and_a_unit_this_tenant_has()
     {

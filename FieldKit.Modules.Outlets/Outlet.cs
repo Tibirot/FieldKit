@@ -129,7 +129,7 @@ public sealed class Outlet : AggregateRoot, ITenantOwned, IAuditable
             Banner = banner,
             Status = OutletStatus.Active,
             TimeZoneId = timeZoneId,
-            Address = address,
+            Address = Canonical(address),
             Latitude = location?.Latitude,
             Longitude = location?.Longitude,
         };
@@ -165,7 +165,7 @@ public sealed class Outlet : AggregateRoot, ITenantOwned, IAuditable
         Segment = segment;
         Banner = banner;
         TimeZoneId = timeZoneId;
-        Address = address;
+        Address = Canonical(address);
         Latitude = location?.Latitude;
         Longitude = location?.Longitude;
         SetContacts(contacts);
@@ -187,6 +187,31 @@ public sealed class Outlet : AggregateRoot, ITenantOwned, IAuditable
         _contacts.Clear();
         if (contacts is not null) _contacts.AddRange(contacts);
     }
+
+    /// <summary>
+    /// The address as it is stored: country code upper-cased, everything else untouched.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A lower-case country code made every product at the outlet untaxable.</b>
+    /// <c>IOutletClassification</c> documents <c>CountryCode</c> as "ISO-3166-1 alpha-2, upper-cased",
+    /// and Products' tax resolution compares it to <c>TaxRate.CountryCode</c> — which <i>is</i>
+    /// upper-cased on the way in. So <c>'ro'</c> matched no rate, resolution returned no tax, and
+    /// that is indistinguishable from a class nobody has set a rate for. Nothing errored; the shop
+    /// was simply never taxed.
+    /// </para>
+    /// <para>
+    /// Normalised here rather than at the endpoint because the endpoint is not the only door: the
+    /// CSV importer builds an <see cref="Address"/> too, and a rule that only one caller applies is
+    /// a rule the other caller breaks. The endpoint still <i>refuses</i> a code that is not two
+    /// letters — a caller who typed "Romania" wants to hear about it, not to have it quietly
+    /// truncated to "RO".
+    /// </para>
+    /// </remarks>
+    private static Address? Canonical(Address? address) =>
+        address?.CountryCode is null
+            ? address
+            : address with { CountryCode = address.CountryCode.ToUpperInvariant() };
 
     /// <summary>
     /// Replaces the custom-field values wholesale, like the contacts and for the same reason.
