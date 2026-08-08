@@ -26,7 +26,10 @@ internal sealed class OutletClassifier(OutletsDbContext db) : IOutletClassificat
         return await db.Outlets
             .Where(outlet => outletIds.Contains(outlet.Id))
             .Select(outlet => new Contracts.OutletClassification(
-                outlet.Id, outlet.ChannelId, outlet.Address == null ? null : outlet.Address.CountryCode))
+                outlet.Id,
+                outlet.ChannelId,
+                outlet.Address == null ? null : outlet.Address.CountryCode,
+                outlet.Segment))
             .ToListAsync(cancellationToken);
     }
 
