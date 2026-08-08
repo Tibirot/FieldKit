@@ -324,7 +324,7 @@ Sizes are hand-written diff estimates against the ~400-line budget; generated mi
 | 17 | **Promotions screen** — `/products/promotions`, all four `B1` types in one form; type and currency fixed after creation | `PRD-05` | 400 |
 | 18 | **Promotion targets** — `/products/promotions/[id]/targets`, categories with their ancestry and products by name; an empty set takes a deal out of play | `PRD-05` | 300 |
 | 19 | **Promotion tiers** — `/products/promotions/[id]/tiers`, one kind for the whole ladder; offered on the one type that has tiers | `PRD-05` | 350 |
-| 20 | **Promotion scope** — channels and outlets, as a price list's scope already is | `PRD-05` | — |
+| 20 | **Promotion scope** — channels and outlets; the outlet picker extracted rather than copied from a price list's scope. **W6's back office is complete** | `PRD-05` | 300 |
 
 **Slice 5 is a prerequisite, and it is deliberately late.** `BR-PRD-2` resolves a price by *outlet
 override → channel → default*, so the engine must map an outlet to its channel. `Outlet.ChannelId`

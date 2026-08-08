@@ -194,3 +194,47 @@ export const tiersKey = (subject: string, id: string) =>
  * The API refuses it; stating the number here lets the form say so before the round trip.
  */
 export const SMALLEST_TIER = 2;
+
+// ── Where a promotion applies ──────────────────────────────────────────────────────────────────
+
+/** One place a promotion reaches. Exactly one of the two ids is set (`PRD-05`). */
+export type PromotionAssignment = { channelId: string | null; outletId: string | null };
+
+/** The whole scope. A PUT replaces it, and an empty scope takes the promotion out of play. */
+export type SetPromotionScope = { channelIds: string[]; outletIds: string[] };
+
+export function fetchPromotionScope(
+  accessToken: string,
+  id: string,
+  signal?: AbortSignal,
+): Promise<PromotionAssignment[]> {
+  return apiGet<PromotionAssignment[]>(
+    `/api/products/promotions/${id}/assignments`,
+    accessToken,
+    signal,
+  );
+}
+
+/**
+ * Replaces where a promotion applies.
+ *
+ * **Also announces it.** The server raises `PromotionActivated` into the outbox in the same
+ * transaction, which is what Sync turns into a reference delta — including when the scope is
+ * emptied, because a device that never hears "this reaches nobody" keeps offering a deal that no
+ * longer runs.
+ */
+export function setPromotionScope(
+  accessToken: string,
+  id: string,
+  scope: SetPromotionScope,
+): Promise<PromotionAssignment[]> {
+  return apiSend<PromotionAssignment[]>(
+    "PUT",
+    `/api/products/promotions/${id}/assignments`,
+    accessToken,
+    scope,
+  );
+}
+
+export const promotionScopeKey = (subject: string, id: string) =>
+  ["promotions", subject, id, "assignments"] as const;

@@ -728,7 +728,9 @@
     "targets": "Ținte",
     "targetsNamed": "Ținte pentru {name}",
     "tiers": "Praguri",
-    "tiersNamed": "Praguri pentru {name}"
+    "tiersNamed": "Praguri pentru {name}",
+    "scope": "Domeniu",
+    "scopeNamed": "Domeniul promoției {name}"
   },
   "PromotionTargets": {
     "crumb": "Date de bază / Produse / Promoții / Ținte",
@@ -791,6 +793,35 @@
     "save": "Salvează pragurile",
     "saving": "Se salvează…",
     "saveFailed": "Pragurile nu au putut fi salvate.",
+    "unsaved": "Modificări nesalvate."
+  },
+  "PromotionScope": {
+    "crumb": "Date de bază / Produse / Promoții / Domeniu",
+    "intro": "Unde se derulează această ofertă. Salvarea anunță și modificarea, astfel încât dispozitivele care o au să știe că s-a schimbat — inclusiv când domeniul este golit, adică promoția este scoasă din joc.",
+    "channels": "Canale",
+    "channelsHint": "Cazul obișnuit: fiecare punct de vânzare dintr-un canal primește ofertele atribuite canalului.",
+    "channelNamed": "Derulează în {name}",
+    "noChannels": "Niciun canal încă. Creați întâi unul în secțiunea Puncte de vânzare.",
+    "outlets": "Puncte de vânzare individuale",
+    "outletsHint": "Excepția: un magazin care primește această ofertă deși canalul său nu o primește. Căutați-l după cod sau denumire.",
+    "noOutlets": "Niciun punct de vânzare individual. Promoția se derulează doar prin canalele sale.",
+    "searchOutlets": "Caută puncte de vânzare",
+    "searchPlaceholder": "Caută după cod sau denumire — minimum două caractere…",
+    "noMatches": "Niciun punct de vânzare nu corespunde căutării „{search}”.",
+    "add": "Adaugă",
+    "added": "Adăugat",
+    "addNamed": "Adaugă {name} ({code})",
+    "removeNamed": "Elimină {name} ({code})",
+    "unknownOutlet": "Punctul de vânzare nu a putut fi încărcat",
+    "reaches": "Se derulează în {count, plural, one {# loc} few {# locuri} other {# de locuri}}.",
+    "reachesNobody": "Această promoție nu se derulează nicăieri. Există și nu se declanșează niciodată.",
+    "loading": "Se încarcă…",
+    "failed": "Nu s-a putut încărca.",
+    "forbidden": "Nu aveți permisiunea de a vedea promoțiile.",
+    "notFound": "Această promoție nu există.",
+    "save": "Salvează domeniul",
+    "saving": "Se salvează…",
+    "saveFailed": "Domeniul nu a putut fi salvat.",
     "unsaved": "Modificări nesalvate."
   }
 }

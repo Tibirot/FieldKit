@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Crosshair, Layers, Plus } from "lucide-react";
+import { Crosshair, Layers, Plus, Target } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
@@ -162,6 +162,18 @@ export function PromotionBrowser() {
                     {t("tiers")}
                   </LinkButton>
                 ) : null}
+
+                {/* Where it runs, as distinct from what it discounts. A deal needs both, and
+                    either one left empty means it never fires. */}
+                <LinkButton
+                  href={`/products/promotions/${promotion.id}/scope`}
+                  size="sm"
+                  variant="outline"
+                  aria-label={t("scopeNamed", { name: promotion.name })}
+                >
+                  <Target className="size-4" />
+                  {t("scope")}
+                </LinkButton>
 
                 {canWrite ? (
                   <Button
