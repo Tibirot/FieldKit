@@ -32,6 +32,10 @@ public sealed class JourneyDbContext(DbContextOptions<JourneyDbContext> options,
 
     public DbSet<OutletFrequency> OutletFrequencies => Set<OutletFrequency>();
 
+    public DbSet<WorkingCalendar> WorkingCalendars => Set<WorkingCalendar>();
+
+    public DbSet<Holiday> Holidays => Set<Holiday>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -71,6 +75,42 @@ public sealed class JourneyDbContext(DbContextOptions<JourneyDbContext> options,
                 table.HasCheckConstraint("ck_outlet_frequency_visits", VisitsArePositive);
                 table.HasCheckConstraint("ck_outlet_frequency_cycle", CycleIsInRange);
             });
+        });
+
+        modelBuilder.Entity<WorkingCalendar>(calendar =>
+        {
+            calendar.HasKey(row => row.Id);
+
+            calendar.Property(row => row.UserId).HasMaxLength(64).IsRequired();
+
+            // The days as an `integer[]`, the same shape a field definition's options take. Readable
+            // in the database and, unlike a bitmask, it says what it holds without a lookup table.
+            calendar.PrimitiveCollection(row => row.WorkingDays)
+                .HasColumnName("working_days")
+                .IsRequired();
+
+            // One calendar per rep per tenant. Two would be two answers to "when does this rep
+            // work", and generation would take whichever the database returned first.
+            calendar.HasIndex(row => new { row.TenantId, row.UserId }).IsUnique();
+
+            calendar.ToTable("working_calendar", table => table.HasCheckConstraint(
+                "ck_working_calendar_capacity",
+                $@"""VisitsPerDay"" >= 1 AND ""VisitsPerDay"" <= {WorkingCalendar.MaximumVisitsPerDay}"));
+        });
+
+        modelBuilder.Entity<Holiday>(holiday =>
+        {
+            holiday.HasKey(row => row.Id);
+
+            holiday.Property(row => row.Name)
+                .HasMaxLength(Holiday.MaximumNameLength)
+                .IsRequired();
+
+            // One entry per date. A tenant importing a year twice should end up with one Christmas,
+            // and the second import should say so rather than double it.
+            holiday.HasIndex(row => new { row.TenantId, row.Date }).IsUnique();
+
+            holiday.ToTable("holiday");
         });
     }
 }

@@ -2600,3 +2600,135 @@ Authorization: Bearer {{viewerToken.response.body.access_token}}
 }
 
 ###
+
+### ─── Working calendar (JRN-02) ──────────────────────────────────────────────────────────────────
+
+### A rep's working pattern: which days they work, and how many calls fit in one.
+###
+### The days travel as **names**, never ordinals. `DayOfWeek`'s ordinals start the week on Sunday, so
+### a plan built from numbers would be off by one in a way nobody reading the JSON would question.
+###
+### PUT keyed by the rep, like a segment frequency is keyed by its segment: a rep has at most one
+### calendar, so setting it twice has set it once.
+PUT {{Server_HostAddress}}/api/journey/calendars/{{newUser.response.body.subjectId}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "workingDays": ["Monday", "Wednesday", "Friday"],
+  "visitsPerDay": 8
+}
+
+### Days are collapsed and sorted on the way in — a careless list is a caller being careless, not an
+### admin describing something impossible. Expect `["Monday","Wednesday"]` back.
+PUT {{Server_HostAddress}}/api/journey/calendars/{{newUser.response.body.subjectId}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "workingDays": ["Wednesday", "Monday", "Wednesday"],
+  "visitsPerDay": 8
+}
+
+### Who has a pattern, and whose it is. `displayName` is null when the directory no longer resolves
+### the subject — the calendar still stands, the same way an assignment to a removed user does.
+GET {{Server_HostAddress}}/api/journey/calendars
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### A date nobody works. Tenant-wide: this is the exception to the pattern that everybody shares.
+### Dated rather than recurring, because Easter moves and so do the substitute days a government
+### grants when a fixed holiday falls on a weekend — a recurrence rule would be wrong every few
+### years in a way nobody notices until a plan sends a rep out on a closed day.
+POST {{Server_HostAddress}}/api/journey/holidays
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "date": "2026-03-04",
+  "name": "Company day"
+}
+
+### Expect 409 `journey.holiday.duplicate`. A tenant importing a year twice should end up with one
+### Christmas, and the second import should say so rather than silently double it.
+POST {{Server_HostAddress}}/api/journey/holidays
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "date": "2026-03-04",
+  "name": "Company day (again)"
+}
+
+### The pattern **minus** the holidays — the days generation can actually use, and the answer this
+### slice exists to produce. Expect Monday 2 March and Friday 6 March, with the Wednesday gone.
+###
+### The closed day is *absent* rather than present with zero capacity: a day with no calls and a day
+### nobody works are the same thing to a generator, and two shapes for one meaning is a filter every
+### caller has to remember.
+GET {{Server_HostAddress}}/api/journey/calendars/{{newUser.response.body.subjectId}}/working-days?from=2026-03-02&to=2026-03-08
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Expect 400 `journey.calendar.noWorkingDays`. Same shape as a zero call frequency: a calendar with
+### no days and no calendar at all produce the same empty plan, and the second already says it.
+### Somebody on long-term leave is a deactivated user or an unassigned territory — both of which say
+### so where the rest of the system can see them.
+PUT {{Server_HostAddress}}/api/journey/calendars/{{newUser.response.body.subjectId}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "workingDays": [],
+  "visitsPerDay": 8
+}
+
+### Expect 400 `journey.calendar.capacityOutOfRange`, with the bound in `args`. Nobody makes sixty
+### calls in a day; a capacity that large is a typo that would let generation pack a whole cycle into
+### one day while looking configured.
+PUT {{Server_HostAddress}}/api/journey/calendars/{{newUser.response.body.subjectId}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "workingDays": ["Monday"],
+  "visitsPerDay": 60
+}
+
+### Expect 400 `journey.calendar.unknownUser`. The rep is IAM's, and nothing about a subject id says
+### which tenant it belongs to — without this a typo becomes a calendar no generation run will ever
+### match to a person.
+PUT {{Server_HostAddress}}/api/journey/calendars/00000000-0000-0000-0000-0000deadbeef
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "workingDays": ["Monday"],
+  "visitsPerDay": 8
+}
+
+### Expect 400 `journey.calendar.periodTooLong`. This walks day by day, so an unbounded range is an
+### unbounded loop reachable from an endpoint. A cycle is at most a year, so a year and a bit is the
+### widest honest ask.
+GET {{Server_HostAddress}}/api/journey/calendars/{{newUser.response.body.subjectId}}/working-days?from=2026-01-01&to=2030-01-01
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### A rep nobody has configured has no working days — **not** a 404. "Unconfigured" is the same
+### answer frequency gives for an outlet nobody has graded, and it is not "no such rep": the caller
+### asked about days, and a 404 would have answered a question about calendars instead.
+GET {{Server_HostAddress}}/api/journey/calendars/00000000-0000-0000-0000-00000000c0de/working-days?from=2026-03-02&to=2026-03-08
+Accept: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Held to journey:write — expect 403 with the read-only token.
+PUT {{Server_HostAddress}}/api/journey/calendars/{{newUser.response.body.subjectId}}
+Content-Type: application/json
+Authorization: Bearer {{viewerToken.response.body.access_token}}
+
+{
+  "workingDays": ["Monday"],
+  "visitsPerDay": 8
+}
+
+###
