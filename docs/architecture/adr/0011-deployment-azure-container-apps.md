@@ -86,8 +86,13 @@ totals as the shape of the bill rather than the bill.
   forms an opinion of the project.
 - **`server` and `webfrontend`: `minReplicas: 0`.** Both cold-start in seconds, and a demo is idle
   almost always.
-- **Redis: not deployed.** It backs output caching only. Making the client optional is a small
-  change (see the deploy slices) and saves the single largest avoidable line.
+- **Redis: not deployed — and now not built either.** It backed output caching only, and the first
+  deploy slice found that *nothing had ever opted in*: no endpoint called `.CacheOutput()`. The
+  cache, the client registration and the AppHost resource are removed rather than made optional, so
+  the deployed shape and the dev shape agree instead of differing by a container. Redis returns in
+  W8 with the sync idempotency ledger, which is a consumer rather than a placeholder — and that
+  ledger gets its own costing then (a Redis container app ≈ $11/month against a Postgres-backed
+  ledger at no extra cost, on a database that is already there).
 - **Images: GHCR, not ACR.** The images are public anyway; ACR Basic is $5/month for a private
   registry nothing here needs.
 

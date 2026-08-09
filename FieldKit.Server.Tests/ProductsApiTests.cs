@@ -80,7 +80,7 @@ public class ProductsApiTests(ServerFixture fixture)
     [Fact]
     public async Task Liveness_endpoint_responds()
     {
-        // /alive checks only "live"-tagged checks (the app itself), not readiness deps like Redis.
+        // /alive checks only "live"-tagged checks (the app itself), not readiness deps like Postgres.
         // Anonymous on purpose: an orchestrator probing liveness has no token, and requiring one
         // would make the app look dead whenever Keycloak was.
         var response = await fixture.Client.GetAsync("/alive");

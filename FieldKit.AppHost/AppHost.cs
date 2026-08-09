@@ -1,6 +1,8 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-var cache = builder.AddRedis("cache");
+// No Redis. It was here from W1 backing an output cache nothing ever used, and it left dev running
+// a container the deploy would not have (ADR-0011 prices it as the largest avoidable line). It comes
+// back in W8 with the sync idempotency ledger — a real consumer, and a different registration.
 
 // PostgreSQL — the system of record. One database; each module owns a schema (ADR-0005).
 // A persistent data volume keeps dev data across runs; pgweb gives a quick admin UI in dev.
@@ -20,8 +22,6 @@ var keycloak = builder.AddKeycloak("keycloak")
     .WithRealmImport("./realms");
 
 var server = builder.AddProject<Projects.FieldKit_Server>("server")
-    .WithReference(cache)
-    .WaitFor(cache)
     .WithReference(database)
     .WaitFor(database)
     // The API validates tokens against this realm; wiring the reference now means service discovery

@@ -12,9 +12,10 @@ using FieldKit.Web;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Aspire service defaults (OpenTelemetry, health checks, resilience) + Redis output cache.
+// Aspire service defaults: OpenTelemetry, health checks, resilience.
+//
+// No output cache, and its absence is deliberate — see the note where `UseOutputCache` used to be.
 builder.AddServiceDefaults();
-builder.AddRedisClientBuilder("cache").WithOutputCache();
 
 // Problem details that keep a 400 a 400: an unreadable body is the caller's mistake, and the plain
 // UseExceptionHandler reported every one of them as a server fault (ProblemDetailsExtensions).
@@ -83,7 +84,24 @@ app.UseRequestExceptionHandler();
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
-app.UseOutputCache();
+/*
+ * There is no output cache here, and that is a decision rather than an omission.
+ *
+ * One was wired in W1 — a Redis-backed `UseOutputCache()` — and **nothing ever opted in**: not one
+ * endpoint called `.CacheOutput()` across seven weeks of building them. It was middleware with no
+ * work to do and a Redis dependency behind it, which the deploy costing (ADR-0011) priced at more
+ * than everything else on the bill put together.
+ *
+ * It is also the wrong default to leave lying around in *this* API. Every read here is tenant-scoped
+ * and permission-gated; an output cache keyed on the URL would serve one tenant's rows to the next
+ * caller, and the cache key policy that avoids it (vary by tenant *and* by the caller's permissions)
+ * is a design decision nobody has made. A future `.CacheOutput()` would have inherited that hazard
+ * silently — in a codebase whose central rule is that a tenant never sees another's data.
+ *
+ * When something genuinely needs caching, it arrives with its key policy and its own test. Redis
+ * itself returns in W8 for the sync idempotency ledger, which is a different registration and a
+ * real consumer.
+ */
 
 // Must precede the endpoints: authentication populates HttpContext.User, authorization enforces
 // what individual endpoints ask for via RequireAuthorization().

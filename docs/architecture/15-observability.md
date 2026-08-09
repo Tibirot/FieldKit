@@ -41,8 +41,9 @@ These double as the **operational KPIs** behind the supervisor dashboards
 ## 3. Health checks
 
 Per `ServiceDefaults`: `/health` (all checks — readiness) and `/alive` (liveness only). Extended
-with dependency checks: **PostgreSQL**, **Redis**, **Keycloak reachability**, and **outbox
-liveness** (dispatcher heartbeat). Health endpoints are dev-open and locked down in non-dev per
+with dependency checks: **PostgreSQL**, **Keycloak reachability**, and **outbox
+liveness** (dispatcher heartbeat). Redis joins them in W8, when the sync idempotency ledger gives
+it a consumer — a health check on a dependency nothing uses reports on nothing. Health endpoints are dev-open and locked down in non-dev per
 Aspire guidance.
 
 ## 4. Correlation

@@ -109,8 +109,10 @@ end-to-end cloud-native story and alignment with the Azure/AKS background on the
 >
 > **Settled at deploy time (2026-08), and one of these was overridden.** Managed Postgres, Keycloak
 > as a container app pinned to one replica, everything else scaled to zero — and **Redis is not
-> deployed at all**: it backs output caching only, and it was the largest avoidable line on the
-> bill. Costed at ≈ $11–16/month for year one in
+> deployed at all**. It backed output caching only, and the first deploy slice found that no
+> endpoint had ever opted into that cache, so the cache and the Redis resource were removed rather
+> than made optional: the largest avoidable line on the bill turned out to be buying nothing.
+> Redis returns in W8 with the sync idempotency ledger. Costed at ≈ $11–16/month for year one in
 > [ADR-0011](../architecture/adr/0011-deployment-azure-container-apps.md#costing-and-the-backing-service-split-2026-08),
 > which also records what a €4 VPS would have cost instead and why that is still declined.
 
