@@ -216,11 +216,14 @@ jobs:
         # `dotnet test --filter` exits 0 when nothing matches, so a renamed class would turn this
         # step green having run nothing. The floor is what makes it a check: under today's count
         # (~79) so ordinary additions do not touch it, and far above zero.
+        env:
+          NO_COLOR: "1"
         run: |
           set -euo pipefail
           dotnet test FieldKit.Server.Tests -c Release \
             --filter "FullyQualifiedName~VectorTests|FullyQualifiedName~VectorPropertyTests" \
-            --logger "console;verbosity=normal" | tee parity-dotnet.log
+            --logger "console;verbosity=normal" 2>&1 \
+            | sed -r 's/\x1B\[[0-9;]*[mGKH]//g' | tee parity-dotnet.log
           passed=$(grep -oE 'Passed: +[0-9]+' parity-dotnet.log | grep -oE '[0-9]+' | tail -1)
           echo "C# vector cases: ${passed:-0}"
           if [ "${passed:-0}" -lt 50 ]; then
@@ -237,9 +240,17 @@ jobs:
         # The mirror runs the generated files as well: ~800 cases against C#'s ~79. A vector file
         # that failed to load would leave a green suite of whatever remained — the floor is what
         # turns that into a failure rather than a quieter success.
+        #
+        # NO_COLOR because vitest colours its summary on a CI runner and not through a local pipe,
+        # so `Tests  808 passed` arrives as `\e[2m Tests \e[22m \e[1m\e[32m808 passed` and the regex
+        # below matches nothing. The first run of this job failed exactly that way: 808 tests green,
+        # count parsed as 0. The `sed` is the belt to that braces — a tool is free to colour output
+        # NO_COLOR does not cover, and this step must fail for real reasons only.
+        env:
+          NO_COLOR: "1"
         run: |
           set -euo pipefail
-          npx vitest run lib/pricing | tee parity-ts.log
+          npx vitest run lib/pricing 2>&1 | sed -r 's/\x1B\[[0-9;]*[mGKH]//g' | tee parity-ts.log
           passed=$(grep -oE 'Tests +[0-9]+ passed' parity-ts.log | grep -oE '[0-9]+' | tail -1)
           echo "TypeScript vector cases: ${passed:-0}"
           if [ "${passed:-0}" -lt 500 ]; then
