@@ -143,6 +143,25 @@ check(server !== undefined, "no `server` resource in the manifest");
 if (server) {
   const external = Object.values(server.bindings ?? {}).filter((b) => b.external);
   check(external.length > 0, "server has no external binding — the API would not be reachable");
+
+  /*
+   * At least one trusted tenant.
+   *
+   * A realm is only a trusted issuer if a tenant row claims it, and those rows come from
+   * `Iam:SeedTenants` — which lives in appsettings.**Development**.json. A container runs as
+   * Production and loads none of it, so the deployed API trusted no realm at all.
+   *
+   * The symptom was as far from the cause as it gets: sign-in worked, Keycloak issued a valid
+   * token, and the front end looped on "Your session has expired" because every call came back
+   * 401. All 688 integration tests passed throughout — `ServerFixture` boots the host with
+   * `UseEnvironment(Development)`, so the one environment nothing covered is the deployed one.
+   */
+  const seeded = Object.keys(server.env ?? {}).filter((key) => /^Iam__SeedTenants__\d+__Realm$/.test(key));
+  check(
+    seeded.length > 0,
+    "server has no Iam__SeedTenants__*__Realm — the deployed API would trust no realm, and every " +
+      "signed-in request would 401 as if the session had expired",
+  );
 }
 
 /*

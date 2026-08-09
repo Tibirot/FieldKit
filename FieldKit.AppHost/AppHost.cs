@@ -263,6 +263,48 @@ if (builder.ExecutionContext.IsPublishMode)
     keycloak.WithEnvironment("FIELDKIT_WEB_ORIGIN", frontend.GetEndpoint("http"));
 
 /*
+ * The tenants whose realms this deployment's Keycloak image carries.
+ *
+ * A realm is only a trusted issuer if a tenant row claims it — the tenant table *is* the trust list
+ * (ADR-0008, realms/README.md). Those rows come from `Iam:SeedTenants` until provisioning lands
+ * (`IAM-10`), and that section lives in **appsettings.Development.json**. A container runs as
+ * Production, loads none of it, and `TenantSeeder` returns early on an empty list.
+ *
+ * The result is an API that trusts no realm, and the symptom looks nothing like the cause: sign-in
+ * succeeds, Keycloak mints a perfectly good token, every API call is refused with 401, and the front
+ * end — correctly — reads 401 as an expired session. What the first working deploy actually did was
+ * sign in and then loop on "Your session has expired", with no error anywhere in it.
+ *
+ * The 688 integration tests all pass because `ServerFixture` boots the host with
+ * `UseEnvironment(Development)`. Everything about this path is covered except the environment it
+ * runs in.
+ *
+ * **Set here rather than in an appsettings.Production.json**, because these ids are the other half
+ * of the `tenant` claim hardcoded in `realms/*.json` — the directory this same file bakes into the
+ * Keycloak image. Two halves of one fact, kept in one place. The values are duplicated from the
+ * development config and that is deliberate: the tests boot the server without this AppHost, so
+ * that copy cannot be deleted.
+ */
+if (builder.ExecutionContext.IsPublishMode)
+{
+    (string Id, string Name, string Realm)[] seedTenants =
+    [
+        ("00000000-0000-0000-0000-000000000001", "Veridian Beverages (dev)", "fieldkit-dev"),
+        ("00000000-0000-0000-0000-000000000002", "Second Tenant (dev)", "fieldkit-dev-b"),
+    ];
+
+    for (var index = 0; index < seedTenants.Length; index++)
+    {
+        var (id, name, realm) = seedTenants[index];
+
+        server
+            .WithEnvironment($"Iam__SeedTenants__{index}__Id", id)
+            .WithEnvironment($"Iam__SeedTenants__{index}__Name", name)
+            .WithEnvironment($"Iam__SeedTenants__{index}__Realm", realm);
+    }
+}
+
+/*
  * The scale rules the costing is made of (ADR-0011).
  *
  * ADR-0011 priced this deployment at ≈ $11–16/month on the strength of three numbers: Keycloak
