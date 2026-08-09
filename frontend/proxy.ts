@@ -1,7 +1,8 @@
 import createMiddleware from "next-intl/middleware";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { routing } from "./i18n/routing";
+import { upstreamUrl } from "./lib/api/upstream";
 import { contentSecurityPolicy, newNonce, originOf } from "./lib/security/csp";
 
 /**
@@ -36,6 +37,20 @@ function keycloakOrigin(): string | null {
  * refused by the very policy this sets and the page renders blank.
  */
 export default function proxy(request: NextRequest) {
+  // `/api/*` is a different job from everything below: no locale, no nonce, no CSP — the response
+  // is JSON for a `fetch`, not a document for a browser to render. It leaves here before any of
+  // that runs. See lib/api/upstream.ts for why this is not a `rewrites()` entry.
+  if (request.nextUrl.pathname.startsWith("/api/")) {
+    const upstream = upstreamUrl(request.nextUrl.pathname, request.nextUrl.search);
+
+    // No API configured. 503 rather than falling through to the app, which would answer a data
+    // request with an HTML 404 page — a shape the client cannot parse and would report as a JSON
+    // error, sending whoever debugs it looking for a bug in the response body.
+    return upstream
+      ? NextResponse.rewrite(upstream)
+      : new NextResponse(null, { status: 503, statusText: "API not configured" });
+  }
+
   const nonce = newNonce();
   const policy = contentSecurityPolicy({
     nonce,
@@ -61,7 +76,11 @@ export default function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except API routes, Next internals, and files with an extension (static assets,
-  // the PWA manifest, the service worker) — those must never be locale-redirected.
-  matcher: "/((?!api|_next|_vercel|.*\\..*).*)",
+  matcher: [
+    // The API, which this now forwards rather than merely declining to touch.
+    "/api/:path*",
+    // Everything except the API, Next internals, and files with an extension (static assets, the
+    // PWA manifest, the service worker) — those must never be locale-redirected.
+    "/((?!api|_next|_vercel|.*\\..*).*)",
+  ],
 };

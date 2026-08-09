@@ -15,7 +15,21 @@ export default defineConfig({
    * toolchain doc for no capability we are missing.
    */
   resolve: {
-    alias: { "@": fileURLToPath(new URL("./", import.meta.url)) },
+    alias: {
+      "@": fileURLToPath(new URL("./", import.meta.url)),
+
+      /**
+       * `next/server` → `next/server.js`.
+       *
+       * Next declares this subpath in `exports`, and Node's resolver honours it — but only under
+       * the conditions Next's own runtime sets. `next-intl`'s ESM build does a bare
+       * `import ... from "next/server"`, which Vitest resolves as a plain file and cannot find.
+       *
+       * The alternative was to leave `proxy.ts` untested, which is where the request routing now
+       * lives. Pointing one specifier at the file it already means is the smaller cost.
+       */
+      "next/server": fileURLToPath(new URL("./node_modules/next/server.js", import.meta.url)),
+    },
   },
 
   test: {
@@ -43,6 +57,13 @@ export default defineConfig({
      * for this product's users to be, which makes it a fair default rather than a stress test.
      */
     env: { TZ: "Europe/Bucharest" },
+
+    /**
+     * `next-intl` has to go through Vite rather than round Node's externalised path, or the
+     * `next/server` alias above never gets a chance to apply — Vitest leaves `node_modules`
+     * untransformed by default, and the bad specifier is inside one.
+     */
+    server: { deps: { inline: ["next-intl"] } },
 
     include: ["**/*.test.{ts,tsx}"],
     exclude: ["node_modules/**", ".next/**"],

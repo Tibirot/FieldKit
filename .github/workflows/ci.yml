@@ -117,6 +117,17 @@ jobs:
             --results-directory ./TestResults \
             --collect:"XPlat Code Coverage"
 
+      # The deploy path, which no test covers because it is about the artifact rather than the code.
+      # Before deploy slice D3 the published manifest described a front end that could not run:
+      # no bindings, `buildOnly: true`, and a generated Dockerfile with no CMD. This is the check
+      # that would have said so. See scripts/check-deploy-manifest.mjs.
+      - name: Check the deploy manifest
+        run: |
+          set -euo pipefail
+          dotnet run --project FieldKit.AppHost -c Release --no-build \
+            -- --publisher manifest --output-path "$RUNNER_TEMP/aspire/manifest.json"
+          node scripts/check-deploy-manifest.mjs "$RUNNER_TEMP/aspire/manifest.json"
+
       - name: Upload test results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
