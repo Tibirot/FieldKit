@@ -4,16 +4,9 @@ The live demo runs on **Azure Container Apps**, published from the Aspire AppHos
 ([ADR-0011](../architecture/adr/0011-deployment-azure-container-apps.md)). This page is the runbook:
 what has to be true first, what the command does, and what to check afterwards.
 
-> ## Not yet. One blocker is open.
->
-> **Postgres still publishes as a container app.** The AppHost uses `AddPostgres`, so
-> `aspire deploy` would create a Postgres *container* with `minReplicas: 1` — no point-in-time
-> restore (the reason ADR-0011 chose managed), no free-tier year, and an always-on container the
-> costing does not include. Deploying now would produce a demo that is more expensive than budgeted
-> and loses its data to any redeploy.
->
-> Everything else below is ready and was verified locally. The steps are written out now so that the
-> first real deploy is a checklist rather than an exploration.
+> **Nothing here has been deployed yet.** Every step below was prepared and verified locally —
+> generated infrastructure read, images built and run, the app exercised — but no `aspire deploy`
+> has been executed against a real subscription. Treat the first run as the test of this page.
 
 ## Prerequisites
 
@@ -52,7 +45,8 @@ first.
 | `server` | Container app, `minReplicas: 0` | scale-to-zero |
 | `webfrontend` | Container app, `minReplicas: 0` | built from `frontend/Dockerfile` (generated) |
 | `keycloak` | Container app, `minReplicas: 1` | warm: it is on the login path |
-| `postgres` | **container app** today, managed server once the blocker closes | |
+| `postgres` | **Azure Database for PostgreSQL flexible server** | B1ms / Burstable, 32 GB, v16, 7-day backup retention |
+| `postgres-kv` | Key Vault | holds the connection secret; a managed identity per consumer reads it |
 
 `scripts/check-deploy-manifest.mjs` asserts this shape on every CI run, including the replica counts
 — those are the entire costing, and a wrong one deploys perfectly and shows up as a larger invoice
@@ -64,8 +58,18 @@ Two, both already `secret: true` parameters in the manifest, both generated if n
 
 | Parameter | What it is |
 |---|---|
-| `postgres-password` | the database superuser password |
+| `postgres-password` | the database administrator password |
 | `keycloak-password` | Keycloak's **bootstrap admin** password — used once, on an empty database |
+
+The database administrator *login* is not a secret and not generated: it is the literal `fieldkit`
+(`postgres-username`). Azure documents the flexible server's admin login as unable to be a "system
+reserved name" without listing them, and `postgres` — a database the service creates for itself —
+is exactly the ambiguous case, so it is avoided.
+
+> **In development this changed the Postgres superuser**, and a data volume is initialised once with
+> whatever superuser existed then. The AppHost therefore mounts a volume under a new name
+> (`fieldkit-postgres-data`); the old one is left in place, unmounted, and can be removed with
+> `docker volume rm` whenever its contents stop being interesting. Nothing is lost automatically.
 
 Supply them explicitly rather than letting the deploy generate them, or you will not have the
 Keycloak admin password when you need it:

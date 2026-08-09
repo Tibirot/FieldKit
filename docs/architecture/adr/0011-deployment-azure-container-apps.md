@@ -83,13 +83,14 @@ the ACR correction below).
   (750 h B1ms + 32 GB) makes it free for a year, and it is what this ADR's own RPO ≤ 5 min claim
   rests on — point-in-time restore is the reason to pay for a database rather than run one.
 
-  > **Not yet true in the AppHost, and this blocks the first deploy.** As of D5 prep, `postgres` is
-  > still `AddPostgres`, so it publishes as a **container app with `minReplicas: 1`** — no
-  > point-in-time restore, no free-tier year, and an unbudgeted always-on container. Switching it
-  > to `AddAzurePostgresFlexibleServer(…).RunAsContainer(…)` is the next slice; it was attempted and
-  > reverted because the Azure resource exposes neither `PrimaryEndpoint` nor the credential
-  > parameters the Keycloak wiring reads, which makes it a change to how `dotnet run` bootstraps
-  > rather than a one-line swap.
+  **True in the AppHost since deploy slice D6.** It publishes as `Standard_B1ms` / Burstable, 32 GB,
+  Postgres 16, with `backupRetentionDays: 7` — which is the point-in-time restore this ADR's RPO
+  claim depends on, and matches the sizing the free-tier year was costed against. Development still
+  runs a container (`RunAsContainer`), so working on the app needs no Azure account.
+
+  The switch also brought a **Key Vault** and a managed identity per consumer, which Aspire adds to
+  hold the connection secret. Neither was in the original costing; both are effectively free at this
+  scale (Key Vault bills per 10,000 operations).
 - **Keycloak: container app, `minReplicas: 1`.** It cannot usefully scale to zero: it is on the
   login path, so the first visitor would pay a 30–60 s cold start at the exact moment a reader
   forms an opinion of the project.

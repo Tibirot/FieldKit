@@ -10,19 +10,67 @@ var builder = DistributedApplication.CreateBuilder(args);
 // live — Log Analytics, and the scale rules set per app further down.
 builder.AddAzureContainerAppEnvironment("fieldkit-env");
 
-// PostgreSQL — the system of record. One database; each module owns a schema (ADR-0005).
-// A persistent data volume keeps dev data across runs; pgweb gives a quick admin UI in dev.
+/*
+ * The database credentials, named here rather than left to the integration to invent.
+ *
+ * `AddAzurePostgresFlexibleServer` would create both itself, and then nothing in this file could
+ * refer to them — which matters because Keycloak needs the username and password *by value*, as
+ * `KC_DB_USERNAME` and `KC_DB_PASSWORD`, and has no other way to reach a database.
+ *
+ * Both generate a value on first use and persist it to user-secrets, which is what `AddPostgres`
+ * did for the password before this. A fresh clone therefore still needs no configuration: the first
+ * `dotnet run` writes a password, and every later one reads the same one back — the data volume
+ * outlives the process, so a password regenerated per run would lock the developer out of their own
+ * database on the second start.
+ */
+// A fixed name, not a generated one, and not `postgres`.
 //
-// **Still a container when published, and ADR-0011 says it should be managed.** That switch —
-// `AddAzurePostgresFlexibleServer(…).RunAsContainer(…)` — is a slice of its own rather than a line
-// here: the Azure resource exposes neither `PrimaryEndpoint` nor the username/password parameters
-// the Keycloak wiring below reads, so it needs explicit credential parameters, and those change how
-// `dotnet run` bootstraps for every developer. Tried in this branch, reverted, and left as the next
-// deploy slice. **Nothing should be deployed until it lands**: published as a container, Postgres
-// has no point-in-time restore, which is the reason ADR-0011 chose managed at all.
-var postgres = builder.AddPostgres("postgres")
-    .WithDataVolume()
-    .WithPgWeb();
+// **Not generated**, though the password is: a random admin username buys nothing once the password
+// is a secret, and it costs a name that appears in pgweb, in `psql` invocations, in every log line
+// about a failed connection, and in the runbook. `Role "yFBEpmbuSdfh" does not exist` is a real
+// error this produced, and it is worse in every way than the same error naming `fieldkit`.
+//
+// **Not `postgres`**, which would have kept existing dev volumes working, because Azure documents
+// the flexible server's admin login as unable to be "system reserved names" without saying which —
+// and `postgres`, a database the service creates for itself, is exactly the ambiguous case. A name
+// that might be refused at provisioning is not worth the convenience.
+var postgresUsername = builder.AddParameter("postgres-username", "fieldkit");
+
+var postgresPassword = builder.AddParameter(
+    "postgres-password",
+    // 22 characters, matching what `AddPostgres` generated. No specials: this value travels through
+    // a JDBC URL to Keycloak, where `;` and `&` change what the string means.
+    new GenerateParameterDefault { MinLength = 22, Special = false },
+    secret: true,
+    persist: true);
+
+// PostgreSQL — the system of record. One database; each module owns a schema (ADR-0005).
+//
+// **Managed when published, a container in development.** ADR-0011 chose Azure Database for
+// PostgreSQL for point-in-time restore, which is what its RPO ≤ 5 min claim rests on, and for the
+// 12-month free-tier year the costing assumes. Until this slice it published as an ordinary
+// container app with `minReplicas: 1`: no restore, no free year, and an always-on container nobody
+// had budgeted. `RunAsContainer` keeps `dotnet run` as it was — data volume, pgweb, no Azure
+// account needed to work on the app.
+//
+// Password authentication rather than the Entra ID default. The API could use a managed identity;
+// Keycloak cannot — it takes a JDBC URL with a username and password and has no token path — and
+// one database with two authentication modes is a worse answer than one with the mode both its
+// consumers share.
+var postgres = builder.AddAzurePostgresFlexibleServer("postgres")
+    .WithPasswordAuthentication(postgresUsername, postgresPassword)
+    .RunAsContainer(container => container
+        // **A named volume, and the name is new.** Postgres runs `initdb` only when the data
+        // directory is empty, so a volume created under the old `postgres` superuser cannot
+        // authenticate the new one — the container starts and then refuses every connection with
+        // `Role "fieldkit" does not exist`. Measured, on the volume this repository had.
+        //
+        // Naming it afresh sidesteps that without deleting anyone's data: the old volume is simply
+        // no longer mounted, and can be removed whenever its contents stop being interesting.
+        // Development data here is reproducible anyway — realms are imported from source and
+        // schemas are created by migrations on first start.
+        .WithDataVolume("fieldkit-postgres-data")
+        .WithPgWeb());
 
 var database = postgres.AddDatabase("fieldkitdb");
 
@@ -67,14 +115,22 @@ else
     keycloak
         .WaitFor(keycloakDb)
         .WithEnvironment("KC_DB", "postgres")
+        // Assembled from the server's host name, and **not** from `keycloakDb.JdbcConnectionString`
+        // — which is the obvious choice and the wrong one. That property appends
+        // `authenticationPluginClassName=…AzurePostgresqlAuthenticationPlugin`, an Entra ID plugin
+        // that (a) contradicts the password authentication configured above and (b) names a class
+        // the Keycloak image's driver does not contain, so the container would fail to open a
+        // connection at all. Tried it, read the generated manifest, replaced it.
+        //
+        // `HostName` resolves to the container's host in development and the flexible server's FQDN
+        // when published, which is what lets this one expression serve both.
         .WithEnvironment("KC_DB_URL", ReferenceExpression.Create(
-            $"jdbc:postgresql://{postgres.Resource.PrimaryEndpoint.Property(EndpointProperty.Host)}:{postgres.Resource.PrimaryEndpoint.Property(EndpointProperty.Port)}/keycloakdb"))
-        // A parameter only when one was supplied. Aspire's default is the literal `postgres`, which
-        // is what the API's own connection string in this manifest already carries.
-        .WithEnvironment("KC_DB_USERNAME", postgres.Resource.UserNameParameter is { } username
-            ? ReferenceExpression.Create($"{username}")
-            : ReferenceExpression.Create($"postgres"))
-        .WithEnvironment("KC_DB_PASSWORD", postgres.Resource.PasswordParameter);
+            $"jdbc:postgresql://{postgres.Resource.HostName}/keycloakdb?sslmode=require"))
+        // The same two parameters the server is provisioned with, by value. Keycloak has no managed
+        // identity path; this is the whole reason they are declared at the top of this file rather
+        // than left for `AddAzurePostgresFlexibleServer` to generate privately.
+        .WithEnvironment("KC_DB_USERNAME", postgresUsername)
+        .WithEnvironment("KC_DB_PASSWORD", postgresPassword);
 
     // Behind Azure Container Apps' ingress, which terminates TLS and forwards over plain HTTP.
     //
