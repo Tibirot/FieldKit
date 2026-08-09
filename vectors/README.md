@@ -8,6 +8,15 @@ These files are the contract between the two implementations. The C# engine runs
 `FieldKit.Server.Tests`; the TypeScript device mirror runs the **same files** in W7. Neither owns
 them, which is why they live here rather than inside either project.
 
+> **Both languages read this directory now** (W7 slice 12). `price-resolution.v1.json` and its
+> generated companion are executed by `PriceResolutionVectorTests.cs` and by
+> `frontend/lib/pricing/price-resolver.test.ts`, from the same path — neither copies them. The
+> TypeScript side also asserts the **format rule** these files depend on: every amount is checked to
+> be a JSON *string* before any case runs, because `JSON.parse` would otherwise turn a bare number
+> into a float before the engine saw it and the suite would be comparing two rounding errors. C#
+> refuses the number token in its converter; TypeScript refuses it in a test. Same rule, enforced on
+> both sides of the contract.
+>
 > **The mirror starts with money, not with a resolver** (W7 slice 11). Every rule in these files is
 > arithmetic on amounts, so a resolver written on top of a float would fail them for reasons that
 > have nothing to do with the rule it was testing. `frontend/lib/pricing/money.ts` is the
