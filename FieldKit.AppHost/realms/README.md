@@ -50,6 +50,40 @@ reproducible, not demoable, and not reviewable. Committing the realm makes the d
 Realm **provisioning** for real tenants is automated through the Keycloak admin API when IAM lands
 (`IAM-10`, Phase 2). This file is only the dev tenant.
 
+## How these files reach a deployed environment (deploy slice D4)
+
+Two things about the realms were **development-only**, and neither announced itself.
+
+**They arrived by bind mount.** Aspire's `WithRealmImport` mounts this directory into the container,
+which is exactly right locally — edit, restart, see the change. It published as
+`D:/…/FieldKit.AppHost/realms`: an absolute path on one Windows machine, named in a manifest destined
+for a container app with no such filesystem, as the source of the identity provider's entire
+configuration. Publishing now builds a small image instead ([keycloak/Dockerfile](../keycloak/Dockerfile))
+that carries these files inside it.
+
+**Every origin was the literal `http://localhost:3000`.** Deployed unchanged, a visitor who signed in
+would be redirected back to their own machine. Each origin is now
+`${FIELDKIT_WEB_ORIGIN:http://localhost:3000}` — Keycloak resolves it from the environment at import
+and falls back to the dev address, so development needs nothing configured and the deploy sets one
+variable.
+
+Verified against Keycloak 26.6 rather than assumed, because the syntax matters and is easy to get
+wrong:
+
+| Written in the JSON | Result |
+|---|---|
+| `${FIELDKIT_WEB_ORIGIN}` | substituted from the environment |
+| `${FIELDKIT_WEB_ORIGIN:http://localhost:3000}` | substituted, or the default when unset — **what these files use** |
+| `${env.FIELDKIT_WEB_ORIGIN}` | **not** substituted; import fails with `A redirect URI is not a valid URI` |
+
+The last row is why this is a table and not a sentence. The `env.` spelling looks the most explicit of
+the three and is the one that breaks, in a way that stops the whole server rather than misconfiguring
+one client quietly.
+
+The realm import strategy is `IGNORE_EXISTING`, which is why the deployed Keycloak keeps a Postgres
+database and the development one deliberately does not: persisting state locally would mean a change
+to a file in this directory is silently ignored on the next start.
+
 ## Three users, because one cannot prove authorization works
 
 | User | Realm roles | Exists to prove |

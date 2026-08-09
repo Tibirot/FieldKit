@@ -130,6 +130,11 @@ the workspace the user names. Three consequences are worth recording, because ea
 - **Keycloak's address is read per request, never baked into the bundle.** It is assigned per run in
   dev and per environment in production, and a stale one is not a broken link — it mints tokens whose
   issuer the API refuses, which presents as signing in successfully and staying signed out.
+- **Keycloak must also be told its own address** (deploy slice D4). The point above is about the
+  *client* knowing where to go; this is the mirror of it. Behind an ingress that terminates TLS,
+  Keycloak derives its issuer and its redirect URLs from what it believes it is reachable as, and
+  without `KC_HOSTNAME` and `KC_PROXY_HEADERS` that is the container's internal address — producing
+  exactly the failure above, from the other end, in a deployment where every other part is correct.
 
 **Not yet, and deliberately so:**
 
