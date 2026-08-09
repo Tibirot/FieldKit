@@ -84,6 +84,14 @@ totals as the shape of the bill rather than the bill.
 - **Keycloak: container app, `minReplicas: 1`.** It cannot usefully scale to zero: it is on the
   login path, so the first visitor would pay a 30–60 s cold start at the exact moment a reader
   forms an opinion of the project.
+
+  **It shares the managed Postgres** (deploy slice D4), as a second database on the same flexible
+  server — so no new line on the bill, and the identity provider inherits the point-in-time restore
+  this ADR's RPO ≤ 5 min claim already rests on. Without one, `start` falls back to Keycloak's H2
+  dev-file store and every redeploy forgets each user. Development keeps the ephemeral store on
+  purpose: realm import ignores a realm that already exists, so persisting state locally would mean
+  edits to a realm file stopped taking effect. It also runs from a small image that carries the
+  realms, because the dev import is a bind mount of a path that exists on one laptop.
 - **`server` and `webfrontend`: `minReplicas: 0`.** Both cold-start in seconds, and a demo is idle
   almost always.
 - **Redis: not deployed — and now not built either.** It backed output caching only, and the first

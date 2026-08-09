@@ -58,6 +58,47 @@ if (frontend) {
   );
 }
 
+const keycloak = manifest.resources?.keycloak;
+check(keycloak !== undefined, "no `keycloak` resource in the manifest");
+
+if (keycloak) {
+  // A bind mount names a directory on whoever ran the publisher. It published as
+  // `D:/…/FieldKit.AppHost/realms` — the identity provider's entire configuration, sourced from a
+  // path no container app has. The realms belong in the image.
+  check(
+    (keycloak.bindMounts ?? []).length === 0,
+    "keycloak has a bind mount — realm import would read a path that does not exist in the cloud",
+  );
+  check(
+    typeof keycloak.build?.dockerfile === "string",
+    "keycloak is not built from a Dockerfile — nothing would carry the realms into the image",
+  );
+
+  // `start` with no database falls back to the H2 dev-file store, and a restart forgets every user.
+  check(
+    keycloak.env?.KC_DB === "postgres",
+    `keycloak KC_DB is "${keycloak.env?.KC_DB}", expected postgres — the default is an in-image H2 file`,
+  );
+
+  // TLS is terminated at the ingress. Without these, Keycloak builds issuer and redirect URLs from
+  // its own internal address, and mints tokens the API rejects as coming from an unknown issuer.
+  check(
+    typeof keycloak.env?.KC_HOSTNAME === "string",
+    "keycloak has no KC_HOSTNAME — issuer and redirect URLs would use the container's internal address",
+  );
+  check(
+    keycloak.env?.KC_PROXY_HEADERS === "xforwarded",
+    `keycloak KC_PROXY_HEADERS is "${keycloak.env?.KC_PROXY_HEADERS}", expected xforwarded`,
+  );
+
+  // The realm files default this to http://localhost:3000. Deployed, that sends every visitor back
+  // to their own machine at the end of sign-in.
+  check(
+    typeof keycloak.env?.FIELDKIT_WEB_ORIGIN === "string",
+    "keycloak has no FIELDKIT_WEB_ORIGIN — realm redirect URIs would fall back to localhost:3000",
+  );
+}
+
 const server = manifest.resources?.server;
 check(server !== undefined, "no `server` resource in the manifest");
 if (server) {
@@ -71,4 +112,7 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("Deploy manifest OK: front end is a runnable, externally-bound production container.");
+console.log(
+  "Deploy manifest OK: the front end is a runnable, externally-bound production container, and " +
+    "Keycloak carries its realms, has a database, and knows its own address.",
+);

@@ -15,11 +15,65 @@ var database = postgres.AddDatabase("fieldkitdb");
 // Keycloak — the identity provider (ADR-0008). FieldKit never stores passwords.
 //
 // A tenant *is* a realm (realm-per-tenant), so the dev tenant is imported from source rather than
-// clicked together by hand: see realms/README.md. Deliberately **no** data volume — Keycloak skips
-// importing a realm that already exists, so a persisted volume would silently ignore edits to the
-// realm file. Admin credentials are Aspire parameters in user-secrets, never in source.
-var keycloak = builder.AddKeycloak("keycloak")
-    .WithRealmImport("./realms");
+// clicked together by hand: see realms/README.md. Admin credentials are Aspire parameters in
+// user-secrets, never in source.
+var keycloak = builder.AddKeycloak("keycloak");
+
+if (builder.ExecutionContext.IsRunMode)
+{
+    // Development: realms by bind mount, and deliberately **no** data volume — Keycloak skips
+    // importing a realm that already exists, so persisted state would silently ignore edits to the
+    // realm file. Losing the realm on every restart is the feature here.
+    keycloak.WithRealmImport("./realms");
+}
+else
+{
+    // Publish: the same realms, inside the image.
+    //
+    // The bind mount above cannot deploy. It published as an absolute path on the machine that ran
+    // the publisher — `D:/…/FieldKit.AppHost/realms` — named as the source of the identity
+    // provider's entire configuration, in a manifest destined for a container app with no such
+    // filesystem. See keycloak/Dockerfile.
+    keycloak.WithDockerfile(contextPath: ".", dockerfilePath: "keycloak/Dockerfile");
+
+    // A database, because `start` with none falls back to Keycloak's H2 dev-file store — and with
+    // no volume behind it, every restart or redeploy of the identity provider forgets everything
+    // that is not in the realm import. It shares the managed Postgres ADR-0011 already pays for:
+    // free at the margin, and covered by the point-in-time restore that ADR's RPO ≤ 5 min claim
+    // rests on.
+    //
+    // Not applied in development on purpose. Persisting Keycloak there would defeat the realm
+    // re-import above, which is how a change to a realm file is seen at all.
+    var keycloakDb = postgres.AddDatabase("keycloakdb");
+
+    // `WaitFor` without `WithReference`. The reference would inject seven `KEYCLOAKDB_*` variables
+    // Keycloak does not read, one of them a `postgresql://postgres:<password>@…` URI — a second
+    // copy of the database password in the identity provider's environment, to be read by nothing.
+    // Keycloak takes its database configuration through `KC_DB_*`, which is set explicitly below.
+    keycloak
+        .WaitFor(keycloakDb)
+        .WithEnvironment("KC_DB", "postgres")
+        .WithEnvironment("KC_DB_URL", ReferenceExpression.Create(
+            $"jdbc:postgresql://{postgres.Resource.PrimaryEndpoint.Property(EndpointProperty.Host)}:{postgres.Resource.PrimaryEndpoint.Property(EndpointProperty.Port)}/keycloakdb"))
+        // A parameter only when one was supplied. Aspire's default is the literal `postgres`, which
+        // is what the API's own connection string in this manifest already carries.
+        .WithEnvironment("KC_DB_USERNAME", postgres.Resource.UserNameParameter is { } username
+            ? ReferenceExpression.Create($"{username}")
+            : ReferenceExpression.Create($"postgres"))
+        .WithEnvironment("KC_DB_PASSWORD", postgres.Resource.PasswordParameter);
+
+    // Behind Azure Container Apps' ingress, which terminates TLS and forwards over plain HTTP.
+    //
+    // Without these, Keycloak builds its issuer and its redirect URLs from what it believes its own
+    // address to be — the container's internal one. The browser is then sent to a host it cannot
+    // reach, and any token that *is* minted carries an issuer the API has never heard of. That is
+    // the failure the note on the front end's Keycloak reference already warns about, arriving by a
+    // different route: a 401 that looks nothing like a configuration mistake.
+    keycloak
+        .WithEnvironment("KC_PROXY_HEADERS", "xforwarded")
+        .WithEnvironment("KC_HTTP_ENABLED", "true")
+        .WithEnvironment("KC_HOSTNAME", keycloak.GetEndpoint("http"));
+}
 
 var server = builder.AddProject<Projects.FieldKit_Server>("server")
     .WithReference(database)
@@ -94,6 +148,19 @@ if (builder.ExecutionContext.IsPublishMode)
 // doc, both of which name 3000. In publish mode the port comes from the host and is left alone.
 if (builder.ExecutionContext.IsRunMode)
     frontend.WithEndpoint("http", endpoint => endpoint.Port = 3000);
+
+// The address Keycloak will send the browser back to after a login.
+//
+// The realm files carry `${FIELDKIT_WEB_ORIGIN:http://localhost:3000}` wherever an origin appears —
+// redirect URIs, web origins, post-logout — so development needs nothing set and the deploy needs
+// one variable. Before D4 they carried the literal `http://localhost:3000`, which would have sent
+// every visitor to the deployed demo back to their own machine at the end of sign-in.
+//
+// Set here rather than beside the other Keycloak settings because it names the *front end*, which
+// is declared below it. Publish only: in development the default in the file is already right, and
+// asking Keycloak for the front end's address while the front end waits for Keycloak is a cycle.
+if (builder.ExecutionContext.IsPublishMode)
+    keycloak.WithEnvironment("FIELDKIT_WEB_ORIGIN", frontend.GetEndpoint("http"));
 
 #pragma warning restore ASPIREJAVASCRIPT001
 

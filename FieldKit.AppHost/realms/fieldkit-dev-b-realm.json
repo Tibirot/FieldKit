@@ -102,8 +102,8 @@
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": false,
       "implicitFlowEnabled": false,
-      "redirectUris": ["http://localhost:3000/*"],
-      "webOrigins": ["http://localhost:3000"],
+      "redirectUris": ["${FIELDKIT_WEB_ORIGIN:http://localhost:3000}/*"],
+      "webOrigins": ["${FIELDKIT_WEB_ORIGIN:http://localhost:3000}"],
       "attributes": {
         "pkce.code.challenge.method": "S256"
       },
