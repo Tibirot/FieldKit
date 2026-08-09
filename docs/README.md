@@ -62,7 +62,8 @@ docs/
 │
 ├─ engineering/                  ← how we work
 │  ├─ pull-requests.md           ← PR rules for humans & agents (small · tested · docs-in-lockstep)
-│  └─ frontend-toolchain.md      ← Node/npm pinning + why the lockfile is generated on Linux
+│  ├─ frontend-toolchain.md      ← Node/npm pinning + why the lockfile is generated on Linux
+│  └─ deploying.md               ← the ACA runbook: prerequisites, what gets created, what to check
 │
 ├─ ux/                           ← wireframes & design direction
 │  ├─ README.md                  ← screen inventory + spec traceability + Artifact link

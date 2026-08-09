@@ -24,6 +24,7 @@
     <!-- Security pin over Aspire's vulnerable transitive MessagePack; rationale and removal
          condition live with the version in Directory.Packages.props. -->
     <PackageReference Include="MessagePack" />
+    <PackageReference Include="Aspire.Hosting.Azure.AppContainers" />
     <PackageReference Include="Aspire.Hosting.JavaScript" />
     <PackageReference Include="Aspire.Hosting.Keycloak" />
     <PackageReference Include="Aspire.Hosting.PostgreSQL" />

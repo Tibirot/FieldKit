@@ -4,8 +4,22 @@ var builder = DistributedApplication.CreateBuilder(args);
 // a container the deploy would not have (ADR-0011 prices it as the largest avoidable line). It comes
 // back in W8 with the sync idempotency ledger — a real consumer, and a different registration.
 
+// The Azure Container Apps environment everything below is published into (ADR-0011).
+//
+// Declared rather than left to `azd` to invent, because the environment is where the cost decisions
+// live — Log Analytics, and the scale rules set per app further down.
+builder.AddAzureContainerAppEnvironment("fieldkit-env");
+
 // PostgreSQL — the system of record. One database; each module owns a schema (ADR-0005).
 // A persistent data volume keeps dev data across runs; pgweb gives a quick admin UI in dev.
+//
+// **Still a container when published, and ADR-0011 says it should be managed.** That switch —
+// `AddAzurePostgresFlexibleServer(…).RunAsContainer(…)` — is a slice of its own rather than a line
+// here: the Azure resource exposes neither `PrimaryEndpoint` nor the username/password parameters
+// the Keycloak wiring below reads, so it needs explicit credential parameters, and those change how
+// `dotnet run` bootstraps for every developer. Tried in this branch, reverted, and left as the next
+// deploy slice. **Nothing should be deployed until it lands**: published as a container, Postgres
+// has no point-in-time restore, which is the reason ADR-0011 chose managed at all.
 var postgres = builder.AddPostgres("postgres")
     .WithDataVolume()
     .WithPgWeb();
@@ -161,6 +175,47 @@ if (builder.ExecutionContext.IsRunMode)
 // asking Keycloak for the front end's address while the front end waits for Keycloak is a cycle.
 if (builder.ExecutionContext.IsPublishMode)
     keycloak.WithEnvironment("FIELDKIT_WEB_ORIGIN", frontend.GetEndpoint("http"));
+
+/*
+ * The scale rules the costing is made of (ADR-0011).
+ *
+ * ADR-0011 priced this deployment at ≈ $11–16/month on the strength of three numbers: Keycloak
+ * pinned to one replica, the API and the front end at zero. **None of them existed anywhere but in
+ * that document.** The bill is not decided by the ADR; it is decided by whatever `minReplicas` the
+ * generated infrastructure happens to carry, and nothing here was setting it.
+ *
+ * That is the same shape of gap as the three the earlier deploy slices found — a decision recorded
+ * in prose, with no artifact expressing it — and it is the one that costs money rather than
+ * failing loudly.
+ */
+if (builder.ExecutionContext.IsPublishMode)
+{
+    // Zero replicas when nobody is looking. Both cold-start in seconds, and a portfolio demo is
+    // idle almost always — this is the line that makes "cheap enough to leave running" true.
+    server.PublishAsAzureContainerApp((_, app) =>
+    {
+        app.Template.Scale.MinReplicas = 0;
+        app.Template.Scale.MaxReplicas = 1;
+    });
+
+    frontend.PublishAsAzureContainerApp((_, app) =>
+    {
+        app.Template.Scale.MinReplicas = 0;
+        app.Template.Scale.MaxReplicas = 1;
+    });
+
+    // Keycloak stays warm, and is the only thing here that costs anything.
+    //
+    // It cannot usefully scale to zero: it is on the login path, so the first visitor would pay a
+    // 30–60 s JVM cold start at the exact moment a reader forms an opinion of the project. One
+    // replica rather than more because sessions live in Infinispan — a second replica needs
+    // clustering configured, which is a decision this demo has not made and does not need.
+    keycloak.PublishAsAzureContainerApp((_, app) =>
+    {
+        app.Template.Scale.MinReplicas = 1;
+        app.Template.Scale.MaxReplicas = 1;
+    });
+}
 
 #pragma warning restore ASPIREJAVASCRIPT001
 

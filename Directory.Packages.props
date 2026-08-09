@@ -28,6 +28,7 @@
   </PropertyGroup>
 
   <ItemGroup Label="Aspire">
+    <PackageVersion Include="Aspire.Hosting.Azure.AppContainers" Version="13.4.6" />
     <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.4.6" />
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.4.6" />
 
