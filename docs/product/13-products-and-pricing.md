@@ -208,6 +208,14 @@ exactly at percentage/tiered discounts, tax, and rounding. Therefore:
   > `Money.of(0.1 + 0.2, …)` is a compile error rather than a wrong answer. The precision is raised
   > to 34 significant digits because .NET's `decimal` carries 28–29 and the parity vectors are the
   > contract between them.
+  >
+  > **The first rule to exist in both languages is price resolution** (W7 slice 12):
+  > `frontend/lib/pricing/price-resolver.ts` mirrors `PriceResolver.Resolve`, and both run
+  > `vectors/pricing/price-resolution*.json` from the same path. Two details belong to the mirror
+  > rather than to the original: the date is compared as a `YYYY-MM-DD` **string**, because
+  > `new Date("2026-03-15")` is midnight UTC and would make a business day depend on the phone's
+  > timezone (`BR-PRD-6`); and the id tiebreak lower-cases before comparing, because in ASCII
+  > `'A'-'F' < 'a'-'f'` and the winner would otherwise depend on how somebody spelled a GUID.
 - **BR-PRD-9** A **single documented rounding policy** applies on both sides: round **half-up** to
   the currency's minor units, **per line**, tax computed on the rounded net line. (Per-tenant/
   jurisdiction override is a *Could*.)
