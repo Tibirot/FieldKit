@@ -59,6 +59,19 @@ if (frontend) {
   );
 }
 
+// Postgres must be a managed flexible server, not a container app.
+//
+// It published as `container.v1` until deploy slice D6 — an always-on container with no
+// point-in-time restore, which is the single reason ADR-0011 chose a managed database, and outside
+// the free-tier year the costing assumes. The regression is silent in the same way the replica
+// counts are: it deploys, it works, and the guarantee the ADR claims is simply absent.
+const database = manifest.resources?.postgres;
+check(database !== undefined, "no `postgres` resource in the manifest");
+check(
+  database?.type === "azure.bicep.v0",
+  `postgres is "${database?.type}", expected azure.bicep.v0 — a container has no point-in-time restore`,
+);
+
 const keycloak = manifest.resources?.keycloak;
 check(keycloak !== undefined, "no `keycloak` resource in the manifest");
 
