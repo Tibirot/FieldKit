@@ -16,6 +16,7 @@
  * Usage: node scripts/check-deploy-manifest.mjs <path-to-manifest.json>
  */
 import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 const path = process.argv[2];
 if (!path) {
@@ -104,6 +105,40 @@ check(server !== undefined, "no `server` resource in the manifest");
 if (server) {
   const external = Object.values(server.bindings ?? {}).filter((b) => b.external);
   check(external.length > 0, "server has no external binding — the API would not be reachable");
+}
+
+/*
+ * The scale rules, read out of the generated bicep rather than the manifest.
+ *
+ * ADR-0011 priced this deployment on three numbers — Keycloak pinned to one replica, the API and
+ * the front end at zero — and for four slices they existed only in that document. The bill is
+ * decided by what lands in `*-containerapp.module.bicep`, so that is what this reads.
+ *
+ * It is also the only assertion here that fails *quietly* when it regresses: a wrong `minReplicas`
+ * deploys perfectly and shows up six weeks later as a larger invoice.
+ */
+const EXPECTED_MIN_REPLICAS = { server: 0, webfrontend: 0, keycloak: 1 };
+
+for (const [resource, expected] of Object.entries(EXPECTED_MIN_REPLICAS)) {
+  const modulePath = join(dirname(path), `${resource}-containerapp.module.bicep`);
+
+  let bicep;
+  try {
+    bicep = readFileSync(modulePath, "utf8");
+  } catch {
+    failures.push(`${resource}: no ${resource}-containerapp.module.bicep — is it published as a container app?`);
+    continue;
+  }
+
+  const found = bicep.match(/minReplicas:\s*(\d+)/);
+  if (!found) {
+    failures.push(`${resource}: no minReplicas in its container-app bicep — the platform default decides the bill`);
+  } else if (Number(found[1]) !== expected) {
+    failures.push(
+      `${resource}: minReplicas is ${found[1]}, expected ${expected} ` +
+        `(ADR-0011's costing — ${expected === 0 ? "scale to zero when idle" : "warm, because it is on the login path"})`,
+    );
+  }
 }
 
 if (failures.length > 0) {

@@ -70,17 +70,26 @@ totals as the shape of the bill rather than the bill.
 | Keycloak, `minReplicas: 1` | 0.5 vCPU / 1 GiB | **11.34 idle · 34.02 active** |
 | `server` + `webfrontend`, `minReplicas: 0` | scale-to-zero | ~0 |
 | PostgreSQL flexible server | B1ms, free-account offer | **0 for 12 months**, then ~12–15 + storage |
-| Container images | GHCR (public) | **0** — ACR Basic would be 5.08 |
+| Container images | ~~GHCR (public)~~ **ACR Basic** | ~~0~~ **5.08** — see the correction below |
 | Log Analytics | first 5 GB/month free | ~0 while logging stays quiet |
 | Redis | **dropped for the demo** | 0 — Azure Cache C0 would be ~16 |
 
-**≈ $11–16/month in year one; ≈ $26–31 after the free Postgres period.**
+**≈ $16–21/month in year one; ≈ $31–36 after the free Postgres period** (revised from $11–16 by
+the ACR correction below).
 
 ### The split, decided
 
 - **PostgreSQL: managed.** The [12-month free-account offer](https://learn.microsoft.com/en-us/azure/postgresql/flexible-server/how-to-deploy-on-azure-free-account)
   (750 h B1ms + 32 GB) makes it free for a year, and it is what this ADR's own RPO ≤ 5 min claim
   rests on — point-in-time restore is the reason to pay for a database rather than run one.
+
+  > **Not yet true in the AppHost, and this blocks the first deploy.** As of D5 prep, `postgres` is
+  > still `AddPostgres`, so it publishes as a **container app with `minReplicas: 1`** — no
+  > point-in-time restore, no free-tier year, and an unbudgeted always-on container. Switching it
+  > to `AddAzurePostgresFlexibleServer(…).RunAsContainer(…)` is the next slice; it was attempted and
+  > reverted because the Azure resource exposes neither `PrimaryEndpoint` nor the credential
+  > parameters the Keycloak wiring reads, which makes it a change to how `dotnet run` bootstraps
+  > rather than a one-line swap.
 - **Keycloak: container app, `minReplicas: 1`.** It cannot usefully scale to zero: it is on the
   login path, so the first visitor would pay a 30–60 s cold start at the exact moment a reader
   forms an opinion of the project.
@@ -101,8 +110,20 @@ totals as the shape of the bill rather than the bill.
   W8 with the sync idempotency ledger, which is a consumer rather than a placeholder — and that
   ledger gets its own costing then (a Redis container app ≈ $11/month against a Postgres-backed
   ledger at no extra cost, on a database that is already there).
-- **Images: GHCR, not ACR.** The images are public anyway; ACR Basic is $5/month for a private
-  registry nothing here needs.
+- ~~**Images: GHCR, not ACR.**~~ **Overturned by the tooling (deploy slice D5).** Generating the
+  infrastructure showed that `AddAzureContainerAppEnvironment` provisions an **ACR Basic** as part
+  of the environment — `fieldkit-env-acr.module.bicep`, `sku: Basic` — and offers no way to point
+  the environment at an external registry instead. `WithAcrPullIdentity` only substitutes *which
+  identity* pulls, not where from.
+
+  So the choice is not GHCR-or-ACR; it is **ACR, or stop using `aspire deploy`** and hand-manage
+  image pushes plus a deployment that references them. `aspire deploy` from the existing AppHost
+  model is most of why ACA was chosen over a VPS in the first place, so $5.08/month is the price of
+  the thing being bought. Taken, and the total above revised.
+
+  This was a costing line stated as a decision without checking whether the tool could honour it —
+  the same mistake, in the same document, as the Redis line D2 found (which went the other way, and
+  saved more than this costs).
 
 ### The number that is not settled
 
