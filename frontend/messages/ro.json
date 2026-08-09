@@ -943,6 +943,18 @@
         "visitsTooFew": "Un magazin este vizitat cel puțin o dată pe ciclu. Ca să nu mai fie vizitat, eliminați regula.",
         "cycleOutOfRange": "Un ciclu are între 1 și {max} zile.",
         "unknownOutlet": "Acest magazin nu există."
+      },
+      "calendar": {
+        "unknownUser": "Acest utilizator nu există.",
+        "noWorkingDays": "Un agent lucrează cel puțin o zi pe săptămână. Ca să nu mai fie planificat, eliminați calendarul.",
+        "capacityOutOfRange": "O zi cuprinde între 1 și {max} vizite.",
+        "periodBackwards": "O perioadă se încheie la data de început sau după.",
+        "periodTooLong": "Cereți cel mult {max} zile odată."
+      },
+      "holiday": {
+        "duplicate": "{date} este deja zi liberă.",
+        "nameRequired": "O zi liberă are nevoie de o denumire.",
+        "nameTooLong": "Denumirea unei zile libere are cel mult {max} caractere."
       }
     }
   },
@@ -1016,5 +1028,64 @@
     "forbidden": "Nu aveți permisiunea de a vedea frecvențele de vizitare.",
     "saveFailed": "Regula nu a putut fi salvată.",
     "removeFailed": "Regula nu a putut fi eliminată."
+  },
+  "Calendars": {
+    "crumb": "Operațiuni de teren / Planificare rute / Calendar de lucru",
+    "title": "Calendar de lucru",
+    "intro": "Când lucrează un agent și când nu lucrează nimeni. Un calendar spune în ce zile ale săptămânii și câte vizite încap într-o zi — cele două numere din care generarea calculează capacitatea. Un agent fără calendar nu este planificat deloc.",
+    "calendarsTitle": "Pe agent",
+    "calendarsIntro": "În ce zile este pe teren fiecare agent și câte vizite încap într-o zi.",
+    "holidaysTitle": "Zile libere",
+    "holidaysIntro": "Zile în care nu lucrează nimeni. Valabile pentru tot tenantul — o sărbătoare națională este un fapt despre țară, nu despre o persoană.",
+    "addCalendar": "Adaugă un calendar",
+    "rep": "Agent",
+    "callsADay": "vizite pe zi",
+    "daysFor": "Zile lucrătoare, {name}",
+    "dayFor": "{day}, {name}",
+    "capacityFor": "Vizite pe zi, {name}",
+    "saveCalendarFor": "Salvează calendarul pentru {name}",
+    "removeCalendarFor": "Elimină calendarul pentru {name}",
+    "noDaysChosen": "Un agent lucrează cel puțin o zi. Ca să nu mai fie planificat, eliminați calendarul.",
+    "noCalendars": "Niciun agent nu are calendar încă. Nimeni nu este planificat până când nu are unul.",
+    "unknownRep": "Agent necunoscut",
+    "date": "Data",
+    "holidayName": "Denumire",
+    "holidayPlaceholder": "de ex. Ziua Națională",
+    "addHoliday": "Adaugă o zi liberă",
+    "holidayTaken": "Acea dată este deja zi liberă.",
+    "removeHolidayNamed": "Elimină {name}",
+    "noHolidays": "Nicio zi liberă încă.",
+    "weekday": {
+      "Monday": "Luni",
+      "Tuesday": "Marți",
+      "Wednesday": "Miercuri",
+      "Thursday": "Joi",
+      "Friday": "Vineri",
+      "Saturday": "Sâmbătă",
+      "Sunday": "Duminică"
+    },
+    "weekdayShort": {
+      "Monday": "Lu",
+      "Tuesday": "Ma",
+      "Wednesday": "Mi",
+      "Thursday": "Jo",
+      "Friday": "Vi",
+      "Saturday": "Sâ",
+      "Sunday": "Du"
+    },
+    "save": "Salvează",
+    "remove": "Elimină",
+    "discard": "Renunță",
+    "loading": "Se încarcă…",
+    "failed": "Nu s-a putut încărca.",
+    "forbidden": "Nu aveți permisiunea de a vedea calendarele de lucru.",
+    "saveFailed": "Calendarul nu a putut fi salvat.",
+    "removeFailed": "Calendarul nu a putut fi eliminat.",
+    "holidayFailed": "Ziua liberă nu a putut fi adăugată.",
+    "removeHolidayFailed": "Ziua liberă nu a putut fi eliminată."
+  },
+  "Journeys": {
+    "callFrequency": "Frecvență de vizitare",
+    "workingCalendar": "Calendar de lucru"
   }
 }

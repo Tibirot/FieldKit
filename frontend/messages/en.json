@@ -943,6 +943,18 @@
         "visitsTooFew": "A shop is visited at least once per cycle. To stop visiting it, remove the rule.",
         "cycleOutOfRange": "A cycle is between 1 and {max} days.",
         "unknownOutlet": "That shop does not exist."
+      },
+      "calendar": {
+        "unknownUser": "That user does not exist.",
+        "noWorkingDays": "A rep works at least one day a week. To stop planning for them, remove the calendar.",
+        "capacityOutOfRange": "A day holds between 1 and {max} calls.",
+        "periodBackwards": "A period ends on or after it starts.",
+        "periodTooLong": "Ask for at most {max} days at a time."
+      },
+      "holiday": {
+        "duplicate": "{date} is already a holiday.",
+        "nameRequired": "A holiday needs a name.",
+        "nameTooLong": "A holiday name is at most {max} characters."
       }
     }
   },
@@ -1016,5 +1028,64 @@
     "forbidden": "You do not have permission to view call frequencies.",
     "saveFailed": "That rule could not be saved.",
     "removeFailed": "That rule could not be removed."
+  },
+  "Calendars": {
+    "crumb": "Field ops / Journey planning / Working calendar",
+    "title": "Working calendar",
+    "intro": "When a rep works, and what nobody works. A calendar says which days of the week and how many calls a day holds — the two numbers generation turns into capacity. A rep with no calendar is not planned for at all.",
+    "calendarsTitle": "By rep",
+    "calendarsIntro": "Which days each rep is out, and how many calls a day holds.",
+    "holidaysTitle": "Holidays",
+    "holidaysIntro": "Days nobody works. Tenant-wide — a national day off is a fact about the country, not about a person.",
+    "addCalendar": "Add a calendar",
+    "rep": "Rep",
+    "callsADay": "calls a day",
+    "daysFor": "Working days, {name}",
+    "dayFor": "{day}, {name}",
+    "capacityFor": "Calls a day, {name}",
+    "saveCalendarFor": "Save the calendar for {name}",
+    "removeCalendarFor": "Remove the calendar for {name}",
+    "noDaysChosen": "A rep works at least one day. To stop planning for them, remove the calendar.",
+    "noCalendars": "No rep has a calendar yet. Nobody is planned for until one does.",
+    "unknownRep": "Unknown rep",
+    "date": "Date",
+    "holidayName": "Name",
+    "holidayPlaceholder": "e.g. National Day",
+    "addHoliday": "Add a holiday",
+    "holidayTaken": "That date is already a holiday.",
+    "removeHolidayNamed": "Remove {name}",
+    "noHolidays": "No holidays yet.",
+    "weekday": {
+      "Monday": "Monday",
+      "Tuesday": "Tuesday",
+      "Wednesday": "Wednesday",
+      "Thursday": "Thursday",
+      "Friday": "Friday",
+      "Saturday": "Saturday",
+      "Sunday": "Sunday"
+    },
+    "weekdayShort": {
+      "Monday": "Mon",
+      "Tuesday": "Tue",
+      "Wednesday": "Wed",
+      "Thursday": "Thu",
+      "Friday": "Fri",
+      "Saturday": "Sat",
+      "Sunday": "Sun"
+    },
+    "save": "Save",
+    "remove": "Remove",
+    "discard": "Discard",
+    "loading": "Loading…",
+    "failed": "This could not be loaded.",
+    "forbidden": "You do not have permission to view working calendars.",
+    "saveFailed": "That calendar could not be saved.",
+    "removeFailed": "That calendar could not be removed.",
+    "holidayFailed": "That holiday could not be added.",
+    "removeHolidayFailed": "That holiday could not be removed."
+  },
+  "Journeys": {
+    "callFrequency": "Call frequency",
+    "workingCalendar": "Working calendar"
   }
 }

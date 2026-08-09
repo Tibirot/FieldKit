@@ -120,3 +120,118 @@ export function frequencyProblem(
 
   return null;
 }
+
+// ── The working calendar (JRN-02) ──────────────────────────────────────────────────────────────
+
+/**
+ * A day of the week, by name.
+ *
+ * Names on the wire, never ordinals — the rule every enum on this API follows, and one that matters
+ * more here than usual: .NET's `DayOfWeek` numbers the week from **Sunday**, so a calendar built
+ * from numbers would be off by one in a way nobody reading the JSON would question.
+ */
+export type WeekdayName =
+  | "Monday"
+  | "Tuesday"
+  | "Wednesday"
+  | "Thursday"
+  | "Friday"
+  | "Saturday"
+  | "Sunday";
+
+/**
+ * The week as this screen renders it — **Monday first**.
+ *
+ * A display order, and deliberately not the server's. The API takes names precisely so that the two
+ * can differ: a Romanian week starts on Monday, and nothing about how the days are stored should
+ * decide how they are read.
+ */
+export const WEEK: readonly WeekdayName[] = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+
+/** A rep's working pattern: which days they work, and how many calls a day holds. */
+export type WorkingCalendar = {
+  userId: string;
+  displayName: string | null;
+  workingDays: WeekdayName[];
+  visitsPerDay: number;
+};
+
+/** A date nobody works. Tenant-wide — a holiday is a fact about the country, not about a rep. */
+export type Holiday = {
+  id: string;
+  date: string;
+  name: string;
+};
+
+const CALENDARS = "/api/journey/calendars";
+const HOLIDAYS = "/api/journey/holidays";
+
+export function fetchCalendars(
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<WorkingCalendar[]> {
+  return apiGet<WorkingCalendar[]>(CALENDARS, accessToken, signal);
+}
+
+/** Sets a rep's pattern. PUT keyed by the rep, because a rep has at most one calendar. */
+export function setCalendar(
+  accessToken: string,
+  userId: string,
+  workingDays: readonly WeekdayName[],
+  visitsPerDay: number,
+): Promise<WorkingCalendar> {
+  return apiSend<WorkingCalendar>("PUT", `${CALENDARS}/${encodeURIComponent(userId)}`, accessToken, {
+    workingDays,
+    visitsPerDay,
+  });
+}
+
+/**
+ * Removes a rep's calendar, which makes them **unconfigured** rather than unavailable.
+ *
+ * There is no "works no days" to fall back to — the server refuses a calendar with an empty week for
+ * exactly that reason. Generation plans nothing for a rep with no calendar and says so as a
+ * shortfall, which is a different and more useful answer than a plan with no days in it.
+ */
+export function deleteCalendar(accessToken: string, userId: string): Promise<void> {
+  return apiDelete(`${CALENDARS}/${encodeURIComponent(userId)}`, accessToken);
+}
+
+export function fetchHolidays(accessToken: string, signal?: AbortSignal): Promise<Holiday[]> {
+  return apiGet<Holiday[]>(HOLIDAYS, accessToken, signal);
+}
+
+/**
+ * Adds a holiday.
+ *
+ * POST rather than PUT, because a date is not a name the caller chooses: holidays are a list a
+ * tenant adds to, and adding Christmas twice is a refusal rather than a silent overwrite.
+ */
+export function addHoliday(accessToken: string, date: string, name: string): Promise<Holiday> {
+  return apiSend<Holiday>("POST", HOLIDAYS, accessToken, { date, name });
+}
+
+export function deleteHoliday(accessToken: string, id: string): Promise<void> {
+  return apiDelete(`${HOLIDAYS}/${id}`, accessToken);
+}
+
+export const calendarsKey = (subject: string) => ["calendars", subject] as const;
+
+export const holidaysKey = (subject: string) => ["holidays", subject] as const;
+
+/** `WorkingCalendar.MaximumVisitsPerDay`, so a typo lands beside the field. */
+export const MAXIMUM_VISITS_PER_DAY = 50;
+
+export function capacityProblem(visitsPerDay: string): boolean {
+  const parsed = Number(visitsPerDay);
+
+  return !Number.isInteger(parsed) || parsed < 1 || parsed > MAXIMUM_VISITS_PER_DAY;
+}
