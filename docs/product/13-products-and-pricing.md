@@ -216,6 +216,12 @@ exactly at percentage/tiered discounts, tax, and rounding. Therefore:
   > `new Date("2026-03-15")` is midnight UTC and would make a business day depend on the phone's
   > timezone (`BR-PRD-6`); and the id tiebreak lower-cases before comparing, because in ASCII
   > `'A'-'F' < 'a'-'f'` and the winner would otherwise depend on how somebody spelled a GUID.
+  >
+  > **Promotion resolution followed in W7 slice 13**, and the mirror's own hazards are different
+  > again: the tier fallback has to prefer the tier over the candidate (the quantity earned it), and
+  > every optional field — `tiers`, `bundle`, `amountOff` — may simply be **absent** in JSON where C#
+  > spells out a null, so the resolved shape normalises `undefined` back to `null` for comparison
+  > against the vectors.
 - **BR-PRD-9** A **single documented rounding policy** applies on both sides: round **half-up** to
   the currency's minor units, **per line**, tax computed on the rounded net line. (Per-tenant/
   jurisdiction override is a *Could*.)
