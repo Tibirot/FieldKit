@@ -3179,3 +3179,107 @@ Authorization: Bearer {{viewerToken.response.body.access_token}}
 }
 
 ###
+
+# ---------------------------------------------------------------------------------------------
+# Visit — steps (VIS-03, VIS-04, BR-VIS-3), W7 slice 8
+#
+# A visit's steps are a **copy** of the channel's workflow, taken at check-in. Configure the
+# workflow first, then check in, and note that editing the workflow afterwards changes nothing
+# about the visit already running — that is BR-VIS-6's snapshot rule applied to the one piece of
+# reference data that decides whether a visit can end.
+# ---------------------------------------------------------------------------------------------
+
+### Give the channel a workflow: two mandatory steps and one optional note.
+PUT {{Server_HostAddress}}/api/config/visit-workflows/{{channel.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "presenceExpected": true,
+  "steps": [
+    { "type": "Audit", "mandatory": true, "label": "Shelf check" },
+    { "type": "Order", "mandatory": true, "label": "Take the order" },
+    { "type": "Note", "mandatory": false, "label": "Anything else" }
+  ]
+}
+
+### Check in. The response now carries `steps` and `openMandatorySteps` — the rep sees what stands
+### between them and the door from the first screen, not at check-out.
+# @name workedVisit
+POST {{Server_HostAddress}}/api/visits/check-in
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outletId": "{{outlet.response.body.id}}",
+  "latitude": 44.4638,
+  "longitude": 26.0946
+}
+
+### Do the first one. Expect 200 and the whole visit back, with `openMandatorySteps` one shorter.
+POST {{Server_HostAddress}}/api/visits/{{workedVisit.response.body.visit.id}}/steps/{{workedVisit.response.body.steps.0.id}}/complete
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{}
+
+### Doing it twice — expect 409 `visit.step.alreadyCompleted`. The first completion's timestamp is
+### a fact about the rep's day; restamping it would make time-on-step a measure of the last edit.
+POST {{Server_HostAddress}}/api/visits/{{workedVisit.response.body.visit.id}}/steps/{{workedVisit.response.body.steps.0.id}}/complete
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{}
+
+### A note step is its text. Ticked with nothing written — expect 400 `visit.step.noteRequired`.
+POST {{Server_HostAddress}}/api/visits/{{workedVisit.response.body.visit.id}}/steps/{{workedVisit.response.body.steps.2.id}}/complete
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "notes": "   "
+}
+
+### The same step with something in it — expect 200, and the text trimmed.
+POST {{Server_HostAddress}}/api/visits/{{workedVisit.response.body.visit.id}}/steps/{{workedVisit.response.body.steps.2.id}}/complete
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "notes": "  Competitor ran a 2+1 on the top shelf.  "
+}
+
+### A step id that is not on this visit — expect 404. The step id alone does not name a step; it
+### has to be on the visit the route named, or one rep could tick another's work knowing a guid.
+POST {{Server_HostAddress}}/api/visits/{{workedVisit.response.body.visit.id}}/steps/019fffff-ffff-7fff-bfff-fffffffffffe/complete
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{}
+
+### Working a step is visit:write, same as checking in — doing the work and saying you did it are
+### the same act. Expect 403.
+POST {{Server_HostAddress}}/api/visits/{{workedVisit.response.body.visit.id}}/steps/{{workedVisit.response.body.steps.1.id}}/complete
+Content-Type: application/json
+Authorization: Bearer {{viewerToken.response.body.access_token}}
+
+{}
+
+### Now rewrite the channel's workflow entirely...
+PUT {{Server_HostAddress}}/api/config/visit-workflows/{{channel.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "presenceExpected": true,
+  "steps": [
+    { "type": "Survey", "mandatory": true, "label": "New mandatory survey" }
+  ]
+}
+
+### ...and read the visit back: the steps are the ones it started with. A rep who checked in at ten
+### is not refused check-out at four for a step that did not exist when they walked in.
+GET {{Server_HostAddress}}/api/visits/{{workedVisit.response.body.visit.id}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+###

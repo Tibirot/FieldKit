@@ -83,7 +83,7 @@ public class VisitCheckInTests(ServerFixture fixture)
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-        var visit = (await response.Content.ReadFromJsonAsync<VisitResponse>())!;
+        var visit = (await response.Content.ReadFromJsonAsync<VisitDetailResponse>())!.Visit;
 
         Assert.Equal("InProgress", visit.Status);
         Assert.Equal(outletId, visit.OutletId);
@@ -105,7 +105,7 @@ public class VisitCheckInTests(ServerFixture fixture)
         var response = await client.PostAsJsonAsync(
             CheckIn, new CheckInRequest(outletId, Shop.Latitude, Shop.Longitude));
 
-        var visit = (await response.Content.ReadFromJsonAsync<VisitResponse>())!;
+        var visit = (await response.Content.ReadFromJsonAsync<VisitDetailResponse>())!.Visit;
 
         Assert.False(string.IsNullOrWhiteSpace(visit.UserId));
 
@@ -118,7 +118,7 @@ public class VisitCheckInTests(ServerFixture fixture)
             userId = "somebody-else",
         });
 
-        var second = (await impersonated.Content.ReadFromJsonAsync<VisitResponse>())!;
+        var second = (await impersonated.Content.ReadFromJsonAsync<VisitDetailResponse>())!.Visit;
 
         Assert.Equal(visit.UserId, second.UserId);
     }
@@ -165,7 +165,7 @@ public class VisitCheckInTests(ServerFixture fixture)
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-        var visit = (await response.Content.ReadFromJsonAsync<VisitResponse>())!;
+        var visit = (await response.Content.ReadFromJsonAsync<VisitDetailResponse>())!.Visit;
 
         Assert.False(visit.WasInsideGeofence);
         Assert.Equal("Owner asked me to meet him at the depot", visit.GeofenceOverrideReason);
@@ -188,7 +188,7 @@ public class VisitCheckInTests(ServerFixture fixture)
             new CheckInRequest(
                 outletId, Shop.Latitude, Shop.Longitude, OverrideReason: "Just in case"));
 
-        var visit = (await response.Content.ReadFromJsonAsync<VisitResponse>())!;
+        var visit = (await response.Content.ReadFromJsonAsync<VisitDetailResponse>())!.Visit;
 
         Assert.True(visit.WasInsideGeofence);
         Assert.Null(visit.GeofenceOverrideReason);
@@ -208,7 +208,7 @@ public class VisitCheckInTests(ServerFixture fixture)
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-        var visit = (await response.Content.ReadFromJsonAsync<VisitResponse>())!;
+        var visit = (await response.Content.ReadFromJsonAsync<VisitDetailResponse>())!.Visit;
 
         Assert.Null(visit.GeofenceOverrideReason);
 
@@ -231,7 +231,7 @@ public class VisitCheckInTests(ServerFixture fixture)
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-        var visit = (await response.Content.ReadFromJsonAsync<VisitResponse>())!;
+        var visit = (await response.Content.ReadFromJsonAsync<VisitDetailResponse>())!.Visit;
 
         Assert.Null(visit.CheckInDistanceMetres);
         Assert.Null(visit.GeofenceOverrideReason);
@@ -257,7 +257,7 @@ public class VisitCheckInTests(ServerFixture fixture)
 
         Assert.Equal(HttpStatusCode.Created, accepted.StatusCode);
 
-        var visit = (await accepted.Content.ReadFromJsonAsync<VisitResponse>())!;
+        var visit = (await accepted.Content.ReadFromJsonAsync<VisitDetailResponse>())!.Visit;
 
         Assert.Null(visit.CheckInLatitude);
         Assert.Null(visit.CheckInDistanceMetres);
@@ -337,7 +337,7 @@ public class VisitCheckInTests(ServerFixture fixture)
         var created = await admin.PostAsJsonAsync(
             CheckIn, new CheckInRequest(outletId, Shop.Latitude, Shop.Longitude));
 
-        var visit = (await created.Content.ReadFromJsonAsync<VisitResponse>())!;
+        var visit = (await created.Content.ReadFromJsonAsync<VisitDetailResponse>())!.Visit;
 
         var read = await viewer.GetAsync($"/api/visits/{visit.Id}");
         Assert.Equal(HttpStatusCode.OK, read.StatusCode);
@@ -359,7 +359,7 @@ public class VisitCheckInTests(ServerFixture fixture)
         var created = await client.PostAsJsonAsync(
             CheckIn, new CheckInRequest(outletId, Shop.Latitude, Shop.Longitude));
 
-        var visit = (await created.Content.ReadFromJsonAsync<VisitResponse>())!;
+        var visit = (await created.Content.ReadFromJsonAsync<VisitDetailResponse>())!.Visit;
 
         var read = await otherTenant.GetAsync($"/api/visits/{visit.Id}");
 
@@ -378,7 +378,7 @@ public class VisitCheckInTests(ServerFixture fixture)
         var response = await client.PostAsJsonAsync(
             CheckIn, new CheckInRequest(outletId, Shop.Latitude, Shop.Longitude));
 
-        Assert.Null((await response.Content.ReadFromJsonAsync<VisitResponse>())!.PlannedVisitId);
+        Assert.Null((await response.Content.ReadFromJsonAsync<VisitDetailResponse>())!.Visit.PlannedVisitId);
 
         var plannedVisitId = Guid.NewGuid();
 
@@ -389,7 +389,7 @@ public class VisitCheckInTests(ServerFixture fixture)
 
         Assert.Equal(
             plannedVisitId,
-            (await planned.Content.ReadFromJsonAsync<VisitResponse>())!.PlannedVisitId);
+            (await planned.Content.ReadFromJsonAsync<VisitDetailResponse>())!.Visit.PlannedVisitId);
     }
 
     [Fact]

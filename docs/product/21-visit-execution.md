@@ -50,6 +50,20 @@ Visit. It is designed **offline-first**: the entire flow works with zero connect
 ### F2 · Work the steps
 - The rep progresses through the configured steps. Steps can be **mandatory** (must complete to
   check out) or optional. Audit/Order/Survey steps open the respective sub-flows.
+  > 📝 ASSUMPTION: **the steps are copied onto the visit at check-in, not read from Configuration
+  > as the rep works.** An admin editing the channel workflow at eleven must not change what a rep
+  > who checked in at ten is required to do — they would be refused check-out for a step that did
+  > not exist when they started, or released from one they had been told was compulsory. This is
+  > `BR-VIS-6`'s snapshot rule applied to the one piece of reference data that decides whether a
+  > visit can end, and it is also what lets the whole thing run offline (§7): the device holds the
+  > visit and its steps and needs no second conversation to know what is outstanding.
+  >
+  > There is no *skipped* state. An optional step nobody did is left **pending**, and a mandatory
+  > one cannot be skipped at all — a third state would record the same fact twice and invite the
+  > question of what a skipped mandatory step means.
+- **What is outstanding travels with every response**, not only with the check-out attempt. Being
+  told at the door that the visit cannot end is the version of `BR-VIS-3` that sends a rep back
+  into the shop.
 
 ### F3 · Check out
 1. Rep completes mandatory steps; sets the **outcome**.
@@ -82,6 +96,11 @@ Visit. It is designed **offline-first**: the entire flow works with zero connect
   > to answer in the Outlets module (#56, reverted): whether coordinates are *valid* is data
   > integrity and never optional; whether a rep must be *at* them is policy, and it belongs here.
 - **BR-VIS-3** All **mandatory** steps must be complete before check-out.
+  > Built in two halves, because check-out is a slice later than the steps. W7 slice 8 makes the
+  > visit *answer* which mandatory steps are still open — on check-in, and on every response that
+  > returns a visit — and slice 9 refuses check-out while that list is non-empty. Mandatory is read
+  > from the visit's own copy of the workflow, never from Configuration, so the answer cannot change
+  > under a rep mid-visit.
 - **BR-VIS-4** A visit, once **checked out**, is **sealed** — device-owned, append-only, and
   **not editable after sync** (mirrors the order rule; keeps sync conflict-free — [B7](decisions-and-assumptions.md#b7--conflict-resolution-matrix)).
 - **BR-VIS-5** Time-on-site = checkout − checkin; abnormally short/long visits are flagged for

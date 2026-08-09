@@ -14,6 +14,8 @@ public sealed class VisitDbContext(DbContextOptions<VisitDbContext> options, ITe
 
     public DbSet<Visit> Visits => Set<Visit>();
 
+    public DbSet<VisitStep> VisitSteps => Set<VisitStep>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -56,6 +58,46 @@ public sealed class VisitDbContext(DbContextOptions<VisitDbContext> options, ITe
                 table.HasCheckConstraint(
                     "ck_visit_checkin_point",
                     @"(""CheckInLatitude"" IS NULL) = (""CheckInLongitude"" IS NULL)");
+            });
+        });
+
+        modelBuilder.Entity<VisitStep>(step =>
+        {
+            step.HasKey(s => s.Id);
+
+            step.Property(s => s.Label).HasMaxLength(120).IsRequired();
+            step.Property(s => s.Notes).HasMaxLength(VisitStep.MaximumNotesLength);
+
+            // Both by name, both for the same reason the visit's own status is: a member inserted
+            // in the middle of an enum would silently re-interpret every stored row. VisitStepType
+            // is Configuration's, which makes this the one column in this schema whose vocabulary
+            // another module owns — renaming a member there is a data migration here.
+            step.Property(s => s.Type).HasConversion<string>().HasMaxLength(20).IsRequired();
+            step.Property(s => s.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
+
+            // The visit is the aggregate: its steps are created with it, read with it and go with
+            // it, so the only query that ever reaches this table is "the steps of this visit". The
+            // foreign key's own index answers it, and a second one on (TenantId, VisitId) would be
+            // a write cost for a read nobody makes.
+            step.HasOne<Visit>()
+                .WithMany(v => v.Steps)
+                .HasForeignKey(s => s.VisitId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            step.ToTable("visit_step", table =>
+            {
+                // A completed step has the moment it was completed at, and a pending one has none.
+                // Time-on-step is the reporting fact BR-VIS-5 is about, and a completed step with
+                // no timestamp would quietly drop out of it rather than look wrong.
+                table.HasCheckConstraint(
+                    "ck_visit_step_completed_at",
+                    @"(""Status"" = 'Completed') = (""CompletedAtUtc"" IS NOT NULL)");
+
+                // A note step is its text. One completed with nothing written is not a note that
+                // says nothing — it is a step that was ticked, which is the thing VIS-06 is for.
+                table.HasCheckConstraint(
+                    "ck_visit_step_note_text",
+                    @"""Type"" <> 'Note' OR ""Status"" <> 'Completed' OR ""Notes"" IS NOT NULL");
             });
         });
     }

@@ -516,6 +516,20 @@ arbitrary order (by outlet code) and the heuristic replaces it later. Worth stat
 leaving implicit, because "the order looks wrong" is otherwise a bug report against a slice that never
 claimed to order anything.
 
+> **Slice 8 built the steps and half of `BR-VIS-3`, which is all the rule there is until check-out
+> exists.** The visit answers *which mandatory steps are still open* — at check-in and on every
+> response that returns a visit — and slice 9 turns that answer into a refusal. Splitting it this way
+> was not a compromise: a rep who only learns at the door that the visit cannot end is a rep walking
+> back into the shop, so "what is outstanding" has to be a running answer rather than a check-out
+> verdict, and building it that way first is what makes the refusal a formality.
+>
+> The steps are a **copy** of the channel workflow taken at check-in, not a live read — the one
+> design decision in the slice that could have gone either way, and the reason it did not is that an
+> admin editing a workflow at eleven would otherwise change what a rep who checked in at ten is
+> required to do. Storing `VisitStepType` in Visit's schema does put Configuration's vocabulary in
+> another module's table, which is the honest cost: renaming a member there is a data migration here,
+> and it is noted where the column is configured.
+
 **Check-in and check-out are separate slices because they fail differently.** Check-in is about
 whether a rep may start work somewhere they may not be standing — and `BR-VIS-2` says *never block,
 always record*, which is a rule that reads as a bug until it is written down. Check-out is about

@@ -38,6 +38,36 @@ public sealed record VisitResponse(
     bool WasInsideGeofence,
     string? GeofenceOverrideReason);
 
+/// <summary>What the rep was asked to do at one step, and whether they have (<c>VIS-03</c>).</summary>
+public sealed record VisitStepResponse(
+    Guid Id,
+    int Order,
+    string Type,
+    bool Mandatory,
+    string Label,
+    string Status,
+    DateTimeOffset? CompletedAtUtc,
+    string? Notes);
+
+/// <summary>
+/// A visit with its steps — what the rep's screen is driven from.
+/// </summary>
+/// <param name="OpenMandatorySteps">
+/// The mandatory steps still outstanding (<c>BR-VIS-3</c>). Carried on every response that returns a
+/// visit, so a rep sees what stands between them and the door <i>while they are still in the shop</i>
+/// rather than at check-out.
+/// </param>
+public sealed record VisitDetailResponse(
+    VisitResponse Visit,
+    IReadOnlyList<VisitStepResponse> Steps,
+    IReadOnlyList<VisitStepResponse> OpenMandatorySteps);
+
+/// <summary>Marking a step done.</summary>
+/// <param name="Notes">
+/// What the rep wrote. Optional for most step types and the whole content of a <c>Note</c> step.
+/// </param>
+public sealed record CompleteStepRequest(string? Notes = null);
+
 /// <summary>
 /// Check-in (<c>VIS-01</c>, <c>VIS-02</c>, <c>BR-VIS-2</c>).
 /// </summary>
@@ -70,8 +100,10 @@ internal static class VisitEndpoints
             .RequirePermission(VisitPermissions.Read);
 
         visits.MapGet("/{id:guid}", async (Guid id, VisitDbContext db, CancellationToken ct) =>
-                await db.Visits.SingleOrDefaultAsync(visit => visit.Id == id, ct) is { } visit
-                    ? Results.Ok(Respond(visit))
+                await db.Visits
+                    .Include(visit => visit.Steps)
+                    .SingleOrDefaultAsync(visit => visit.Id == id, ct) is { } visit
+                    ? Results.Ok(Detail(visit))
                     : Results.NotFound())
             .RequirePermission(VisitPermissions.Read);
 
@@ -142,14 +174,68 @@ internal static class VisitEndpoints
                 at,
                 assessment,
                 request.OverrideReason,
+                workflow?.Steps ?? [],
                 clock);
 
             db.Visits.Add(visit);
             await db.SaveChangesAsync(ct);
 
-            return Results.Created($"/api/visits/{visit.Id}", Respond(visit));
+            return Results.Created($"/api/visits/{visit.Id}", Detail(visit));
+        }).RequirePermission(VisitPermissions.Write);
+
+        // The rep says they did it. Held to visit:write like check-in, and for the same reason:
+        // this is the rep's own record of their own work.
+        visits.MapPost("/{id:guid}/steps/{stepId:guid}/complete", async (
+            Guid id,
+            Guid stepId,
+            CompleteStepRequest request,
+            VisitDbContext db,
+            IClock clock,
+            CancellationToken ct) =>
+        {
+            if (NotesProblem(request.Notes) is { } notesProblem) return notesProblem;
+
+            var visit = await db.Visits
+                .Include(visit => visit.Steps)
+                .SingleOrDefaultAsync(visit => visit.Id == id, ct);
+
+            if (visit is null) return Results.NotFound();
+
+            var refusal = visit.TryCompleteStep(stepId, request.Notes, clock);
+
+            if (refusal is not Visit.StepRefusal.None) return StepProblem(refusal);
+
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(Detail(visit));
         }).RequirePermission(VisitPermissions.Write);
     }
+
+    private static IResult StepProblem(Visit.StepRefusal refusal) => refusal switch
+    {
+        // A step id that is not on this visit is a 404 rather than a field problem: the route
+        // named it, and a route naming something that does not exist has one answer everywhere
+        // else on this API.
+        Visit.StepRefusal.NoSuchStep => Results.NotFound(),
+
+        // The explicit null field is load-bearing: Conflict(string, string) is (field, message),
+        // and dropping it silently files the code as a field name and the message as the code.
+        Visit.StepRefusal.AlreadyCompleted => Problems.Conflict(
+            field: null, "This step is already done.", "visit.step.alreadyCompleted"),
+
+        Visit.StepRefusal.NoteRequired => Problems.BadRequest(
+            "notes", "A note step needs something written in it.", "visit.step.noteRequired"),
+
+        _ => throw new InvalidOperationException($"Unhandled step refusal {refusal}."),
+    };
+
+    private static IResult? NotesProblem(string? notes) =>
+        notes is not null
+            && TextLimits.TooLong(
+                "notes", notes.Trim(), VisitStep.MaximumNotesLength, "visit.step.notesTooLong")
+                is { } tooLong
+            ? Problems.BadRequest([tooLong])
+            : null;
 
     /// <summary>
     /// Refuses half a position, and one that is not on the earth.
@@ -195,6 +281,21 @@ internal static class VisitEndpoints
                 "visit.checkIn.reasonTooLong") is { } tooLong
                 ? Problems.BadRequest([tooLong])
                 : null;
+
+    private static VisitDetailResponse Detail(Visit visit) => new(
+        Respond(visit),
+        [.. visit.Steps.OrderBy(step => step.Order).Select(Respond)],
+        [.. visit.OpenMandatorySteps().Select(Respond)]);
+
+    private static VisitStepResponse Respond(VisitStep step) => new(
+        step.Id,
+        step.Order,
+        step.Type.ToString(),
+        step.Mandatory,
+        step.Label,
+        step.Status.ToString(),
+        step.CompletedAtUtc,
+        step.Notes);
 
     private static VisitResponse Respond(Visit visit) => new(
         visit.Id,
