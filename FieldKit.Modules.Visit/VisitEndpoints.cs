@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using FieldKit.BuildingBlocks;
 using FieldKit.Modules.Configuration.Contracts;
 using FieldKit.Modules.Outlets.Contracts;
@@ -36,7 +37,15 @@ public sealed record VisitResponse(
     double? CheckInLongitude,
     double? CheckInDistanceMetres,
     bool WasInsideGeofence,
-    string? GeofenceOverrideReason);
+    string? GeofenceOverrideReason,
+    DateTimeOffset? CheckedOutAtUtc = null,
+    double? CheckOutLatitude = null,
+    double? CheckOutLongitude = null,
+    string? Outcome = null,
+    string? OutcomeReason = null,
+    // Seconds rather than a TimeSpan: "01:23:45" is a formatting decision, and a client that wants
+    // to say "1h 24m" in Romanian should not have to parse one back out first.
+    double? TimeOnSiteSeconds = null);
 
 /// <summary>What the rep was asked to do at one step, and whether they have (<c>VIS-03</c>).</summary>
 public sealed record VisitStepResponse(
@@ -67,6 +76,18 @@ public sealed record VisitDetailResponse(
 /// What the rep wrote. Optional for most step types and the whole content of a <c>Note</c> step.
 /// </param>
 public sealed record CompleteStepRequest(string? Notes = null);
+
+/// <summary>Ending a visit (<c>VIS-05</c>).</summary>
+/// <param name="Reason">Why nothing came of it. Required when the outcome is non-productive.</param>
+/// <param name="Latitude">
+/// Where the rep was when they left. Optional, and captured rather than judged — see
+/// <see cref="Visit.TryCheckOut"/> for why there is no geofence rule at this end.
+/// </param>
+public sealed record CheckOutRequest(
+    [property: JsonConverter(typeof(JsonStringEnumConverter<VisitOutcome>))] VisitOutcome Outcome,
+    string? Reason = null,
+    double? Latitude = null,
+    double? Longitude = null);
 
 /// <summary>
 /// Check-in (<c>VIS-01</c>, <c>VIS-02</c>, <c>BR-VIS-2</c>).
@@ -117,7 +138,10 @@ internal static class VisitEndpoints
             IClock clock,
             CancellationToken ct) =>
         {
-            if (PointProblem(request) is { } pointProblem) return pointProblem;
+            if (PointProblem(request.Latitude, request.Longitude, "checkIn") is { } pointProblem)
+            {
+                return pointProblem;
+            }
 
             var geofence = await geofences.ForOutletAsync(request.OutletId, ct);
 
@@ -137,9 +161,7 @@ internal static class VisitEndpoints
                 ? null
                 : await workflows.ForChannelAsync(classified.ChannelId, ct);
 
-            var at = request.Latitude is { } latitude && request.Longitude is { } longitude
-                ? new GeoPoint(latitude, longitude)
-                : (GeoPoint?)null;
+            var at = PointOf(request.Latitude, request.Longitude);
 
             var outletAt = geofence.Latitude is { } outletLat && geofence.Longitude is { } outletLon
                 ? new GeoPoint(outletLat, outletLon)
@@ -209,7 +231,74 @@ internal static class VisitEndpoints
 
             return Results.Ok(Detail(visit));
         }).RequirePermission(VisitPermissions.Write);
+
+        // The rep leaves. This is the one route in the module that says no — see Visit.TryCheckOut
+        // for why the two ends of a visit are opposite in temperament.
+        visits.MapPost("/{id:guid}/check-out", async (
+            Guid id,
+            CheckOutRequest request,
+            VisitDbContext db,
+            IClock clock,
+            CancellationToken ct) =>
+        {
+            if (PointProblem(request.Latitude, request.Longitude, "checkOut") is { } pointProblem)
+            {
+                return pointProblem;
+            }
+
+            if (OutcomeReasonProblem(request.Reason) is { } reasonProblem) return reasonProblem;
+
+            var visit = await db.Visits
+                .Include(visit => visit.Steps)
+                .SingleOrDefaultAsync(visit => visit.Id == id, ct);
+
+            if (visit is null) return Results.NotFound();
+
+            var refusal = visit.TryCheckOut(
+                request.Outcome, request.Reason, PointOf(request.Latitude, request.Longitude), clock);
+
+            if (refusal is not Visit.CheckOutRefusal.None) return CheckOutProblem(visit, refusal);
+
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(Detail(visit));
+        }).RequirePermission(VisitPermissions.Write);
     }
+
+    private static IResult CheckOutProblem(Visit visit, Visit.CheckOutRefusal refusal) => refusal switch
+    {
+        Visit.CheckOutRefusal.AlreadyCheckedOut => Problems.Conflict(
+            field: null,
+            "This visit is already checked out, and a sealed visit does not change.",
+            "visit.checkOut.alreadyCheckedOut"),
+
+        // BR-VIS-3. The refusal names what is outstanding rather than saying "not yet": the rep is
+        // still in the shop at this point, and a list is the difference between finishing the job
+        // and walking back in for it.
+        Visit.CheckOutRefusal.MandatoryStepsOpen => Problems.BadRequest(
+            "steps",
+            "Some required steps are not done yet.",
+            "visit.checkOut.mandatoryStepsOpen",
+            new Dictionary<string, string>
+            {
+                ["steps"] = string.Join(", ", visit.OpenMandatorySteps().Select(step => step.Label)),
+            }),
+
+        Visit.CheckOutRefusal.ReasonRequired => Problems.BadRequest(
+            "reason",
+            "Say why nothing came of this visit.",
+            "visit.checkOut.reasonRequired"),
+
+        _ => throw new InvalidOperationException($"Unhandled check-out refusal {refusal}."),
+    };
+
+    private static IResult? OutcomeReasonProblem(string? reason) =>
+        reason is not null
+            && TextLimits.TooLong(
+                "reason", reason.Trim(), Visit.MaximumOutcomeReasonLength,
+                "visit.checkOut.reasonTooLong") is { } tooLong
+            ? Problems.BadRequest([tooLong])
+            : null;
 
     private static IResult StepProblem(Visit.StepRefusal refusal) => refusal switch
     {
@@ -225,6 +314,11 @@ internal static class VisitEndpoints
 
         Visit.StepRefusal.NoteRequired => Problems.BadRequest(
             "notes", "A note step needs something written in it.", "visit.step.noteRequired"),
+
+        Visit.StepRefusal.VisitSealed => Problems.Conflict(
+            field: null,
+            "This visit is checked out. Nothing about it changes now.",
+            "visit.step.visitSealed"),
 
         _ => throw new InvalidOperationException($"Unhandled step refusal {refusal}."),
     };
@@ -246,32 +340,42 @@ internal static class VisitEndpoints
     /// caller's mistake and deserves a 400 naming the field, not an exception from inside a value
     /// object.
     /// </remarks>
-    private static IResult? PointProblem(CheckInRequest request)
+    /// <param name="operation">
+    /// <c>checkIn</c> or <c>checkOut</c> — the refusal codes name the end of the visit that was
+    /// wrong, because "half a position" arriving at the door and arriving on the way out are
+    /// different client bugs.
+    /// </param>
+    private static IResult? PointProblem(double? latitude, double? longitude, string operation)
     {
         var problems = new List<FieldProblem>();
 
-        if (request.Latitude is null != request.Longitude is null)
+        if (latitude is null != longitude is null)
         {
             problems.Add(new FieldProblem(
-                request.Latitude is null ? "latitude" : "longitude",
+                latitude is null ? "latitude" : "longitude",
                 "A position needs both a latitude and a longitude.",
-                "visit.checkIn.halfPosition"));
+                $"visit.{operation}.halfPosition"));
         }
 
-        if (request.Latitude is { } latitude and (< -90 or > 90))
+        if (latitude is < -90 or > 90)
         {
             problems.Add(new FieldProblem(
-                "latitude", "Latitude is between -90 and 90.", "visit.checkIn.latitudeOutOfRange"));
+                "latitude", "Latitude is between -90 and 90.", $"visit.{operation}.latitudeOutOfRange"));
         }
 
-        if (request.Longitude is { } longitude and (< -180 or > 180))
+        if (longitude is < -180 or > 180)
         {
             problems.Add(new FieldProblem(
-                "longitude", "Longitude is between -180 and 180.", "visit.checkIn.longitudeOutOfRange"));
+                "longitude", "Longitude is between -180 and 180.",
+                $"visit.{operation}.longitudeOutOfRange"));
         }
 
         return problems.Count == 0 ? null : Problems.BadRequest(problems);
     }
+
+    /// <summary>The position a request carried, or null when it carried none.</summary>
+    private static GeoPoint? PointOf(double? latitude, double? longitude) =>
+        latitude is { } lat && longitude is { } lon ? new GeoPoint(lat, lon) : null;
 
     private static IResult? ReasonProblem(string? reason) =>
         reason is null
@@ -308,5 +412,11 @@ internal static class VisitEndpoints
         visit.CheckInLongitude,
         visit.CheckInDistanceMetres,
         visit.WasInsideGeofence,
-        visit.GeofenceOverrideReason);
+        visit.GeofenceOverrideReason,
+        visit.CheckedOutAtUtc,
+        visit.CheckOutLatitude,
+        visit.CheckOutLongitude,
+        visit.Outcome?.ToString(),
+        visit.OutcomeReason,
+        visit.TimeOnSite?.TotalSeconds);
 }

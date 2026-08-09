@@ -332,7 +332,10 @@ relationship rather than a provider one: it reads `IOutletClassification` for an
 **Visit arrived in W7 as a single assembly too, and as a pure consumer.** It reads three contracts —
 `IOutletGeofence`, `IOutletClassification` and `IVisitWorkflow` — and exposes none. `IVisitContext`,
 `IVisitQuery` and `IVisitIngest` are all specified, and all three have their first caller in Phase 3
-(Audit, Order, Sync); by this section's own rule they wait for it. Its schema is `visit`, and the
+(Audit, Order, Sync); by this section's own rule they wait for it. It does **publish**: `VisitCompleted`
+ships with check-out (slice 9), into the same empty room `PriceListPublished` has been talking to
+since W6 — which is the asymmetry this section keeps drawing. An event is true whether or not
+anyone is listening; an interface is a promise to a caller who has not arrived. Its schema is `visit`, and the
 planned visit it fulfils is a **bare `Guid`, not a foreign key** — the plan lives in Journey's schema,
 which `AT-1` puts out of reach, and a nullable id is also the honest shape for an unplanned call.
 
