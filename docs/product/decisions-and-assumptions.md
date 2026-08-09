@@ -106,6 +106,13 @@ end-to-end cloud-native story and alignment with the Azure/AKS background on the
 > server), Azure Cache for Redis (or a Redis container app to save cost), Azure Blob Storage
 > for photos, Keycloak as a container app. **Scale-to-zero when idle** to keep the demo cheap.
 > Override any of these for cost/simplicity.
+>
+> **Settled at deploy time (2026-08), and one of these was overridden.** Managed Postgres, Keycloak
+> as a container app pinned to one replica, everything else scaled to zero — and **Redis is not
+> deployed at all**: it backs output caching only, and it was the largest avoidable line on the
+> bill. Costed at ≈ $11–16/month for year one in
+> [ADR-0011](../architecture/adr/0011-deployment-azure-container-apps.md#costing-and-the-backing-service-split-2026-08),
+> which also records what a €4 VPS would have cost instead and why that is still declined.
 
 **Implications:** the AppHost must produce a clean ACA manifest; connection strings and object
 storage are provided by managed services in prod, containers in dev. → **new [ADR-0011](../architecture/adr/README.md)**.
