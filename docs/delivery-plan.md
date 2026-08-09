@@ -462,7 +462,8 @@ question about the *spec* and those take a while to settle.
 | 6 | **`IVisitWorkflow`** — Configuration grows the per-channel step sequence, and whether presence is expected | `VIS-03` | 250 |
 | 7 | **Visit module + check-in** — new assembly and `visit` schema; geo capture, geofence check, override reason | `VIS-01/02`, `BR-VIS-2` | 400 |
 | 8 | **Steps and mandatory gating** — the workflow instantiated per visit; check-out refused while a mandatory step is open | `VIS-03/04`, `BR-VIS-3` | 400 |
-| 9 | **Check-out and seal** — outcome, time-on-site, check-out geo-stamp, reference snapshot version; sealed thereafter; `VisitCompleted`; `IJourneyQuery` (see below) | `VIS-05`, `BR-VIS-4/5/6` | 400 |
+| 9 | **Check-out and seal** — outcome, time-on-site, check-out geo-stamp, sealed thereafter; `VisitCompleted` | `VIS-05`, `BR-VIS-3/4/5` | 400 |
+| 9b | **`IJourneyQuery`** — Journey's `.Contracts` split, and check-in validating the planned call it claims to fulfil | `JRN-04` | 300 |
 | 10 | **Back-office screens** — frequency, calendar, generate-and-publish, plan review | `JRN-01/02/03` | 400 ×2 |
 | 11 | **TS `Money` and the rounding policy** — `decimal.js`, never a native `number`; half-up away from zero | `BR-PRD-8/9` | 300 |
 | 12 | **TS price resolution** — the mirror of `PriceResolver`, against `pricing/price-resolution.v1.json` | `PRD-04` | 300 |
@@ -551,6 +552,21 @@ whether a visit is finished and, once it is, that it can never change again (`BR
 > the contract**, not a number Visit knows, so the day `OUT-08` makes it per-outlet the query behind
 > it changes and check-in does not. That is one contract more than the row's 400 lines assumed, and
 > `IJourneyQuery` moving to slice 9 is roughly what paid for it.
+
+> **Slice 9 shipped check-out, the seal and `VisitCompleted` — and left two of the row's words
+> unbuilt on purpose.** The "reference snapshot version" (`BR-VIS-6`) has nothing to record yet: a
+> version is what a device synced *against*, and Sync mints one in **W8**. A client-supplied string
+> stored in the meantime would be a column nothing writes and nothing reads, which is the sort of
+> field that later gets trusted. The half of `BR-VIS-6` that check-out actually depends on — the
+> step snapshot — landed in slice 8. `IJourneyQuery` also stayed out: check-out asks Journey nothing
+> either, so the promised move from slice 4 to slice 9 has become a move to **slice 9b**, where
+> validating a planned-visit id is the whole purpose rather than a passenger.
+>
+> `TimeOnSite` is derived from the two timestamps rather than stored, and the event does not carry
+> it: a computed duplicate is a second answer that can disagree with the first. Nothing flags an
+> abnormally short visit, because `BR-VIS-5` says those are reporting facts and never blocks — and
+> the threshold that would decide "abnormal" is a `VIS-10` decision against a population this system
+> does not have.
 
 **The parity harness is the week's actual deliverable.** `PRD-08` is why the vectors were written
 against a real engine in W6 rather than emitted from one — the format had to state rules a second

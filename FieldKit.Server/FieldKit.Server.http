@@ -3283,3 +3283,121 @@ GET {{Server_HostAddress}}/api/visits/{{workedVisit.response.body.visit.id}}
 Authorization: Bearer {{adminToken.response.body.access_token}}
 
 ###
+
+# ---------------------------------------------------------------------------------------------
+# Visit — check-out and seal (VIS-05, BR-VIS-3/4/5), W7 slice 9
+#
+# This is the end of the visit that says no. BR-VIS-2 refuses to keep a rep out of a shop;
+# BR-VIS-3 refuses to file a visit as done while the work it was configured for is not — and
+# nothing is lost by refusing, because the rep is still in the shop and the refusal names the
+# steps. After it, BR-VIS-4: the visit is sealed and every write path refuses.
+# ---------------------------------------------------------------------------------------------
+
+### A visit with one mandatory step, to be refused and then finished.
+PUT {{Server_HostAddress}}/api/config/visit-workflows/{{channel.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "presenceExpected": true,
+  "steps": [
+    { "type": "Audit", "mandatory": true, "label": "Shelf check" },
+    { "type": "Note", "mandatory": false, "label": "Anything else" }
+  ]
+}
+
+### Check in, so there is a visit to end.
+# @name endingVisit
+POST {{Server_HostAddress}}/api/visits/check-in
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outletId": "{{outlet.response.body.id}}",
+  "latitude": 44.4638,
+  "longitude": 26.0946
+}
+
+### Expect 400 `visit.checkOut.mandatoryStepsOpen` — and read `args.steps`: the refusal lists what
+### is outstanding by label, because "not yet" is what sends a rep back into the shop twice.
+POST {{Server_HostAddress}}/api/visits/{{endingVisit.response.body.visit.id}}/check-out
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outcome": "Productive"
+}
+
+### Do the mandatory one.
+POST {{Server_HostAddress}}/api/visits/{{endingVisit.response.body.visit.id}}/steps/{{endingVisit.response.body.steps.0.id}}/complete
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{}
+
+### Non-productive with no reason — expect 400 `visit.checkOut.reasonRequired`. "Why was nothing
+### sold" is the reporting fact; without it a non-productive call is a row nobody can act on.
+POST {{Server_HostAddress}}/api/visits/{{endingVisit.response.body.visit.id}}/check-out
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outcome": "NonProductive"
+}
+
+### Now check out. The optional note step is still pending and that is fine — BR-VIS-3 is about
+### mandatory work. Expect 200 with `timeOnSiteSeconds`, and the check-out position recorded but
+### **not judged**: there is no geofence rule at this end (VIS-05).
+POST {{Server_HostAddress}}/api/visits/{{endingVisit.response.body.visit.id}}/check-out
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outcome": "NonProductive",
+  "reason": "Owner away until Thursday, no order taken",
+  "latitude": 44.4840,
+  "longitude": 26.0950
+}
+
+### Sealed (BR-VIS-4). A second check-out — expect 409 `visit.checkOut.alreadyCheckedOut`.
+POST {{Server_HostAddress}}/api/visits/{{endingVisit.response.body.visit.id}}/check-out
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outcome": "Productive"
+}
+
+### And a late step completion — the queued write a device pushes after the visit has gone.
+### Expect 409 `visit.step.visitSealed`, not a quiet success.
+POST {{Server_HostAddress}}/api/visits/{{endingVisit.response.body.visit.id}}/steps/{{endingVisit.response.body.steps.1.id}}/complete
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "notes": "Something I forgot"
+}
+
+### An outcome that is not one of the outcomes — expect 400, not 500 (api-contracts §3.1).
+POST {{Server_HostAddress}}/api/visits/{{endingVisit.response.body.visit.id}}/check-out
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outcome": "Splendid"
+}
+
+### Held to visit:write, like every other thing a rep records — expect 403.
+POST {{Server_HostAddress}}/api/visits/{{endingVisit.response.body.visit.id}}/check-out
+Content-Type: application/json
+Authorization: Bearer {{viewerToken.response.body.access_token}}
+
+{
+  "outcome": "Productive"
+}
+
+### The sealed visit as it stands: two positions, an outcome, a reason and a duration.
+GET {{Server_HostAddress}}/api/visits/{{endingVisit.response.body.visit.id}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+###

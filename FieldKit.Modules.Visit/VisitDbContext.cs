@@ -33,6 +33,14 @@ public sealed class VisitDbContext(DbContextOptions<VisitDbContext> options, ITe
             visit.Property(v => v.GeofenceOverrideReason)
                 .HasMaxLength(Visit.MaximumOverrideReasonLength);
 
+            visit.Property(v => v.Outcome).HasConversion<string>().HasMaxLength(20);
+
+            visit.Property(v => v.OutcomeReason).HasMaxLength(Visit.MaximumOutcomeReasonLength);
+
+            // Derived from the two timestamps, so there is no column to map — and saying so here
+            // stops EF trying to find one.
+            visit.Ignore(v => v.TimeOnSite);
+
             // "What has this rep been doing", which is the query both the supervisor's screen and,
             // later, Sync will make.
             visit.HasIndex(v => new { v.TenantId, v.UserId, v.CheckedInAtUtc });
@@ -58,6 +66,24 @@ public sealed class VisitDbContext(DbContextOptions<VisitDbContext> options, ITe
                 table.HasCheckConstraint(
                     "ck_visit_checkin_point",
                     @"(""CheckInLatitude"" IS NULL) = (""CheckInLongitude"" IS NULL)");
+
+                // The same rule for the other end (VIS-05).
+                table.HasCheckConstraint(
+                    "ck_visit_checkout_point",
+                    @"(""CheckOutLatitude"" IS NULL) = (""CheckOutLongitude"" IS NULL)");
+
+                // A checked-out visit has an end and an outcome; one in progress has neither. This
+                // is the constraint that would catch a half-applied check-out — the row that says
+                // "sealed" while reporting still sees no outcome to count.
+                table.HasCheckConstraint(
+                    "ck_visit_checked_out",
+                    @"(""Status"" = 'CheckedOut') = (""CheckedOutAtUtc"" IS NOT NULL) AND (""Status"" = 'CheckedOut') = (""Outcome"" IS NOT NULL)");
+
+                // Why nothing came of it, exactly where it means something. Both directions, so a
+                // reason cannot survive an outcome changing under it.
+                table.HasCheckConstraint(
+                    "ck_visit_outcome_reason",
+                    @"(""Outcome"" IS NOT DISTINCT FROM 'NonProductive') = (""OutcomeReason"" IS NOT NULL)");
             });
         });
 

@@ -68,6 +68,18 @@ Visit. It is designed **offline-first**: the entire flow works with zero connect
 ### F3 · Check out
 1. Rep completes mandatory steps; sets the **outcome**.
 2. App stamps check-out time (→ time-on-site); the visit is sealed locally and queued for sync.
+   > **The two ends of a visit are opposite in temperament, and that is deliberate.** `BR-VIS-2`
+   > refuses to keep a rep out of a shop; `BR-VIS-3` refuses to file a visit as done while the work
+   > it was configured for is not. Refusing costs nothing here — the rep is still in the shop, still
+   > checked in — provided the refusal *names the steps*, which it does.
+   >
+   > **The check-out position is captured, never judged.** Two points are a cheap counter against a
+   > visit that was never really worked; a geofence rule at this end would prompt a rep who has done
+   > the job and walked to the car, which is the flag-on-ordinary-work failure `BR-VIS-2`'s
+   > assumption already warns about.
+   >
+   > **Time-on-site is derived, not stored** — check-out minus check-in, and a stored copy is a
+   > second answer that can disagree with the first.
 
 ### F4 · Not-visited
 - From the journey, the rep marks an outlet not-visited with a reason (no check-in occurs).
@@ -107,6 +119,13 @@ Visit. It is designed **offline-first**: the entire flow works with zero connect
   reporting, not blocked.
 - **BR-VIS-6** Every visit carries the **snapshot version** of reference data it was executed
   against (for audit/repricing traceability).
+  > **Half built, and the missing half is waiting for the thing that produces it.** The part that
+  > matters for `BR-VIS-3` is done: a visit's *steps* are copied at check-in, so what a rep was
+  > required to do cannot change under them (W7 slice 8). The general reference-data version is not,
+  > because there is nothing to record yet — a version is what a device synced *against*, and Sync
+  > (`W8`) is what will mint one. Storing a client-supplied string in the meantime would be a column
+  > nothing writes and nothing reads, which is the sort of field that later gets trusted. It lands
+  > with the sync cursor it names.
 
 ## 6. Requirements
 
@@ -142,6 +161,13 @@ Geo capture uses the device sensors offline; geofence data is part of the synced
   (Configuration — presence policy and the config-driven step sequence, VIS-03).
 - Publishes `VisitCompleted` (with children summary) → reporting/Sync. An **amended** child order
   (BR-ORD-9) re-emits a `VisitCompleted`-correction so reporting/strike-rate stay accurate.
+  > Built in W7 slice 9. The "children summary" is the two **step counts** today — how many the
+  > workflow asked for and how many were done; mandatory ones are necessarily all of them
+  > (`BR-VIS-3`), so a gap is optional work the rep chose to skip, which is the reporting question
+  > the pair exists to answer. Audit and order counts join it when those modules exist. It carries a
+  > summary and not the visit: notes, positions and override reasons stay in the module that owns
+  > them, and what travels is enough for a consumer to decide whether the visit interests it. The
+  > correction event is `BR-ORD-9`'s and lands with Order.
 
 ## 9. Acceptance criteria (sample)
 
