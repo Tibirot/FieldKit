@@ -578,7 +578,9 @@ whether a visit is finished and, once it is, that it can never change again (`BR
 > It also found a **second hand-maintained gate list**: `ModuleBoundaryTests.ModuleAssemblies`, which
 > `AT-10` walks, was still five modules while `AT-1` gated seven. Journey and Visit had been outside
 > the cycle check since they were built, and it went unnoticed because neither had a contract
-> implementation to walk — the slice that gave Journey one is the slice that made it matter.
+> implementation to walk — the slice that gave Journey one is the slice that made it matter. The
+> duplication itself was removed straight after, as **`AT-11`**: one list, everything derived from it,
+> and a test comparing it against `FieldKit.slnx` so a module cannot be added and left ungated.
 
 **The parity harness is the week's actual deliverable.** `PRD-08` is why the vectors were written
 against a real engine in W6 rather than emitted from one — the format had to state rules a second

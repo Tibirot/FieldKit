@@ -154,10 +154,11 @@ Boundaries that rely on goodwill rot. FieldKit encodes them as **executable test
 | AT-8 | Domain layer references no EF Core / ASP.NET types. | Keep the domain pure. |
 | AT-9 | No `IgnoreQueryFilters` or `ExecuteSqlRaw` in production code. | The tenant filter is the isolation guarantee ([ADR-0008](adr/0008-authentication-and-multitenancy.md), BR-IAM-1). |
 | AT-10 | The graph of **contract implementations depending on other modules' contracts** is acyclic. | Two modules may reference each other's contracts; their *implementations* may not call in a circle. |
+| AT-11 | Every module and every `.Contracts` project **in the solution** is one the tests above actually check. | A gate cannot see what it was never given; this is the gate on the gates. |
 
 **Two enforcement mechanisms, and a third category that is neither.**
 
-- ***Tests*** — AT-1, AT-2, AT-3, AT-4, AT-8 and AT-10, in
+- ***Tests*** — AT-1, AT-2, AT-3, AT-4, AT-8, AT-10 and AT-11, in
   [`FieldKit.ArchitectureTests`](../../FieldKit.ArchitectureTests). They inspect assemblies, so they
   need the assemblies to exist.
 - ***Compile-time*** — AT-7 and AT-9, via the banned-API analyzer. Banning a symbol outright is
@@ -176,6 +177,19 @@ Boundaries that rely on goodwill rot. FieldKit encodes them as **executable test
 > broader ambition is real but is not a gate, and Products has ~60 public types that would fail it.
 > A registry that overstates its surface is the failure this document was already corrected for once
 > — the same applies to a gate list.
+
+> **AT-11 exists because the same failure happened again, one level down.** Every test above starts
+> from a list of assemblies somebody typed, and completeness is the one property none of them can
+> observe: an assembly nobody named never fails anything. There were two such lists, and they drifted
+> — seven modules gated for references while five were walked for cycles, with Journey and Visit
+> outside the cycle check for three slices. Nothing went red, because AT-10 was correctly finding no
+> violations in a set it had not been given.
+>
+> The lists are now one list, everything else is derived from it, and AT-11 compares it against
+> **`FieldKit.slnx`** — the one place a project has to be added to build at all. Adding a module
+> without gating it is now a failing test rather than a silence. AT-11 also checks its own parsing:
+> a solution format it could not read would otherwise compare two empty sets and pronounce the gates
+> complete, which is the failure it exists to prevent, one level up again.
 
 Both are wired in [`Directory.Build.props`](../../Directory.Build.props), so a new module inherits
 them at creation instead of when someone remembers to copy a `csproj` fragment. `RS0030` is escalated
