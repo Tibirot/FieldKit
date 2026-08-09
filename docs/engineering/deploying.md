@@ -106,10 +106,35 @@ not building images.
 
 ## After the first deploy
 
+0. **Clear the service worker before you believe anything.** This app is a PWA, and its worker
+   **deliberately does not skip waiting**: activating early would delete the running build's chunks
+   out from under a page mid-visit, which for a rep with an unsynced outbox is the worst possible
+   moment (`sw/index.js`). The swap happens when the page asks for it, and the prompt that asks
+   arrives with the field shell — so until then, a browser that has visited before keeps running
+   **the previous build** after a deploy, no matter how many times you reload.
+
+   This cost real time during the first deploy: a fix was verified as live by `curl`, and the same
+   browser kept reproducing the bug from precache. Verify in a fresh private window, or:
+
+   ```js
+   (async () => {
+     for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
+     for (const n of await caches.keys()) await caches.delete(n);
+   })()
+   ```
+
+   The quickest independent check that a new build is live is the CSP header, which is rendered per
+   request and never cached: `curl -sD - <frontend>/en/login | grep -i content-security-policy`.
+
 1. **Sign in.** The whole point. A failure here is almost certainly Keycloak's view of its own
    address — check `KC_HOSTNAME` on the `keycloak` container app resolved to its public FQDN, and
    that the realm's redirect URI is the front end's FQDN and not `localhost:3000`
    ([realms/README.md](../../FieldKit.AppHost/realms/README.md)).
+
+   **Then leave it for six minutes.** Signing in exercises a navigation; staying signed in exercises
+   a background fetch to Keycloak's discovery document, and only the second one catches a
+   browser-facing address that is wrong. That distinction cost two deploys — the app signed in
+   perfectly and then reported "Your session has expired" at the first token renewal.
 2. **Confirm the `X-Forwarded-*` headers arrive.** `KC_PROXY_HEADERS=xforwarded` is set on the
    assumption that ACA's ingress sends them. That assumption is documented and **has not been
    tested against a real ingress** — the local verification in D4 could only prove the setting's

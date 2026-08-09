@@ -52,6 +52,18 @@ if (frontend) {
     `webfrontend NODE_ENV is "${frontend.env?.NODE_ENV}", expected production — development relaxes the CSP in proxy.ts`,
   );
 
+  // The browser-facing Keycloak address, which service discovery does not provide.
+  //
+  // `WithReference(keycloak)` injects an *internal* FQDN — right for container-to-container, and
+  // unreachable from a browser. Without an explicit `KEYCLOAK_URL` the front end hands the browser
+  // that address, OIDC discovery fails on CORS, and every silent token renewal after a successful
+  // login fails with it. The app reports "Your session has expired" about five minutes in.
+  check(
+    typeof frontend.env?.KEYCLOAK_URL === "string",
+    "webfrontend has no KEYCLOAK_URL — the browser would get Keycloak internal address and sessions " +
+      "would die at the first token renewal",
+  );
+
   const external = Object.values(frontend.bindings ?? {}).filter((b) => b.external);
   check(
     external.length > 0,
@@ -111,6 +123,31 @@ if (keycloak) {
     typeof keycloak.env?.FIELDKIT_WEB_ORIGIN === "string",
     "keycloak has no FIELDKIT_WEB_ORIGIN — realm redirect URIs would fall back to localhost:3000",
   );
+
+  /*
+   * Reachable from a browser, and *only* on the port that serves the login page.
+   *
+   * This is the check that was missing when the first deploy succeeded: 37/37 steps green, three
+   * container apps running, and `keycloak: No public endpoints`. Authorization code + PKCE
+   * (ADR-0008) redirects the browser to Keycloak, so an identity provider on the internal network
+   * authenticates nobody — the front end rendered perfectly and answered sign-in with "Couldn't
+   * reach the identity provider."
+   *
+   * The manifest said so from D4 onwards. Nothing read it, which is the whole argument for this
+   * file existing.
+   *
+   * The second assertion is not symmetry for its own sake: `management` (9000) serves health and
+   * metrics, and the obvious fix — `WithExternalHttpEndpoints()` — marks every http endpoint
+   * external, which a container app rejects outright rather than quietly publishing.
+   */
+  check(
+    keycloak.bindings?.http?.external === true,
+    "keycloak's http binding is not external — the browser could not reach the login page",
+  );
+  check(
+    keycloak.bindings?.management?.external !== true,
+    "keycloak's management binding is external — health and metrics would be on the public internet",
+  );
 }
 
 const server = manifest.resources?.server;
@@ -118,6 +155,25 @@ check(server !== undefined, "no `server` resource in the manifest");
 if (server) {
   const external = Object.values(server.bindings ?? {}).filter((b) => b.external);
   check(external.length > 0, "server has no external binding — the API would not be reachable");
+
+  /*
+   * At least one trusted tenant.
+   *
+   * A realm is only a trusted issuer if a tenant row claims it, and those rows come from
+   * `Iam:SeedTenants` — which lives in appsettings.**Development**.json. A container runs as
+   * Production and loads none of it, so the deployed API trusted no realm at all.
+   *
+   * The symptom was as far from the cause as it gets: sign-in worked, Keycloak issued a valid
+   * token, and the front end looped on "Your session has expired" because every call came back
+   * 401. All 688 integration tests passed throughout — `ServerFixture` boots the host with
+   * `UseEnvironment(Development)`, so the one environment nothing covered is the deployed one.
+   */
+  const seeded = Object.keys(server.env ?? {}).filter((key) => /^Iam__SeedTenants__\d+__Realm$/.test(key));
+  check(
+    seeded.length > 0,
+    "server has no Iam__SeedTenants__*__Realm — the deployed API would trust no realm, and every " +
+      "signed-in request would 401 as if the session had expired",
+  );
 }
 
 /*

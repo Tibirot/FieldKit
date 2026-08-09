@@ -95,7 +95,21 @@ var database = postgres.AddDatabase("fieldkitdb");
 // A tenant *is* a realm (realm-per-tenant), so the dev tenant is imported from source rather than
 // clicked together by hand: see realms/README.md. Admin credentials are Aspire parameters in
 // user-secrets, never in source.
-var keycloak = builder.AddKeycloak("keycloak");
+// **Publicly reachable, and it has to be.** Authorization code + PKCE (ADR-0008) redirects the
+// *browser* to Keycloak; an identity provider only the other containers can see cannot authenticate
+// anybody. The first successful deploy proved this the expensive way — 37/37 steps green, three
+// container apps running, and `keycloak: No public endpoints` in the summary. The front end came up,
+// rendered, and answered a sign-in attempt with "Couldn't reach the identity provider."
+//
+// It was visible before that: every published manifest since D4 showed Keycloak's `http` binding
+// without `"external": true`, next to a `server` and a `webfrontend` that had it. Nothing read them.
+// `WithExternalHttpEndpoints()` is what `server` and `webfrontend` use and it fails here:
+// `AddKeycloak` declares two http endpoints, `http` (8080) and `management` (9000), and that helper
+// marks **both** external — which a container app refuses outright, "Multiple external endpoints are
+// not supported". Naming the one endpoint is therefore not a workaround but the correct thing: 9000
+// serves health and metrics and has no business being on the public internet.
+var keycloak = builder.AddKeycloak("keycloak")
+    .WithEndpoint("http", endpoint => endpoint.IsExternal = true);
 
 if (builder.ExecutionContext.IsRunMode)
 {
@@ -247,6 +261,70 @@ if (builder.ExecutionContext.IsRunMode)
 // asking Keycloak for the front end's address while the front end waits for Keycloak is a cycle.
 if (builder.ExecutionContext.IsPublishMode)
     keycloak.WithEnvironment("FIELDKIT_WEB_ORIGIN", frontend.GetEndpoint("http"));
+
+/*
+ * Keycloak's **browser-facing** address, which is not the one service discovery hands out.
+ *
+ * `WithReference(keycloak)` injects `services__keycloak__http__0`, and in a container app that is
+ * the internal FQDN — `keycloak.internal.<env>.azurecontainerapps.io`. Correct for one container
+ * calling another, and useless to a browser, which is who actually talks to an OIDC provider.
+ *
+ * The deployed app failed on exactly that, in a way that took a console to see:
+ *
+ *     Access to fetch at 'https://keycloak.internal.…/.well-known/openid-configuration'
+ *     from origin 'https://webfrontend.…' has been blocked by CORS policy
+ *
+ * Signing in still worked — the first hop is a navigation, not a fetch — so the symptom arrived
+ * about five minutes later, when the first silent token renewal failed and the app reported "Your
+ * session has expired". A login loop with a working login in it.
+ *
+ * `GetEndpoint("http")` is the same expression `KC_HOSTNAME` uses, and resolves to the public FQDN.
+ * Publish only: in development both addresses are the same one.
+ */
+if (builder.ExecutionContext.IsPublishMode)
+    frontend.WithEnvironment("KEYCLOAK_URL", keycloak.GetEndpoint("http"));
+
+/*
+ * The tenants whose realms this deployment's Keycloak image carries.
+ *
+ * A realm is only a trusted issuer if a tenant row claims it — the tenant table *is* the trust list
+ * (ADR-0008, realms/README.md). Those rows come from `Iam:SeedTenants` until provisioning lands
+ * (`IAM-10`), and that section lives in **appsettings.Development.json**. A container runs as
+ * Production, loads none of it, and `TenantSeeder` returns early on an empty list.
+ *
+ * The result is an API that trusts no realm, and the symptom looks nothing like the cause: sign-in
+ * succeeds, Keycloak mints a perfectly good token, every API call is refused with 401, and the front
+ * end — correctly — reads 401 as an expired session. What the first working deploy actually did was
+ * sign in and then loop on "Your session has expired", with no error anywhere in it.
+ *
+ * The 688 integration tests all pass because `ServerFixture` boots the host with
+ * `UseEnvironment(Development)`. Everything about this path is covered except the environment it
+ * runs in.
+ *
+ * **Set here rather than in an appsettings.Production.json**, because these ids are the other half
+ * of the `tenant` claim hardcoded in `realms/*.json` — the directory this same file bakes into the
+ * Keycloak image. Two halves of one fact, kept in one place. The values are duplicated from the
+ * development config and that is deliberate: the tests boot the server without this AppHost, so
+ * that copy cannot be deleted.
+ */
+if (builder.ExecutionContext.IsPublishMode)
+{
+    (string Id, string Name, string Realm)[] seedTenants =
+    [
+        ("00000000-0000-0000-0000-000000000001", "Veridian Beverages (dev)", "fieldkit-dev"),
+        ("00000000-0000-0000-0000-000000000002", "Second Tenant (dev)", "fieldkit-dev-b"),
+    ];
+
+    for (var index = 0; index < seedTenants.Length; index++)
+    {
+        var (id, name, realm) = seedTenants[index];
+
+        server
+            .WithEnvironment($"Iam__SeedTenants__{index}__Id", id)
+            .WithEnvironment($"Iam__SeedTenants__{index}__Name", name)
+            .WithEnvironment($"Iam__SeedTenants__{index}__Realm", realm);
+    }
+}
 
 /*
  * The scale rules the costing is made of (ADR-0011).
