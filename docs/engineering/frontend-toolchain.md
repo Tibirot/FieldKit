@@ -48,8 +48,12 @@ OSes, and the divergence persists. Only generating on Linux does.
    exactly the lockfile and fails loudly on any disagreement. **Do not relax this step to make a
    red build green** — that reintroduces the trap this page documents.
 2. **`NODE_VERSION` in [ci.yml](../../.github/workflows/ci.yml), `engines` in
-   [package.json](../../frontend/package.json), and `@types/node` move together**, and the lockfile
-   is regenerated in the same change. Never bump one alone. `@types/node` in particular **tracks the
+   [package.json](../../frontend/package.json), [`frontend/.nvmrc`](../../frontend/.nvmrc), and
+   `@types/node` move together**, and the lockfile is regenerated in the same change. Never bump one
+   alone. **`.nvmrc` is the one with teeth in production**: Aspire reads it to choose the base image
+   for the front end's container (deploy slice D3), and with no `.nvmrc` it defaulted to `node:22`
+   — a production runtime two majors below the one `engines` requires and everything else uses.
+   `engines: ">=24.0.0"` did not sway it; the file did. `@types/node` in particular **tracks the
    runtime, not the registry** — typechecking against a newer stdlib than the Node you actually run
    accepts code that compiles and then crashes. Its major is held back in
    [dependabot.yml](../../.github/dependabot.yml) for that reason, permanently: it moves when Node

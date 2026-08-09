@@ -1,2 +1,37 @@
+# What must never enter the build context.
+#
+# The build stage does `COPY . .`, so anything listed here is something the image would otherwise
+# carry. Two entries are correctness rather than size:
+#
+#   .next/     — a local build from a different machine, layered under the one the image makes.
+#                Next reuses what it finds there, so a stale local build can survive into the image.
+#   node_modules/ — the host's tree, which on Windows contains platform-specific binaries that do
+#                not run on Alpine. `npm ci` in the deps stage is what installs them correctly.
+
 node_modules/
+.next/
+out/
 dist/
+
+# Build artifacts written back into the source tree by `npm run build`.
+public/sw.js
+public/sw.js.map
+tsconfig.tsbuildinfo
+
+# MSBuild's output for frontend.esproj — the Aspire project reference, not part of the app.
+obj/
+bin/
+
+# Tests and tooling. They are needed to *verify* the app, not to run it, and CI has already run
+# them by the time an image is built.
+**/*.test.ts
+**/*.test.tsx
+test/
+vitest.config.ts
+vitest.setup.ts
+eslint.config.mjs
+
+# Never, under any circumstances.
+.env
+.env.*
+.git/

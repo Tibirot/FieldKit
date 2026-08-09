@@ -140,8 +140,17 @@ source of truth with none of the sync engine's conflict rules.
   caught after a build, not during development.
 - **`output: "standalone"` does not copy `public/`.** The container image must copy it explicitly
   or the manifest, icons and service worker 404 in a deployed environment while working perfectly
-  in `npm start`. To be verified against the Aspire-generated Dockerfile when
-  [ADR-0011](0011-deployment-azure-container-apps.md) deployment lands.
+  in `npm start`. ~~To be verified against the Aspire-generated Dockerfile when
+  [ADR-0011](0011-deployment-azure-container-apps.md) deployment lands.~~ **Verified (deploy slice
+  D3):** the Dockerfile `AddNextJsApp` generates copies both `public/` and `.next/static`, and
+  `.next/static` is the second half of the same trap — without it every hashed chunk 404s and the
+  page renders unstyled and inert. `AddJavaScriptApp`, which this used before D3, generated a
+  Dockerfile that copied neither and had no `CMD` at all.
+- **A `rewrites()` entry cannot name a service that does not exist at build time**, and this app
+  had one. `next build` freezes `rewrites()` into `.next/routes-manifest.json`, so an image built
+  in CI shipped with no `/api` rewrite and answered every API call with the app's own 404 page —
+  while `next dev`, which re-evaluates the config, worked perfectly. The forwarding now lives in
+  `proxy.ts`, which runs per request (`lib/api/upstream.ts`).
 
 **Follow-up:** Phase 0 migration ([roadmap](../../roadmap.md)); document the front-end module
 structure and the client-store contract with the [sync engine](../12-offline-sync-engine.md).
