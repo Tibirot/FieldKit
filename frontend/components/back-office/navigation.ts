@@ -64,7 +64,10 @@ export const NAVIGATION: readonly NavGroup[] = [
     key: null,
     items: [
       { key: "dashboard", soon: "week12" },
-      { key: "journeys", soon: "week7" },
+      // Points at frequencies rather than at a section index: it is the first journey screen that
+      // exists, and the same reasoning that lands sign-in on Outlets applies — a nav item should go
+      // somewhere real. It moves to the plan when the plan exists (W7 slice 10c).
+      { key: "journeys", href: "/journeys/frequencies", permissions: ["journey:read"] },
       { key: "visits", soon: "week9" },
       { key: "orders", soon: "week11" },
     ],

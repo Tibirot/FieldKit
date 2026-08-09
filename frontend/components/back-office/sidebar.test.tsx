@@ -4,6 +4,7 @@ import { screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AuthContextValue } from "@/components/auth-provider";
+import { NAVIGATION } from "@/components/back-office/navigation";
 import { Sidebar } from "@/components/back-office/sidebar";
 import { fetchIdentity } from "@/lib/api/identity";
 import { render } from "@/test/render";
@@ -118,9 +119,20 @@ describe("<Sidebar>", () => {
     // caller at all.
     allow();
 
+    // Whichever item is still scheduled, rather than a hard-coded one. This test named Journeys and
+    // W7 until W7 built it — so shipping the screen the badge was advertising broke the test that
+    // proved badges work. Derived, it survives every screen landing except the last.
+    const scheduled = NAVIGATION.flatMap((group) => group.items).find((item) => item.soon);
+
+    expect(scheduled).toBeDefined();
+
     render(<Sidebar workspace="fieldkit-dev" />);
 
-    expect(screen.getByTitle("W7").textContent).toContain("Journeys");
+    const messages = (await import("@/messages/en.json")).default;
+
+    expect(screen.getByTitle(messages.Nav.soon[scheduled!.soon!]).textContent).toContain(
+      messages.Nav.items[scheduled!.key],
+    );
   });
 
   it("does not offer a link to a screen that does not exist", () => {

@@ -464,7 +464,9 @@ question about the *spec* and those take a while to settle.
 | 8 | **Steps and mandatory gating** — the workflow instantiated per visit; check-out refused while a mandatory step is open | `VIS-03/04`, `BR-VIS-3` | 400 |
 | 9 | **Check-out and seal** — outcome, time-on-site, check-out geo-stamp, sealed thereafter; `VisitCompleted` | `VIS-05`, `BR-VIS-3/4/5` | 400 |
 | 9b | **`IJourneyQuery`** — Journey's `.Contracts` split, and check-in validating the planned call it claims to fulfil | `JRN-04` | 300 |
-| 10 | **Back-office screens** — frequency, calendar, generate-and-publish, plan review | `JRN-01/02/03` | 400 ×2 |
+| 10a | **The call frequency screen** — segment defaults and per-outlet overrides; the Journeys nav item goes live | `JRN-01` | 400 |
+| 10b | **The working calendar screen** — a rep's days and daily capacity, and the tenant's holidays | `JRN-02` | 400 |
+| 10c | **Generate, publish, review** — the week grid, the shortfalls, and the plan a rep is given | `JRN-03/04` | 400 |
 | 11 | **TS `Money` and the rounding policy** — `decimal.js`, never a native `number`; half-up away from zero | `BR-PRD-8/9` | 300 |
 | 12 | **TS price resolution** — the mirror of `PriceResolver`, against `pricing/price-resolution.v1.json` | `PRD-04` | 300 |
 | 13 | **TS promotion resolution** — the mirror of `PromotionResolver`, including the tiebreak | `PRD-06` | 350 |
@@ -581,6 +583,16 @@ whether a visit is finished and, once it is, that it can never change again (`BR
 > implementation to walk — the slice that gave Journey one is the slice that made it matter. The
 > duplication itself was removed straight after, as **`AT-11`**: one list, everything derived from it,
 > and a test comparing it against `FieldKit.slnx` so a module cannot be added and left ungated.
+
+> **Slice 10 is three screens, not two.** The row budgeted "400 ×2" for frequency, calendar,
+> generate-and-publish and plan review together, and that was one screen's worth of estimate short:
+> the first two are what a supervisor *sets* and the third is what the system *produces*, and each
+> has its own refusals, its own permission story and its own empty state. Splitting them keeps each
+> PR reviewable and keeps the nav honest at every step — 10a points Journeys at frequencies because
+> that is the first journey screen that exists, and 10c moves it to the plan.
+>
+> The wireframe draws only the plan grid, which is the right thing to draw and also why the estimate
+> came up short: the two screens with no picture are where most of the decisions are.
 
 **The parity harness is the week's actual deliverable.** `PRD-08` is why the vectors were written
 against a real engine in W6 rather than emitted from one — the format had to state rules a second

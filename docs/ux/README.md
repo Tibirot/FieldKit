@@ -56,7 +56,7 @@ the build, without pretending to be final visual design.
 | Outlets — bulk import | `OUT-05` `CFG-01` `CFG-02` | Dry-run first; bad cells corrected in the grid before anything is written |
 | Products & pricing | `PRD-01` `PRD-02` `PRD-03` `PRD-05` `PRD-06` | Catalog, assortment/MSL, price list, active promotions |
 | Territories | `ORG-03` `ORG-04` `ORG-05` `A4` | Territory list, single active rep, channel mix; drives offline scope |
-| Journey planning | `JRN-01` `JRN-02` `JRN-03` `JRN-04` | Week grid generated from frequency + capacity; frequency compliance |
+| Journey planning | `JRN-01` `JRN-02` `JRN-03` `JRN-04` | Week grid generated from frequency + capacity; frequency compliance. **Built as three screens, not one** (W7 slice 10): what a supervisor *sets* — frequency, then the working calendar — before what the system *produces*. The wireframe draws only the third, because that is the one worth drawing; the two inputs have no picture and are most of the decisions |
 | Users & roles | `IAM-03` `IAM-04` `IAM-05` `IAM-07` | Users, permission-bundle roles, one active device per rep |
 | Visit-workflow / audit builder | `A1` `ADR-0009` `VIS-03` `AUD-04` `AUD-06` `AUD-07` | The config-driven story: per-channel steps, perfect-store weights, survey forms |
 
@@ -86,7 +86,7 @@ here rather than silently dropping columns: the gap is a schedule, not a change 
 
 | Screen | Built in W5 | Deferred, and to when |
 |---|---|---|
-| Shell + nav | Full nav per the wireframe, **unbuilt destinations visibly disabled**; lands on Outlets | Dashboard **W12**, Journeys **W7**, Visits/audits **W9**, Products **W6** |
+| Shell + nav | Full nav per the wireframe, **unbuilt destinations visibly disabled**; lands on Outlets | Dashboard **W12**, Journeys **W7** *(now built)*, Visits/audits **W9**, Products **W6** *(built)* |
 | Outlets | Table with code, name, channel, segment, status, **primary territory**; filters by channel and status; create/edit incl. the dynamic custom-field form | **Frequency** (`F2 · weekly`) — journey planning, **W7**. **Field proposals** count and the `Proposed` chip — `OUT-06`/`OUT-07`, **Phase 3** |
 | Outlets — import | The whole flow: upload, dry run, editable grid, apply | — |
 | Outlets — custom fields | The catalogue for `Outlet`: define, edit, delete, with the type's own rule | Products, orders and visits get their own catalogues **W6+**, with the screens that render them |
