@@ -935,6 +935,15 @@
         "tooLarge": "“{key}” must be at most {max}.",
         "invalid": "“{key}” is not valid."
       }
+    },
+    "journey": {
+      "frequency": {
+        "segmentRequired": "A rule needs a segment.",
+        "segmentTooLong": "A segment is at most {max} characters.",
+        "visitsTooFew": "A shop is visited at least once per cycle. To stop visiting it, remove the rule.",
+        "cycleOutOfRange": "A cycle is between 1 and {max} days.",
+        "unknownOutlet": "That shop does not exist."
+      }
     }
   },
   "TaxRates": {
@@ -966,5 +975,46 @@
     "saving": "Saving…",
     "saveFailed": "These rates could not be saved.",
     "unsaved": "Unsaved changes."
+  },
+  "Frequencies": {
+    "crumb": "Field ops / Journey planning / Call frequency",
+    "title": "Call frequency",
+    "intro": "How often each shop is called on. A segment covers every shop in it; one shop can depart from its segment. A shop with neither rule is not planned at all — generation reports it rather than guessing.",
+    "segmentsTitle": "By segment",
+    "segmentsIntro": "The default for every shop in a segment.",
+    "outletsTitle": "By outlet",
+    "outletsIntro": "Shops that depart from their segment. Removing an override returns the shop to its segment’s rule, whatever that becomes.",
+    "addSegment": "Add a segment rule",
+    "segmentLabel": "Segment",
+    "segmentPlaceholder": "e.g. A",
+    "segmentTaken": "That segment already has a rule.",
+    "newSegment": "the new rule",
+    "visitsFor": "Visits per cycle, {name}",
+    "cycleFor": "Cycle length in days, {name}",
+    "visitsEvery": "visits every",
+    "days": "days",
+    "noSegments": "No segment rules yet.",
+    "noOutlets": "No shop departs from its segment.",
+    "findOutlet": "Find a shop",
+    "findOutletPlaceholder": "Code or name",
+    "noOutletMatches": "No shop matches “{search}”.",
+    "addOverride": "Add",
+    "overridesAdded": "To be saved",
+    "addOverrideNamed": "Add an override for {name}",
+    "discardOverrideNamed": "Discard the override for {name}",
+    "removeOutletNamed": "Remove the override for {name}",
+    "saveOutletNamed": "Save the override for {name}",
+    "saveSegmentNamed": "Save the rule for segment {segment}",
+    "removeSegmentNamed": "Remove the rule for segment {segment}",
+    "unknownOutlet": "Unknown shop",
+    "unsaved": "Not saved yet",
+    "save": "Save",
+    "remove": "Remove",
+    "discard": "Discard",
+    "loading": "Loading…",
+    "failed": "This could not be loaded.",
+    "forbidden": "You do not have permission to view call frequencies.",
+    "saveFailed": "That rule could not be saved.",
+    "removeFailed": "That rule could not be removed."
   }
 }

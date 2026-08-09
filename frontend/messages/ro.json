@@ -935,6 +935,15 @@
         "tooLarge": "„{key}” este cel mult {max}.",
         "invalid": "„{key}” nu este valid."
       }
+    },
+    "journey": {
+      "frequency": {
+        "segmentRequired": "O regulă are nevoie de un segment.",
+        "segmentTooLong": "Un segment are cel mult {max} caractere.",
+        "visitsTooFew": "Un magazin este vizitat cel puțin o dată pe ciclu. Ca să nu mai fie vizitat, eliminați regula.",
+        "cycleOutOfRange": "Un ciclu are între 1 și {max} zile.",
+        "unknownOutlet": "Acest magazin nu există."
+      }
     }
   },
   "TaxRates": {
@@ -966,5 +975,46 @@
     "saving": "Se salvează…",
     "saveFailed": "Cotele nu au putut fi salvate.",
     "unsaved": "Modificări nesalvate."
+  },
+  "Frequencies": {
+    "crumb": "Operațiuni de teren / Planificare rute / Frecvență de vizitare",
+    "title": "Frecvență de vizitare",
+    "intro": "Cât de des este vizitat fiecare magazin. Un segment acoperă toate magazinele din el; un magazin poate face excepție de la segmentul său. Un magazin fără nicio regulă nu este planificat deloc — generarea o semnalează, nu ghicește.",
+    "segmentsTitle": "Pe segment",
+    "segmentsIntro": "Regula implicită pentru toate magazinele dintr-un segment.",
+    "outletsTitle": "Pe magazin",
+    "outletsIntro": "Magazinele care fac excepție de la segmentul lor. Eliminarea excepției readuce magazinul la regula segmentului, oricare ar deveni aceasta.",
+    "addSegment": "Adaugă o regulă de segment",
+    "segmentLabel": "Segment",
+    "segmentPlaceholder": "de ex. A",
+    "segmentTaken": "Acest segment are deja o regulă.",
+    "newSegment": "regula nouă",
+    "visitsFor": "Vizite pe ciclu, {name}",
+    "cycleFor": "Lungimea ciclului în zile, {name}",
+    "visitsEvery": "vizite la fiecare",
+    "days": "zile",
+    "noSegments": "Nicio regulă de segment încă.",
+    "noOutlets": "Niciun magazin nu face excepție de la segmentul său.",
+    "findOutlet": "Caută un magazin",
+    "findOutletPlaceholder": "Cod sau denumire",
+    "noOutletMatches": "Niciun magazin nu corespunde „{search}”.",
+    "addOverride": "Adaugă",
+    "overridesAdded": "De salvat",
+    "addOverrideNamed": "Adaugă o excepție pentru {name}",
+    "discardOverrideNamed": "Renunță la excepția pentru {name}",
+    "removeOutletNamed": "Elimină excepția pentru {name}",
+    "saveOutletNamed": "Salvează excepția pentru {name}",
+    "saveSegmentNamed": "Salvează regula pentru segmentul {segment}",
+    "removeSegmentNamed": "Elimină regula pentru segmentul {segment}",
+    "unknownOutlet": "Magazin necunoscut",
+    "unsaved": "Nesalvat încă",
+    "save": "Salvează",
+    "remove": "Elimină",
+    "discard": "Renunță",
+    "loading": "Se încarcă…",
+    "failed": "Nu s-a putut încărca.",
+    "forbidden": "Nu aveți permisiunea de a vedea frecvențele de vizitare.",
+    "saveFailed": "Regula nu a putut fi salvată.",
+    "removeFailed": "Regula nu a putut fi eliminată."
   }
 }
