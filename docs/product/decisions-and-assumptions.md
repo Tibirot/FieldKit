@@ -116,6 +116,11 @@ end-to-end cloud-native story and alignment with the Azure/AKS background on the
 > [ADR-0011](../architecture/adr/0011-deployment-azure-container-apps.md#costing-and-the-backing-service-split-2026-08),
 > which also records what a €4 VPS would have cost instead and why that is still declined.
 
+> **Live since 2026-08-09**, in Sweden Central rather than West Europe — the latter refused new
+> customers on capacity. What the first deployment cost, and the three defects it found that no test
+> could, are recorded in
+> [ADR-0011](../architecture/adr/0011-deployment-azure-container-apps.md#deployed-2026-08-09).
+
 **Implications:** the AppHost must produce a clean ACA manifest; connection strings and object
 storage are provided by managed services in prod, containers in dev. → **new [ADR-0011](../architecture/adr/README.md)**.
 

@@ -55,6 +55,28 @@ Deploy to **Azure Container Apps (ACA)**, published from Aspire (`aspire deploy`
 — done, below. Still open: document the CI/CD pipeline (GitHub Actions → build/test/arch-test →
 image → `aspire deploy`).
 
+## Deployed (2026-08-09)
+
+Resource group `FieldKit`, **Sweden Central**, 16 resources — `aspire deploy` from this repository,
+no portal clicking. The runbook is [deploying.md](../../engineering/deploying.md); what it cost to
+get there is worth recording, because none of it was in the application.
+
+| What stopped it | Where the fault was |
+|---|---|
+| `az bicep` auto-install raced with itself on Windows (`WinError 32`) | tooling; install Bicep first |
+| West Europe "not accepting new customers" | regional capacity |
+| The Aspire dashboard `dotNetComponent` returned a 500 | a preview Azure API; removed, and unwanted anyway |
+| Keycloak had no public endpoint | **this repository** — see [ADR-0008](0008-authentication-and-multitenancy.md) |
+| The API trusted no realm (`Iam:SeedTenants` is Development-only) | **this repository** |
+| The browser was handed Keycloak's internal address | **this repository** |
+
+The last three were invisible to 2,100 passing tests, and all three were visible in a published
+manifest nobody read. `scripts/check-deploy-manifest.mjs` now fails on each of them.
+
+**Sweden Central rather than West Europe** is a capacity accident, not a decision. Latency from
+Romania is a few milliseconds worse than West Europe would have been and nobody will notice on a
+demo.
+
 ## Costing and the backing-service split (2026-08)
 
 The decision above says "stay cheap enough to leave running" without saying what that costs. Priced

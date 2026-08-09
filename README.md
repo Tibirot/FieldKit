@@ -9,6 +9,14 @@ on .NET Aspire with an offline-first Next.js front end.**
 
 <!-- badges: build · coverage · license — add once CI is wired -->
 
+**[Live demo](https://webfrontend.jollysmoke-c6d79515.swedencentral.azurecontainerapps.io)** — Azure
+Container Apps, Sweden Central. Sign in with workspace `fieldkit-dev`. It scales to zero when idle,
+so the first request after a quiet spell takes a few seconds.
+
+> The demo database is **empty on purpose**: schema comes from migrations and the only seeded rows
+> are the tenants and their role templates. Nothing seeds outlets or products, so the screens show
+> their empty states rather than a fixture nobody chose.
+
 ---
 
 ## Why this project
