@@ -1,18 +1,17 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
-import { CallFrequencies } from "@/components/back-office/call-frequencies";
 import { JourneyActions } from "@/components/back-office/journey-actions";
+import { WorkingCalendars } from "@/components/back-office/working-calendars";
 import { resolveLocale } from "@/i18n/locale";
 
 /**
- * How often each shop is called on (`JRN-01`).
+ * When a rep works, and what the tenant does not (`JRN-02`).
  *
- * The first thing in the Journeys section, because everything else in it is derived from this: the
- * generator turns frequency × territory × working calendar into a plan, and the compliance figure
- * asks whether a shop got the visits its frequency said it should. It is also the only part a
- * supervisor sets by hand, which is why it exists before there is anything to generate.
+ * The second of the two things generation reads. Frequency says how often a shop is due; this says
+ * how much room there is to call on it — and the gap between the two is what a plan's shortfalls
+ * are made of.
  */
-export default async function FrequenciesPage({
+export default async function CalendarsPage({
   params,
 }: {
   params: Promise<{ locale: string }>;
@@ -20,7 +19,7 @@ export default async function FrequenciesPage({
   const locale = resolveLocale((await params).locale);
   setRequestLocale(locale);
 
-  const t = await getTranslations({ locale, namespace: "Frequencies" });
+  const t = await getTranslations({ locale, namespace: "Calendars" });
 
   return (
     <div className="flex max-w-4xl flex-col gap-4">
@@ -30,9 +29,9 @@ export default async function FrequenciesPage({
           <h1 className="text-lg font-semibold tracking-tight">{t("title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t("intro")}</p>
         </div>
-        <JourneyActions current="frequencies" />
+        <JourneyActions current="calendars" />
       </header>
-      <CallFrequencies />
+      <WorkingCalendars />
     </div>
   );
 }
