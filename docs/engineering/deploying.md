@@ -4,9 +4,10 @@ The live demo runs on **Azure Container Apps**, published from the Aspire AppHos
 ([ADR-0011](../architecture/adr/0011-deployment-azure-container-apps.md)). This page is the runbook:
 what has to be true first, what the command does, and what to check afterwards.
 
-> **Nothing here has been deployed yet.** Every step below was prepared and verified locally —
-> generated infrastructure read, images built and run, the app exercised — but no `aspire deploy`
-> has been executed against a real subscription. Treat the first run as the test of this page.
+> **Deployed, 2026-08-09.** Resource group `FieldKit`, **Sweden Central**, running at
+> [webfrontend.jollysmoke-c6d79515.swedencentral.azurecontainerapps.io](https://webfrontend.jollysmoke-c6d79515.swedencentral.azurecontainerapps.io).
+> Everything below has now been executed rather than reasoned about, and the corrections that took
+> are marked where they belong.
 
 ## Prerequisites
 
@@ -100,9 +101,25 @@ Never commit either. In development they live in user-secrets
 aspire deploy
 ```
 
-It will ask for a subscription, a location and a resource group on first run, and cache them. Expect
-**15–25 minutes** for the first deploy — most of it provisioning the environment and the registry,
-not building images.
+It will ask for a subscription, a location and a resource group on first run, and cache them in
+`~/.aspire/deployments/<hash>/production.json` — **including the parameter values in cleartext**,
+which is worth knowing before that machine is shared or backed up.
+
+**Timings, measured:** the full first provisioning ran about **8 minutes**; a redeploy that only
+rebuilds images and updates the container apps takes **1–2 minutes** (`37/37 steps · 1m 14s`).
+
+### Choosing a location
+
+**Not West Europe.** It refused the first attempt outright:
+
+```
+RequestDisallowedByAzure: The selected region is currently not accepting new customers
+```
+
+That is capacity, not your account — and West and North Europe are the two most commonly gated for
+new subscriptions. **Sweden Central** took it. If you need to change region after the first run,
+edit `Azure:Location` in the deployment-state file above; `aspire deploy --clear-cache` re-prompts
+for everything instead.
 
 ## After the first deploy
 
@@ -135,10 +152,12 @@ not building images.
    a background fetch to Keycloak's discovery document, and only the second one catches a
    browser-facing address that is wrong. That distinction cost two deploys — the app signed in
    perfectly and then reported "Your session has expired" at the first token renewal.
-2. **Confirm the `X-Forwarded-*` headers arrive.** `KC_PROXY_HEADERS=xforwarded` is set on the
-   assumption that ACA's ingress sends them. That assumption is documented and **has not been
-   tested against a real ingress** — the local verification in D4 could only prove the setting's
-   effect, not the header path.
+2. ~~**Confirm the `X-Forwarded-*` headers arrive.**~~ **Confirmed, 2026-08-09.** The realm's
+   discovery document reports
+   `issuer: https://keycloak.<env>.azurecontainerapps.io/realms/fieldkit-dev` — the public FQDN, not
+   the container's internal one. Keycloak can only build that from forwarded headers, so
+   `KC_PROXY_HEADERS=xforwarded` and `KC_HOSTNAME` are both doing their job. Re-check it here if the
+   ingress is ever reconfigured; it is a one-line `curl` of `.well-known/openid-configuration`.
 3. **Watch a week of billing**, then update
    [ADR-0011's open question](../architecture/adr/0011-deployment-azure-container-apps.md#the-number-that-is-not-settled):
    whether an idle Keycloak qualifies for ACA's *idle* rate is a 3× swing on the only line that

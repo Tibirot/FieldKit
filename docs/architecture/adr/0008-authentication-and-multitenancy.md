@@ -136,6 +136,19 @@ the workspace the user names. Three consequences are worth recording, because ea
   without `KC_HOSTNAME` and `KC_PROXY_HEADERS` that is the container's internal address — producing
   exactly the failure above, from the other end, in a deployment where every other part is correct.
 
+  **Verified on the first live deployment (2026-08-09):** the realm's discovery document reports the
+  public FQDN as its issuer, which Keycloak can only derive from forwarded headers.
+- **And the *browser* must be given a third address, which is neither of the above.** Service
+  discovery answers "how does one container reach another", and in Azure Container Apps that is an
+  internal FQDN. The front end handed it to the browser, whose OIDC client then fetched the
+  discovery document cross-origin and was refused by CORS. **Signing in still worked** — the first
+  hop is a navigation, not a fetch — so the failure surfaced minutes later, as a session that could
+  not be renewed and an app reporting "Your session has expired".
+
+  This is the same fact as the two above, encountered a third time, and it is the one that took
+  longest to see because everything visible about it looked correct. The rule that survives all
+  three: **an address is only meaningful together with who is doing the reaching.**
+
 **Not yet, and deliberately so:**
 
 - **No realm provisioning** (`IAM-10`). The dev realms are hand-written, and the tenant rows that make
