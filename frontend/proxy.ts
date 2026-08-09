@@ -25,7 +25,12 @@ const negotiateLocale = createMiddleware(routing);
 const KEYCLOAK_KEYS = ["services__keycloak__https__0", "services__keycloak__http__0"];
 
 function keycloakOrigin(): string | null {
-  return originOf(KEYCLOAK_KEYS.map((key) => process.env[key]).find(Boolean) ?? process.env.KEYCLOAK_URL);
+  // Same precedence as `lib/auth/settings.ts`, and for the same reason: this names the origin the
+  // **browser** is allowed to reach, so an explicit public address beats service discovery — which
+  // in Azure Container Apps returns an internal FQDN no browser can resolve. Getting this wrong
+  // puts the wrong origin in the CSP, and a CSP that omits Keycloak breaks sign-in with a console
+  // error and nothing on screen.
+  return originOf(process.env.KEYCLOAK_URL ?? KEYCLOAK_KEYS.map((key) => process.env[key]).find(Boolean));
 }
 
 /**

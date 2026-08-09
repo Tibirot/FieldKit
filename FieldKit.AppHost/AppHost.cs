@@ -263,6 +263,28 @@ if (builder.ExecutionContext.IsPublishMode)
     keycloak.WithEnvironment("FIELDKIT_WEB_ORIGIN", frontend.GetEndpoint("http"));
 
 /*
+ * Keycloak's **browser-facing** address, which is not the one service discovery hands out.
+ *
+ * `WithReference(keycloak)` injects `services__keycloak__http__0`, and in a container app that is
+ * the internal FQDN — `keycloak.internal.<env>.azurecontainerapps.io`. Correct for one container
+ * calling another, and useless to a browser, which is who actually talks to an OIDC provider.
+ *
+ * The deployed app failed on exactly that, in a way that took a console to see:
+ *
+ *     Access to fetch at 'https://keycloak.internal.…/.well-known/openid-configuration'
+ *     from origin 'https://webfrontend.…' has been blocked by CORS policy
+ *
+ * Signing in still worked — the first hop is a navigation, not a fetch — so the symptom arrived
+ * about five minutes later, when the first silent token renewal failed and the app reported "Your
+ * session has expired". A login loop with a working login in it.
+ *
+ * `GetEndpoint("http")` is the same expression `KC_HOSTNAME` uses, and resolves to the public FQDN.
+ * Publish only: in development both addresses are the same one.
+ */
+if (builder.ExecutionContext.IsPublishMode)
+    frontend.WithEnvironment("KEYCLOAK_URL", keycloak.GetEndpoint("http"));
+
+/*
  * The tenants whose realms this deployment's Keycloak image carries.
  *
  * A realm is only a trusted issuer if a tenant row claims it — the tenant table *is* the trust list

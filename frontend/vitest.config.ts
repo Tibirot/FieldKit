@@ -29,6 +29,11 @@ export default defineConfig({
        * lives. Pointing one specifier at the file it already means is the smaller cost.
        */
       "next/server": fileURLToPath(new URL("./node_modules/next/server.js", import.meta.url)),
+
+      // `server-only` is not a package here — Next resolves the specifier itself, and its purpose is
+      // to fail a build that pulls a server module into a client bundle. Vitest cannot resolve it,
+      // so any file importing it fails to load. See test/server-only.ts.
+      "server-only": fileURLToPath(new URL("./test/server-only.ts", import.meta.url)),
     },
   },
 

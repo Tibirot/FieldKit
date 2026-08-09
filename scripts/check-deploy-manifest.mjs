@@ -52,6 +52,18 @@ if (frontend) {
     `webfrontend NODE_ENV is "${frontend.env?.NODE_ENV}", expected production — development relaxes the CSP in proxy.ts`,
   );
 
+  // The browser-facing Keycloak address, which service discovery does not provide.
+  //
+  // `WithReference(keycloak)` injects an *internal* FQDN — right for container-to-container, and
+  // unreachable from a browser. Without an explicit `KEYCLOAK_URL` the front end hands the browser
+  // that address, OIDC discovery fails on CORS, and every silent token renewal after a successful
+  // login fails with it. The app reports "Your session has expired" about five minutes in.
+  check(
+    typeof frontend.env?.KEYCLOAK_URL === "string",
+    "webfrontend has no KEYCLOAK_URL — the browser would get Keycloak internal address and sessions " +
+      "would die at the first token renewal",
+  );
+
   const external = Object.values(frontend.bindings ?? {}).filter((b) => b.external);
   check(
     external.length > 0,
