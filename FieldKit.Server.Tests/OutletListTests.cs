@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using FieldKit.Modules.Outlets;
 using FieldKit.Web;
@@ -210,5 +211,82 @@ public class OutletListTests(ServerFixture fixture)
 
         Assert.Equal(3, (await ListAsync(client, $"search={prefix}&status=Inactive")).Total);
         Assert.Equal(0, (await ListAsync(client, $"search={prefix}&status=Active")).Total);
+    }
+
+    [Fact]
+    public async Task A_set_of_ids_asks_for_exactly_those_shops()
+    {
+        // "Name these shops" rather than "browse the base" — the question a journey plan asks, which
+        // is a list of outlet ids and hundreds of visits. Without this it would be one GET per id.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+        var (prefix, _) = await SeedAsync(client, 4);
+
+        var all = await ListAsync(client, $"search={prefix}");
+        var wanted = all.Items.Take(2).Select(outlet => outlet.Id).ToList();
+
+        var named = await ListAsync(client, $"ids={string.Join(",", wanted)}");
+
+        Assert.Equal(2, named.Total);
+        Assert.Equal(wanted.OrderBy(id => id), named.Items.Select(outlet => outlet.Id).OrderBy(id => id));
+    }
+
+    [Fact]
+    public async Task An_id_this_tenant_does_not_have_is_simply_absent()
+    {
+        // Not a 404 and not an error: a caller naming a shop that has been deleted, or one belonging
+        // to another tenant, gets the shops it may see and nothing about the ones it may not.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+        var (prefix, _) = await SeedAsync(client, 1);
+
+        var mine = (await ListAsync(client, $"search={prefix}")).Items.Single().Id;
+
+        var named = await ListAsync(client, $"ids={mine},{Guid.NewGuid()}");
+
+        Assert.Equal(mine, Assert.Single(named.Items).Id);
+    }
+
+    [Fact]
+    public async Task Asking_about_no_shops_answers_about_no_shops()
+    {
+        // An explicit empty set is "none of them", which is what a caller with an empty list means —
+        // and it saves them a request to discover that. Absent is still "no filter", which is what
+        // every other caller of this endpoint relies on.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+        await SeedAsync(client, 1);
+
+        Assert.Equal(0, (await ListAsync(client, "ids=")).Total);
+        Assert.True((await ListAsync(client, "pageSize=1")).Total > 0);
+    }
+
+    [Fact]
+    public async Task Too_many_ids_is_refused_rather_than_quietly_truncated()
+    {
+        // A silently truncated set of names renders a plan with some shops missing, which is worse
+        // than an error saying to ask in two goes.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var tooMany = string.Join(",", Enumerable.Range(0, Paging.MaxSize + 1).Select(_ => Guid.NewGuid()));
+
+        var response = await client.GetAsync($"/api/outlets?ids={tooMany}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            "outlet.list.tooManyIds",
+            Assert.Single(await Refusals.ProblemsOf(response)).Code);
+    }
+
+    [Fact]
+    public async Task An_id_that_is_not_an_id_is_refused_rather_than_skipped()
+    {
+        // Skipping it would answer with a shorter list than was asked for, and the caller's only
+        // clue would be a shop that quietly has no name.
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var response = await client.GetAsync($"/api/outlets?ids={Guid.NewGuid()},not-a-guid");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            "outlet.list.idMalformed",
+            Assert.Single(await Refusals.ProblemsOf(response)).Code);
     }
 }

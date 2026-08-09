@@ -955,6 +955,18 @@
         "duplicate": "{date} is already a holiday.",
         "nameRequired": "A holiday needs a name.",
         "nameTooLong": "A holiday name is at most {max} characters."
+      },
+      "plan": {
+        "unknownUser": "That user does not exist.",
+        "alreadyPublished": "This plan is already published. Generate a new one instead.",
+        "windowBackwards": "A window ends on or after it starts.",
+        "windowTooLong": "Plan at most {max} days at a time."
+      }
+    },
+    "outlet": {
+      "list": {
+        "tooManyIds": "Ask for at most {max} outlets at a time.",
+        "idMalformed": "That is not an outlet id."
       }
     }
   },
@@ -1086,6 +1098,57 @@
   },
   "Journeys": {
     "callFrequency": "Call frequency",
-    "workingCalendar": "Working calendar"
+    "workingCalendar": "Working calendar",
+    "plan": "Journey plan"
+  },
+  "Plans": {
+    "crumb": "Field ops / Journey planning",
+    "title": "Journey plan",
+    "intro": "A rep’s round, generated from frequency, territory and working calendar. A plan is an experiment until it is published — and what it could not do is as important as what it did.",
+    "generateTitle": "Generate a plan",
+    "generateIntro": "Pick a rep and a window. Generating writes a draft you can review; nothing reaches the rep until it is published.",
+    "plansTitle": "Plans",
+    "rep": "Rep",
+    "chooseRep": "Choose a rep…",
+    "from": "From",
+    "to": "To",
+    "generate": "Generate",
+    "generating": "Generating…",
+    "generateFailed": "That plan could not be generated.",
+    "publish": "Publish",
+    "publishing": "Publishing…",
+    "publishFailed": "That plan could not be published.",
+    "publishedNote": "Published. This is the round the rep is working; regenerate to make a new one.",
+    "planFor": "Plan for {name}",
+    "window": "{from} – {to}",
+    "visitCount": "{count, plural, one {# call} other {# calls}}",
+    "shortfallCount": "{count, plural, one {# short} other {# short}}",
+    "noPlans": "No plans yet.",
+    "noVisits": "No calls. Nothing in this window had a frequency, or the rep works no days in it.",
+    "shortfallsTitle": "Called on less often than due",
+    "shortfallsIntro": "There was not enough room in the window. Widen the calendar, raise the daily capacity, or accept it.",
+    "shortfall": "{planned} of {required} calls",
+    "excludedTitle": "Not planned at all",
+    "excludedIntro": "From this run only, because it is a fact about the inputs rather than about the plan: fix it and it stops being true.",
+    "unknownRep": "Unknown rep",
+    "unknownOutlet": "Unknown shop",
+    "notVisited": "Not visited",
+    "unplanned": "Added by the rep",
+    "movedFrom": "Moved from {date}",
+    "loading": "Loading…",
+    "failed": "This could not be loaded.",
+    "forbidden": "You do not have permission to view journey plans.",
+    "status": {
+      "Draft": "Draft",
+      "Published": "Published"
+    },
+    "exclusion": {
+      "Closed": "Closed or inactive",
+      "NoFrequency": "No call frequency"
+    },
+    "windowProblem": {
+      "backwards": "A window ends on or after it starts.",
+      "tooLong": "Plan at most 400 days at a time."
+    }
   }
 }

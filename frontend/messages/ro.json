@@ -955,6 +955,18 @@
         "duplicate": "{date} este deja zi liberă.",
         "nameRequired": "O zi liberă are nevoie de o denumire.",
         "nameTooLong": "Denumirea unei zile libere are cel mult {max} caractere."
+      },
+      "plan": {
+        "unknownUser": "Acest utilizator nu există.",
+        "alreadyPublished": "Acest plan este deja publicat. Generați unul nou.",
+        "windowBackwards": "O perioadă se încheie la data de început sau după.",
+        "windowTooLong": "Planificați cel mult {max} zile odată."
+      }
+    },
+    "outlet": {
+      "list": {
+        "tooManyIds": "Cereți cel mult {max} magazine odată.",
+        "idMalformed": "Acesta nu este un identificator de magazin."
       }
     }
   },
@@ -1086,6 +1098,57 @@
   },
   "Journeys": {
     "callFrequency": "Frecvență de vizitare",
-    "workingCalendar": "Calendar de lucru"
+    "workingCalendar": "Calendar de lucru",
+    "plan": "Plan de rută"
+  },
+  "Plans": {
+    "crumb": "Operațiuni de teren / Planificare rute",
+    "title": "Plan de rută",
+    "intro": "Runda unui agent, generată din frecvență, teritoriu și calendarul de lucru. Un plan este un experiment până când este publicat — iar ceea ce nu a putut face contează la fel de mult ca ceea ce a făcut.",
+    "generateTitle": "Generează un plan",
+    "generateIntro": "Alegeți un agent și o perioadă. Generarea scrie o ciornă pe care o puteți revizui; nimic nu ajunge la agent până la publicare.",
+    "plansTitle": "Planuri",
+    "rep": "Agent",
+    "chooseRep": "Alegeți un agent…",
+    "from": "De la",
+    "to": "Până la",
+    "generate": "Generează",
+    "generating": "Se generează…",
+    "generateFailed": "Planul nu a putut fi generat.",
+    "publish": "Publică",
+    "publishing": "Se publică…",
+    "publishFailed": "Planul nu a putut fi publicat.",
+    "publishedNote": "Publicat. Aceasta este runda pe care o lucrează agentul; generați din nou pentru una nouă.",
+    "planFor": "Plan pentru {name}",
+    "window": "{from} – {to}",
+    "visitCount": "{count, plural, one {# vizită} few {# vizite} other {# de vizite}}",
+    "shortfallCount": "{count, plural, one {# în deficit} few {# în deficit} other {# în deficit}}",
+    "noPlans": "Niciun plan încă.",
+    "noVisits": "Nicio vizită. Nimic din această perioadă nu are frecvență sau agentul nu lucrează în nicio zi din ea.",
+    "shortfallsTitle": "Vizitate mai rar decât se cuvine",
+    "shortfallsIntro": "Nu a fost destul loc în perioadă. Extindeți calendarul, creșteți capacitatea zilnică sau acceptați situația.",
+    "shortfall": "{planned} din {required} vizite",
+    "excludedTitle": "Neplanificate deloc",
+    "excludedIntro": "Doar din această generare, pentru că este un fapt despre date, nu despre plan: corectați-l și nu mai este adevărat.",
+    "unknownRep": "Agent necunoscut",
+    "unknownOutlet": "Magazin necunoscut",
+    "notVisited": "Nevizitat",
+    "unplanned": "Adăugat de agent",
+    "movedFrom": "Mutat din {date}",
+    "loading": "Se încarcă…",
+    "failed": "Nu s-a putut încărca.",
+    "forbidden": "Nu aveți permisiunea de a vedea planurile de rută.",
+    "status": {
+      "Draft": "Ciornă",
+      "Published": "Publicat"
+    },
+    "exclusion": {
+      "Closed": "Închis sau inactiv",
+      "NoFrequency": "Fără frecvență de vizitare"
+    },
+    "windowProblem": {
+      "backwards": "O perioadă se încheie la data de început sau după.",
+      "tooLong": "Planificați cel mult 400 de zile odată."
+    }
   }
 }

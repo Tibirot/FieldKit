@@ -3450,3 +3450,25 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
 }
 
 ###
+
+### Name a set of shops in one request, rather than one GET per id (W7 slice 10c). The journey plan
+### screen asks this: a plan is hundreds of visits over a few dozen shops.
+GET {{Server_HostAddress}}/api/outlets?ids={{outlet.response.body.id}},{{customOutlet.response.body.id}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### An id this tenant does not have is simply absent — not a 404, and nothing about shops the caller
+### may not see. Expect one item back, not two.
+GET {{Server_HostAddress}}/api/outlets?ids={{outlet.response.body.id}},019fffff-ffff-7fff-bfff-fffffffffffe
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Asking about **no** shops answers about no shops. `ids=` is not the same as omitting `ids`,
+### which is why the client sends it: an empty list means "none of them".
+GET {{Server_HostAddress}}/api/outlets?ids=
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Not an id at all — expect 400 `outlet.list.idMalformed`. Skipping it would answer with a shorter
+### list than was asked for, and the caller's only clue would be a shop that quietly has no name.
+GET {{Server_HostAddress}}/api/outlets?ids={{outlet.response.body.id}},not-a-guid
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+###

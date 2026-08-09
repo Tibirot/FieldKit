@@ -132,6 +132,7 @@ internal static class OutletEndpoints
         // jump, and Sync keeps its own cursor feed for the job that genuinely needs one.
         outlets.MapGet("/", async (
                 string? search,
+                string? ids,
                 Guid? channelId,
                 OutletStatus? status,
                 OutletSort? sort,
@@ -142,11 +143,29 @@ internal static class OutletEndpoints
                 ITerritoryDirectory territories,
                 CancellationToken ct) =>
         {
+            /*
+             * `ids` answers "name these shops", which is a different question from "browse the base"
+             * and the reason it is here rather than left to one GET per id.
+             *
+             * A journey plan is a list of outlet ids and hundreds of visits; naming them one request
+             * at a time is the shape `OutletPicker` documents as affordable *for a handful* and warns
+             * is the signal the API needs a bulk read. This is that signal arriving.
+             *
+             * **A comma-separated string, not a `Guid[]`.** The array binder cannot tell an absent
+             * parameter from an empty one — both arrive as an empty array — and that distinction is
+             * the whole point here: absent means "no filter", empty means "none of them". Bound as
+             * an array, `?ids=` would have quietly listed the entire outlet base, which is exactly
+             * the answer a caller with nothing to ask about must not be given. (Found by every other
+             * test in this file going to zero rows the moment the parameter was added.)
+             */
+            if (IdsProblem(ids, out var named) is { } idsProblem) return idsProblem;
+
             var (number, size, skip) = Paging.Resolve(page, pageSize);
 
             var filtered = Sorted(
                 db,
                 Matching(db.Outlets, search)
+                    .Where(outlet => named == null || named.Contains(outlet.Id))
                     .Where(outlet => channelId == null || outlet.ChannelId == channelId)
                     .Where(outlet => status == null || outlet.Status == status),
                 sort ?? OutletSort.Code,
@@ -158,8 +177,8 @@ internal static class OutletEndpoints
 
             var rows = await Project(db, filtered.Skip(skip).Take(size)).ToListAsync(ct);
 
-            return new PagedList<OutletResponse>(
-                await WithTerritories(rows, territories, ct), total, number, size);
+            return Results.Ok(new PagedList<OutletResponse>(
+                await WithTerritories(rows, territories, ct), total, number, size));
         }).RequirePermission(OutletsPermissions.OutletRead);
 
         outlets.MapGet("/{id:guid}", async (
@@ -444,6 +463,56 @@ internal static class OutletEndpoints
     /// would be worse than refusing it.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Reads the <c>ids</c> filter, or says what is wrong with it.
+    /// </summary>
+    /// <param name="parsed">
+    /// Null when the caller did not ask by id at all — which is "no filter". An empty array is a
+    /// caller asking about no shops, and gets no shops.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// Capped at one page's worth, so a caller cannot turn this into an unbounded <c>IN</c> clause,
+    /// and <b>refused rather than clamped</b>: a silently truncated set of names renders a journey
+    /// plan with some shops missing, which is worse than an error saying to ask in two goes.
+    /// </para>
+    /// <para>
+    /// A malformed id is refused for the same reason. Skipping it would produce a shorter list than
+    /// asked for, and the caller's only clue would be a shop that quietly has no name.
+    /// </para>
+    /// </remarks>
+    private static IResult? IdsProblem(string? ids, out Guid[]? parsed)
+    {
+        parsed = null;
+
+        if (ids is null) return null;
+
+        var parts = ids.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (parts.Length > Paging.MaxSize)
+        {
+            return Problems.BadRequest(
+                "ids",
+                $"Ask for at most {Paging.MaxSize} outlets at a time.",
+                "outlet.list.tooManyIds",
+                new Dictionary<string, string> { ["max"] = Paging.MaxSize.ToString() });
+        }
+
+        var wanted = new Guid[parts.Length];
+
+        for (var index = 0; index < parts.Length; index++)
+        {
+            if (!Guid.TryParse(parts[index], out wanted[index]))
+            {
+                return Problems.BadRequest(
+                    "ids", "That is not an outlet id.", "outlet.list.idMalformed");
+            }
+        }
+
+        parsed = wanted;
+        return null;
+    }
+
     private static IResult? TextProblem(
         string? code, string name, string? segment, string? banner, string timeZoneId, Address? address)
     {

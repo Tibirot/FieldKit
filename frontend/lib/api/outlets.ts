@@ -52,6 +52,15 @@ export type PagedList<T> = {
  */
 export type OutletQuery = {
   search?: string;
+  /**
+   * Name exactly these shops, rather than browsing the base.
+   *
+   * The question a journey plan asks: it holds outlet ids and hundreds of visits, and one GET per id
+   * is the shape `OutletPicker` documents as affordable *for a handful*. An **empty array asks about
+   * no shops and gets none** — which is why it is sent as `ids=` rather than omitted, and why this
+   * one parameter cannot go through the generic loop below.
+   */
+  ids?: readonly string[];
   channelId?: string;
   status?: OutletStatus;
   sort?: OutletSort;
@@ -73,8 +82,15 @@ export function fetchOutlets(
   // Only what was asked for. Sending `search=` for an empty box would make the server escape and
   // match an empty pattern rather than skip the filter — the same query, needlessly narrower to plan.
   for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined && value !== "") params.set(key, String(value));
+    if (key === "ids" || value === undefined || value === "") continue;
+
+    params.set(key, String(value));
   }
+
+  // `ids` is set even when empty, which is the opposite of every other parameter here and the whole
+  // reason it is outside that loop: an empty list means "none of them", and skipping it would ask
+  // for the entire outlet base instead.
+  if (query.ids !== undefined) params.set("ids", query.ids.join(","));
 
   const suffix = params.size > 0 ? `?${params}` : "";
 
