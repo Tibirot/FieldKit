@@ -222,6 +222,14 @@ exactly at percentage/tiered discounts, tax, and rounding. Therefore:
   > every optional field — `tiers`, `bundle`, `amountOff` — may simply be **absent** in JSON where C#
   > spells out a null, so the resolved shape normalises `undefined` back to `null` for comparison
   > against the vectors.
+  >
+  > **Tax completed the mirror in W7 slice 14**, and it is the one that does arithmetic rather than
+  > selection — so it is where `Money` is finally used in anger. A difference the languages force
+  > into the open: a .NET `decimal` carries its scale, so C# can assert `ToString()` and catch an
+  > unrounded value, while a JS decimal does not and `toFixed` rounds on the way out. The TypeScript
+  > suite therefore asserts separately that each amount's **value** is at the currency's scale, not
+  > only that it prints that way. Found by mutation — deleting the tax's rounding broke nothing until
+  > that assertion existed.
 - **BR-PRD-9** A **single documented rounding policy** applies on both sides: round **half-up** to
   the currency's minor units, **per line**, tax computed on the rounded net line. (Per-tenant/
   jurisdiction override is a *Could*.)
