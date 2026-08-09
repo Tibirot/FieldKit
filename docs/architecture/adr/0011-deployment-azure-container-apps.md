@@ -129,10 +129,13 @@ the ACR correction below).
 - **Redis: not deployed — and now not built either.** It backed output caching only, and the first
   deploy slice found that *nothing had ever opted in*: no endpoint called `.CacheOutput()`. The
   cache, the client registration and the AppHost resource are removed rather than made optional, so
-  the deployed shape and the dev shape agree instead of differing by a container. Redis returns in
-  W8 with the sync idempotency ledger, which is a consumer rather than a placeholder — and that
-  ledger gets its own costing then (a Redis container app ≈ $11/month against a Postgres-backed
-  ledger at no extra cost, on a database that is already there).
+  the deployed shape and the dev shape agree instead of differing by a container.
+
+  This said Redis would return in W8 with the sync idempotency ledger. **It does not.** That costing
+  was done at the start of W8 and went the other way: a Redis container app is ≈ $11/month against a
+  Postgres-backed ledger at no extra cost on a database already deployed — it would be the
+  second-largest line on this invoice, bought for latency nothing here can measure ([ADR-0007
+  amendment](0007-offline-sync-strategy.md#amendment-2026-08-the-ledger-is-postgres-and-there-is-no-redis)).
 - ~~**Images: GHCR, not ACR.**~~ **Overturned by the tooling (deploy slice D5).** Generating the
   infrastructure showed that `AddAzureContainerAppEnvironment` provisions an **ACR Basic** as part
   of the environment — `fieldkit-env-acr.module.bicep`, `sku: Basic` — and offers no way to point

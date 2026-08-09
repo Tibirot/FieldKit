@@ -1,8 +1,14 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-// No Redis. It was here from W1 backing an output cache nothing ever used, and it left dev running
-// a container the deploy would not have (ADR-0011 prices it as the largest avoidable line). It comes
-// back in W8 with the sync idempotency ledger — a real consumer, and a different registration.
+// No Redis, and it is not coming back. It was here from W1 backing an output cache nothing ever
+// used, and it left dev running a container the deploy would not have (ADR-0011 prices it as the
+// largest avoidable line).
+//
+// This comment used to promise it would return in W8 with the sync idempotency ledger. W8 decided
+// otherwise: the ledger is a Postgres table, because a dedupe check is one indexed read on a
+// database this deployment already runs, and a Redis container app would be ~$11/month against a
+// total bill of ~$16–21 — the second-largest line on the invoice, bought for latency nothing here
+// can measure. See the ADR-0007 amendment (2026-08).
 
 // The Azure Container Apps environment everything below is published into (ADR-0011).
 //
