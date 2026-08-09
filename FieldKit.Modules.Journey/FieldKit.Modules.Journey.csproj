@@ -22,13 +22,15 @@
       Organization knows what that is.
     -->
     <ProjectReference Include="..\FieldKit.Modules.Org.Contracts\FieldKit.Modules.Org.Contracts.csproj" />
-  </ItemGroup>
 
-  <!--
-    No `.Contracts` assembly yet, deliberately, and the same call Organization and Products made
-    before it: `IJourneyQuery` is specified and has no consumer until Visit exists, so designing it
-    now would be a guess Visit then has to live with. It arrives with the published plan (JRN-04).
-  -->
+    <!--
+      Its own contracts, which arrived in W7 slice 9b — three slices later than the delivery plan
+      predicted, and each of those slices is why: publishing a plan, checking in and checking out all
+      turned out to need nothing from Journey. The first question anybody actually asked it is "is
+      this planned call this rep's, at this shop?", and that is what IJourneyQuery answers.
+    -->
+    <ProjectReference Include="..\FieldKit.Modules.Journey.Contracts\FieldKit.Modules.Journey.Contracts.csproj" />
+  </ItemGroup>
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>

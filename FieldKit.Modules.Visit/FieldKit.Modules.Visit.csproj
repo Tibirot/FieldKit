@@ -14,6 +14,12 @@
     -->
     <ProjectReference Include="..\FieldKit.Modules.Outlets.Contracts\FieldKit.Modules.Outlets.Contracts.csproj" />
     <ProjectReference Include="..\FieldKit.Modules.Configuration.Contracts\FieldKit.Modules.Configuration.Contracts.csproj" />
+
+    <!--
+      And Journey, to check that a visit claiming to fulfil a planned call is claiming one that
+      exists, belongs to this rep and is at this shop — the id was taken on trust until W7 slice 9b.
+    -->
+    <ProjectReference Include="..\FieldKit.Modules.Journey.Contracts\FieldKit.Modules.Journey.Contracts.csproj" />
   </ItemGroup>
 
   <!--

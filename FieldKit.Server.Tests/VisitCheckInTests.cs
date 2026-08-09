@@ -369,8 +369,8 @@ public class VisitCheckInTests(ServerFixture fixture)
     [Fact]
     public async Task A_visit_can_fulfil_a_planned_call_or_no_call_at_all()
     {
-        // JRN-06's unplanned call. The planned id is carried when there is one and left alone when
-        // there is not — no plan is ever invented to hang a visit off.
+        // JRN-06's unplanned call: no plan is ever invented to hang a visit off, and a shop the rep
+        // walked past is an ordinary visit.
         using var client = Admin();
 
         var outletId = await OutletAsync(client, Shop);
@@ -380,16 +380,19 @@ public class VisitCheckInTests(ServerFixture fixture)
 
         Assert.Null((await response.Content.ReadFromJsonAsync<VisitDetailResponse>())!.Visit.PlannedVisitId);
 
-        var plannedVisitId = Guid.NewGuid();
-
-        var planned = await client.PostAsJsonAsync(
+        // A planned call it cannot claim is refused rather than stored. This assertion used to run
+        // the other way — until W7 slice 9b the id was taken on trust, and a fabricated one would
+        // have surfaced first in a coverage report as a call that was made. What a *claimable* call
+        // looks like is PlannedCallTests, which needs a published plan to make one.
+        var refused = await client.PostAsJsonAsync(
             CheckIn,
             new CheckInRequest(
-                outletId, Shop.Latitude, Shop.Longitude, PlannedVisitId: plannedVisitId));
+                outletId, Shop.Latitude, Shop.Longitude, PlannedVisitId: Guid.NewGuid()));
 
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
         Assert.Equal(
-            plannedVisitId,
-            (await planned.Content.ReadFromJsonAsync<VisitDetailResponse>())!.Visit.PlannedVisitId);
+            "visit.checkIn.unknownPlannedCall",
+            Assert.Single(await Refusals.ProblemsOf(refused)).Code);
     }
 
     [Fact]
