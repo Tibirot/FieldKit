@@ -8,6 +8,13 @@ These files are the contract between the two implementations. The C# engine runs
 `FieldKit.Server.Tests`; the TypeScript device mirror runs the **same files** in W7. Neither owns
 them, which is why they live here rather than inside either project.
 
+> **The mirror starts with money, not with a resolver** (W7 slice 11). Every rule in these files is
+> arithmetic on amounts, so a resolver written on top of a float would fail them for reasons that
+> have nothing to do with the rule it was testing. `frontend/lib/pricing/money.ts` is the
+> `decimal.js` counterpart of `SharedKernel/Money.cs` — same minor-units table, same half-up policy —
+> and its tests are deliberately the same cases as `MoneyTests.cs`, so the two files can be compared
+> by eye. The resolvers that consume the vector files land in slices 12–14.
+
 ## Why a file rather than a shared test suite
 
 The two engines cannot share code — one is .NET on a server, the other is TypeScript on a phone

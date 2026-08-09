@@ -201,6 +201,13 @@ exactly at percentage/tiered discounts, tax, and rounding. Therefore:
 
 - **BR-PRD-8** The TS device engine **must** use an arbitrary-precision decimal library
   (`decimal.js`/`big.js`) — never native `number` — for all money math.
+  > Built in W7 slice 11 as `frontend/lib/pricing/money.ts`, on `decimal.js`. Two details are
+  > load-bearing and neither is obvious: the library is used through a **cloned constructor**, so
+  > that its precision and rounding cannot be changed by anything else in the bundle and this module
+  > cannot change anyone else's; and `Money.of` takes an amount as a **string**, so
+  > `Money.of(0.1 + 0.2, …)` is a compile error rather than a wrong answer. The precision is raised
+  > to 34 significant digits because .NET's `decimal` carries 28–29 and the parity vectors are the
+  > contract between them.
 - **BR-PRD-9** A **single documented rounding policy** applies on both sides: round **half-up** to
   the currency's minor units, **per line**, tax computed on the rounded net line. (Per-tenant/
   jurisdiction override is a *Could*.)
