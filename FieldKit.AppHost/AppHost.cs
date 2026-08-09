@@ -8,7 +8,23 @@ var builder = DistributedApplication.CreateBuilder(args);
 //
 // Declared rather than left to `azd` to invent, because the environment is where the cost decisions
 // live — Log Analytics, and the scale rules set per app further down.
-builder.AddAzureContainerAppEnvironment("fieldkit-env");
+//
+// **Without the Aspire dashboard**, which this deploys by default as an `AspireDashboard`
+// `dotNetComponent` on the environment. It is the only thing that failed on the first deploy that
+// got as far as Azure:
+//
+//     Step 'provision-fieldkit-env' failed.
+//     Failed to provision component 'aspire-dashboard'. Error details: Internal Server Error.
+//
+// Retried once by the pipeline, failed the same way, and took four minutes each time — a 500 from
+// the `2025-10-02-preview` API rather than anything this repository controls.
+//
+// Turned off rather than worked around, because the demo does not want it either way: the dashboard
+// is a second public endpoint serving this system's traces and logs, and ADR-0011 already sends
+// telemetry out over OTLP. Development is untouched — `dotnet run` still brings up the dashboard,
+// which is where it is actually used.
+builder.AddAzureContainerAppEnvironment("fieldkit-env")
+    .WithDashboard(false);
 
 /*
  * The database credentials, named here rather than left to the integration to invent.
