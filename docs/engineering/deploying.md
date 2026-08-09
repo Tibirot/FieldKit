@@ -18,7 +18,7 @@ what has to be true first, what the command does, and what to check afterwards.
 | **Aspire CLI** | **13.4.x**, matching `Aspire.AppHost.Sdk` | `aspire --version` |
 
 **The Aspire CLI version is a real trap, not a formality.** The AppHost pins
-`Aspire.AppHost.Sdk/13.4.6`, and the machine this was prepared on had CLI **9.5.2** — four majors
+`Aspire.AppHost.Sdk/13.4.6`, and this machine reported CLI **9.5.2** during D5 prep — four majors
 behind. The csproj already carries a comment about the matching failure mode in the other direction
 (an older SDK under a newer CLI fails at launch, *after* a clean build). Update before starting:
 
@@ -72,11 +72,24 @@ is exactly the ambiguous case, so it is avoided.
 > `docker volume rm` whenever its contents stop being interesting. Nothing is lost automatically.
 
 Supply them explicitly rather than letting the deploy generate them, or you will not have the
-Keycloak admin password when you need it:
+Keycloak admin password when you need it. **They live in the AppHost's user-secrets** — the same
+place development reads them from, and the same place `aspire deploy` resolves `Parameters:<name>`
+from on the machine that runs it:
 
 ```bash
-aspire config set Parameters:keycloak-password "<a password you have stored>"
+dotnet user-secrets set "Parameters:keycloak-password" "<a password you have stored>" --project FieldKit.AppHost
 ```
+
+> **Not `aspire config set`.** This page said that until the first person tried it: `aspire config`
+> manages **CLI settings and feature flags**, and has nothing to do with AppHost parameters. Writing
+> a password there would leave it out of the deployment entirely — and the deploy would silently
+> generate one instead, which is the exact outcome this section exists to prevent.
+
+**`keycloak-password` is a *bootstrap* password**, and this is why it has to be set before the first
+deploy rather than after. `KC_BOOTSTRAP_ADMIN_PASSWORD` is only read against an **empty** Keycloak
+database; once the admin account exists, the parameter is inert and a change has to be made in the
+Keycloak admin console. Development is the exception and only by accident — Keycloak keeps no state
+there, so it re-bootstraps on every start.
 
 Never commit either. In development they live in user-secrets
 ([security §6](../architecture/16-security.md#6-application-security-baseline)).
