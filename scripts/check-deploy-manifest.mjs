@@ -111,6 +111,31 @@ if (keycloak) {
     typeof keycloak.env?.FIELDKIT_WEB_ORIGIN === "string",
     "keycloak has no FIELDKIT_WEB_ORIGIN — realm redirect URIs would fall back to localhost:3000",
   );
+
+  /*
+   * Reachable from a browser, and *only* on the port that serves the login page.
+   *
+   * This is the check that was missing when the first deploy succeeded: 37/37 steps green, three
+   * container apps running, and `keycloak: No public endpoints`. Authorization code + PKCE
+   * (ADR-0008) redirects the browser to Keycloak, so an identity provider on the internal network
+   * authenticates nobody — the front end rendered perfectly and answered sign-in with "Couldn't
+   * reach the identity provider."
+   *
+   * The manifest said so from D4 onwards. Nothing read it, which is the whole argument for this
+   * file existing.
+   *
+   * The second assertion is not symmetry for its own sake: `management` (9000) serves health and
+   * metrics, and the obvious fix — `WithExternalHttpEndpoints()` — marks every http endpoint
+   * external, which a container app rejects outright rather than quietly publishing.
+   */
+  check(
+    keycloak.bindings?.http?.external === true,
+    "keycloak's http binding is not external — the browser could not reach the login page",
+  );
+  check(
+    keycloak.bindings?.management?.external !== true,
+    "keycloak's management binding is external — health and metrics would be on the public internet",
+  );
 }
 
 const server = manifest.resources?.server;

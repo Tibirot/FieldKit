@@ -95,7 +95,21 @@ var database = postgres.AddDatabase("fieldkitdb");
 // A tenant *is* a realm (realm-per-tenant), so the dev tenant is imported from source rather than
 // clicked together by hand: see realms/README.md. Admin credentials are Aspire parameters in
 // user-secrets, never in source.
-var keycloak = builder.AddKeycloak("keycloak");
+// **Publicly reachable, and it has to be.** Authorization code + PKCE (ADR-0008) redirects the
+// *browser* to Keycloak; an identity provider only the other containers can see cannot authenticate
+// anybody. The first successful deploy proved this the expensive way — 37/37 steps green, three
+// container apps running, and `keycloak: No public endpoints` in the summary. The front end came up,
+// rendered, and answered a sign-in attempt with "Couldn't reach the identity provider."
+//
+// It was visible before that: every published manifest since D4 showed Keycloak's `http` binding
+// without `"external": true`, next to a `server` and a `webfrontend` that had it. Nothing read them.
+// `WithExternalHttpEndpoints()` is what `server` and `webfrontend` use and it fails here:
+// `AddKeycloak` declares two http endpoints, `http` (8080) and `management` (9000), and that helper
+// marks **both** external — which a container app refuses outright, "Multiple external endpoints are
+// not supported". Naming the one endpoint is therefore not a workaround but the correct thing: 9000
+// serves health and metrics and has no business being on the public internet.
+var keycloak = builder.AddKeycloak("keycloak")
+    .WithEndpoint("http", endpoint => endpoint.IsExternal = true);
 
 if (builder.ExecutionContext.IsRunMode)
 {
