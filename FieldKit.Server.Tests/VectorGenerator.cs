@@ -91,30 +91,63 @@ internal static class VectorGenerator
         0m, 1m, 4.5m, 5m, 5.5m, 7m, 8.25m, 9m, 13.5m, 17.5m, 19m, 21m, 27m, 100m,
     ];
 
+    /// <summary>
+    /// The currencies this sweep runs, and the nets worth running in each.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Added in W7 slice 15, because the file had been EUR-only and the currency was therefore the
+    /// one input the whole sweep never varied.</b> Rounding to the minor unit is the rule this file
+    /// exists to pin, and every case in it asked a two-decimal currency — so an implementation that
+    /// hard-coded 2 passed all 252 of them. The TypeScript mirror's own tests covered JPY and KWD by
+    /// hand; the shared oracle did not, which is the wrong way round.
+    /// </para>
+    /// <para>
+    /// EUR keeps the full sweep, unchanged, so the existing expectations stay put and the diff is
+    /// additive. The rest carry nets chosen for what their scale does: <b>RON</b> is a second
+    /// two-decimal currency and only has to prove nothing special-cases "EUR"; <b>JPY</b> has no
+    /// minor unit at all, so its interesting nets are the ones with fractions to lose; <b>KWD</b> has
+    /// three, so its are the ones with a fourth digit to round.
+    /// </para>
+    /// </remarks>
+    private static readonly (string Currency, decimal[] Nets)[] TaxCurrencies =
+    [
+        ("EUR", Nets),
+        ("RON", [0.125m, 12.99m, 99999.99m]),
+        ("JPY", [1m, 5m, 7.5m, 100m, 1234.5m, 99999m]),
+        ("KWD", [0.0005m, 1.2345m, 12.3455m, 1234.5675m, 99999.999m]),
+    ];
+
     private static string TaxApplication()
     {
         var body = new StringBuilder();
 
-        foreach (var net in Nets)
+        foreach (var (currency, nets) in TaxCurrencies)
         {
-            foreach (var rate in Rates)
+            foreach (var net in nets)
             {
-                var applied = TaxEngine.Apply(new Money(net, "EUR"), rate);
+                foreach (var rate in Rates)
+                {
+                    var applied = TaxEngine.Apply(new Money(net, currency), rate);
+                    var scale = applied.Net.MinorUnits;
 
-                body.Append(body.Length == 0 ? "\n    " : ",\n    ");
-                body.Append(
-                    $$"""
-                      { "net": "{{Text(net)}}", "currency": "EUR", "percentage": "{{Text(rate)}}", "expected": { "net": "{{Text(applied.Net.Amount)}}", "tax": "{{Text(applied.Tax.Amount)}}", "gross": "{{Text(applied.Gross.Amount)}}" } }
-                      """);
+                    body.Append(body.Length == 0 ? "\n    " : ",\n    ");
+                    body.Append(
+                        $$"""
+                          { "net": "{{Text(net)}}", "currency": "{{currency}}", "percentage": "{{Text(rate)}}", "expected": { "net": "{{TextAt(applied.Net.Amount, scale)}}", "tax": "{{TextAt(applied.Tax.Amount, scale)}}", "gross": "{{TextAt(applied.Gross.Amount, scale)}}" } }
+                          """);
+                }
             }
         }
 
         return Wrap(
             "PRD-07 / BR-PRD-9",
-            "Every net crossed with every rate. The expectations come from the C# engine, so this "
-            + "file is an oracle for the TypeScript mirror rather than a test of C# — see "
-            + "vectors/README.md. Nets sit on the boundaries rounding breaks at; rates include both "
-            + "ends and the fractional ones real jurisdictions use.",
+            "Every net crossed with every rate, in four currencies. The expectations come from the "
+            + "C# engine, so this file is an oracle for the TypeScript mirror rather than a test of "
+            + "C# — see vectors/README.md. Nets sit on the boundaries rounding breaks at; rates "
+            + "include both ends and the fractional ones real jurisdictions use; the currencies "
+            + "cover no minor unit (JPY), two (EUR, RON) and three (KWD), because rounding to the "
+            + "currency's scale is the rule this file exists to pin.",
             "application",
             body.ToString());
     }
@@ -307,8 +340,29 @@ internal static class VectorGenerator
     private static Guid Id(int index, int slot) =>
         new($"{(uint)(index * 2654435761 + slot):x8}-0000-7000-8000-{index:x8}{slot:x4}");
 
+    /// <summary>
+    /// An *input* amount, at the scale it was written with (and at least two places).
+    /// </summary>
+    /// <remarks>
+    /// Inputs are deliberately sub-cent in places — <c>0.125</c>, <c>1.005</c> — because that is
+    /// where rounding breaks. Printing them at the currency's scale would round the input away and
+    /// leave a file full of cases that no longer test anything.
+    /// </remarks>
     private static string Text(decimal value) =>
         value.ToString("0.00##", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// An *expected* amount, at exactly the currency's scale.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="Text"/> because the two say different things. An expectation is what
+    /// the engine returned, and the engine returns money at the currency's minor units — a yen with
+    /// no decimals, a dinar with three. Formatting it with a two-decimal minimum would write
+    /// <c>"1.00"</c> for a yen: a scale no invoice can express, and one the TypeScript mirror
+    /// (whose <c>toWire</c> asks the currency) would correctly disagree with.
+    /// </remarks>
+    private static string TextAt(decimal value, int decimals) =>
+        value.ToString("F" + decimals.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
 
     private static string Quoted(decimal? value) => value is { } d ? $"\"{Text(d)}\"" : "null";
 

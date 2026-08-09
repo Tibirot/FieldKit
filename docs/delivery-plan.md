@@ -594,11 +594,27 @@ whether a visit is finished and, once it is, that it can never change again (`BR
 > The wireframe draws only the plan grid, which is the right thing to draw and also why the estimate
 > came up short: the two screens with no picture are where most of the decisions are.
 
+> **W7 landed, and the parity harness is real** (slice 15). `parity (C# ↔ TypeScript vectors)` runs
+> both engines against `vectors/` and fails on either — plus the one assertion neither suite can make
+> about itself: that both languages read the same set of files. Two engines agreeing once is an
+> anecdote; a job that goes red when they stop is the guarantee this week was for.
+>
+> It also closed a gap the mirror found: the generated tax file had been **EUR-only**, so every one of
+> its 252 cases asked a two-decimal currency and an implementation hard-coding 2 passed all of them.
+> It now sweeps four currencies — no minor unit (JPY), two (EUR, RON) and three (KWD) — at 448 cases,
+> and the expectations are printed at each currency's own scale rather than at a two-decimal minimum
+> that would have written `"1.00"` for a yen.
+
 **The parity harness is the week's actual deliverable.** `PRD-08` is why the vectors were written
 against a real engine in W6 rather than emitted from one — the format had to state rules a second
-language could implement. Slices 12–16 are that claim being tested for the first time, and slice 16 is
+language could implement. Slices 11–15 are that claim being tested for the first time, and slice 15 is
 the only one that makes the guarantee permanent: two implementations agreeing once is an anecdote, and
 a CI job that fails when they stop agreeing is the guarantee.
+
+> The numbers in the sentence above said "12–16" until the week was built, which is what an estimate
+> written before the work looks like afterwards. There is no slice 16; the mirror needed a money type
+> first (slice 11), and that turned out to be the right order rather than an extra step — every rule
+> in the vector files is arithmetic on amounts.
 
 **Two of the week's requirements have no row of their own, on purpose.** `VIS-07` (not-visited
 handling) is `JRN-06` seen from the other side — the reason is captured against the *planned* visit,

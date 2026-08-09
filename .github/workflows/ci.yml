@@ -169,6 +169,95 @@ jobs:
       # Playwright e2e lands in Phase 4 (docs/architecture/17-testing-strategy.md §6).
       # When it does, add: `npx playwright install --with-deps` then `npm run e2e --if-present`.
 
+  # ─────────────────────────────────────────────────────────────
+  # Cross-language parity: both engines, the same vectors, one verdict (PRD-08).
+  #
+  # The two jobs above already run these tests — this one exists anyway, and the duplication is the
+  # point. "dotnet (build + test) failed" and "frontend (lint + build) failed" are two ordinary
+  # failures; a rule that used to hold in both languages and now holds in one is a different kind of
+  # problem, and it deserves a check whose name says so and which can be required on its own.
+  #
+  # It also runs the one assertion neither suite can make about itself: that both languages read the
+  # same set of files. See scripts/check-vector-readers.mjs.
+  #
+  # No Docker, no Postgres, no Keycloak: every rule here is pure (BR-PRD-7), which is what makes it
+  # runnable on a phone with no signal and cheap to check on every push.
+  # ─────────────────────────────────────────────────────────────
+  parity:
+    name: parity (C# ↔ TypeScript vectors)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Every vector file has a reader in both languages
+        run: node scripts/check-vector-readers.mjs
+
+      - name: Restore
+        run: dotnet restore FieldKit.slnx
+
+      - name: Vectors — C#
+        # Only the *hand-written* files run here, and the asymmetry is deliberate: the generated
+        # files' expectations came from this engine, so running them back against it would confirm a
+        # bug rather than find one (VectorGenerator explains it at length). They are an oracle for
+        # the mirror — which is why the TypeScript step below runs an order of magnitude more cases.
+        #
+        # `dotnet test --filter` exits 0 when nothing matches, so a renamed class would turn this
+        # step green having run nothing. The floor is what makes it a check: under today's count
+        # (~79) so ordinary additions do not touch it, and far above zero.
+        env:
+          NO_COLOR: "1"
+        run: |
+          set -euo pipefail
+          dotnet test FieldKit.Server.Tests -c Release \
+            --filter "FullyQualifiedName~VectorTests|FullyQualifiedName~VectorPropertyTests" \
+            --logger "console;verbosity=normal" 2>&1 \
+            | sed -r 's/\x1B\[[0-9;]*[mGKH]//g' | tee parity-dotnet.log
+          passed=$(grep -oE 'Passed: +[0-9]+' parity-dotnet.log | grep -oE '[0-9]+' | tail -1)
+          echo "C# vector cases: ${passed:-0}"
+          if [ "${passed:-0}" -lt 50 ]; then
+            echo "::error title=Parity suite shrank::Only ${passed:-0} C# vector cases ran (expected >=50). A filter or a test class was probably renamed."
+            exit 1
+          fi
+
+      - name: Install (frontend)
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+
+      - name: Vectors — TypeScript
+        working-directory: frontend
+        # The mirror runs the generated files as well: ~800 cases against C#'s ~79. A vector file
+        # that failed to load would leave a green suite of whatever remained — the floor is what
+        # turns that into a failure rather than a quieter success.
+        #
+        # NO_COLOR because vitest colours its summary on a CI runner and not through a local pipe,
+        # so `Tests  808 passed` arrives as `\e[2m Tests \e[22m \e[1m\e[32m808 passed` and the regex
+        # below matches nothing. The first run of this job failed exactly that way: 808 tests green,
+        # count parsed as 0. The `sed` is the belt to that braces — a tool is free to colour output
+        # NO_COLOR does not cover, and this step must fail for real reasons only.
+        env:
+          NO_COLOR: "1"
+        run: |
+          set -euo pipefail
+          npx vitest run lib/pricing 2>&1 | sed -r 's/\x1B\[[0-9;]*[mGKH]//g' | tee parity-ts.log
+          passed=$(grep -oE 'Tests +[0-9]+ passed' parity-ts.log | grep -oE '[0-9]+' | tail -1)
+          echo "TypeScript vector cases: ${passed:-0}"
+          if [ "${passed:-0}" -lt 500 ]; then
+            echo "::error title=Parity suite shrank::Only ${passed:-0} TypeScript vector cases ran (expected >=500). A vector file probably failed to load."
+            exit 1
+          fi
+
 # ─────────────────────────────────────────────────────────────
 # Making the gates real (do this in the GitHub UI once tests exist):
 #   Settings → Branches → Branch protection for `main`:

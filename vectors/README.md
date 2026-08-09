@@ -55,6 +55,28 @@ pass.
 **Every file carries a `version`.** A change that alters what a case means bumps it, so a mirror
 running an older file fails loudly rather than silently testing yesterday's rules.
 
+## The harness (W7 slice 15)
+
+Both engines running the same files is the mechanism; a **CI job named after it** is what makes the
+mechanism a guarantee. `parity (C# ↔ TypeScript vectors)` runs the C# vector suites and the
+TypeScript ones and fails if either does — so "this rule used to hold in both languages and now holds
+in one" has a check of its own rather than showing up as an ordinary test failure in whichever job
+happened to notice.
+
+Three things it does that neither suite can do alone:
+
+- **Every vector file is read by both languages** (`scripts/check-vector-readers.mjs`). A file added
+  with one reader, or a reader quietly deleted, leaves a rule proven on one side and unchecked on
+  the other while every job stays green. This is the only assertion here that no test can make about
+  itself: C# passing says nothing about what TypeScript read.
+- **Neither side may quietly run nothing.** `dotnet test --filter` exits 0 when nothing matches, and
+  a vector file that failed to load leaves a green suite of whatever remained. Both steps assert a
+  floor on the number of cases that actually ran.
+- **The counts are deliberately unequal.** C# runs ~79 cases and TypeScript ~800, because the
+  generated files are an *oracle*: their expectations came from the C# engine, so running them back
+  against it would confirm a bug rather than find one. Anyone reading the job output should expect
+  the asymmetry rather than treat it as a gap.
+
 ## Ordering ids — read this before implementing a tiebreak
 
 Every engine here breaks a tie on the **higher id, compared as big-endian bytes**, which is the order
