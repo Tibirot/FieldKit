@@ -235,3 +235,128 @@ export function capacityProblem(visitsPerDay: string): boolean {
 
   return !Number.isInteger(parsed) || parsed < 1 || parsed > MAXIMUM_VISITS_PER_DAY;
 }
+
+// ── Plans (JRN-03, JRN-04) ─────────────────────────────────────────────────────────────────────
+
+/** A plan is an experiment until it is published, and then it is the rep's work (`JRN-04`). */
+export type PlanStatus = "Draft" | "Published";
+
+/** A plan as a list shows it — counts rather than contents. */
+export type JourneyPlan = {
+  id: string;
+  userId: string;
+  displayName: string | null;
+  from: string;
+  to: string;
+  status: PlanStatus;
+  visitCount: number;
+  shortfallCount: number;
+  generatedAtUtc: string;
+  publishedAtUtc: string | null;
+};
+
+/** Where a planned call has got to. A rep's three acts (`JRN-06`) are what change it. */
+export type PlannedVisitStatus = "Planned" | "NotVisited";
+
+export type PlannedVisit = {
+  id: string;
+  date: string;
+  outletId: string;
+  status: PlannedVisitStatus;
+  source: "Generated" | "Unplanned";
+  notVisitedReason: string | null;
+  rescheduledFrom: string | null;
+};
+
+/**
+ * A shop the plan could not call on as often as its frequency asks (`BR-JRN-6`).
+ *
+ * Stored with the plan, unlike an exclusion: a shortfall is a fact about what was planned, and it is
+ * what compliance is measured against later.
+ */
+export type Shortfall = {
+  outletId: string;
+  required: number;
+  planned: number;
+};
+
+/**
+ * A shop that is not in the plan at all, and why.
+ *
+ * **Returned by generation and stored nowhere.** That is deliberate on the server's side: an
+ * exclusion is a fact about the *inputs* — a shut shop, or one nobody gave a frequency — and the
+ * moment it is fixed it stops being true. This screen is the one place it can be acted on, which is
+ * why generating shows them and re-reading a plan does not.
+ */
+export type Exclusion = {
+  outletId: string;
+  reason: "Closed" | "NoFrequency";
+};
+
+export type JourneyPlanDetail = {
+  plan: JourneyPlan;
+  visits: PlannedVisit[];
+  shortfalls: Shortfall[];
+};
+
+/** What generation answers: the plan, plus the exclusions only it can report. */
+export type GeneratedPlan = JourneyPlanDetail & { excluded: Exclusion[] };
+
+const PLANS = "/api/journey/plans";
+
+export function fetchPlans(
+  accessToken: string,
+  userId?: string,
+  signal?: AbortSignal,
+): Promise<JourneyPlan[]> {
+  const suffix = userId ? `?userId=${encodeURIComponent(userId)}` : "";
+
+  return apiGet<JourneyPlan[]>(`${PLANS}${suffix}`, accessToken, signal);
+}
+
+export function fetchPlan(
+  accessToken: string,
+  id: string,
+  signal?: AbortSignal,
+): Promise<JourneyPlanDetail> {
+  return apiGet<JourneyPlanDetail>(`${PLANS}/${id}`, accessToken, signal);
+}
+
+/**
+ * Generates a plan.
+ *
+ * A POST that writes, not a GET that computes: a plan is the artefact a supervisor reviews, adjusts
+ * the inputs of, and regenerates — so each run is a thing with an id they can come back to, rather
+ * than a number that vanishes when the tab closes.
+ */
+export function generatePlan(
+  accessToken: string,
+  userId: string,
+  from: string,
+  to: string,
+): Promise<GeneratedPlan> {
+  return apiSend<GeneratedPlan>("POST", PLANS, accessToken, { userId, from, to });
+}
+
+/** Publishing is a separate act, and the point of the slice: until it happens, a plan is a draft. */
+export function publishPlan(accessToken: string, id: string): Promise<JourneyPlan> {
+  return apiSend<JourneyPlan>("POST", `${PLANS}/${id}/publish`, accessToken, {});
+}
+
+export const plansKey = (subject: string, userId?: string) =>
+  ["plans", subject, userId ?? "all"] as const;
+
+export const planKey = (subject: string, id: string) => ["plan", subject, id] as const;
+
+/** `CalendarReader.MaximumSpanDays` — the longest window one plan may cover. */
+export const MAXIMUM_WINDOW_DAYS = 400;
+
+/** What is wrong with a window, before the server is asked. */
+export function windowProblem(from: string, to: string): "backwards" | "tooLong" | null {
+  if (from === "" || to === "") return null;
+  if (to < from) return "backwards";
+
+  const days = (Date.parse(to) - Date.parse(from)) / 86_400_000 + 1;
+
+  return days > MAXIMUM_WINDOW_DAYS ? "tooLong" : null;
+}

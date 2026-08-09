@@ -1,13 +1,13 @@
 "use client";
 
-import { CalendarDays, Repeat } from "lucide-react";
+import { CalendarDays, Map, Repeat } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { LinkButton } from "@/components/ui/link-button";
 import { usePermissions } from "@/lib/auth/use-permissions";
 
 /** Which journey screen is being looked at, so it is not offered as a way to reach itself. */
-export type JourneyScreen = "frequencies" | "calendars";
+export type JourneyScreen = "plans" | "frequencies" | "calendars";
 
 /**
  * The way between the journey screens.
@@ -28,6 +28,13 @@ export function JourneyActions({ current }: { current: JourneyScreen }) {
 
   return (
     <div className="flex flex-wrap gap-2">
+      {current === "plans" ? null : (
+        <LinkButton href="/journeys" size="sm" variant="outline">
+          <Map className="size-4" />
+          {t("plan")}
+        </LinkButton>
+      )}
+
       {current === "frequencies" ? null : (
         <LinkButton href="/journeys/frequencies" size="sm" variant="outline">
           <Repeat className="size-4" />

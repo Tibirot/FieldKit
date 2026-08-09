@@ -56,7 +56,7 @@ the build, without pretending to be final visual design.
 | Outlets — bulk import | `OUT-05` `CFG-01` `CFG-02` | Dry-run first; bad cells corrected in the grid before anything is written |
 | Products & pricing | `PRD-01` `PRD-02` `PRD-03` `PRD-05` `PRD-06` | Catalog, assortment/MSL, price list, active promotions |
 | Territories | `ORG-03` `ORG-04` `ORG-05` `A4` | Territory list, single active rep, channel mix; drives offline scope |
-| Journey planning | `JRN-01` `JRN-02` `JRN-03` `JRN-04` | Week grid generated from frequency + capacity; frequency compliance. **Built as three screens, not one** (W7 slice 10): what a supervisor *sets* — frequency, then the working calendar — before what the system *produces*. The wireframe draws only the third, because that is the one worth drawing; the two inputs have no picture and are most of the decisions |
+| Journey planning | `JRN-01` `JRN-02` `JRN-03` `JRN-04` | Week grid generated from frequency + capacity; frequency compliance. **Built as three screens** (W7 slice 10a/b/c): what a supervisor *sets* — frequency, then the working calendar — before what the system *produces*. The wireframe draws only the third, because that is the one worth drawing; the two inputs have no picture and are most of the decisions. The grid groups by **day present in the window** rather than a fixed Mon–Fri week, so a three-week plan does not invent empty columns and a worked Saturday is not cropped |
 | Users & roles | `IAM-03` `IAM-04` `IAM-05` `IAM-07` | Users, permission-bundle roles, one active device per rep |
 | Visit-workflow / audit builder | `A1` `ADR-0009` `VIS-03` `AUD-04` `AUD-06` `AUD-07` | The config-driven story: per-channel steps, perfect-store weights, survey forms |
 

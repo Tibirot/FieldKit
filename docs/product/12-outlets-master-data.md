@@ -410,6 +410,12 @@ review queue on the server). This keeps outlets conflict-free ([B7](decisions-an
 ## 8. Module contract (exposed to others)
 
 - `IOutletCatalog` — resolve outlet by id; list by territory/channel; timezone, order-block flag.
+  > Over HTTP, the list also answers **`?ids=`** — "name these shops" rather than "browse the base"
+  > (W7 slice 10c). A journey plan holds outlet ids and hundreds of visits, so naming them one
+  > request at a time was the thing the outlet picker's own note said to replace when a screen like
+  > that arrived. Capped at one page's worth and **refused rather than truncated**: a short list of
+  > names renders a plan with shops missing. An empty `ids=` means *none of them*, which is a
+  > different answer from omitting it.
 - `IOutletClassification` — channel/segment of an outlet (used by Products, Journey, Audit).
 - `IOutletGeofence` — where the outlet is and how close counts as being there (used by Visit,
   `VIS-01`). Separate from `IOutletCatalog`, which this line used to promise the geofence would

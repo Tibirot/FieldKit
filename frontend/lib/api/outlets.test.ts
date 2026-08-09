@@ -71,6 +71,21 @@ describe("outlet query", () => {
     expect(query.get("page")).toBe("3");
   });
 
+  it("asks about a set of shops, and about none of them, differently", async () => {
+    // The one parameter here that is sent when empty. `ids` is a filter with three states — absent
+    // is "no filter", a list is "these", and an empty list is "none of them" — and the server can
+    // only tell them apart if the empty case is sent. Omitting it would ask for the entire outlet
+    // base on behalf of a caller that wanted nothing, which is the failure mode a journey plan with
+    // no calls would have hit.
+    await fetchOutlets("token", { ids: ["a", "b"] });
+    await fetchOutlets("token", { ids: [] });
+    await fetchOutlets("token", { page: 1 });
+
+    expect(new URLSearchParams(captured[0].split("?")[1]).get("ids")).toBe("a,b");
+    expect(new URLSearchParams(captured[1].split("?")[1]).get("ids")).toBe("");
+    expect(new URLSearchParams(captured[2].split("?")[1]).get("ids")).toBeNull();
+  });
+
   it("keys the cache by the query, so page 2 is not page 1's cache entry", () => {
     // Without this, paging overwrites one entry: going back to page 1 refetches, and a slow
     // response for page 2 can land after page 3 and render the wrong rows under the right pager.
