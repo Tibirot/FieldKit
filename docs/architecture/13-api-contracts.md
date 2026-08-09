@@ -224,8 +224,14 @@ Rules that make it correct rather than merely present:
 - **Only what a module owns can be sorted or filtered.** An outlet's territory comes from
   Organization *after* the page is fetched (`ORG-05`), so the database cannot order by it — sorting
   on it would order the fifty rows already chosen, which is the page and not the list.
-- Read-heavy reference endpoints use **Redis output cache** (already wired via Aspire) with short
-  TTLs and cache invalidation on the relevant integration events.
+- Read-heavy reference endpoints are **not cached**, and this line used to say they were — "Redis
+  output cache, already wired via Aspire". The middleware was wired; **no endpoint ever called
+  `.CacheOutput()`**, through seven weeks of building them, so the sentence described a plan as a
+  fact. Removed at deploy time (2026-08).
+  When one of these endpoints genuinely needs a cache, the hard part is not the TTL or the
+  invalidation event — it is the **key**. Every read here is tenant-scoped and permission-gated, so
+  a cache keyed on the URL serves one tenant's rows to the next caller. Any proposal starts with
+  how the key varies by tenant *and* by the caller's permissions.
 
 ## 8. Representative endpoints (illustrative)
 

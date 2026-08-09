@@ -115,7 +115,11 @@ public sealed class ServerFixture : IAsyncLifetime
 
         // Aspire injects these at runtime; here we supply them before the host reads its config.
         Environment.SetEnvironmentVariable("ConnectionStrings__fieldkitdb", _postgres.GetConnectionString());
-        Environment.SetEnvironmentVariable("ConnectionStrings__cache", "localhost:6379,abortConnect=false");
+
+        // No `ConnectionStrings__cache`. There was one — `localhost:6379,abortConnect=false`, a Redis
+        // that has never run in CI — because the app registered a Redis-backed output cache. That
+        // registration is gone (see Program.cs), and so is the string: every test in this assembly
+        // booting the host without it is what holds the removal in place.
 
         // The app resolves the Keycloak authority through Aspire service discovery
         // ("https+http://keycloak"), which reads these config keys — the AppHost's

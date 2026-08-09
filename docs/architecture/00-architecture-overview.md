@@ -69,7 +69,7 @@ flowchart TB
   end
 
   pg[("PostgreSQL<br/>schema-per-module")]
-  redis[("Redis<br/>cache · idempotency")]
+  redis[("Redis<br/>idempotency ledger — W8")]
   apphost["FieldKit.AppHost<br/>(.NET Aspire orchestration)"]
 
   ui <-->|"HTTPS / JSON"| api
@@ -88,11 +88,11 @@ flowchart TB
 
 | Container | Tech | Responsibility |
 |---|---|---|
-| **FieldKit.AppHost** | .NET Aspire | Composition root: provisions Postgres & Redis, wires connection strings/service discovery, runs the front end, aggregates telemetry into the Aspire dashboard. *Dev-time orchestrator; in prod emits a deployable manifest.* |
+| **FieldKit.AppHost** | .NET Aspire | Composition root: provisions Postgres and Keycloak, wires connection strings/service discovery, runs the front end, aggregates telemetry into the Aspire dashboard. *Dev-time orchestrator; in prod emits a deployable manifest.* |
 | **FieldKit.Server** | ASP.NET Core (.NET 10) | The modular monolith. Hosts all domain modules in one process, exposes the HTTP API and the sync endpoints. |
 | **Field app / Back office** | Next.js (App Router) | One Next.js app serving both the offline field PWA and the back-office console. |
 | **PostgreSQL** | Postgres 16 | System of record. One database, **one schema per module** for isolation. |
-| **Redis** | Redis | Output/response cache and idempotency-key store for the sync push path. |
+| **Redis** | Redis | Idempotency-key store for the sync push path. **Not built yet** — it arrives in W8 with that path. It was provisioned from W1 backing an output cache no endpoint ever opted into, and was removed at deploy time (2026-08); the diagram above is the target, not what `dotnet run` starts today. |
 
 > Today the front end is scaffolded with **Vite**; migrating it to **Next.js** is tracked
 > in [ADR-0004](adr/0004-nextjs-offline-first-frontend.md) and Phase 0 of the
@@ -208,7 +208,7 @@ to extract a module into its own service later if a real driver ever appears.
 | Front end | **Next.js (App Router) + React 19 + TypeScript** | Modern full-stack React; installable PWA |
 | Offline store | **IndexedDB (Dexie) + Workbox service worker** | Durable local store & caching for offline-first ([ADR-0007](adr/0007-offline-sync-strategy.md)) |
 | Server state (client) | **TanStack Query** | Cache/reconcile server data; pairs with the sync layer |
-| Cache / idempotency | **Redis** | Response cache + idempotency keys on sync push |
+| Idempotency (W8) | **Redis** | Idempotency keys on sync push. No response cache: one was wired and never used, and an output cache over tenant-scoped reads needs a key policy nobody has designed |
 | Auth | **OIDC / JWT bearer** | Standard SaaS authentication ([ADR-0008](adr/0008-authentication-and-multitenancy.md)) |
 | Testing | **xUnit · Testcontainers · NetArchTest · Playwright · Vitest** | Real-Postgres integration + boundary + E2E ([testing strategy](17-testing-strategy.md)) |
 | CI/CD | **GitHub Actions → containers** | Build, test, arch-test, publish |
@@ -227,12 +227,12 @@ to extract a module into its own service later if a real driver ever appears.
 
 ## 7. Deployment topology
 
-**Development** — `dotnet run` on the AppHost brings up the whole system: Postgres and Redis
+**Development** — `dotnet run` on the AppHost brings up the whole system: Postgres and Keycloak
 as containers, the Server, the Next.js app, and the Aspire dashboard for traces/logs/metrics.
-One command, no local install of Postgres/Redis needed.
+One command, no local install of Postgres needed.
 
 **Production (target)** — the AppHost publishes a deployment manifest; the Server and Next.js
-app run as containers, backed by managed Postgres and Redis, behind a reverse proxy that
+app run as containers, backed by managed Postgres, behind a reverse proxy that
 terminates TLS. Telemetry ships to an OTLP-compatible backend. Because it is a monolith, a
 "deploy" is a single rolling image update.
 
@@ -241,7 +241,7 @@ flowchart LR
   cdn["Reverse proxy / TLS"] --> nx["Next.js container"]
   cdn --> srv["FieldKit.Server container(s)"]
   srv --> pg[("Managed Postgres")]
-  srv --> rd[("Managed Redis")]
+  srv --> rd[("Redis — W8")]
   srv --> obj[("Object storage")]
   srv -->|OTLP| otel["Telemetry backend"]
 ```

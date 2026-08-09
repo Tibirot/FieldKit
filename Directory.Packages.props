@@ -30,8 +30,6 @@
   <ItemGroup Label="Aspire">
     <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.4.6" />
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.4.6" />
-    <PackageVersion Include="Aspire.Hosting.Redis" Version="13.4.6" />
-    <PackageVersion Include="Aspire.StackExchange.Redis.OutputCaching" Version="13.4.6" />
 
     <!--
       The **only prerelease dependency in the repo**, and deliberately so: Aspire has never shipped
