@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.RegularExpressions;
 using FieldKit.Modules.Iam;
 using FieldKit.Modules.Iam.Contracts;
 using FieldKit.Modules.Journey;
@@ -42,28 +43,60 @@ public class ModuleBoundaryTests
     private static readonly Assembly ConfigurationContracts = typeof(IFieldDefinitionCatalog).Assembly;
     private static readonly Assembly JourneyContracts = typeof(IJourneyQuery).Assembly;
 
-    /// <summary>Module <b>implementation</b> assemblies — the ones nothing outside may reference.</summary>
-    private static readonly string[] ModuleImplementations =
+    /// <summary>
+    /// Every module <b>implementation</b> assembly — the ones nothing outside may reference.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The one place a module is named.</b> Everything else in this file is derived from it, and
+    /// <see cref="Every_module_in_the_solution_is_gated"/> checks it against the solution itself, so a
+    /// module cannot be added and left ungated.
+    /// </para>
+    /// <para>
+    /// It used to be two lists — this one and a parallel array of names — and they drifted: seven
+    /// modules were gated for references while five were walked for cycles, because Journey and Visit
+    /// were only ever added to one. It went unnoticed for three slices, since neither had a contract
+    /// implementation for the cycle walk to find. A gate that silently covers less than it claims is
+    /// the one failure this file cannot afford, so the duplication is gone.
+    /// </para>
+    /// <para>
+    /// <b>Order matters here.</b> Static field initializers run in textual order, so this must be
+    /// declared above anything derived from it — a derived list initialised first would be empty, and
+    /// every check in this file would pass while examining nothing.
+    /// </para>
+    /// </remarks>
+    private static readonly Assembly[] ModuleAssemblies =
     [
-        "FieldKit.Modules.Iam",
-        "FieldKit.Modules.Products",
-        "FieldKit.Modules.Org",
-        "FieldKit.Modules.Outlets",
-        "FieldKit.Modules.Configuration",
-        "FieldKit.Modules.Journey",
-        "FieldKit.Modules.Visit",
+        Iam,
+        ProductsModuleAssembly,
+        OrgModuleAssembly,
+        OutletsModuleAssembly,
+        ConfigurationModuleAssembly,
+        JourneyModuleAssembly,
+        VisitModuleAssembly,
     ];
+
+    /// <summary>The same modules by assembly name, for the reference checks.</summary>
+    private static readonly string[] ModuleImplementations =
+        [.. ModuleAssemblies.Select(assembly => assembly.GetName().Name!)];
+
+    /// <summary>
+    /// Every module's <c>.Contracts</c> assembly — its only public surface.
+    /// </summary>
+    /// <remarks>
+    /// Also checked against the solution, and for the same reason: a contracts assembly nobody added
+    /// here is one AT-3 never looks at, which is exactly where an <c>IQueryable</c> or an entity would
+    /// slip into a shared surface unnoticed.
+    /// </remarks>
+    private static readonly Assembly[] ContractsAssemblies =
+        [IamContracts, OrgContracts, OutletsContracts, ConfigurationContracts, JourneyContracts];
 
     [Fact] // AT-1 — the core boundary.
     public void A_module_never_references_another_modules_implementation()
     {
-        AssertReferencesNoOtherModule(ProductsModuleAssembly);
-        AssertReferencesNoOtherModule(Iam);
-        AssertReferencesNoOtherModule(OrgModuleAssembly);
-        AssertReferencesNoOtherModule(OutletsModuleAssembly);
-        AssertReferencesNoOtherModule(ConfigurationModuleAssembly);
-        AssertReferencesNoOtherModule(JourneyModuleAssembly);
-        AssertReferencesNoOtherModule(VisitModuleAssembly);
+        Assert.NotEmpty(ModuleAssemblies);
+
+        foreach (var module in ModuleAssemblies) AssertReferencesNoOtherModule(module);
     }
 
     [Fact] // AT-3 — entities cannot leak, because contracts cannot see them.
@@ -71,11 +104,12 @@ public class ModuleBoundaryTests
     {
         // The stronger form of "no domain type in a signature": if the contracts assembly cannot see
         // the implementation, no signature in it can name a domain type. Verifiable from the csproj.
-        AssertDoesNotReference(IamContracts, ModuleImplementations);
-        AssertDoesNotReference(OutletsContracts, ModuleImplementations);
-        AssertDoesNotReference(OrgContracts, ModuleImplementations);
-        AssertDoesNotReference(ConfigurationContracts, ModuleImplementations);
-        AssertDoesNotReference(JourneyContracts, ModuleImplementations);
+        Assert.NotEmpty(ContractsAssemblies);
+
+        foreach (var contracts in ContractsAssemblies)
+        {
+            AssertDoesNotReference(contracts, ModuleImplementations);
+        }
     }
 
     [Fact] // AT-3, the half a reference check cannot cover.
@@ -84,8 +118,7 @@ public class ModuleBoundaryTests
         // A contracts assembly that could see EF or ASP.NET would let persistence and transport into
         // the shared surface — an `IQueryable<T>` return type, say, which hands the caller the
         // ability to compose queries against another module's tables.
-        foreach (var contracts in
-            new[] { IamContracts, OutletsContracts, OrgContracts, ConfigurationContracts, JourneyContracts })
+        foreach (var contracts in ContractsAssemblies)
         {
             var result = Types.InAssembly(contracts)
                 .Should().NotHaveDependencyOnAny("Microsoft.EntityFrameworkCore", "Microsoft.AspNetCore")
@@ -149,6 +182,71 @@ public class ModuleBoundaryTests
         Assert.All(journeys, type => Assert.False(type.IsPublic, $"{type.Name} should be internal"));
     }
 
+
+    [Fact] // The gate's own coverage: a module nothing names is a module nothing checks.
+    public void Every_module_in_the_solution_is_gated()
+    {
+        // Every check in this file starts from a list somebody typed. That is fine as long as the
+        // list is complete, and completeness is the one property none of them can observe — an
+        // assembly nobody named simply never fails anything. Journey and Visit sat outside the cycle
+        // check for three slices exactly this way.
+        //
+        // So the solution file is the authority. It is where a project has to be added to build at
+        // all, which makes it the one list that cannot be forgotten.
+        var projects = SolutionProjects();
+
+        var modules = projects
+            .Where(name => name.StartsWith("FieldKit.Modules.", StringComparison.Ordinal))
+            .Where(name => !name.EndsWith(".Contracts", StringComparison.Ordinal))
+            .ToHashSet(StringComparer.Ordinal);
+
+        var contracts = projects
+            .Where(name => name.StartsWith("FieldKit.Modules.", StringComparison.Ordinal))
+            .Where(name => name.EndsWith(".Contracts", StringComparison.Ordinal))
+            .ToHashSet(StringComparer.Ordinal);
+
+        // A sanity check on the parsing itself. Without it, a solution format this cannot read would
+        // compare two empty sets and report the gates as complete — the same failure it exists to
+        // prevent, one level up.
+        Assert.True(modules.Count >= 7, $"Only found {modules.Count} modules in the solution.");
+
+        Assert.Equal(
+            modules.OrderBy(name => name, StringComparer.Ordinal),
+            ModuleImplementations.OrderBy(name => name, StringComparer.Ordinal));
+
+        Assert.Equal(
+            contracts.OrderBy(name => name, StringComparer.Ordinal),
+            ContractsAssemblies
+                .Select(assembly => assembly.GetName().Name!)
+                .OrderBy(name => name, StringComparer.Ordinal));
+    }
+
+    /// <summary>Every project the solution builds, by name.</summary>
+    /// <remarks>
+    /// Read from <c>FieldKit.slnx</c> rather than from this assembly's own references, because the
+    /// references are the thing being checked: a module the architecture-test project forgot to
+    /// reference is precisely the module that would otherwise go ungated, and it would be invisible
+    /// to a check that started from what this project can see.
+    /// </remarks>
+    private static IReadOnlyList<string> SolutionProjects()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "FieldKit.slnx")))
+        {
+            directory = directory.Parent;
+        }
+
+        Assert.NotNull(directory);
+
+        var solution = File.ReadAllText(Path.Combine(directory!.FullName, "FieldKit.slnx"));
+
+        return
+        [
+            .. Regex.Matches(solution, "Path=\"([^\"]+)\\.csproj\"")
+                .Select(match => Path.GetFileName(match.Groups[1].Value))
+        ];
+    }
 
     [Fact] // AT-10 — the cycle AT-1 cannot see.
     public void Contract_implementations_never_form_a_cycle()
@@ -243,26 +341,6 @@ public class ModuleBoundaryTests
 
         return edges.Select(edge => edge.From).Distinct().Select(Walk).FirstOrDefault(found => found is not null);
     }
-
-    /// <summary>
-    /// Every module implementation assembly, for the reflection-based checks.
-    /// </summary>
-    /// <remarks>
-    /// A second hand-maintained list, and a second way a module can go silently ungated — Journey and
-    /// Visit were both missing from it until W7 slice 9b, so <c>AT-10</c> was walking five modules
-    /// while <c>AT-1</c> gated seven. It went unnoticed because neither had a contract implementation
-    /// to walk; the slice that gave Journey one is the slice that made the omission matter.
-    /// </remarks>
-    private static readonly Assembly[] ModuleAssemblies =
-    [
-        Iam,
-        ProductsModuleAssembly,
-        OrgModuleAssembly,
-        OutletsModuleAssembly,
-        ConfigurationModuleAssembly,
-        JourneyModuleAssembly,
-        VisitModuleAssembly,
-    ];
 
     private static void AssertReferencesNoOtherModule(Assembly module) =>
         AssertDoesNotReference(
