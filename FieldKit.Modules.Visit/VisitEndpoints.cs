@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using FieldKit.BuildingBlocks;
 using FieldKit.Modules.Configuration.Contracts;
+using FieldKit.Modules.Journey.Contracts;
 using FieldKit.Modules.Outlets.Contracts;
 using FieldKit.SharedKernel;
 using FieldKit.Web;
@@ -134,6 +135,7 @@ internal static class VisitEndpoints
             IOutletGeofence geofences,
             IOutletClassification classification,
             IVisitWorkflow workflows,
+            IJourneyQuery journey,
             ITenantContext tenant,
             IClock clock,
             CancellationToken ct) =>
@@ -149,6 +151,21 @@ internal static class VisitEndpoints
             {
                 return Problems.BadRequest(
                     "outletId", "No such outlet in this tenant.", "visit.checkIn.unknownOutlet");
+            }
+
+            // A visit that claims to fulfil a planned call has to be claiming a real one. Until
+            // W7 slice 9b this id was taken on trust, and nothing would have noticed a wrong one
+            // until it reached a coverage report — where a fabricated id reads as a call that was
+            // made. Journey answers the whole question, because "this rep's, at this shop, on a
+            // published plan" is its rule and not this endpoint's.
+            if (request.PlannedVisitId is { } plannedVisitId
+                && await journey.ForVisitAsync(plannedVisitId, tenant.UserId, request.OutletId, ct)
+                    is null)
+            {
+                return Problems.BadRequest(
+                    "plannedVisitId",
+                    "That planned call is not one this visit can claim.",
+                    "visit.checkIn.unknownPlannedCall");
             }
 
             // The channel decides whether presence is expected at all — BR-VIS-2's assumption, and

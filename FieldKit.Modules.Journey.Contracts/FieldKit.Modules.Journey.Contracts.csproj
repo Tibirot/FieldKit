@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Journey module's *only* public surface. Other modules reference this assembly and never
+    FieldKit.Modules.Journey (AT-1), which is what keeps the boundary enforceable by assembly
+    reference rather than by convention.
+
+    Note what it does NOT reference: no EF Core, no ASP.NET, no Infrastructure. A contracts assembly
+    that could see a DbContext would let an entity leak through a signature (AT-3), and the arch test
+    for that would be checking types rather than the far simpler fact that the reference is absent.
+
+    It lands three slices after the module itself, which is the point rather than an oversight. The
+    delivery plan promised IJourneyQuery with the published plan (slice 4), then with check-in
+    (slice 7), then with check-out (slice 9) — and each time the code turned out to need nothing
+    from Journey. This is the first slice where a caller actually asks it a question, so this is the
+    slice where the shape is answerable rather than guessable.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FieldKit.SharedKernel\FieldKit.SharedKernel.csproj" />
+    <ProjectReference Include="..\FieldKit.BuildingBlocks\FieldKit.BuildingBlocks.csproj" />
+  </ItemGroup>
+
+</Project>

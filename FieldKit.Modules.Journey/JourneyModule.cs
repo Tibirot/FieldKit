@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using FieldKit.Infrastructure;
+using FieldKit.Modules.Journey.Contracts;
 using FieldKit.Web;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
@@ -19,8 +20,10 @@ namespace FieldKit.Modules.Journey;
 /// that exists before there is anything to generate.
 /// </para>
 /// <para>
-/// <b>No public contracts yet</b>, deliberately — see the csproj. <c>IJourneyQuery</c> is specified
-/// and has no consumer until Visit exists.
+/// <b>One public contract, and it waited for a caller.</b> <c>IJourneyQuery</c> was specified from
+/// W1 and built in W7 slice 9b, when check-in finally had a question for it — three slices after the
+/// delivery plan first expected it, because publishing a plan, checking in and checking out all
+/// turned out to need nothing from Journey.
 /// </para>
 /// </remarks>
 public sealed class JourneyModule : IModule
@@ -56,6 +59,10 @@ public sealed class JourneyModule : IModule
          */
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.Converters.Add(new JsonStringEnumConverter<DayOfWeek>()));
+
+        // The module's one public contract (W7 slice 9b). Registered against the interface, so a
+        // consumer takes the promise and never the class behind it.
+        services.AddScoped<IJourneyQuery, JourneyQueries>();
 
         // Internal to the module: their only caller is generation, which lives here too.
         services.AddScoped<FrequencyResolver>();

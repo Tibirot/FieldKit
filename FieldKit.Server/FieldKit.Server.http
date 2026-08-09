@@ -3401,3 +3401,52 @@ GET {{Server_HostAddress}}/api/visits/{{endingVisit.response.body.visit.id}}
 Authorization: Bearer {{adminToken.response.body.access_token}}
 
 ###
+
+# ---------------------------------------------------------------------------------------------
+# Visit — claiming a planned call (JRN-04, W7 slice 9b)
+#
+# A visit may say which planned call it fulfils. Until slice 9b that id was taken on trust, and a
+# fabricated one would have surfaced first as a coverage report showing a call that was made.
+# Journey now answers the whole question — this rep's, at this shop, on a published plan — and
+# every kind of miss gets the same refusal, so this route cannot be used to find out what is on
+# somebody else's round.
+# ---------------------------------------------------------------------------------------------
+
+### A planned call nobody planned. Expect 400 `visit.checkIn.unknownPlannedCall`.
+POST {{Server_HostAddress}}/api/visits/check-in
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outletId": "{{outlet.response.body.id}}",
+  "latitude": 44.4638,
+  "longitude": 26.0946,
+  "plannedVisitId": "019fffff-ffff-7fff-bfff-fffffffffffe"
+}
+
+### Another rep's call, a call at the wrong shop, and a call on an unpublished plan all answer
+### exactly the same way — deliberately. Substitute a real planned visit id from
+### `GET /api/journey/plans/{id}` above to see it.
+POST {{Server_HostAddress}}/api/visits/check-in
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outletId": "{{outlet.response.body.id}}",
+  "latitude": 44.4638,
+  "longitude": 26.0946,
+  "plannedVisitId": "{{plan.response.body.plan.id}}"
+}
+
+### No planned call at all is ordinary (JRN-06) — a shop the rep walked past. Expect 201.
+POST {{Server_HostAddress}}/api/visits/check-in
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "outletId": "{{outlet.response.body.id}}",
+  "latitude": 44.4638,
+  "longitude": 26.0946
+}
+
+###

@@ -230,7 +230,7 @@ the document a module author trusts when deciding what to depend on.
 | Outlets | `…Modules.Outlets` (+ `.Contracts`) | `outlets` | **`IOutletCatalog`**, **`IOutletClassification`**, **`IOutletGeofence`**, `IReferenceChangeFeed`, `IOutletProposalIngest` | `OutletChanged`, `OutletClosed` |
 | Products & Pricing | `…Modules.Products` | `products` | `IProductCatalog`, `IAssortmentService`, `IPricingService`, `IReferenceChangeFeed` | `PriceListPublished`, `PromotionActivated` |
 | Configuration | `…Modules.Configuration` (+ `.Contracts`) | `config` | **`IFieldDefinitionCatalog`**, **`IVisitWorkflow`**, `ISurveyForms`, `IScoreWeights`, `IReferenceChangeFeed` | `ConfigurationPublished` |
-| Journey | `…Modules.Journey` | `journey` | `IJourneyQuery`, `IReferenceChangeFeed`, `IJourneyIngest` | `JourneyPublished`, `PlannedVisitMarkedNotVisited` |
+| Journey | `…Modules.Journey` (+ `.Contracts`) | `journey` | **`IJourneyQuery`**, `IReferenceChangeFeed`, `IJourneyIngest` | `JourneyPublished`, `PlannedVisitMarkedNotVisited` |
 | Visit | `…Modules.Visit` | `visit` | `IVisitContext`, `IVisitQuery`, `IVisitIngest` | `VisitCompleted` |
 | Audit | `…Modules.Audit` | `audit` | `IAuditQuery`, `IPerfectStoreScore`, `IAuditIngest` | `AuditCompleted` |
 | Order | `…Modules.Orders` | `order` | `IOrderQuery`, `IOrderIngest` | `OrderSubmitted` |
@@ -314,12 +314,23 @@ it, shaped by what it actually asks for.
 > `VisitWorkflowCatalog`, the class behind the contract, reads only Configuration's own schema. The
 > channel check lives in the authoring endpoint, which nothing calls back through.
 
-**Journey arrived in W7 as a single assembly**, and its `.Contracts` is deliberately still absent —
-the same call Organization made until W5 and Products is still making. `IJourneyQuery` is specified
-and its consumer is Visit, which does not exist yet; it lands with the published plan (`JRN-04`),
-shaped by what Visit actually asks for. What Journey does have on day one is a **consumer**
-relationship rather than a provider one: it reads `IOutletClassification` for an outlet's segment and
-`IOutletCatalog` to refuse a rule about a shop this tenant does not have.
+**Journey arrived in W7 as a single assembly** — the same call Organization made until W5 and
+Products is still making. What it had on day one was a **consumer** relationship rather than a
+provider one: it reads `IOutletClassification` for an outlet's segment and `IOutletCatalog` to refuse
+a rule about a shop this tenant does not have.
+
+> **Its `.Contracts` took three more slices than anyone predicted, and the delay is the argument.**
+> The delivery plan promised `IJourneyQuery` with the published plan (slice 4), then moved it to
+> check-in (slice 7), then to check-out (slice 9) — and each of those slices, once built, turned out
+> to need nothing from Journey at all. A rep's device already holds the round; publishing announces
+> itself through an event; a visit only carries the id of the call it fulfils.
+>
+> What finally asked a question was **validating** that id (slice 9b), and the interface it produced
+> is one none of the three earlier guesses would have written: not "the plan for this rep" but "is
+> this planned call this rep's, at this shop, on a published plan?" — one call, answered by the
+> module that owns the rule, returning the same nothing for every kind of miss so that a caller
+> cannot use it to enumerate somebody else's round. A shape that specific only exists because it was
+> written against a caller that already knew what it needed.
 
 > **`IOutletClassification` grew its third dimension the way the second one did.** Call frequency may
 > be set per outlet or derived from segment (`JRN-01`), so Journey is the first module to *decide*

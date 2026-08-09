@@ -19,6 +19,42 @@ public class OutletTests(ServerFixture fixture)
 
     private static string Unique(string label) => $"{label}-{Guid.NewGuid():N}"[..20];
 
+    /// <summary>
+    /// The display name this tenant has for <paramref name="subjectId"/>, creating a profile if
+    /// nobody has yet.
+    /// </summary>
+    /// <remarks>
+    /// Tolerating a profile that already exists is what makes the trail test independent of when it
+    /// runs: any test that needs the fixture's admin to be a real user — journey generation refuses a
+    /// subject IAM does not know — creates one, and the property under test is that the name
+    /// resolves, not what it happens to say.
+    /// </remarks>
+    private static async Task<string> ProfileNameAsync(HttpClient client, string subjectId)
+    {
+        var users = await client.GetFromJsonAsync<List<UserResponse>>("/api/iam/users");
+
+        if (users!.FirstOrDefault(user => user.SubjectId == subjectId) is { } existing)
+        {
+            return existing.DisplayName;
+        }
+
+        var roles = await client.GetFromJsonAsync<List<RoleResponse>>("/api/iam/roles");
+
+        var created = await client.PostAsJsonAsync("/api/iam/users", new
+        {
+            subjectId,
+            email = $"{Guid.NewGuid():N}@fieldkit.local",
+            displayName = "Ana Popescu",
+            locale = "ro-RO",
+            timeZone = "Europe/Bucharest",
+            roleIds = new[] { roles!.First(role => role.IsSystemTemplate).Id },
+        });
+
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+
+        return "Ana Popescu";
+    }
+
     private async Task<ChannelResponse> ChannelAsync(HttpClient client, string? name = null)
     {
         var response = await client.PostAsJsonAsync(
@@ -381,6 +417,28 @@ public class OutletTests(ServerFixture fixture)
         // resolved through IUserDirectory rather than by the caller, because reading this trail
         // needs `outlet:read` while the user list needs `user:read` — a front end doing the join
         // would show raw ids to exactly the people most likely to be reading the trail.
+        // The unresolvable half runs as tenant B, whose realm user holds no `user:write` — so that
+        // subject can never acquire a profile and this assertion cannot be broken by another test
+        // creating one. It used to run as tenant A's admin and depend on nothing else in the whole
+        // suite having given that subject a profile first, which W7 slice 9b duly did.
+        using var unnamed = fixture.CreateAuthenticatedClient(fixture.TenantBAccessToken);
+
+        var otherChannel = await ChannelAsync(unnamed);
+        var otherOutlet = await OutletAsync(unnamed, otherChannel.Id);
+
+        await unnamed.PostAsJsonAsync(
+            $"/api/outlets/{otherOutlet.Id}/status", new OutletStatusRequest(OutletStatus.Inactive, "Stocktake"));
+
+        // A name that does not resolve is ordinary — a deleted account, an import principal, a
+        // subject predating the user record — and the entry has to survive it. Dropping the row, or
+        // the whole response, would be an audit trail editing itself.
+        var anonymous = await unnamed.GetFromJsonAsync<List<OutletStatusChangeResponse>>(
+            $"/api/outlets/{otherOutlet.Id}/status-history");
+
+        Assert.Equal(2, anonymous!.Count);
+        Assert.All(anonymous, change => Assert.False(string.IsNullOrWhiteSpace(change.ChangedBy)));
+        Assert.All(anonymous, change => Assert.Null(change.ChangedByName));
+
         using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
 
         var channel = await ChannelAsync(client);
@@ -389,47 +447,22 @@ public class OutletTests(ServerFixture fixture)
         await client.PostAsJsonAsync(
             $"/api/outlets/{outlet.Id}/status", new OutletStatusRequest(OutletStatus.Inactive, "Stocktake"));
 
-        // Before any profile exists for this subject. A name that does not resolve is ordinary — a
-        // deleted account, an import principal, a subject predating the user record — and the entry
-        // has to survive it. Dropping the row, or the whole response, would be an audit trail
-        // editing itself.
-        var anonymous = await client.GetFromJsonAsync<List<OutletStatusChangeResponse>>(
-            $"/api/outlets/{outlet.Id}/status-history");
-
-        Assert.Equal(2, anonymous!.Count);
-        Assert.All(anonymous, change => Assert.False(string.IsNullOrWhiteSpace(change.ChangedBy)));
-        Assert.All(anonymous, change => Assert.Null(change.ChangedByName));
-
         var subject = (await client.GetFromJsonAsync<WhoAmIResponse>("/api/auth/whoami"))!.Subject;
-        var roles = await client.GetFromJsonAsync<List<RoleResponse>>("/api/iam/roles");
-
-        var created = await client.PostAsJsonAsync("/api/iam/users", new
-        {
-            subjectId = subject,
-            email = $"{Guid.NewGuid():N}@fieldkit.local",
-            displayName = "Ana Popescu",
-            locale = "ro-RO",
-            timeZone = "Europe/Bucharest",
-            roleIds = new[] { roles!.First(role => role.IsSystemTemplate).Id },
-        });
-
-        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var expectedName = await ProfileNameAsync(client, subject);
 
         var named = (await client.GetFromJsonAsync<List<OutletStatusChangeResponse>>(
             $"/api/outlets/{outlet.Id}/status-history"))!;
 
-        // The same rows, now named — which is the property that matters and not merely a nicer
-        // string. The name is joined at read time, so it was never copied into the trail: someone
-        // who changes their surname does not become a different person in March's history, and a
-        // profile created after the fact still explains work already done.
-        Assert.All(named, change => Assert.Equal("Ana Popescu", change.ChangedByName));
+        // Named, and joined at read time rather than copied into the trail: someone who changes
+        // their surname does not become a different person in March's history, and a profile created
+        // after the fact still explains work already done — which is why the rows above were written
+        // before this profile was looked up or made.
+        Assert.All(named, change => Assert.Equal(expectedName, change.ChangedByName));
 
-        // And the subject survives alongside it. A display name is a mutable label on an account;
-        // this is the identity, and it is what the trail is keyed on — two colleagues who share a
-        // name have to stay distinguishable.
-        Assert.Equal(
-            anonymous.Select(change => change.ChangedBy),
-            named.Select(change => change.ChangedBy));
+        // And the subject survives alongside the name. A display name is a mutable label on an
+        // account; this is the identity, and it is what the trail is keyed on — two colleagues who
+        // share a name have to stay distinguishable.
+        Assert.All(named, change => Assert.Equal(subject, change.ChangedBy));
     }
 
     [Fact]

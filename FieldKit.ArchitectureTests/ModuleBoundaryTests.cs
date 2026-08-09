@@ -2,6 +2,7 @@ using System.Reflection;
 using FieldKit.Modules.Iam;
 using FieldKit.Modules.Iam.Contracts;
 using FieldKit.Modules.Journey;
+using FieldKit.Modules.Journey.Contracts;
 using FieldKit.Modules.Visit;
 using FieldKit.Modules.Org;
 using FieldKit.Modules.Configuration;
@@ -39,6 +40,7 @@ public class ModuleBoundaryTests
     private static readonly Assembly JourneyModuleAssembly = typeof(JourneyModule).Assembly;
     private static readonly Assembly VisitModuleAssembly = typeof(VisitModule).Assembly;
     private static readonly Assembly ConfigurationContracts = typeof(IFieldDefinitionCatalog).Assembly;
+    private static readonly Assembly JourneyContracts = typeof(IJourneyQuery).Assembly;
 
     /// <summary>Module <b>implementation</b> assemblies — the ones nothing outside may reference.</summary>
     private static readonly string[] ModuleImplementations =
@@ -73,6 +75,7 @@ public class ModuleBoundaryTests
         AssertDoesNotReference(OutletsContracts, ModuleImplementations);
         AssertDoesNotReference(OrgContracts, ModuleImplementations);
         AssertDoesNotReference(ConfigurationContracts, ModuleImplementations);
+        AssertDoesNotReference(JourneyContracts, ModuleImplementations);
     }
 
     [Fact] // AT-3, the half a reference check cannot cover.
@@ -81,7 +84,8 @@ public class ModuleBoundaryTests
         // A contracts assembly that could see EF or ASP.NET would let persistence and transport into
         // the shared surface — an `IQueryable<T>` return type, say, which hands the caller the
         // ability to compose queries against another module's tables.
-        foreach (var contracts in new[] { IamContracts, OutletsContracts, OrgContracts, ConfigurationContracts })
+        foreach (var contracts in
+            new[] { IamContracts, OutletsContracts, OrgContracts, ConfigurationContracts, JourneyContracts })
         {
             var result = Types.InAssembly(contracts)
                 .Should().NotHaveDependencyOnAny("Microsoft.EntityFrameworkCore", "Microsoft.AspNetCore")
@@ -133,6 +137,16 @@ public class ModuleBoundaryTests
 
         Assert.NotEmpty(classifiers);
         Assert.All(classifiers, type => Assert.False(type.IsPublic, $"{type.Name} should be internal"));
+
+        // And Journey's, which landed in W7 slice 9b once check-in had a question for it.
+        Assert.Contains(typeof(IJourneyQuery), JourneyContracts.GetExportedTypes());
+
+        var journeys = JourneyModuleAssembly.GetTypes()
+            .Where(type => !type.IsInterface && typeof(IJourneyQuery).IsAssignableFrom(type))
+            .ToList();
+
+        Assert.NotEmpty(journeys);
+        Assert.All(journeys, type => Assert.False(type.IsPublic, $"{type.Name} should be internal"));
     }
 
 
@@ -230,10 +244,24 @@ public class ModuleBoundaryTests
         return edges.Select(edge => edge.From).Distinct().Select(Walk).FirstOrDefault(found => found is not null);
     }
 
-    /// <summary>Every module implementation assembly, for the reflection-based checks.</summary>
+    /// <summary>
+    /// Every module implementation assembly, for the reflection-based checks.
+    /// </summary>
+    /// <remarks>
+    /// A second hand-maintained list, and a second way a module can go silently ungated — Journey and
+    /// Visit were both missing from it until W7 slice 9b, so <c>AT-10</c> was walking five modules
+    /// while <c>AT-1</c> gated seven. It went unnoticed because neither had a contract implementation
+    /// to walk; the slice that gave Journey one is the slice that made the omission matter.
+    /// </remarks>
     private static readonly Assembly[] ModuleAssemblies =
     [
-        Iam, ProductsModuleAssembly, OrgModuleAssembly, OutletsModuleAssembly, ConfigurationModuleAssembly,
+        Iam,
+        ProductsModuleAssembly,
+        OrgModuleAssembly,
+        OutletsModuleAssembly,
+        ConfigurationModuleAssembly,
+        JourneyModuleAssembly,
+        VisitModuleAssembly,
     ];
 
     private static void AssertReferencesNoOtherModule(Assembly module) =>

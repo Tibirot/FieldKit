@@ -161,7 +161,16 @@ server/back-office activity; the rep receives the result.
 
 ## 8. Module contract (exposed to others)
 
-- `IJourneyQuery` — today's/period journey for a rep; the planned visit for `(rep, outlet, day)`.
+- `IJourneyQuery` — the planned call a visit may claim: `(planned visit, rep, outlet)` → the call, or
+  nothing. **Built in W7 slice 9b**, against its first real caller — check-in, which had carried a
+  `plannedVisitId` on trust since slice 7. Every kind of miss (no such call, another rep's, the right
+  call at the wrong shop, a call on a draft plan) returns the same nothing, so a caller cannot turn
+  it into an oracle for somebody else's round. **Published plans only** — a draft is a supervisor's
+  experiment that the next generation run replaces wholesale.
+  > The rest of what this line used to promise — today's round for a rep, the period view — is
+  > deliberately still unbuilt. The screens that want it (`JRN-05`, W9) read it over HTTP, not in
+  > process, and an interface method with no in-process caller is the guess this project keeps
+  > declining to make. It grows one when something inside the monolith asks.
 - `IReferenceChangeFeed` (sync source) — territory-scoped, row-version delta of the rep's journey
   with tombstones, for **Sync** ([module boundaries §7](../architecture/10-module-boundaries.md#7-module-registry)).
 - `IJourneyIngest` — apply pushed journey annotations (not-visited reason, unplanned visit,

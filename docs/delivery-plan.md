@@ -568,6 +568,18 @@ whether a visit is finished and, once it is, that it can never change again (`BR
 > the threshold that would decide "abnormal" is a `VIS-10` decision against a population this system
 > does not have.
 
+> **Slice 9b built `IJourneyQuery`, and it closed a hole rather than adding a feature.** Check-in had
+> carried a `plannedVisitId` on trust since slice 7: nothing would have noticed a fabricated one until
+> it reached a coverage report, where it reads as a call that was made. The interface answers the
+> whole question in one call — this rep's, at this shop, on a published plan — because a lookup plus
+> two comparisons in the caller is a rule every future caller has to remember, and one of them would
+> forget the rep.
+>
+> It also found a **second hand-maintained gate list**: `ModuleBoundaryTests.ModuleAssemblies`, which
+> `AT-10` walks, was still five modules while `AT-1` gated seven. Journey and Visit had been outside
+> the cycle check since they were built, and it went unnoticed because neither had a contract
+> implementation to walk — the slice that gave Journey one is the slice that made it matter.
+
 **The parity harness is the week's actual deliverable.** `PRD-08` is why the vectors were written
 against a real engine in W6 rather than emitted from one — the format had to state rules a second
 language could implement. Slices 12–16 are that claim being tested for the first time, and slice 16 is
