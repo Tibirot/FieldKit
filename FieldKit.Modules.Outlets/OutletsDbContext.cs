@@ -14,6 +14,9 @@ public sealed class OutletsDbContext(DbContextOptions<OutletsDbContext> options,
 
     protected override string Schema => SchemaName;
 
+    /// <summary>Outlet is <c>ISyncTracked</c>, so this schema owns a row-version counter (ADR-0013).</summary>
+    protected override bool TracksSyncChanges => true;
+
     public DbSet<Channel> Channels => Set<Channel>();
 
     public DbSet<Outlet> Outlets => Set<Outlet>();

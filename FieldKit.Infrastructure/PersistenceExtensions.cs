@@ -17,6 +17,7 @@ public static class PersistenceExtensions
         where TContext : ModuleDbContext
     {
         services.AddScoped<EntityStampingInterceptor>();
+        services.AddScoped<RowVersionStampingInterceptor>();
         services.AddSingleton<ConvertIntegrationEventsToOutboxInterceptor>();
         services.AddSingleton<OutboxProcessor>();
 
@@ -27,6 +28,7 @@ public static class PersistenceExtensions
                 .UseNpgsql(connectionString, npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", schema))
                 .AddInterceptors(
                     serviceProvider.GetRequiredService<EntityStampingInterceptor>(),
+                    serviceProvider.GetRequiredService<RowVersionStampingInterceptor>(),
                     serviceProvider.GetRequiredService<ConvertIntegrationEventsToOutboxInterceptor>()));
 
         return services;
