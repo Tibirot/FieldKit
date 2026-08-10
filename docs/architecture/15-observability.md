@@ -42,8 +42,10 @@ These double as the **operational KPIs** behind the supervisor dashboards
 
 Per `ServiceDefaults`: `/health` (all checks — readiness) and `/alive` (liveness only). Extended
 with dependency checks: **PostgreSQL**, **Keycloak reachability**, and **outbox
-liveness** (dispatcher heartbeat). Redis joins them in W8, when the sync idempotency ledger gives
-it a consumer — a health check on a dependency nothing uses reports on nothing. Health endpoints are dev-open and locked down in non-dev per
+liveness** (dispatcher heartbeat). There is no Redis check because there is no Redis: the W8
+idempotency ledger it was being held for is a Postgres table ([ADR-0007
+amendment](adr/0007-offline-sync-strategy.md#amendment-2026-08-the-ledger-is-postgres-and-there-is-no-redis)),
+so the Postgres check already covers it. Health endpoints are dev-open and locked down in non-dev per
 Aspire guidance.
 
 ## 4. Correlation

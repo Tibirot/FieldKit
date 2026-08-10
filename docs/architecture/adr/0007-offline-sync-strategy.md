@@ -46,7 +46,8 @@ than resolving them:
   correction *proposal*) is written to a local **outbox** with a **client-generated mutation id
   (GUID)**.
 - On reconnect, the outbox is pushed. The server **deduplicates on the mutation id** (idempotency
-  ledger in Redis + persisted) so retries never double-apply.
+  ledger ~~in Redis + persisted~~ — **Postgres only**, see the amendment below) so retries never
+  double-apply.
 - Mutations are **append-only and device-owned** → no competing writer → **no conflict**.
 
 ### 3. Conflicts: designed away (see [B7 matrix](../../product/decisions-and-assumptions.md#b7--conflict-resolution-matrix))
@@ -101,3 +102,25 @@ independently of the JSON push ([B5](../../product/decisions-and-assumptions.md#
 
 **Follow-up:** the protocol, data structures, and failure handling are specified in the
 [offline sync engine deep dive](../12-offline-sync-engine.md).
+
+## Amendment (2026-08): the ledger is Postgres, and there is no Redis
+
+This ADR said "idempotency ledger in Redis + persisted" — a hot cache in front of a durable table.
+Decided at the start of W8, when the ledger stopped being a diagram and acquired a bill.
+
+**Postgres only.** One table, unique on `(tenant, device, mutationId)`, on the flexible server the
+deployment already runs, already backs up, and already pays for. A dedupe check is a single indexed
+read.
+
+The cache was dropped rather than deferred, and the reason is a number: a Redis container app is
+**~$11/month against a demo whose entire bill is ~$16–21**
+([ADR-0011](0011-deployment-azure-container-apps.md#costing-and-the-backing-service-split-2026-08)).
+It would be the second-largest line on the invoice, bought to remove latency from a lookup that no
+part of this system can currently demonstrate the cost of. This is the same shape of finding as
+[deploy slice D2](0011-deployment-azure-container-apps.md#the-split-decided), where a Redis instance
+provisioned in W1 turned out to back an output cache no endpoint had ever opted into.
+
+**What would bring it back**, so this is a threshold and not a preference: sustained push volume where
+the ledger read is a measured cost, or multiple API replicas contending on the same rows. Neither is
+reachable by a portfolio demo with `minReplicas: 0`. Putting a cache in front of the ledger later
+changes one class — the ledger's interface is the seam, and W8 slice 4 keeps it that way.

@@ -112,7 +112,10 @@ end-to-end cloud-native story and alignment with the Azure/AKS background on the
 > deployed at all**. It backed output caching only, and the first deploy slice found that no
 > endpoint had ever opted into that cache, so the cache and the Redis resource were removed rather
 > than made optional: the largest avoidable line on the bill turned out to be buying nothing.
-> Redis returns in W8 with the sync idempotency ledger. Costed at ≈ $11–16/month for year one in
+> ~~Redis returns in W8 with the sync idempotency ledger.~~ **It does not** — that ledger is a
+> Postgres table, decided at the start of W8 on the same cost grounds
+> ([ADR-0007 amendment](../architecture/adr/0007-offline-sync-strategy.md#amendment-2026-08-the-ledger-is-postgres-and-there-is-no-redis)).
+> Costed at ≈ $11–16/month for year one in
 > [ADR-0011](../architecture/adr/0011-deployment-azure-container-apps.md#costing-and-the-backing-service-split-2026-08),
 > which also records what a €4 VPS would have cost instead and why that is still declined.
 

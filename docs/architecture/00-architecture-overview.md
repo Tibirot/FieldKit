@@ -69,19 +69,19 @@ flowchart TB
   end
 
   pg[("PostgreSQL<br/>schema-per-module")]
-  redis[("Redis<br/>idempotency ledger — W8")]
+  %% No Redis. The idempotency ledger is a Postgres table (ADR-0007 amendment, 2026-08).
   apphost["FieldKit.AppHost<br/>(.NET Aspire orchestration)"]
 
   ui <-->|"HTTPS / JSON"| api
   sw <-->|"delta pull · outbox push"| api
   api --> mods --> bus
   mods --> pg
-  api --> redis
+
   bus --> pg
   apphost -.->|composes, wires, observes| server
   apphost -.->|composes| client
   apphost -.->|provisions| pg
-  apphost -.->|provisions| redis
+
 ```
 
 **Containers**
@@ -92,7 +92,7 @@ flowchart TB
 | **FieldKit.Server** | ASP.NET Core (.NET 10) | The modular monolith. Hosts all domain modules in one process, exposes the HTTP API and the sync endpoints. |
 | **Field app / Back office** | Next.js (App Router) | One Next.js app serving both the offline field PWA and the back-office console. |
 | **PostgreSQL** | Postgres 16 | System of record. One database, **one schema per module** for isolation. |
-| **Redis** | Redis | Idempotency-key store for the sync push path. **Not built yet** — it arrives in W8 with that path. It was provisioned from W1 backing an output cache no endpoint ever opted into, and was removed at deploy time (2026-08); the diagram above is the target, not what `dotnet run` starts today. |
+| ~~Redis~~ | — | **Not part of this system.** It was provisioned from W1 backing an output cache no endpoint ever opted into, and removed at deploy time (2026-08). The sync idempotency ledger it was being kept for is a Postgres table instead ([ADR-0007 amendment](adr/0007-offline-sync-strategy.md#amendment-2026-08-the-ledger-is-postgres-and-there-is-no-redis)). |
 
 > Today the front end is scaffolded with **Vite**; migrating it to **Next.js** is tracked
 > in [ADR-0004](adr/0004-nextjs-offline-first-frontend.md) and Phase 0 of the
@@ -208,7 +208,7 @@ to extract a module into its own service later if a real driver ever appears.
 | Front end | **Next.js (App Router) + React 19 + TypeScript** | Modern full-stack React; installable PWA |
 | Offline store | **IndexedDB (Dexie) + Workbox service worker** | Durable local store & caching for offline-first ([ADR-0007](adr/0007-offline-sync-strategy.md)) |
 | Server state (client) | **TanStack Query** | Cache/reconcile server data; pairs with the sync layer |
-| Idempotency (W8) | **Redis** | Idempotency keys on sync push. No response cache: one was wired and never used, and an output cache over tenant-scoped reads needs a key policy nobody has designed |
+| Idempotency (W8) | **PostgreSQL** | A ledger table keyed on tenant + device + mutation id. No Redis and no response cache: one was wired and never used, and an output cache over tenant-scoped reads needs a key policy nobody has designed |
 | Auth | **OIDC / JWT bearer** | Standard SaaS authentication ([ADR-0008](adr/0008-authentication-and-multitenancy.md)) |
 | Testing | **xUnit · Testcontainers · NetArchTest · Playwright · Vitest** | Real-Postgres integration + boundary + E2E ([testing strategy](17-testing-strategy.md)) |
 | CI/CD | **GitHub Actions → containers** | Build, test, arch-test, publish |
@@ -220,7 +220,7 @@ to extract a module into its own service later if a real driver ever appears.
 | **Multi-tenancy** | `TenantId` on every tenant-owned row; EF Core global query filter; tenant resolved from the token and flowed via an ambient `ITenantContext` | [security](16-security.md), [data](14-data-and-persistence.md) |
 | **AuthN/AuthZ** | OIDC login; JWT bearer to the API; permission-based authorization checked in module handlers | [ADR-0008](adr/0008-authentication-and-multitenancy.md) |
 | **Observability** | OpenTelemetry traces/metrics/logs via Aspire service defaults; custom domain metrics (visits synced, orders captured, sync latency) | [observability](15-observability.md) |
-| **Idempotency** | Client-generated mutation IDs; server dedupes on the sync push path via Redis + a persisted ledger | [sync engine](12-offline-sync-engine.md) |
+| **Idempotency** | Client-generated mutation IDs; server dedupes on the sync push path via a persisted Postgres ledger | [sync engine](12-offline-sync-engine.md) |
 | **Auditing** | EF Core save interceptor stamps created/modified + actor; domain events for meaningful changes | [data](14-data-and-persistence.md) |
 | **Error model** | RFC 7807 `ProblemDetails` everywhere; typed error codes in the contract | [API contracts](13-api-contracts.md) |
 | **Resilience** | Standard resilience handlers on outbound HTTP (Aspire service defaults) | [observability](15-observability.md) |
@@ -241,7 +241,7 @@ flowchart LR
   cdn["Reverse proxy / TLS"] --> nx["Next.js container"]
   cdn --> srv["FieldKit.Server container(s)"]
   srv --> pg[("Managed Postgres")]
-  srv --> rd[("Redis — W8")]
+
   srv --> obj[("Object storage")]
   srv -->|OTLP| otel["Telemetry backend"]
 ```

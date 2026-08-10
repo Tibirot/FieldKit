@@ -635,11 +635,59 @@ the same reason Products' does.
 
 ### Week 8 · Sync engine v1 (server + client) ⚠︎
 **Goal:** the hard part — offline round-trip for reference + visits.
-- Server: row-version change tracking; `/sync/pull` territory-scoped delta (watermarks + tombstones); `/sync/push` idempotent (mutationId ledger, Redis + persisted); device registry (bind / one-active) ([sync engine](architecture/12-offline-sync-engine.md), [ADR-0007](architecture/adr/0007-offline-sync-strategy.md)).
+- Server: row-version change tracking; `/sync/pull` territory-scoped delta (watermarks + tombstones); `/sync/push` idempotent (mutationId ledger, **Postgres** — see below); device registry (bind / one-active) ([sync engine](architecture/12-offline-sync-engine.md), [ADR-0007](architecture/adr/0007-offline-sync-strategy.md)).
 - Client: IndexedDB (Dexie) stores (`ref_*`, `outbox`, `meta`); sync manager (push→pull); watermark handling.
 - Wire visits through push; outlets/journeys/products/prices through pull.
 
 **Done when:** a device binds, pulls a snapshot, creates a visit **offline**, and pushes it idempotently — replaying the batch changes nothing. Idempotency + resume tests pass. **⚠︎ Heaviest week — budget ~2 weeks.**
+
+#### Decomposition
+
+**Thin end-to-end first.** Week one takes *one* entity through pull and *one* mutation through push,
+both ends, so the protocol meets a real consumer while it is still cheap to change. Week two widens
+it. The alternative — the whole server surface, then the client — stacks more cleanly and is how a
+protocol reaches week two with a design nobody has used.
+
+Two things W7 already paid for land here: [`IRepScope`](architecture/10-module-boundaries.md#7-module-registry)
+is exactly the territory scoping pull needs, and `IReferenceChangeFeed` was deferred out of W6 on the
+grounds that "a primitive designed against a protocol that does not exist yet is a guess" — this is
+the protocol.
+
+**Week one — the round trip**
+
+| # | Slice | Requirements | ~Size |
+|---|---|---|---|
+| 0 | **The change sequence** — a monotonic, per-tenant stamp applied on save by an interceptor. Every delta below reads it; nothing else in the week works without it | `OFF-03` | 300 |
+| 1 | **Tombstones** — a delete becomes an observable event. Without one, a delta pull can add and update forever and never *remove*, and a device keeps outlets it lost months ago | `OFF-03` | 250 |
+| 2 | **Device registry** — bind, one active per user, unbind; an unbound device is refused before any scoping question is asked | `OFF-12` | 350 |
+| 3 | **`/sync/pull`, outlets only** — watermark in; changes, tombstones and the next watermark out; territory-scoped through `IRepScope`. One entity, so the protocol is argued about once | `OFF-03` | 400 |
+| 4 | **The idempotency ledger** — a Postgres table, unique on `(tenant, device, mutationId)`. A replay returns the first result rather than doing the work again | `OFF-04` | 300 |
+| 5 | **`/sync/push`, visits only** — a batch applied idempotently, a per-mutation result, refusals in the [ADR-0012](architecture/adr/0012-server-message-localization.md) code shape | `OFF-04`, `OFF-09` | 400 |
+| 6 | **Client: the local store** — Dexie `ref_*`, `outbox` and `meta`; watermarks persisted where a crash cannot lose them | `OFF-02` | 350 |
+| 7 | **Client: the sync manager** — push, then pull, then reconcile; the round trip the week is judged on | `OFF-01`, `OFF-06` | 400 |
+
+**Week two — widening and hardening**
+
+| # | Slice | Requirements | ~Size |
+|---|---|---|---|
+| 8 | **Pull across the reference set** — journeys, products, prices, promotions, configuration. Mostly slice 3 applied five times; the interesting part is what each one scopes by | `OFF-03` | 400 |
+| 9 | **Replay and resume as properties** — a generated suite: any batch replayed changes nothing, any pull interrupted at any point resumes without loss or duplication | `OFF-04` | 350 |
+| 10 | **Partial failure** — one bad mutation in a batch does not reject the batch; the device learns which, and why | `OFF-09` | 300 |
+| 11 | **Local-store migration** — an app update must not strand a pending outbox | `OFF-13` | 300 |
+| 12 | **Drain-push on device swap** — a deactivated device completes its last push rather than losing a shift's work | `OFF-12` | 300 |
+| 13 | **Connectivity + pending UI** — the indicator, per-item badges, and *Sync now* | `OFF-05`, `OFF-06` | 350 |
+
+**Not in W8:** photo upload (`OFF-08`) and background sync (`OFF-07`) — both are W11 and Phase 3
+respectively, and both are separate transports rather than more of this one. Audit and order offline
+(`OFF-01b`) arrive with those modules.
+
+**The ledger is Postgres, not Redis.** This line previously read "Redis + persisted", and the hot
+cache is dropped: a dedupe lookup is one indexed read on a database that is already deployed, already
+backed up, and already paid for, while a Redis container app is ~$11/month against a demo whose whole
+bill is ~$16–21 ([ADR-0011](architecture/adr/0011-deployment-azure-container-apps.md#costing-and-the-backing-service-split-2026-08)).
+It buys latency this system has no way to demonstrate. Reversible by design — putting a cache in
+front of the ledger later changes one class, and [ADR-0007](architecture/adr/0007-offline-sync-strategy.md)
+records what would justify it.
 
 ### Week 9 · Field PWA + offline journey/visit
 **Goal:** the Phase 2 demo — the field app, offline.

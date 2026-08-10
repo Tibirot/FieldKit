@@ -23,7 +23,7 @@ flowchart LR
   subgraph server["FieldKit.Server — Sync module"]
     pull["/sync/pull"]
     push["/sync/push"]
-    idem["Idempotency ledger<br/>(Redis + persisted)"]
+    idem["Idempotency ledger<br/>(Postgres)"]
     dev["Device registry"]
     ct["Change tracking<br/>(row versions)"]
   end
@@ -167,7 +167,8 @@ flowchart TB
 }
 ```
 
-- **Idempotency:** `mutationId` is checked in a ledger (Redis hot cache + persisted table). A
+- **Idempotency:** `mutationId` is checked in a ledger (a Postgres table, unique on tenant +
+  device + mutation id; no cache — [ADR-0007 amendment](adr/0007-offline-sync-strategy.md#amendment-2026-08-the-ledger-is-postgres-and-there-is-no-redis)). A
   redelivered mutation returns its **prior recorded result** and applies nothing — exactly-once
   *effect* over at-least-once *delivery*. The ledger is **retained at least as long as the maximum
   offline + retry window** (a very late retry must still dedupe); entries older than that horizon are
