@@ -20,6 +20,8 @@
       exists, belongs to this rep and is at this shop — the id was taken on trust until W7 slice 9b.
     -->
     <ProjectReference Include="..\FieldKit.Modules.Journey.Contracts\FieldKit.Modules.Journey.Contracts.csproj" />
+    <!-- Its own public surface, arriving in W8 because Sync is the first caller to ask for one. -->
+    <ProjectReference Include="..\FieldKit.Modules.Visit.Contracts\FieldKit.Modules.Visit.Contracts.csproj" />
   </ItemGroup>
 
   <!--

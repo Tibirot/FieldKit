@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Visit module's *only* public surface. Other modules reference this assembly and never
+    FieldKit.Modules.Visit (AT-1), which is what keeps the boundary enforceable by assembly
+    reference rather than by convention.
+
+    No EF Core, no ASP.NET, no Infrastructure — a contracts assembly that could see a DbContext
+    would let an entity leak through a signature (AT-3).
+
+    It arrives in W8, and the Visit module's own csproj has said since W7 that it deliberately had
+    none: "Visit's own contracts are consumed by Audit and Order, which are Phase 3, and an
+    interface designed before its consumer is a guess that consumer has to live with." Sync is the
+    consumer that arrived first, and `IVisitIngest` is shaped for the question it actually asks —
+    "here is a visit that already happened offline; make it real" — rather than for the two callers
+    that were guessed at.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FieldKit.SharedKernel\FieldKit.SharedKernel.csproj" />
+    <ProjectReference Include="..\FieldKit.BuildingBlocks\FieldKit.BuildingBlocks.csproj" />
+  </ItemGroup>
+
+</Project>

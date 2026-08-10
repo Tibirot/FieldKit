@@ -663,6 +663,7 @@ the protocol.
 | 3 | **`/sync/pull`, outlets only** — watermark in; changes, tombstones and the next watermark out; territory-scoped through `IRepScope`. One entity, so the protocol is argued about once | `OFF-03` | 400 |
 | 4 | **The idempotency ledger** — a Postgres table, unique on `(tenant, device, mutationId)`. A replay returns the first result rather than doing the work again | `OFF-04` | 300 |
 | 5 | **`/sync/push`, visits only** — a batch applied idempotently, a per-mutation result, refusals in the [ADR-0012](architecture/adr/0012-server-message-localization.md) code shape | `OFF-04`, `OFF-09` | 400 |
+| ~~4~~ | *Folded into 5.* The ledger's table and mapping shipped alone; **nothing could test it.** A ledger is only observably a ledger through the endpoint that consults it, and a test that resolved `IMutationLedger` from the container never got as far as a tenant — `KeycloakTenantContext` throws without a request. A slice whose only evidence is "it compiles" is not a slice | — | — |
 | 6 | **Client: the local store** — Dexie `ref_*`, `outbox` and `meta`; watermarks persisted where a crash cannot lose them | `OFF-02` | 350 |
 | 7 | **Client: the sync manager** — push, then pull, then reconcile; the round trip the week is judged on | `OFF-01`, `OFF-06` | 400 |
 
@@ -688,6 +689,14 @@ bill is ~$16–21 ([ADR-0011](architecture/adr/0011-deployment-azure-container-a
 It buys latency this system has no way to demonstrate. Reversible by design — putting a cache in
 front of the ledger later changes one class, and [ADR-0007](architecture/adr/0007-offline-sync-strategy.md)
 records what would justify it.
+
+> **Slices 10 and 12 arrived with slice 5, because the endpoint could not be written without them.**
+> Partial failure is not a hardening pass over a batch-or-nothing push — it is the shape of the
+> response, and building the all-or-nothing version first would have meant designing `PushResponse`
+> twice. Drain-push is the same: `/sync/push` had to answer "may an inactive device push?" the moment
+> it looked a device up, and the answer (`Swapped` may, `Compromised` may not) is one branch, not a
+> slice. What week two still owes on both is *generated* evidence — slice 9's replay/resume property
+> suite over arbitrary batches, rather than the worked examples slice 5 shipped.
 
 ### Week 9 · Field PWA + offline journey/visit
 **Goal:** the Phase 2 demo — the field app, offline.

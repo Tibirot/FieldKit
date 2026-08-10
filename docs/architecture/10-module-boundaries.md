@@ -246,7 +246,7 @@ the document a module author trusts when deciding what to depend on.
 | Products & Pricing | `…Modules.Products` | `products` | `IProductCatalog`, `IAssortmentService`, `IPricingService`, `IReferenceChangeFeed` | `PriceListPublished`, `PromotionActivated` |
 | Configuration | `…Modules.Configuration` (+ `.Contracts`) | `config` | **`IFieldDefinitionCatalog`**, **`IVisitWorkflow`**, `ISurveyForms`, `IScoreWeights`, `IReferenceChangeFeed` | `ConfigurationPublished` |
 | Journey | `…Modules.Journey` (+ `.Contracts`) | `journey` | **`IJourneyQuery`**, `IReferenceChangeFeed`, `IJourneyIngest` | `JourneyPublished`, `PlannedVisitMarkedNotVisited` |
-| Visit | `…Modules.Visit` | `visit` | `IVisitContext`, `IVisitQuery`, `IVisitIngest` | `VisitCompleted` |
+| Visit | `…Modules.Visit` (+ `.Contracts`) | `visit` | **`IVisitIngest`**, `IVisitContext`, `IVisitQuery` | `VisitCompleted` |
 | Audit | `…Modules.Audit` | `audit` | `IAuditQuery`, `IPerfectStoreScore`, `IAuditIngest` | `AuditCompleted` |
 | Order | `…Modules.Orders` | `order` | `IOrderQuery`, `IOrderIngest` | `OrderSubmitted` |
 | Sync | `…Modules.Sync` | `sync` | ~~`ISyncEndpoints` (pull/push)~~ — none yet; nothing outside the module calls it | ~~`DeviceRegistered`~~ — no subscriber yet |
@@ -355,10 +355,14 @@ a rule about a shop this tenant does not have.
 > is the second time the record shape has paid for itself. Banner still does not qualify, and stays
 > off.
 
-**Visit arrived in W7 as a single assembly too, and as a pure consumer.** It reads three contracts —
-`IOutletGeofence`, `IOutletClassification` and `IVisitWorkflow` — and exposes none. `IVisitContext`,
-`IVisitQuery` and `IVisitIngest` are all specified, and all three have their first caller in Phase 3
-(Audit, Order, Sync); by this section's own rule they wait for it. It does **publish**: `VisitCompleted`
+**Visit arrived in W7 as a single assembly too, and as a pure consumer.** It read three contracts —
+`IOutletGeofence`, `IOutletClassification` and `IVisitWorkflow` — and exposed none. `IVisitContext`,
+`IVisitQuery` and `IVisitIngest` were all specified, and all three had their first caller in Phase 3
+(Audit, Order, Sync); by this section's own rule they waited for it. **`IVisitIngest`'s caller arrived
+in W8 slice 5**, so the assembly split then and not before: `/sync/push` has to make a visit captured
+offline real, and Sync writing the `visit` schema itself would put the module that owns the rules
+outside the path that applies them. The other two are still waiting — Audit and Order have not been
+built. It also **publishes**: `VisitCompleted`
 ships with check-out (slice 9), into the same empty room `PriceListPublished` has been talking to
 since W6 — which is the asymmetry this section keeps drawing. An event is true whether or not
 anyone is listening; an interface is a promise to a caller who has not arrived. Its schema is `visit`, and the

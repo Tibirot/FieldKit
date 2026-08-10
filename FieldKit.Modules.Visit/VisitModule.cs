@@ -1,4 +1,5 @@
 using FieldKit.Infrastructure;
+using FieldKit.Modules.Visit.Contracts;
 using FieldKit.Web;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
@@ -17,8 +18,9 @@ namespace FieldKit.Modules.Visit;
 /// the rep, always record".
 /// </para>
 /// <para>
-/// <b>No public contracts yet</b>, deliberately — see the csproj. <c>IVisitContext</c> and
-/// <c>IVisitQuery</c> are consumed by Audit and Order, which are Phase 3.
+/// <b>One public contract</b>, and only because a consumer asked: Sync needs to apply visits a
+/// device captured offline, so <c>IVisitIngest</c> exists (W8 slice 5). <c>IVisitContext</c> and
+/// <c>IVisitQuery</c> still do not — Audit and Order are Phase 3.
 /// </para>
 /// </remarks>
 public sealed class VisitModule : IModule
@@ -38,6 +40,9 @@ public sealed class VisitModule : IModule
 
         services.AddModuleDbContext<VisitDbContext>(connectionString, VisitDbContext.SchemaName);
         services.AddHostedService<ModuleMigrator<VisitDbContext>>();
+
+        // Sync applies pushed work through this rather than writing the visit schema (W8 slice 5).
+        services.AddScoped<IVisitIngest, VisitIngestService>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints) => endpoints.MapVisitEndpoints();

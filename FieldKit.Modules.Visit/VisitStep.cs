@@ -83,6 +83,30 @@ public sealed class VisitStep : ITenantOwned
         Status = VisitStepStatus.Pending,
     };
 
+    /// <summary>
+    /// A step as a device completed it offline — already done, with the device's own id and time.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="From"/> because the two build different things. That one creates a
+    /// pending step from a workflow the server just read; this one records a step that was completed
+    /// under a workflow the server may no longer have. Re-deriving the shape here would describe
+    /// yesterday's visit with today's definition (W8 slice 5).
+    /// </remarks>
+    internal static VisitStep Ingested(
+        Guid visitId, Guid stepId, int order, VisitStepType type, bool mandatory, string label,
+        string? notes, DateTimeOffset completedAtUtc) => new()
+        {
+            Id = stepId,
+            VisitId = visitId,
+            Order = order,
+            Type = type,
+            Mandatory = mandatory,
+            Label = label,
+            Status = VisitStepStatus.Completed,
+            CompletedAtUtc = completedAtUtc,
+            Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
+        };
+
     /// <summary>Whether this step is one <c>BR-VIS-3</c> would hold a check-out open for.</summary>
     internal bool IsOpenAndMandatory => Mandatory && Status != VisitStepStatus.Completed;
 
