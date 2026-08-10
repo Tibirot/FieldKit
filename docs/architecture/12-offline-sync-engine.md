@@ -134,13 +134,17 @@ POST /sync/push
 {
   "deviceId": "…",
   "mutations": [
-    { "mutationId": "c1a…", "type": "VisitCompleted", "payload": { /* … */ },
-      "snapshotVersion": "…#8790" },
-    { "mutationId": "d4f…", "type": "OrderSubmitted",  "payload": { /* … */ },
-      "snapshotVersion": "…#8790" }
+    { "mutationId": "c1a…", "type": "CapturedVisit", "visit": { /* … */ } },
+    { "mutationId": "d4f…", "type": "CapturedOrder", "order": { /* … */ } }
   ]
 }
 ```
+
+**A typed property per kind, not a `payload` blob.** Each mutation type adds its own optional
+property, which is additive — a device that only knows `visit` keeps working when `order` lands — and
+keeps the request describable in OpenAPI, which an opaque blob would not. `snapshotVersion` is not
+accepted yet: nothing reads it until as-of-capture validation exists (see below), and a field the
+server ignores is a promise it is not keeping.
 
 **Server processing**, per mutation:
 
@@ -151,7 +155,7 @@ flowchart TB
   b -- no --> c["validate via IngestContract<br/>as-of-capture: scope/permission · as-of-now: hard rules"]
   c -- reject --> r2["result: rejected + reason + line"]
   c -- ok --> d["apply via owning module ingest contract<br/>(IVisitIngest / IOrderIngest / IAuditIngest)"]
-  d --> e["record mutationId + result in ledger (same TX)"]
+  d --> e["record mutationId + result in ledger<br/>(separate TX — see below)"]
   e --> r3["result: accepted"]
 ```
 
@@ -162,7 +166,8 @@ flowchart TB
   "results": [
     { "mutationId": "c1a…", "status": "accepted" },
     { "mutationId": "d4f…", "status": "rejected",
-      "reason": "OUTLET_CLOSED", "detail": "Outlet closed 2026-07-30" }
+      "reason": "visit.ingest.outletUnknown",
+      "detail": "That outlet does not exist for this tenant." }
   ]
 }
 ```
@@ -177,11 +182,26 @@ flowchart TB
 - **Apply through the ingest contract, not tables:** Sync calls `IVisitIngest`/`IOrderIngest`/
   `IAuditIngest` so all domain invariants run server-side — Sync never writes another module's schema
   ([module boundaries §7](10-module-boundaries.md#7-module-registry)).
+- **The work and its ledger entry commit separately, and the device-minted id is what makes that
+  safe.** This document used to say "same TX". It cannot be: schema-per-module
+  ([ADR-0005](adr/0005-persistence-postgres-schema-per-module.md)) means Visit and Sync own separate
+  `DbContext`s, so an ingest that deferred its save would leave the work in a change tracker Sync
+  never commits. Two saves leave a window — the visit stored, the ledger entry lost to a crash — and
+  the device's retry arrives looking new. It is closed one level down: the **entity id is minted on
+  the device**, so the ingest finds the record already there and answers `AlreadyExists`, which the
+  push endpoint reads as *this already succeeded* and records as accepted. The effect is exactly-once
+  without a distributed transaction, and it is why every pushed record carries a client-minted id.
 - **Validation is as-of-capture for scope, as-of-now for hard rules.** A rep reassigned or
   scope-changed *during* the offline window did legitimate work — so **permission/territory** checks
   are evaluated **as-of-capture** (the snapshot version the mutation carries), while **hard business
   rules** (outlet closed, SKU discontinued) are **as-of-now**. This avoids wrongly rejecting valid
-  work while still catching genuine conflicts.
+  work while still catching genuine conflicts. *As shipped in W8 slice 5 there is no as-of-capture
+  half yet* — a push runs the as-of-now rules (the outlet exists, the outcome parses, a
+  non-productive visit says why) and no territory check at all, because a rep pushing their own
+  captured work is not asking to reach anything they did not already hold. Where the same visit's
+  **geofence assessment** is concerned the rule is stronger than as-of-capture: the device's verdict
+  is stored **unmodified**, never recomputed, because the outlet's radius may have moved since and
+  re-judging would reclassify a rep who was legitimately inside it.
 - Client marks `accepted` mutations `acked` (removed); transient failures stay `pending` and retry
   with backoff. A **`rejected`** result becomes a **"needs attention"** item ([OFF-09](../product/30-offline-behavior.md#6-requirements));
   for an **order**, rejection is whole-order and **re-opens the order editable on the device** so the

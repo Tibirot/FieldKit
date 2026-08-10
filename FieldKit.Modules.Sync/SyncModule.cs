@@ -38,12 +38,17 @@ public sealed class SyncModule : IModule
 
         services.AddModuleDbContext<SyncDbContext>(connectionString, SyncDbContext.SchemaName);
         services.AddHostedService<ModuleMigrator<SyncDbContext>>();
+
+        // The ledger is scoped: it hands out tracked entities on the request context, so the
+        // caller can commit them with the work they describe (W8 slice 4).
+        services.AddScoped<IMutationLedger, MutationLedger>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         endpoints.MapDeviceEndpoints();
         endpoints.MapPullEndpoints();
+        endpoints.MapPushEndpoints();
     }
 }
 

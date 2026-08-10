@@ -3540,3 +3540,151 @@ Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
 { "deviceId": "{{revokedDeviceId}}", "cursors": { "outlets": 0 } }
+
+### ── Sync · push (OFF-04) ──────────────────────────────────────────────────
+# The drain. Every mutation carries an id minted on the device, and the ledger answers a
+# replay with what happened the first time rather than applying it again — the device
+# cannot tell a lost response from a lost request, so it retries, and the retry is free.
+#
+# Note what the visit carries: the device's own timestamps and its own geofence verdict.
+# The server stores both unmodified. Re-judging yesterday's visit against today's radius
+# would reclassify a rep who was legitimately inside it.
+
+POST {{host}}/api/sync/push
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceId}}",
+  "mutations": [
+    {
+      "mutationId": "0195e7c4-0000-7000-8000-00000000a001",
+      "type": "CapturedVisit",
+      "visit": {
+        "visitId": "0195e7c4-0000-7000-8000-00000000b001",
+        "outletId": "{{outletId}}",
+        "plannedVisitId": null,
+        "checkedInAtUtc": "2026-03-17T09:00:00+00:00",
+        "checkInLatitude": 44.4325,
+        "checkInLongitude": 26.1039,
+        "checkInDistanceMetres": 12.5,
+        "wasInsideGeofence": true,
+        "overrideReason": null,
+        "steps": [
+          {
+            "stepId": "0195e7c4-0000-7000-8000-00000000c001",
+            "order": 1,
+            "type": "Note",
+            "mandatory": true,
+            "label": "Talk to the owner",
+            "notes": "Reordered two cases.",
+            "completedAtUtc": "2026-03-17T09:10:00+00:00"
+          }
+        ],
+        "outcome": "Productive",
+        "outcomeReason": null,
+        "checkedOutAtUtc": "2026-03-17T09:25:00+00:00",
+        "checkOutLatitude": 44.4325,
+        "checkOutLongitude": 26.1039
+      }
+    }
+  ]
+}
+
+### The same request again, byte for byte — what a device sends when the first response
+### never arrived. Answers `accepted` a second time and stores nothing: one visit exists.
+POST {{host}}/api/sync/push
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceId}}",
+  "mutations": [
+    {
+      "mutationId": "0195e7c4-0000-7000-8000-00000000a001",
+      "type": "CapturedVisit",
+      "visit": {
+        "visitId": "0195e7c4-0000-7000-8000-00000000b001",
+        "outletId": "{{outletId}}",
+        "plannedVisitId": null,
+        "checkedInAtUtc": "2026-03-17T09:00:00+00:00",
+        "checkInLatitude": 44.4325,
+        "checkInLongitude": 26.1039,
+        "checkInDistanceMetres": 12.5,
+        "wasInsideGeofence": true,
+        "overrideReason": null,
+        "steps": [],
+        "outcome": "Productive",
+        "outcomeReason": null,
+        "checkedOutAtUtc": "2026-03-17T09:25:00+00:00",
+        "checkOutLatitude": 44.4325,
+        "checkOutLongitude": 26.1039
+      }
+    }
+  ]
+}
+
+### Partial success, which is the normal case rather than an error path. The first visit
+### lands; the second is refused `visit.ingest.outcomeReasonRequired` (BR-VIS-3) and the
+### response is 200 with per-mutation results, because failing the batch would lose the one
+### that was fine. A rejection is recorded too — otherwise the device retries it forever.
+POST {{host}}/api/sync/push
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceId}}",
+  "mutations": [
+    {
+      "mutationId": "0195e7c4-0000-7000-8000-00000000a002",
+      "type": "CapturedVisit",
+      "visit": {
+        "visitId": "0195e7c4-0000-7000-8000-00000000b002",
+        "outletId": "{{outletId}}",
+        "plannedVisitId": null,
+        "checkedInAtUtc": "2026-03-17T11:00:00+00:00",
+        "checkInLatitude": null,
+        "checkInLongitude": null,
+        "checkInDistanceMetres": null,
+        "wasInsideGeofence": false,
+        "overrideReason": "No signal, shop is in a basement.",
+        "steps": [],
+        "outcome": "Productive",
+        "outcomeReason": null,
+        "checkedOutAtUtc": "2026-03-17T11:20:00+00:00",
+        "checkOutLatitude": null,
+        "checkOutLongitude": null
+      }
+    },
+    {
+      "mutationId": "0195e7c4-0000-7000-8000-00000000a003",
+      "type": "CapturedVisit",
+      "visit": {
+        "visitId": "0195e7c4-0000-7000-8000-00000000b003",
+        "outletId": "{{outletId}}",
+        "plannedVisitId": null,
+        "checkedInAtUtc": "2026-03-17T13:00:00+00:00",
+        "checkInLatitude": null,
+        "checkInLongitude": null,
+        "checkInDistanceMetres": null,
+        "wasInsideGeofence": true,
+        "overrideReason": null,
+        "steps": [],
+        "outcome": "NonProductive",
+        "outcomeReason": null,
+        "checkedOutAtUtc": "2026-03-17T13:05:00+00:00",
+        "checkOutLatitude": null,
+        "checkOutLongitude": null
+      }
+    }
+  ]
+}
+
+### A device reported `Compromised` answers 403 `sync.push.deviceCompromised`. This is the
+### one revocation that closes the drain: a `Swapped` phone may still send the work it
+### captured, a suspect one may not send anything (security §5).
+POST {{host}}/api/sync/push
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{ "deviceId": "{{compromisedDeviceId}}", "mutations": [] }

@@ -1,5 +1,6 @@
 using FieldKit.BuildingBlocks;
 using FieldKit.Modules.Configuration.Contracts;
+using FieldKit.Modules.Visit.Contracts;
 using FieldKit.SharedKernel;
 
 namespace FieldKit.Modules.Visit;
@@ -188,6 +189,75 @@ public sealed class Visit : AggregateRoot, ITenantOwned, IAuditable
 
         visit._steps.AddRange(
             steps.OrderBy(step => step.Order).Select(step => VisitStep.From(visit.Id, step)));
+
+        return visit;
+    }
+
+    /// <summary>
+    /// A visit that already happened offline, arriving through <c>IVisitIngest</c> (W8 slice 5).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Sealed on arrival: it is created checked-out, with the device's timestamps rather than the
+    /// server's clock. A visit worked yesterday and pushed today is a record of yesterday, and
+    /// stamping it with now would make every offline day look like it happened at reconnection.
+    /// </para>
+    /// <para>
+    /// It does not call <see cref="CheckIn"/> and then <see cref="TryCheckOut"/>, and that is
+    /// deliberate rather than lazy. Those two enforce rules about a visit in progress — a geofence
+    /// assessed against the outlet's current radius, mandatory steps from the channel's current
+    /// workflow — and re-running them against *today's* configuration would re-judge a completed
+    /// visit under rules that may have been republished since. The rules that still mean something
+    /// are enforced by the caller (<c>VisitIngestService</c>), where they can produce a refusal a
+    /// device can act on.
+    /// </para>
+    /// </remarks>
+    internal static Visit Ingest(
+        CapturedVisit captured, string userId, VisitOutcome outcome, IReadOnlyList<VisitStep> steps)
+    {
+        var visit = new Visit
+        {
+            Id = captured.VisitId,
+            OutletId = captured.OutletId,
+            UserId = userId,
+            PlannedVisitId = captured.PlannedVisitId,
+            Status = VisitStatus.CheckedOut,
+            CheckedInAtUtc = captured.CheckedInAtUtc,
+            CheckInLatitude = captured.CheckInLatitude,
+            CheckInLongitude = captured.CheckInLongitude,
+            CheckInDistanceMetres = captured.CheckInDistanceMetres,
+
+            // The device's verdict, copied rather than recomputed. It knew where the phone was and
+            // what the radius was at the time; this server knows neither (`CapturedVisit`).
+            WasInsideGeofence = captured.WasInsideGeofence,
+            GeofenceOverrideReason = string.IsNullOrWhiteSpace(captured.OverrideReason)
+                ? null
+                : captured.OverrideReason.Trim(),
+            CheckedOutAtUtc = captured.CheckedOutAtUtc,
+            CheckOutLatitude = captured.CheckOutLatitude,
+            CheckOutLongitude = captured.CheckOutLongitude,
+            Outcome = outcome,
+            OutcomeReason = outcome == VisitOutcome.NonProductive
+                ? captured.OutcomeReason?.Trim()
+                : null,
+        };
+
+        visit._steps.AddRange(steps);
+
+        // The same event the online path raises, so everything downstream of a completed visit is
+        // downstream of an ingested one too — a subscriber must not have to know how it arrived.
+        visit.Raise(new VisitCompleted(
+            Guid.CreateVersion7(),
+            captured.CheckedOutAtUtc,
+            visit.Id,
+            visit.OutletId,
+            visit.UserId,
+            visit.PlannedVisitId,
+            captured.CheckedInAtUtc,
+            captured.CheckedOutAtUtc,
+            outcome.ToString(),
+            visit._steps.Count,
+            visit._steps.Count(step => step.Status == VisitStepStatus.Completed)));
 
         return visit;
     }

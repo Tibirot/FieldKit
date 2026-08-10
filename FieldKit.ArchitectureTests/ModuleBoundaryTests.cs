@@ -6,6 +6,7 @@ using FieldKit.Modules.Journey;
 using FieldKit.Modules.Journey.Contracts;
 using FieldKit.Modules.Sync;
 using FieldKit.Modules.Visit;
+using FieldKit.Modules.Visit.Contracts;
 using FieldKit.Modules.Org;
 using FieldKit.Modules.Configuration;
 using FieldKit.Modules.Configuration.Contracts;
@@ -44,6 +45,7 @@ public class ModuleBoundaryTests
     private static readonly Assembly SyncModuleAssembly = typeof(SyncModule).Assembly;
     private static readonly Assembly ConfigurationContracts = typeof(IFieldDefinitionCatalog).Assembly;
     private static readonly Assembly JourneyContracts = typeof(IJourneyQuery).Assembly;
+    private static readonly Assembly VisitContracts = typeof(IVisitIngest).Assembly;
 
     /// <summary>
     /// Every module <b>implementation</b> assembly — the ones nothing outside may reference.
@@ -92,7 +94,10 @@ public class ModuleBoundaryTests
     /// slip into a shared surface unnoticed.
     /// </remarks>
     private static readonly Assembly[] ContractsAssemblies =
-        [IamContracts, OrgContracts, OutletsContracts, ConfigurationContracts, JourneyContracts];
+    [
+        IamContracts, OrgContracts, OutletsContracts, ConfigurationContracts, JourneyContracts,
+        VisitContracts,
+    ];
 
     [Fact] // AT-1 — the core boundary.
     public void A_module_never_references_another_modules_implementation()
@@ -183,6 +188,16 @@ public class ModuleBoundaryTests
 
         Assert.NotEmpty(journeys);
         Assert.All(journeys, type => Assert.False(type.IsPublic, $"{type.Name} should be internal"));
+
+        // And Visit's, which landed in W8 slice 5 once Sync had work to hand it.
+        Assert.Contains(typeof(IVisitIngest), VisitContracts.GetExportedTypes());
+
+        var ingests = VisitModuleAssembly.GetTypes()
+            .Where(type => !type.IsInterface && typeof(IVisitIngest).IsAssignableFrom(type))
+            .ToList();
+
+        Assert.NotEmpty(ingests);
+        Assert.All(ingests, type => Assert.False(type.IsPublic, $"{type.Name} should be internal"));
     }
 
 

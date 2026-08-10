@@ -16,6 +16,8 @@ public sealed class SyncDbContext(DbContextOptions<SyncDbContext> options, ITena
 
     public DbSet<DeviceScopeEntry> DeviceScope => Set<DeviceScopeEntry>();
 
+    public DbSet<MutationLedgerEntry> MutationLedger => Set<MutationLedgerEntry>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -49,6 +51,23 @@ public sealed class SyncDbContext(DbContextOptions<SyncDbContext> options, ITena
 
             // The read on every pull: "what was this device told it had". The composite key already
             // leads with DeviceId, so no second index earns its keep.
+        });
+
+        modelBuilder.Entity<MutationLedgerEntry>(entry =>
+        {
+            entry.ToTable("mutation_ledger");
+
+            // The key *is* the uniqueness rule. A separate surrogate id with a unique index beside
+            // it would let two rows for one mutation exist for as long as it takes a race to lose,
+            // and the whole guarantee is that there is exactly one answer per mutation.
+            entry.HasKey(e => new { e.TenantId, e.DeviceId, e.MutationId });
+
+            entry.Property(e => e.Status).HasConversion<string>().HasMaxLength(16);
+            entry.Property(e => e.ReasonCode).HasMaxLength(64);
+            entry.Property(e => e.Detail).HasMaxLength(512);
+
+            // The prune sweep's access path: everything older than the retry horizon.
+            entry.HasIndex(e => e.RecordedAtUtc);
         });
     }
 }
