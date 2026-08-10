@@ -161,6 +161,52 @@ export type ReferencePriceAssignment = {
   rowVersion: number;
 };
 
+/** What a promotion applies to. Exactly one id is set; an empty list means "everything". */
+export type ReferencePromotionTarget = { productId: string | null; categoryId: string | null };
+
+/** One threshold of a volume promotion, ordered by `minQuantity`. */
+export type ReferencePromotionTier = {
+  minQuantity: number;
+  percentOff: number | null;
+  amountOff: number | null;
+  currency: string | null;
+};
+
+/**
+ * One promotion as the device holds it (`PRD-05`, W8 slice 8f).
+ *
+ * Targets and tiers live *inside* it, and the reason is sharper than the workflow's: a device
+ * holding four of five tiers does not fail, it computes a **different discount** — and neither the
+ * rep nor the shop has any way to notice.
+ */
+export type ReferencePromotion = {
+  id: string;
+  name: string;
+  type: string;
+  percentOff: number | null;
+  amountOff: number | null;
+  currency: string | null;
+  buyQuantity: number | null;
+  getQuantity: number | null;
+  getPercentOff: number | null;
+  getProductId: string | null;
+  validFrom: string;
+  validTo: string | null;
+  priority: number;
+  targets: ReferencePromotionTarget[];
+  tiers: ReferencePromotionTier[];
+  rowVersion: number;
+};
+
+/** Which promotion applies where. Exactly one of the two ids is set. */
+export type ReferencePromotionAssignment = {
+  id: string;
+  promotionId: string;
+  channelId: string | null;
+  outletId: string | null;
+  rowVersion: number;
+};
+
 /** Where a mutation has got to. The device's own state, never the server's. */
 export type OutboxStatus =
   /** Captured and durable. Waiting for a connection. */
@@ -242,6 +288,8 @@ export class FieldKitDatabase extends Dexie {
   priceLists!: EntityTable<ReferencePriceList, "id">;
   priceLines!: EntityTable<ReferencePriceLine, "id">;
   priceAssignments!: EntityTable<ReferencePriceAssignment, "id">;
+  promotions!: EntityTable<ReferencePromotion, "id">;
+  promotionAssignments!: EntityTable<ReferencePromotionAssignment, "id">;
   outbox!: EntityTable<OutboxEntry, "mutationId">;
   meta!: EntityTable<MetaEntry, "key">;
   watermarks!: EntityTable<Watermark, "entity">;
@@ -300,6 +348,12 @@ export class FieldKitDatabase extends Dexie {
       // resolution looks for the outlet's first and falls back to its channel's.
       ref_price_assignments: "id, outletId, channelId",
 
+      // No index beyond the key. Resolution reads every promotion assigned to the shop and sorts by
+      // priority — a tenant runs a handful at a time, and `validFrom` is not an index because the
+      // window is checked against the *order's* date rather than queried by range.
+      ref_promotions: "id",
+      ref_promotion_assignments: "id, outletId, channelId",
+
       // Indexed by status (the sync manager asks for pending), by createdAt (it sends them in the
       // order the rep worked), and by subjectId (a screen asks about one visit).
       outbox: "mutationId, status, createdAt, subjectId",
@@ -317,6 +371,8 @@ export class FieldKitDatabase extends Dexie {
     this.priceLists = this.table("ref_price_lists");
     this.priceLines = this.table("ref_price_lines");
     this.priceAssignments = this.table("ref_price_assignments");
+    this.promotions = this.table("ref_promotions");
+    this.promotionAssignments = this.table("ref_promotion_assignments");
     this.outbox = this.table("outbox");
     this.meta = this.table("meta");
     this.watermarks = this.table("watermarks");

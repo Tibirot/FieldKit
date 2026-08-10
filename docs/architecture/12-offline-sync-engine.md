@@ -51,7 +51,7 @@ flowchart LR
 
 | Store | Kind | Contents |
 |---|---|---|
-| `ref_*` (built: `ref_outlets`, `ref_planned_visits`, `ref_visit_workflows`, `ref_products`, `ref_assortment`, `ref_assortment_overrides`, `ref_price_lists`, `ref_price_lines`, `ref_price_assignments`; planned: `ref_promotions`) | Reference (read-only) | Rep-scoped snapshot; server-authoritative. What each is scoped *by* differs — see §3 |
+| `ref_*` (built: `ref_outlets`, `ref_planned_visits`, `ref_visit_workflows`, `ref_products`, `ref_assortment`, `ref_assortment_overrides`, `ref_price_lists`, `ref_price_lines`, `ref_price_assignments`, `ref_promotions`, `ref_promotion_assignments`) | Reference (read-only) | Rep-scoped snapshot; server-authoritative. What each is scoped *by* differs — see §3 |
 | `outbox` | Mutations | `{ mutationId, type, payload, status, createdAt, attempts, error? }` |
 | `blobs` | Binaries | Downscaled photos awaiting upload, keyed by mutation + slot |
 | `watermarks` | Sync state | How far the device has been told about one entity |
@@ -149,6 +149,8 @@ row is it*, and the answer changes what the feed's interface has to look like:
 | `outletAssortment` | The device’s **outlet set** — the per-outlet overrides | **Yes** |
 | `priceLists`, `priceLines` | **Nothing** ([`IPriceChangeFeed`](../../FieldKit.Modules.Products.Contracts/IPriceChangeFeed.cs)) — see the limitation below | No |
 | `priceAssignments` | Channel rows by nothing; outlet rows by the device’s **outlet set** | **Yes** |
+| `promotions` | **Nothing** — each travels whole, targets and tiers inside ([`IPromotionChangeFeed`](../../FieldKit.Modules.Products.Contracts/IPromotionChangeFeed.cs)) | No |
+| `promotionAssignments` | Channel rows by nothing; outlet rows by the device’s **outlet set** | **Yes** |
 
 A **baseline** call — "hand me these rows whatever their version" — exists because an outlet can
 enter a rep's territory *without being edited*, carrying a row version far below the device's cursor,
@@ -173,6 +175,19 @@ to another channel puts a workflow in scope *without editing it*, so a pure delt
 it — and it would do so to save a payload of a handful of rows a tenant's own administrators wrote.
 There is nothing in a workflow that one rep may see and another may not. **The cheapest correct scope
 is sometimes no scope**, and a narrowing that buys nothing costs a whole class of bug.
+
+**A promotion travels whole, and the stake is higher than a workflow’s.** Its targets and tiers are
+inside the row: a device holding four of five tiers does not fail, it computes a **different
+discount**, and neither the rep nor the shop has any way to notice. That put the row version on the
+root — which exposed a real bug, because the endpoints that set targets and tiers wrote those tables
+and never touched the promotion. They do now (`Promotion.Touch`), on the grounds that the aggregate
+did change.
+
+**Expired promotions are held, not filtered.** `BR-PRD-4` resolves against the *order’s* date, so a
+device pricing an order dated last Tuesday needs the promotion that was running last Tuesday.
+Filtering server-side would make an offline device compute a different total from the server for the
+same order — the disagreement the parity suite exists to prevent, arriving through the sync layer
+instead.
 
 **Prices are the one place a device holds data outside its territory, and it is recorded as a
 limitation rather than defended.** Lists and lines go to every device, so a rep’s phone holds price

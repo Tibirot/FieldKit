@@ -41,6 +41,7 @@ public static class PullEndpoints
             IProductChangeFeed products,
             IAssortmentChangeFeed assortment,
             IPriceChangeFeed prices,
+            IPromotionChangeFeed promotions,
             ITenantContext tenant,
             IClock clock,
             CancellationToken ct) =>
@@ -166,6 +167,26 @@ public static class PullEndpoints
             foreach (var snapshot in assignmentBaseline)
                 assignmentCursorAfter = Math.Max(assignmentCursorAfter, snapshot.RowVersion);
 
+            /*
+             * Promotions (W8 slice 8f), the last reference entity. Same split as prices: the
+             * promotions themselves are tenant-wide, the assignments are channel-or-outlet.
+             *
+             * A promotion travels *whole* — its targets and tiers are inside the row, because a
+             * device holding four of five tiers does not fail, it computes a different discount and
+             * nothing looks wrong.
+             */
+            var promotionPage = await promotions.GetChangesAsync(
+                request.Cursors?.Promotions ?? 0, PageLimit, ct);
+
+            var promotionAssignments = await promotions.GetAssignmentChangesAsync(
+                request.Cursors?.PromotionAssignments ?? 0, territory.Retained, PageLimit, ct);
+            var promotionBaseline = await promotions.GetAssignmentBaselineAsync(
+                territory.Entering, PageLimit, ct);
+
+            var promotionCursorAfter = promotionAssignments.Cursor;
+            foreach (var snapshot in promotionBaseline)
+                promotionCursorAfter = Math.Max(promotionCursorAfter, snapshot.RowVersion);
+
             await RecordScopeAsync(
                 db, device.Id, tenant.TenantId, territory.Entering, territory.Leaving, ct);
 
@@ -191,7 +212,13 @@ public static class PullEndpoints
                     new EntityChanges<PriceAssignmentSnapshot>(
                         [.. assignmentBaseline, .. assignmentPage.Upserts],
                         assignmentPage.Tombstones,
-                        assignmentCursorAfter)),
+                        assignmentCursorAfter),
+                    new EntityChanges<PromotionSnapshot>(
+                        promotionPage.Upserts, promotionPage.Tombstones, promotionPage.Cursor),
+                    new EntityChanges<PromotionAssignmentSnapshot>(
+                        [.. promotionBaseline, .. promotionAssignments.Upserts],
+                        promotionAssignments.Tombstones,
+                        promotionCursorAfter)),
                 // A patchwork, not a point in time: watermarks advance per entity type, and the
                 // device tolerates the skew because captured work records its own inputs
                 // (sync engine §3). The string names the outlet cursor only — it is a label for
@@ -354,7 +381,9 @@ public sealed record PullCursors(
     long? OutletAssortment = null,
     long? PriceLists = null,
     long? PriceLines = null,
-    long? PriceAssignments = null);
+    long? PriceAssignments = null,
+    long? Promotions = null,
+    long? PromotionAssignments = null);
 
 public sealed record EntityChanges<T>(
     IReadOnlyList<T> Upserts, IReadOnlyList<ReferenceTombstone> Tombstones, long Cursor);
@@ -368,6 +397,8 @@ public sealed record PullChanges(
     EntityChanges<AssortmentOverrideSnapshot> OutletAssortment,
     EntityChanges<PriceListSnapshot> PriceLists,
     EntityChanges<PriceLineSnapshot> PriceLines,
-    EntityChanges<PriceAssignmentSnapshot> PriceAssignments);
+    EntityChanges<PriceAssignmentSnapshot> PriceAssignments,
+    EntityChanges<PromotionSnapshot> Promotions,
+    EntityChanges<PromotionAssignmentSnapshot> PromotionAssignments);
 
 public sealed record PullResponse(PullChanges Changes, string SnapshotVersion);

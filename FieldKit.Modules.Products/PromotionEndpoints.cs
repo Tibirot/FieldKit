@@ -237,9 +237,11 @@ internal static class PromotionEndpoints
             Guid id,
             SetPromotionTargetsRequest request,
             ProductsDbContext db,
+            IClock clock,
             CancellationToken ct) =>
         {
-            if (!await db.Promotions.AnyAsync(p => p.Id == id, ct)) return Results.NotFound();
+            var promotion = await db.Promotions.SingleOrDefaultAsync(p => p.Id == id, ct);
+            if (promotion is null) return Results.NotFound();
 
             if (await TargetProblem(db, request, ct) is { } problem) return problem;
 
@@ -272,6 +274,10 @@ internal static class PromotionEndpoints
                 db.PromotionTargets.Add(PromotionTarget.Category(id, categoryId));
             }
 
+            // The aggregate changed, so say so — the row version lives on the root and a promotion
+            // travels whole (W8 slice 8f). See `Promotion.Touch`.
+            promotion.Touch(clock);
+
             await db.SaveChangesAsync(ct);
 
             return Results.Ok(await TargetsAsync(db, id, ct));
@@ -289,6 +295,7 @@ internal static class PromotionEndpoints
             Guid id,
             SetPromotionTiersRequest request,
             ProductsDbContext db,
+            IClock clock,
             CancellationToken ct) =>
         {
             var promotion = await db.Promotions.SingleOrDefaultAsync(p => p.Id == id, ct);
@@ -311,6 +318,8 @@ internal static class PromotionEndpoints
                     ? PromotionTier.Amount(id, tier.MinQuantity, tier.Value, currency)
                     : PromotionTier.Percentage(id, tier.MinQuantity, tier.Value));
             }
+
+            promotion.Touch(clock);
 
             await db.SaveChangesAsync(ct);
 

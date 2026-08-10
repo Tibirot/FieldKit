@@ -8,6 +8,8 @@ import type {
   ReferencePriceAssignment,
   ReferencePriceLine,
   ReferencePriceList,
+  ReferencePromotion,
+  ReferencePromotionAssignment,
   ReferencePlannedVisit,
   ReferenceProduct,
   ReferenceVisitWorkflow,
@@ -40,6 +42,8 @@ export const OUTLET_ASSORTMENT = "outletAssortment";
 export const PRICE_LISTS = "priceLists";
 export const PRICE_LINES = "priceLines";
 export const PRICE_ASSIGNMENTS = "priceAssignments";
+export const PROMOTIONS = "promotions";
+export const PROMOTION_ASSIGNMENTS = "promotionAssignments";
 
 /**
  * Applies one page of a pull (`OFF-02`, `OFF-03`, sync engine §3).
@@ -378,4 +382,66 @@ export async function priceOf(
   productId: string,
 ): Promise<ReferencePriceLine | undefined> {
   return db.priceLines.where("[priceListId+productId]").equals([priceListId, productId]).first();
+}
+
+/** The tenant's promotions, each whole. */
+export function applyPromotionChanges(
+  db: FieldKitDatabase,
+  page: EntityChanges<ReferencePromotion>,
+): Promise<void> {
+  return apply(db, "ref_promotions", PROMOTIONS, page);
+}
+
+/** Which promotion applies where. */
+export function applyPromotionAssignmentChanges(
+  db: FieldKitDatabase,
+  page: EntityChanges<ReferencePromotionAssignment>,
+): Promise<void> {
+  return apply(db, "ref_promotion_assignments", PROMOTION_ASSIGNMENTS, page);
+}
+
+/** Drops promotion assignments for outlets this device no longer holds. */
+export async function pruneOutletPromotionAssignments(db: FieldKitDatabase): Promise<number> {
+  const held = new Set((await db.outlets.toArray()).map((row) => row.id));
+  const orphans = await db.promotionAssignments
+    .filter((assignment) => assignment.outletId !== null && !held.has(assignment.outletId))
+    .primaryKeys();
+
+  if (orphans.length === 0) return 0;
+
+  await db.promotionAssignments.bulkDelete(orphans);
+
+  return orphans.length;
+}
+
+/**
+ * The promotions running at one outlet on one date (`PRD-06`, `BR-PRD-4`).
+ *
+ * <b>Highest priority first</b>, which is the order the resolver applies them in. Both the outlet's
+ * own assignments and its channel's count — unlike prices, where the outlet's assignment *replaces*
+ * the channel's; a promotion is an offer, and offers accumulate until the resolver decides which
+ * ones stack.
+ *
+ * `on` is the **order's** date, not today's: a device pricing an order dated last Tuesday needs the
+ * promotion that was running last Tuesday, which is why expired ones are held rather than filtered
+ * out of the pull.
+ */
+export async function promotionsFor(
+  db: FieldKitDatabase,
+  outletId: string,
+  channelId: string,
+  on: string,
+): Promise<ReferencePromotion[]> {
+  const assignments = [
+    ...(await db.promotionAssignments.where("outletId").equals(outletId).toArray()),
+    ...(await db.promotionAssignments.where("channelId").equals(channelId).toArray()),
+  ];
+
+  const ids = [...new Set(assignments.map((assignment) => assignment.promotionId))];
+  const promotions = await db.promotions.bulkGet(ids);
+
+  return promotions
+    .filter((promotion): promotion is ReferencePromotion => promotion !== undefined)
+    .filter((promotion) => promotion.validFrom <= on && (promotion.validTo === null || on <= promotion.validTo))
+    .sort((left, right) => right.priority - left.priority);
 }

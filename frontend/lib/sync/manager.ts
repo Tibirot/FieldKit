@@ -19,6 +19,8 @@ import {
   applyPriceLineChanges,
   applyPriceListChanges,
   applyProductChanges,
+  applyPromotionAssignmentChanges,
+  applyPromotionChanges,
   ASSORTMENT,
   CONFIGURATION,
   JOURNEYS,
@@ -28,8 +30,11 @@ import {
   PRICE_LINES,
   PRICE_LISTS,
   PRODUCTS,
+  PROMOTION_ASSIGNMENTS,
+  PROMOTIONS,
   pruneOutletAssortment,
   pruneOutletPriceAssignments,
+  pruneOutletPromotionAssignments,
   watermark,
 } from "./reference";
 
@@ -222,6 +227,8 @@ async function refresh(
     priceLists: await watermark(db, PRICE_LISTS),
     priceLines: await watermark(db, PRICE_LINES),
     priceAssignments: await watermark(db, PRICE_ASSIGNMENTS),
+    promotions: await watermark(db, PROMOTIONS),
+    promotionAssignments: await watermark(db, PROMOTION_ASSIGNMENTS),
   };
 
   let response;
@@ -241,6 +248,8 @@ async function refresh(
     priceLists,
     priceLines,
     priceAssignments,
+    promotions,
+    promotionAssignments,
   } = response.changes;
 
   // Two transactions, not one. Failing to store the round must not undo outlets that already
@@ -254,12 +263,15 @@ async function refresh(
   await applyPriceListChanges(db, priceLists);
   await applyPriceLineChanges(db, priceLines);
   await applyPriceAssignmentChanges(db, priceAssignments);
+  await applyPromotionChanges(db, promotions);
+  await applyPromotionAssignmentChanges(db, promotionAssignments);
 
   // After the outlets have landed, because it reads what the device now holds. An outlet that left
   // the rep's territory takes its overrides with it, and the server sends no tombstone for them —
   // the device works it out from the outlet tombstone it was already sent.
   await pruneOutletAssortment(db);
   await pruneOutletPriceAssignments(db);
+  await pruneOutletPromotionAssignments(db);
 
   await db.meta.put({ key: "lastSyncAt", value: String(Date.now()) });
 
@@ -280,6 +292,8 @@ async function refresh(
     priceLists,
     priceLines,
     priceAssignments,
+    promotions,
+    promotionAssignments,
   ];
 
   result.pulled += pages.reduce((total, page) => total + page.upserts.length, 0);

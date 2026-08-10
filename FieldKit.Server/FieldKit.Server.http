@@ -3542,13 +3542,15 @@ Content-Type: application/json
 # rather than defended — and assignments split channel/outlet the way the assortment is.
 # Note the asymmetry: an empty outlet set means "send nothing" for assortment overrides and
 # does *not* here, because the shops a rep is given tomorrow are priced by today's channel
-# policy.
+# policy. Promotions: the same split again, and the promotion travels *whole* — its targets
+# and tiers are inside the row, because a device holding four of five tiers does not fail, it
+# computes a different discount and nothing looks wrong.
 
 POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
-{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 0, "journeys": 0, "configuration": 0, "products": 0, "assortment": 0, "outletAssortment": 0, "priceLists": 0, "priceLines": 0, "priceAssignments": 0 } }
+{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 0, "journeys": 0, "configuration": 0, "products": 0, "assortment": 0, "outletAssortment": 0, "priceLists": 0, "priceLines": 0, "priceAssignments": 0, "promotions": 0, "promotionAssignments": 0 } }
 
 ### A second pull at the cursor the first returned. Carries only what changed since —
 ### an unchanged tenant answers with an empty page and the same cursor.
@@ -3556,7 +3558,7 @@ POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
-{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 42, "journeys": 17, "configuration": 3, "products": 812, "assortment": 840, "outletAssortment": 851, "priceLists": 860, "priceLines": 1204, "priceAssignments": 871 } }
+{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 42, "journeys": 17, "configuration": 3, "products": 812, "assortment": 840, "outletAssortment": 851, "priceLists": 860, "priceLines": 1204, "priceAssignments": 871, "promotions": 903, "promotionAssignments": 910 } }
 
 ### A device that was replaced answers 409 `sync.pull.deviceInactive` — the client's job is
 ### to bind again, which re-snapshots from zero.
@@ -3564,7 +3566,7 @@ POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
-{ "deviceId": "{{revokedDeviceId}}", "cursors": { "outlets": 0, "journeys": 0, "configuration": 0, "products": 0, "assortment": 0, "outletAssortment": 0, "priceLists": 0, "priceLines": 0, "priceAssignments": 0 } }
+{ "deviceId": "{{revokedDeviceId}}", "cursors": { "outlets": 0, "journeys": 0, "configuration": 0, "products": 0, "assortment": 0, "outletAssortment": 0, "priceLists": 0, "priceLines": 0, "priceAssignments": 0, "promotions": 0, "promotionAssignments": 0 } }
 
 ### ── Sync · push (OFF-04) ──────────────────────────────────────────────────
 # The drain. Every mutation carries an id minted on the device, and the ledger answers a

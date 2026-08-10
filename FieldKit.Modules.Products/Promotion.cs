@@ -1,4 +1,5 @@
 using FieldKit.BuildingBlocks;
+using FieldKit.Infrastructure;
 using FieldKit.SharedKernel;
 
 namespace FieldKit.Modules.Products;
@@ -69,8 +70,11 @@ public enum PromotionType
 /// timezone (<c>BR-PRD-6</c> evaluates it in the outlet's).
 /// </para>
 /// </remarks>
-public sealed class Promotion : AggregateRoot, ITenantOwned, IAuditable
+public sealed class Promotion : AggregateRoot, ITenantOwned, IAuditable, ISyncTracked
 {
+    /// <summary>Set by the row-version interceptor, never here (ADR-0013). W8 slice 8f.</summary>
+    public long RowVersion { get; set; }
+
     public Guid Id { get; private set; }
 
     public string Name { get; private set; } = null!;
@@ -251,6 +255,25 @@ public sealed class Promotion : AggregateRoot, ITenantOwned, IAuditable
         GetProductId = getProductId;
         ModifiedAtUtc = clock.UtcNow;
     }
+
+    /// <summary>
+    /// Marks the aggregate changed when only its children did (W8 slice 8f).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Targets and tiers are edited through their own endpoints, which write those tables and never
+    /// touched this row. That was invisible until a promotion had to reach a device: the row version
+    /// lives on the root, because a promotion travels whole — a device holding four of five tiers
+    /// computes the wrong discount and nothing looks wrong — and a root that does not move means the
+    /// change never arrives.
+    /// </para>
+    /// <para>
+    /// So the endpoints say the aggregate changed, which it did. The alternative was three more
+    /// entity types on the wire with three more cursors, to reassemble something that is only ever
+    /// useful assembled.
+    /// </para>
+    /// </remarks>
+    public void Touch(IClock clock) => ModifiedAtUtc = clock.UtcNow;
 
     /// <summary>Whether this type's discount lives on the promotion rather than on child rows.</summary>
     /// <remarks>

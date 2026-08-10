@@ -7,6 +7,8 @@ import type {
   ReferencePriceAssignment,
   ReferencePriceLine,
   ReferencePriceList,
+  ReferencePromotion,
+  ReferencePromotionAssignment,
   ReferencePlannedVisit,
   ReferenceProduct,
   ReferenceVisitWorkflow,
@@ -46,6 +48,8 @@ export type PullCursors = {
   priceLists?: number;
   priceLines?: number;
   priceAssignments?: number;
+  promotions?: number;
+  promotionAssignments?: number;
 };
 
 export type PullResponse = {
@@ -59,6 +63,8 @@ export type PullResponse = {
     priceLists: EntityChanges<ReferencePriceList>;
     priceLines: EntityChanges<ReferencePriceLine>;
     priceAssignments: EntityChanges<ReferencePriceAssignment>;
+    promotions: EntityChanges<ReferencePromotion>;
+    promotionAssignments: EntityChanges<ReferencePromotionAssignment>;
   };
   snapshotVersion: string;
 };

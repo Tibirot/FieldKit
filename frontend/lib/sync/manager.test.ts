@@ -31,6 +31,9 @@ import {
   product,
   products,
   PRODUCTS,
+  PROMOTION_ASSIGNMENTS,
+  PROMOTIONS,
+  promotionsFor,
   watermark,
   workflowFor,
 } from "./reference";
@@ -77,6 +80,8 @@ function emptyPull(cursor = 0) {
       priceLists: { upserts: [], tombstones: [], cursor: 0 },
       priceLines: { upserts: [], tombstones: [], cursor: 0 },
       priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
+      promotions: { upserts: [], tombstones: [], cursor: 0 },
+      promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
     },
     snapshotVersion: `outlets#${cursor}`,
   };
@@ -262,6 +267,8 @@ describe("one sync run", () => {
         priceLists: { upserts: [], tombstones: [], cursor: 0 },
         priceLines: { upserts: [], tombstones: [], cursor: 0 },
         priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
+        promotions: { upserts: [], tombstones: [], cursor: 0 },
+        promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -292,6 +299,8 @@ describe("one sync run", () => {
         priceLists: { upserts: [], tombstones: [], cursor: 0 },
         priceLines: { upserts: [], tombstones: [], cursor: 0 },
         priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
+        promotions: { upserts: [], tombstones: [], cursor: 0 },
+        promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -338,6 +347,8 @@ describe("one sync run", () => {
         priceLists: { upserts: [], tombstones: [], cursor: 0 },
         priceLines: { upserts: [], tombstones: [], cursor: 0 },
         priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
+        promotions: { upserts: [], tombstones: [], cursor: 0 },
+        promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -379,6 +390,8 @@ describe("one sync run", () => {
         priceLists: { upserts: [], tombstones: [], cursor: 0 },
         priceLines: { upserts: [], tombstones: [], cursor: 0 },
         priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
+        promotions: { upserts: [], tombstones: [], cursor: 0 },
+        promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -414,6 +427,8 @@ describe("one sync run", () => {
         priceLists: { upserts: [], tombstones: [], cursor: 0 },
         priceLines: { upserts: [], tombstones: [], cursor: 0 },
         priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
+        promotions: { upserts: [], tombstones: [], cursor: 0 },
+        promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -449,6 +464,8 @@ describe("one sync run", () => {
         priceLists: { upserts: [], tombstones: [], cursor: 0 },
         priceLines: { upserts: [], tombstones: [], cursor: 0 },
         priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
+        promotions: { upserts: [], tombstones: [], cursor: 0 },
+        promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -471,6 +488,8 @@ describe("one sync run", () => {
         priceLists: { upserts: [], tombstones: [], cursor: 0 },
         priceLines: { upserts: [], tombstones: [], cursor: 0 },
         priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
+        promotions: { upserts: [], tombstones: [], cursor: 0 },
+        promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -499,6 +518,8 @@ describe("one sync run", () => {
         priceLists: { upserts: [], tombstones: [], cursor: 0 },
         priceLines: { upserts: [], tombstones: [], cursor: 0 },
         priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
+        promotions: { upserts: [], tombstones: [], cursor: 0 },
+        promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -531,6 +552,8 @@ describe("one sync run", () => {
       priceLists: 0,
       priceLines: 0,
       priceAssignments: 0,
+      promotions: 0,
+      promotionAssignments: 0,
     }, undefined);
 
     db.close();
@@ -758,6 +781,8 @@ describe("the assortment", () => {
         priceLists: { upserts: [], tombstones: [], cursor: 0 },
         priceLines: { upserts: [], tombstones: [], cursor: 0 },
         priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
+        promotions: { upserts: [], tombstones: [], cursor: 0 },
+        promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#1",
     };
@@ -927,6 +952,8 @@ describe("prices", () => {
         priceLists,
         priceLines,
         priceAssignments,
+        promotions: { upserts: [], tombstones: [], cursor: 0 },
+        promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#1",
     };
@@ -1092,6 +1119,221 @@ describe("prices", () => {
     await syncOnce(db, TOKEN, DEVICE);
 
     const remaining = await db.priceAssignments.toArray();
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].id).toBe("assign-channel");
+
+    db.close();
+  });
+});
+
+describe("promotions", () => {
+  const OUTLET = "outlet-1";
+
+  function promotionPull(
+    promotions: { upserts: unknown[]; tombstones: unknown[]; cursor: number },
+    promotionAssignments: { upserts: unknown[]; tombstones: unknown[]; cursor: number },
+    outlets: { upserts: unknown[]; tombstones: unknown[]; cursor: number } = {
+      upserts: [outletRow(OUTLET, 1)],
+      tombstones: [],
+      cursor: 1,
+    },
+  ) {
+    return {
+      changes: {
+        outlets,
+        journeys: { upserts: [], tombstones: [], cursor: 0 },
+        configuration: { upserts: [], tombstones: [], cursor: 0 },
+        products: { upserts: [], tombstones: [], cursor: 0 },
+        assortment: { upserts: [], tombstones: [], cursor: 0 },
+        outletAssortment: { upserts: [], tombstones: [], cursor: 0 },
+        priceLists: { upserts: [], tombstones: [], cursor: 0 },
+        priceLines: { upserts: [], tombstones: [], cursor: 0 },
+        priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
+        promotions,
+        promotionAssignments,
+      },
+      snapshotVersion: "outlets#1",
+    };
+  }
+
+  function promotion(
+    id: string,
+    rowVersion: number,
+    options: { priority?: number; from?: string; to?: string | null; tiers?: unknown[] } = {},
+  ) {
+    return {
+      id,
+      name: id,
+      type: "VolumeTiered",
+      percentOff: null,
+      amountOff: null,
+      currency: null,
+      buyQuantity: null,
+      getQuantity: null,
+      getPercentOff: null,
+      getProductId: null,
+      validFrom: options.from ?? "2026-01-01",
+      validTo: options.to ?? null,
+      priority: options.priority ?? 0,
+      targets: [],
+      tiers: options.tiers ?? [
+        { minQuantity: 6, percentOff: 5, amountOff: null, currency: null },
+        { minQuantity: 12, percentOff: 10, amountOff: null, currency: null },
+      ],
+      rowVersion,
+    };
+  }
+
+  function assignment(id: string, promotionId: string, scope: "outlet" | "channel", rowVersion: number) {
+    return {
+      id,
+      promotionId,
+      channelId: scope === "channel" ? CHANNEL : null,
+      outletId: scope === "outlet" ? OUTLET : null,
+      rowVersion,
+    };
+  }
+
+  it("stores a promotion whole, with every tier", async () => {
+    // The reason the aggregate travels as one row: a device holding four of five tiers does not
+    // fail, it computes a *different discount*, and neither the rep nor the shop can tell.
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValue(
+      promotionPull(
+        { upserts: [promotion("promo-1", 4)], tombstones: [], cursor: 4 },
+        { upserts: [assignment("assign-1", "promo-1", "channel", 5)], tombstones: [], cursor: 5 },
+      ),
+    );
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    const stored = await db.promotions.get("promo-1");
+
+    expect(stored?.tiers).toHaveLength(2);
+    expect(stored?.tiers[1]).toMatchObject({ minQuantity: 12, percentOff: 10 });
+    expect(await watermark(db, PROMOTIONS)).toBe(4);
+    expect(await watermark(db, PROMOTION_ASSIGNMENTS)).toBe(5);
+
+    db.close();
+  });
+
+  it("returns the outlet's and its channel's promotions, highest priority first", async () => {
+    // Unlike prices, where the outlet's assignment *replaces* the channel's. A promotion is an
+    // offer, and offers accumulate until the resolver decides which ones stack.
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValue(
+      promotionPull(
+        {
+          upserts: [
+            promotion("low", 4, { priority: 1 }),
+            promotion("high", 5, { priority: 9 }),
+          ],
+          tombstones: [],
+          cursor: 5,
+        },
+        {
+          upserts: [
+            assignment("assign-low", "low", "channel", 6),
+            assignment("assign-high", "high", "outlet", 7),
+          ],
+          tombstones: [],
+          cursor: 7,
+        },
+      ),
+    );
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    const running = await promotionsFor(db, OUTLET, CHANNEL, "2026-06-01");
+
+    expect(running.map((row) => row.id)).toEqual(["high", "low"]);
+
+    db.close();
+  });
+
+  it("answers for the order's date, not today's", async () => {
+    // Expired promotions are held rather than filtered out of the pull, so a device pricing an
+    // order dated last Tuesday gets the promotion that was running last Tuesday.
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValue(
+      promotionPull(
+        {
+          upserts: [promotion("spring", 4, { from: "2026-03-01", to: "2026-05-31" })],
+          tombstones: [],
+          cursor: 4,
+        },
+        { upserts: [assignment("assign-1", "spring", "channel", 5)], tombstones: [], cursor: 5 },
+      ),
+    );
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    expect((await promotionsFor(db, OUTLET, CHANNEL, "2026-04-15")).map((row) => row.id)).toEqual([
+      "spring",
+    ]);
+    expect(await promotionsFor(db, OUTLET, CHANNEL, "2026-06-15")).toEqual([]);
+
+    db.close();
+  });
+
+  it("counts a promotion once when both the outlet and its channel are assigned it", async () => {
+    // Both assignment rows are legitimate, and a resolver handed the same promotion twice would
+    // apply it twice.
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValue(
+      promotionPull(
+        { upserts: [promotion("promo-1", 4)], tombstones: [], cursor: 4 },
+        {
+          upserts: [
+            assignment("assign-channel", "promo-1", "channel", 5),
+            assignment("assign-outlet", "promo-1", "outlet", 6),
+          ],
+          tombstones: [],
+          cursor: 6,
+        },
+      ),
+    );
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    expect(await promotionsFor(db, OUTLET, CHANNEL, "2026-06-01")).toHaveLength(1);
+
+    db.close();
+  });
+
+  it("drops an outlet assignment when the outlet leaves, and keeps the channel one", async () => {
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValueOnce(
+      promotionPull(
+        { upserts: [promotion("promo-1", 4)], tombstones: [], cursor: 4 },
+        {
+          upserts: [
+            assignment("assign-outlet", "promo-1", "outlet", 5),
+            assignment("assign-channel", "promo-1", "channel", 6),
+          ],
+          tombstones: [],
+          cursor: 6,
+        },
+      ),
+    );
+    await syncOnce(db, TOKEN, DEVICE);
+    expect(await db.promotionAssignments.count()).toBe(2);
+
+    api.pull.mockResolvedValueOnce(
+      promotionPull(
+        { upserts: [], tombstones: [], cursor: 4 },
+        { upserts: [], tombstones: [], cursor: 6 },
+        { upserts: [], tombstones: [{ id: OUTLET, rowVersion: 2 }], cursor: 2 },
+      ),
+    );
+    await syncOnce(db, TOKEN, DEVICE);
+
+    const remaining = await db.promotionAssignments.toArray();
     expect(remaining).toHaveLength(1);
     expect(remaining[0].id).toBe("assign-channel");
 
