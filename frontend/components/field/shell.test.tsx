@@ -10,6 +10,7 @@ import type { AuthContextValue, AuthStatus } from "@/components/auth-provider";
 import { FieldShell } from "@/components/field/shell";
 import { ApiError } from "@/lib/api/client";
 import { closeDatabase, openDatabase } from "@/lib/sync/db";
+import { enqueue } from "@/lib/sync/outbox";
 import { render } from "@/test/render";
 
 const replace = vi.fn();
@@ -158,7 +159,12 @@ describe("<FieldShell>", () => {
     await db.meta.put({ key: "deviceId", value: "device-1" });
     await db.watermarks.put({ entity: "products", cursor: 41 });
 
-    api.pull.mockRejectedValue(new ApiError(409, [], "sync.pull.deviceInactive"));
+    // The status is what `classify` reads; the code rides along in the problems array, where the
+    // rest of the app finds it. An earlier version passed it as a third argument that `ApiError`
+    // does not take — harmless at runtime, and a lie about the shape.
+    api.pull.mockRejectedValue(
+      new ApiError(409, [{ field: null, code: "sync.pull.deviceInactive", message: "Rebind." }]),
+    );
 
     render(
       <FieldShell>
@@ -183,6 +189,56 @@ describe("<FieldShell>", () => {
     // device id, so a new id has no scope and re-baselines the territory on its own. Clearing them
     // would re-download the catalogue to solve a problem the server has already solved.
     expect(await db.watermarks.get("products")).toEqual({ entity: "products", cursor: 41 });
+  });
+
+  it("promises a rep with an empty outbox that nothing is lost, without counting nothing at them", async () => {
+    // Found by reading the live screen, not the catalogue: the sentence named the pending count
+    // unconditionally, so a rejected device with an empty outbox said "including the no items
+    // waiting to be sent". The reassurance is the point of the screen, and it was the part that
+    // came out broken.
+    const db = openDatabase(WORKSPACE, SUBJECT);
+    await db.meta.put({ key: "deviceId", value: "device-1" });
+
+    api.pull.mockRejectedValue(
+      new ApiError(409, [{ field: null, code: "sync.pull.deviceInactive", message: "Rebind." }]),
+    );
+
+    render(
+      <FieldShell>
+        <p>Today&apos;s journey</p>
+      </FieldShell>,
+    );
+
+    expect(
+      await screen.findByText(
+        "Your account was set up on another device, so this one has stopped syncing. Register it again to carry on — nothing captured here is lost.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("counts the work still queued, because that is what the rep is afraid of losing", async () => {
+    const db = openDatabase(WORKSPACE, SUBJECT);
+    await db.meta.put({ key: "deviceId", value: "device-1" });
+    await enqueue(db, { type: "CapturedVisit", subjectId: "visit-1", payload: {} });
+
+    // The *push* is what gets refused here, which is the order it happens in: a device replaced
+    // overnight is told so by the first attempt to hand over the day's work. The batch goes back to
+    // `pending`, so the count the screen quotes is the work still on the phone.
+    api.push.mockRejectedValue(
+      new ApiError(409, [{ field: null, code: "sync.push.deviceInactive", message: "Rebind." }]),
+    );
+
+    render(
+      <FieldShell>
+        <p>Today&apos;s journey</p>
+      </FieldShell>,
+    );
+
+    expect(
+      await screen.findByText(
+        "Your account was set up on another device, so this one has stopped syncing. Register it again to carry on — nothing captured here is lost, including the one item waiting to be sent.",
+      ),
+    ).toBeTruthy();
   });
 
   it("hands the session states to the guard rather than answering them itself", async () => {

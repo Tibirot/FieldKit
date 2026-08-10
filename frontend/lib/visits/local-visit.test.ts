@@ -35,6 +35,7 @@ const SHOP: ReferenceOutlet = {
 const WORKFLOW: ReferenceVisitWorkflow = {
   id: "workflow-1",
   channelId: "channel-1",
+  rowVersion: 6,
   presenceExpected: true,
   steps: [
     { order: 1, type: "Audit", mandatory: true, label: "Shelf check" },

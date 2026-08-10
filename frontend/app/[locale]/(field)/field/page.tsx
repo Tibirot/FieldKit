@@ -1,13 +1,14 @@
 import { setRequestLocale } from "next-intl/server";
 
-import { DeviceStatus } from "@/components/field/device-status";
+import { TodaysJourney } from "@/components/field/todays-journey";
 import { resolveLocale } from "@/i18n/locale";
 
 /**
- * `/field` — where the app opens on a phone, until Today's Journey takes the slot in slice 5.
+ * `/field` — where the app opens on a phone (`JRN-05`).
  *
- * Not a placeholder: this is the wireframes' *Sync & reconcile* screen, and it is the one a rep
- * wants when the question is "has my work gone in" rather than "what is my day".
+ * Today's Journey took this slot from the device screen in W9 slice 5. The order matters more than
+ * it looks: what a rep wants on opening the app is *where am I going*, and the sync state they were
+ * getting instead is already one glance away in the chrome above.
  */
 export default async function FieldHomePage({
   params,
@@ -16,5 +17,5 @@ export default async function FieldHomePage({
 }) {
   setRequestLocale(resolveLocale((await params).locale));
 
-  return <DeviceStatus />;
+  return <TodaysJourney />;
 }
