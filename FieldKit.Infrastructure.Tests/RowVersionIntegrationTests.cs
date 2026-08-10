@@ -187,6 +187,69 @@ public class RowVersionIntegrationTests : IAsyncLifetime
         Assert.Equal(2, next);
     }
 
+    [Fact]
+    public async Task A_delete_leaves_a_tombstone_carrying_the_version()
+    {
+        // The row is gone, so a delta cannot learn about it from the row. Without this a device
+        // adds and updates forever and never removes.
+        var widgetId = await SaveWidgetReturningIdAsync("Shelf strip");
+
+        await DeleteWidgetAsync(widgetId);
+
+        var tombstone = await SingleTombstoneAsync();
+        Assert.Equal(nameof(Widget), tombstone.EntityType);
+        Assert.Equal(widgetId, tombstone.EntityId);
+        Assert.Equal(_tenant, tombstone.TenantId);
+        Assert.Equal(2, tombstone.RowVersion); // 1 created it, 2 removed it
+    }
+
+    [Fact]
+    public async Task A_delete_takes_a_version_so_it_sorts_with_the_changes_around_it()
+    {
+        var widgetId = await SaveWidgetReturningIdAsync("Shelf strip");
+        await DeleteWidgetAsync(widgetId);
+
+        // The deletion consumed 2, so the next live change is 3. A delete that took no version
+        // would let a later change reuse its number and arrive out of order.
+        Assert.Equal(3, await SaveWidgetAsync("End cap"));
+    }
+
+    [Fact]
+    public async Task Deleting_a_recreated_id_updates_the_one_tombstone()
+    {
+        var widgetId = await SaveWidgetReturningIdAsync("Shelf strip");
+        await DeleteWidgetAsync(widgetId);
+
+        using (var scope = _provider.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+            context.Widgets.Add(new Widget { Id = widgetId, Name = "Shelf strip, again" });
+            await context.SaveChangesAsync();
+        }
+
+        await DeleteWidgetAsync(widgetId);
+
+        // One row, latest version — not two rows disagreeing about when the id died.
+        var tombstone = await SingleTombstoneAsync();
+        Assert.Equal(4, tombstone.RowVersion);
+    }
+
+    private async Task DeleteWidgetAsync(Guid widgetId)
+    {
+        using var scope = _provider.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        var widget = await context.Widgets.SingleAsync(candidate => candidate.Id == widgetId);
+        context.Widgets.Remove(widget);
+        await context.SaveChangesAsync();
+    }
+
+    private async Task<Tombstone> SingleTombstoneAsync()
+    {
+        using var scope = _provider.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        return await context.Set<Tombstone>().SingleAsync();
+    }
+
     private async Task<long> SaveWidgetAsync(string name)
     {
         using var scope = _provider.CreateScope();

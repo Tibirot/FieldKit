@@ -63,7 +63,10 @@ public abstract class ModuleDbContext : DbContext
         modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration()); // each module owns its outbox table
         // …and, if it has anything a device can hold a copy of, its row-version counter (ADR-0013).
         if (TracksSyncChanges)
+        {
             modelBuilder.ApplyConfiguration(new ChangeSequenceConfiguration());
+            modelBuilder.ApplyConfiguration(new TombstoneConfiguration());
+        }
         ApplyTenantQueryFilter(modelBuilder);
     }
 
