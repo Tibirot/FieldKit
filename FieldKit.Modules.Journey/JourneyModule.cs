@@ -64,6 +64,9 @@ public sealed class JourneyModule : IModule
         // consumer takes the promise and never the class behind it.
         services.AddScoped<IJourneyQuery, JourneyQueries>();
 
+        // Sync reads the rep's round through this rather than the journey schema (W8 slice 8a).
+        services.AddScoped<IJourneyChangeFeed, JourneyChangeFeed>();
+
         // Internal to the module: their only caller is generation, which lives here too.
         services.AddScoped<FrequencyResolver>();
         services.AddScoped<CalendarReader>();

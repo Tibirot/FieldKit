@@ -9,7 +9,7 @@ import {
   pending,
   reclaimInflight,
 } from "./outbox";
-import { applyOutletChanges, OUTLETS, watermark } from "./reference";
+import { applyJourneyChanges, applyOutletChanges, JOURNEYS, OUTLETS, watermark } from "./reference";
 
 /**
  * How many mutations go in one push.
@@ -188,22 +188,31 @@ async function refresh(
   result: SyncResult,
   signal?: AbortSignal,
 ): Promise<SyncResult["interrupted"]> {
-  const cursor = await watermark(db, OUTLETS);
+  // One cursor per entity type, read together and sent together. They advance independently, so a
+  // device far behind on outlets and current on journeys asks for exactly that.
+  const cursors = {
+    outlets: await watermark(db, OUTLETS),
+    journeys: await watermark(db, JOURNEYS),
+  };
 
   let response;
   try {
-    response = await pull(accessToken, deviceId, { outlets: cursor }, signal);
+    response = await pull(accessToken, deviceId, cursors, signal);
   } catch (error) {
     return classify(error);
   }
 
-  const page = response.changes.outlets;
+  const { outlets, journeys } = response.changes;
 
-  await applyOutletChanges(db, page, response.snapshotVersion);
+  // Two transactions, not one. Failing to store the round must not undo outlets that already
+  // landed — a device that got half a pull keeps the half it got, and asks for the rest next time.
+  await applyOutletChanges(db, outlets, response.snapshotVersion);
+  await applyJourneyChanges(db, journeys);
+
   await db.meta.put({ key: "lastSyncAt", value: String(Date.now()) });
 
-  result.pulled += page.upserts.length;
-  result.dropped += page.tombstones.length;
+  result.pulled += outlets.upserts.length + journeys.upserts.length;
+  result.dropped += outlets.tombstones.length + journeys.tombstones.length;
 
   return undefined;
 }
@@ -293,10 +302,19 @@ export function startSync(
     return running;
   };
 
-  // `online` fires when the OS thinks there is a network, which is optimistic — it says nothing
-  // about whether the server is reachable through it. That is fine: a run that fails costs one
-  // request and returns `offline`, and the next event tries again.
-  const onOnline = () => void syncNow();
+  /*
+   * `online` fires when the OS thinks there is a network, which is optimistic — it says nothing
+   * about whether the server is reachable through it. That is fine: a run that fails costs one
+   * request and returns `offline`, and the next event tries again.
+   *
+   * The `catch` matters. A *transport* failure comes back as an `interrupted` result, but a storage
+   * failure — quota, eviction mid-write — throws, and an unhandled rejection from an event listener
+   * is the kind of error that shows up in a bug report as "the app just stops syncing". The caller
+   * that asked for the run gets the rejection; a run nobody asked for has nowhere to report it.
+   */
+  const onOnline = () => {
+    syncNow().catch(() => {});
+  };
 
   if (typeof window !== "undefined") window.addEventListener("online", onOnline);
 

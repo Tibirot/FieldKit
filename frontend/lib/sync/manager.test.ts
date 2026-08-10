@@ -13,7 +13,14 @@ import { ApiError } from "@/lib/api/client";
 import { FieldKitDatabase } from "./db";
 import { ensureDevice, startSync, syncOnce } from "./manager";
 import { enqueue, pending } from "./outbox";
-import { applyOutletChanges, outlet, OUTLETS, watermark } from "./reference";
+import {
+  applyOutletChanges,
+  JOURNEYS,
+  outlet,
+  OUTLETS,
+  plannedVisits,
+  watermark,
+} from "./reference";
 
 const api = vi.hoisted(() => ({
   bindDevice: vi.fn(),
@@ -46,8 +53,23 @@ function outletRow(id: string, rowVersion: number, name = "Corner Shop") {
 /** A pull that carries nothing, for the tests that are only about the push half. */
 function emptyPull(cursor = 0) {
   return {
-    changes: { outlets: { upserts: [], tombstones: [], cursor } },
+    changes: {
+      outlets: { upserts: [], tombstones: [], cursor },
+      journeys: { upserts: [], tombstones: [], cursor: 0 },
+    },
     snapshotVersion: `outlets#${cursor}`,
+  };
+}
+
+function plannedVisitRow(id: string, rowVersion: number, date = "2026-03-17") {
+  return {
+    id,
+    outletId: "22222222-2222-4222-8222-222222222222",
+    date,
+    status: "Planned",
+    source: "Generated",
+    notVisitedReason: null,
+    rowVersion,
   };
 }
 
@@ -196,6 +218,7 @@ describe("one sync run", () => {
     api.pull.mockResolvedValue({
       changes: {
         outlets: { upserts: [outletRow("outlet-1", 9)], tombstones: [], cursor: 9 },
+        journeys: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -210,6 +233,53 @@ describe("one sync run", () => {
     db.close();
   });
 
+  it("stores the round and its own watermark, separately from the outlets'", async () => {
+    // The two entities advance independently — a tenant that edits outlets hourly and publishes a
+    // plan monthly would, on a shared cursor, make every outlet edit look like a journey change.
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValue({
+      changes: {
+        outlets: { upserts: [outletRow("outlet-1", 9)], tombstones: [], cursor: 9 },
+        journeys: { upserts: [plannedVisitRow("call-1", 3)], tombstones: [], cursor: 3 },
+      },
+      snapshotVersion: "outlets#9",
+    });
+
+    const result = await syncOnce(db, TOKEN, DEVICE);
+
+    expect(result.pulled).toBe(2);
+    expect(await watermark(db, OUTLETS)).toBe(9);
+    expect(await watermark(db, JOURNEYS)).toBe(3);
+    expect(await plannedVisits(db, "2026-03-17")).toHaveLength(1);
+
+    db.close();
+  });
+
+  it("keeps the outlets when storing the round fails", async () => {
+    // Two transactions rather than one: a device that got half a pull keeps the half it got, and
+    // asks for the rest next time. One transaction would throw the outlets away too.
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValue({
+      changes: {
+        outlets: { upserts: [outletRow("outlet-1", 9)], tombstones: [], cursor: 9 },
+        journeys: { upserts: [plannedVisitRow("call-1", 3)], tombstones: [], cursor: 3 },
+      },
+      snapshotVersion: "outlets#9",
+    });
+
+    vi.spyOn(db.plannedVisits, "bulkPut").mockRejectedValueOnce(new Error("storage went away"));
+
+    await expect(syncOnce(db, TOKEN, DEVICE)).rejects.toThrow();
+
+    expect(await outlet(db, "outlet-1")).toBeDefined();
+    expect(await watermark(db, OUTLETS)).toBe(9);
+    expect(await watermark(db, JOURNEYS)).toBe(0);
+
+    db.close();
+  });
+
   it("asks for changes since the watermark it already holds", async () => {
     const db = freshDatabase();
 
@@ -217,7 +287,7 @@ describe("one sync run", () => {
 
     await syncOnce(db, TOKEN, DEVICE);
 
-    expect(api.pull).toHaveBeenCalledWith(TOKEN, DEVICE, { outlets: 4 }, undefined);
+    expect(api.pull).toHaveBeenCalledWith(TOKEN, DEVICE, { outlets: 4, journeys: 0 }, undefined);
 
     db.close();
   });

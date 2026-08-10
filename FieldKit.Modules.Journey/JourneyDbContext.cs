@@ -28,6 +28,9 @@ public sealed class JourneyDbContext(DbContextOptions<JourneyDbContext> options,
 
     protected override string Schema => SchemaName;
 
+    /// <summary>PlannedVisit is <c>ISyncTracked</c>, so this schema owns a row-version counter (ADR-0013).</summary>
+    protected override bool TracksSyncChanges => true;
+
     public DbSet<SegmentFrequency> SegmentFrequencies => Set<SegmentFrequency>();
 
     public DbSet<OutletFrequency> OutletFrequencies => Set<OutletFrequency>();

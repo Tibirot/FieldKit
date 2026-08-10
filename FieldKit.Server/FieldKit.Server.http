@@ -3518,12 +3518,22 @@ Content-Type: application/json
 # The device check runs before scope is resolved: an unknown or revoked device is refused
 # without the server reading Organization's assignments, so a revoked phone learns nothing
 # from how long the refusal takes.
+#
+# One cursor per entity type, because they advance independently — a tenant that edits
+# outlets hourly and publishes a plan monthly would, on a shared cursor, make every outlet
+# edit look like a journey change. It is also what makes adding an entity type free: a
+# device that has never sent `journeys` gets its whole round and keeps its outlet watermark.
+#
+# Note what each is scoped by. Outlets: the rep's *territory*, as of today. Journeys: the
+# rep named on the *plan* — a call at a shop that has since left their territory is still
+# their call, and scoping the round by outlet would hide exactly the one a supervisor would
+# ask about.
 
 POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
-{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 0 } }
+{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 0, "journeys": 0 } }
 
 ### A second pull at the cursor the first returned. Carries only what changed since —
 ### an unchanged tenant answers with an empty page and the same cursor.
@@ -3531,7 +3541,7 @@ POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
-{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 42 } }
+{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 42, "journeys": 17 } }
 
 ### A device that was replaced answers 409 `sync.pull.deviceInactive` — the client's job is
 ### to bind again, which re-snapshots from zero.
@@ -3539,7 +3549,7 @@ POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
-{ "deviceId": "{{revokedDeviceId}}", "cursors": { "outlets": 0 } }
+{ "deviceId": "{{revokedDeviceId}}", "cursors": { "outlets": 0, "journeys": 0 } }
 
 ### ── Sync · push (OFF-04) ──────────────────────────────────────────────────
 # The drain. Every mutation carries an id minted on the device, and the ledger answers a

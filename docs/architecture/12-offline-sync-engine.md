@@ -51,7 +51,7 @@ flowchart LR
 
 | Store | Kind | Contents |
 |---|---|---|
-| `ref_*` (e.g. `ref_outlets`, `ref_products`, `ref_prices`, `ref_journeys`, `ref_templates`) | Reference (read-only) | Territory-scoped snapshot; server-authoritative |
+| `ref_*` (built: `ref_outlets`, `ref_planned_visits`; planned: `ref_products`, `ref_prices`, `ref_templates`) | Reference (read-only) | Rep-scoped snapshot; server-authoritative. What each is scoped *by* differs — see §3 |
 | `outbox` | Mutations | `{ mutationId, type, payload, status, createdAt, attempts, error? }` |
 | `blobs` | Binaries | Downscaled photos awaiting upload, keyed by mutation + slot |
 | `watermarks` | Sync state | How far the device has been told about one entity |
@@ -134,6 +134,36 @@ plus the new high-water mark and any **tombstones** (deletes/out-of-scope):
   from the last committed cursor.
 - **Territory changes** (rep reassigned, outlet moved) arrive as tombstones for now-out-of-scope
   rows + upserts for newly-in-scope rows.
+
+**Each entity type scopes by something different, and that is the whole content of adding one.**
+The paging, cursor and tombstone machinery is identical every time; what has to be decided is *whose
+row is it*, and the answer changes what the feed's interface has to look like:
+
+| Entity | Scoped by | Needs a baseline? |
+|---|---|---|
+| `outlets` | The rep's **territory**, as of today ([`IReferenceChangeFeed`](../../FieldKit.Modules.Outlets.Contracts/IReferenceChangeFeed.cs)) | **Yes** |
+| `journeys` | The rep named on the **plan** ([`IJourneyChangeFeed`](../../FieldKit.Modules.Journey.Contracts/IJourneyChangeFeed.cs)) | No |
+
+A **baseline** call — "hand me these rows whatever their version" — exists because an outlet can
+enter a rep's territory *without being edited*, carrying a row version far below the device's cursor,
+so a pure delta would never mention it. That is a property of membership being a separate fact from
+the row.
+
+A planned call has no such gap: it is **born** belonging to one rep, because the plan names them, and
+never changes hands. Membership therefore only ever changes by the row being created, and creation
+stamps a version above every cursor by construction. Journey's feed is one method, and the missing
+second one is a statement rather than an omission.
+
+The same question decides the **tombstones**. Outlets need scope tombstones minted by Sync, because a
+shop leaving a territory is not a delete and Outlets has nothing to report. Journey sends none at
+all: nothing deletes a planned call (`BR-JRN-2` — a missed call becomes `NotVisited`, which is an
+update), and a tombstone could not be attributed to a rep even if one existed, since the row that
+said whose it was is the row that is gone.
+
+**Journeys are pruned on the device, by date, and are not windowed on the server.** A server-side
+date window would make the passage of midnight a membership change with no row version behind it —
+the same gap the outlet baseline exists to paper over — for a rule a phone evaluates perfectly well
+against a date it already holds. Nothing has to be told; time passes on the device too.
 - **Scope *entry* needs more than `rowVersion > cursor`.** An entity that moves **into** the
   device's scope may have an *old* row version (below the current cursor), so a pure delta would
   never send it. So Sync tracks the device's **scope set** and, on each pull, diffs it against the

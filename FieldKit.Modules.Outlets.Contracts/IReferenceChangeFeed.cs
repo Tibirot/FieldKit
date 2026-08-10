@@ -1,3 +1,5 @@
+using FieldKit.SharedKernel;
+
 namespace FieldKit.Modules.Outlets.Contracts;
 
 /// <summary>One outlet as a device holds it — the shape that crosses the wire on a pull.</summary>
@@ -16,9 +18,6 @@ public sealed record OutletSnapshot(
     double? Latitude,
     double? Longitude,
     long RowVersion);
-
-/// <summary>An id the device must drop, and the version at which it stopped applying.</summary>
-public sealed record ReferenceTombstone(Guid Id, long RowVersion);
 
 /// <summary>
 /// One page of changes for a device: what to upsert, what to drop, and how far it now is.
