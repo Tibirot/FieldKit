@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using FieldKit.Modules.Iam;
 using FieldKit.Modules.Org;
 using FieldKit.Modules.Outlets;
+using FieldKit.Modules.Outlets.Contracts;
 using FieldKit.Modules.Sync;
 
 namespace FieldKit.Server.Tests;
@@ -163,6 +164,31 @@ public class SyncPullTests(ServerFixture fixture)
         Assert.True(
             pull.Changes.Outlets.Cursor >= delivered.RowVersion,
             "the cursor must cover every row in the page, or the next pull re-sends it forever");
+    }
+
+    [Fact]
+    public async Task An_outlet_reaches_the_device_with_the_radius_its_geofence_is_judged_by()
+    {
+        // The device assesses the geofence itself — a rep in a shop with no signal still has to be
+        // told whether they are inside it — and `IVisitIngest` stores that verdict *unmodified*. So
+        // this number is an input to a record nothing downstream re-checks, and it has to come from
+        // the same place the server's own check reads it from (W9 slice 2, `VIS-01`).
+        //
+        // Asserted against `IOutletGeofence.DefaultRadiusMetres` rather than against `150`: a
+        // literal here would pass on the day `OUT-08` changes the constant and the feed forgets to
+        // follow, which is exactly the drift that sending the value at all is meant to prevent.
+        using var rep = fixture.CreateAuthenticatedClient(fixture.AccessToken);
+        using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var outletId = await OutletAsync(admin);
+        await GiveRepTheTerritoryAsync(admin, rep, outletId);
+
+        var device = await BindDeviceAsync(rep);
+        var pull = await PullAsync(rep, device);
+
+        var delivered = Assert.Single(pull.Changes.Outlets.Upserts, outlet => outlet.Id == outletId);
+
+        Assert.Equal(IOutletGeofence.DefaultRadiusMetres, delivered.RadiusMetres);
     }
 
     [Fact]

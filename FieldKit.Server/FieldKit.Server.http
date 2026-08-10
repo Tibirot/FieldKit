@@ -3561,6 +3561,13 @@ Content-Type: application/json
 # policy. Promotions: the same split again, and the promotion travels *whole* — its targets
 # and tiers are inside the row, because a device holding four of five tiers does not fail, it
 # computes a different discount and nothing looks wrong.
+#
+# Read `radiusMetres` on each outlet (W9 slice 2). It is the same number for every shop
+# today — `IOutletGeofence.DefaultRadiusMetres`, and per-outlet radii are `OUT-08` — and it
+# still travels, because the *device* decides whether a rep is inside the fence and
+# `/sync/push` stores that verdict unmodified. A constant in the TypeScript would agree with
+# this server exactly until `OUT-08` ships and then disagree silently, on the one input the
+# parity vectors cannot see.
 
 POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}

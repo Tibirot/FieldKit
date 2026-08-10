@@ -71,6 +71,28 @@ async function openVersionTwo(name: string): Promise<Dexie> {
   return legacy;
 }
 
+/**
+ * Opens a database at version 3 — after the outlet code, before the geofence radius.
+ *
+ * The third snapshot of a release, for the same reason as the second. This one is what makes the
+ * next test mean something: a device already on 3 has run version 3's upgrade, so Dexie will not run
+ * it again, and only version 4 can re-baseline it.
+ */
+async function openVersionThree(name: string): Promise<Dexie> {
+  const legacy = await openVersionTwo(name);
+  legacy.close();
+
+  const third = new Dexie(name);
+  third.version(1).stores(VERSION_1_STORES);
+  third.version(2).stores({
+    outbox: "mutationId, status, createdAt, subjectId, [status+createdAt]",
+  });
+  third.version(3).stores({}).upgrade((tx) => tx.table("watermarks").delete("outlets"));
+  await third.open();
+
+  return third;
+}
+
 function outletRow(id: string, rowVersion: number) {
   return {
     id,
@@ -81,6 +103,7 @@ function outletRow(id: string, rowVersion: number) {
     status: "Active",
     latitude: null,
     longitude: null,
+    radiusMetres: 150,
     rowVersion,
   };
 }
@@ -136,7 +159,7 @@ describe("upgrading a device that has unsent work", () => {
     // rows. Without this the whole file could be passing against databases that never existed at
     // v1. The number moves with every schema version, which is the point — a device that skipped
     // one still has to arrive at the latest.
-    expect(upgraded.verno).toBe(3);
+    expect(upgraded.verno).toBe(4);
     expect(await upgraded.outbox.count()).toBe(3);
 
     // Still in capture order, which is what the drain depends on — and now read through the new
@@ -387,6 +410,49 @@ describe("upgrading a device whose outlets predate the outlet code", () => {
   });
 });
 
+describe("upgrading a device whose outlets predate the geofence radius", () => {
+  it("re-baselines a device that already ran version 3", async () => {
+    // The case a second identical upgrade exists for, and the one that would be missed by folding
+    // it into version 3: Dexie does not replay a version a database has already seen. A device on 3
+    // has its code and no radius, and only a *new* version can tell it to ask again.
+    const name = `migration:${crypto.randomUUID()}`;
+
+    const legacy = await openVersionThree(name);
+
+    // Yesterday's row: code, no radius. Written raw, because today's type cannot express it.
+    await legacy.table("ref_outlets").add({
+      id: "outlet-1",
+      code: "RO-BUC-0001",
+      name: "Mega Image Dorobanți",
+      channelId: "11111111-1111-4111-8111-111111111111",
+      segment: null,
+      status: "Active",
+      latitude: 44.46,
+      longitude: 26.09,
+      rowVersion: 9,
+    });
+    await legacy.table("watermarks").bulkPut([
+      { entity: "outlets", cursor: 9 },
+      { entity: "products", cursor: 41 },
+    ]);
+    legacy.close();
+
+    const upgraded = new FieldKitDatabase(name);
+    await upgraded.open();
+
+    expect(upgraded.verno).toBe(4);
+    expect(await watermark(upgraded, OUTLETS)).toBe(0);
+    expect(await watermark(upgraded, PRODUCTS)).toBe(41);
+
+    // Still workable in the meantime — a name, a place, and no radius until the next pull lands.
+    const stored = await outlets(upgraded);
+    expect(stored).toHaveLength(1);
+    expect(stored[0].code).toBe("RO-BUC-0001");
+
+    upgraded.close();
+  });
+});
+
 describe("the schema itself", () => {
   it("declares every version, so a device that skipped one still arrives", async () => {
     // Dexie replays versions in order to bring an existing database forward. Deleting version 1
@@ -397,7 +463,7 @@ describe("the schema itself", () => {
 
     await db.open();
 
-    expect(db.verno).toBe(3);
+    expect(db.verno).toBe(4);
 
     // The outbox is still keyed by the mutation id, which is the property the server's ledger
     // depends on: a re-send has to arrive under the id it was captured with.

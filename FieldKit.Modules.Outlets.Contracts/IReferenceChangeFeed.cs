@@ -19,6 +19,15 @@ namespace FieldKit.Modules.Outlets.Contracts;
 /// had the code (<c>OutletSummary.Code</c>); the field app is the half that has to say a shop's name
 /// out loud to a person, so if either copy needed it, it was this one.
 /// </para>
+/// <para>
+/// <b><see cref="RadiusMetres"/> travels even though it is a constant today</b>
+/// (<see cref="IOutletGeofence.DefaultRadiusMetres"/>; per-outlet radii are <c>OUT-08</c>). The
+/// device decides whether a rep is inside the fence with no network, and the server stores that
+/// verdict unmodified — so the alternative is a <c>150</c> written into the TypeScript, which agrees
+/// with this server exactly until <c>OUT-08</c> ships and then disagrees silently, on the one input
+/// the parity vectors cannot see. Sending it makes <c>OUT-08</c> a change to <c>OutletGeofences</c>
+/// and to nothing else.
+/// </para>
 /// </remarks>
 public sealed record OutletSnapshot(
     Guid Id,
@@ -29,6 +38,7 @@ public sealed record OutletSnapshot(
     string Status,
     double? Latitude,
     double? Longitude,
+    int RadiusMetres,
     long RowVersion);
 
 /// <summary>
