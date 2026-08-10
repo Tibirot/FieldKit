@@ -71,17 +71,15 @@ export function pendingCount(db: FieldKitDatabase): Promise<number> {
  * looking like it had never been tried.
  */
 export async function markInflight(db: FieldKitDatabase, mutationIds: string[]): Promise<void> {
-  await db.transaction("rw", db.outbox, async () => {
-    for (const mutationId of mutationIds) {
-      await db.outbox
-        .where("mutationId")
-        .equals(mutationId)
-        .modify((entry) => {
-          entry.status = "inflight";
-          entry.attempts += 1;
-        });
-    }
-  });
+  // One `modify` over the whole batch rather than a loop of them: a 200-mutation drain should cost
+  // one pass, not two hundred.
+  await db.outbox
+    .where("mutationId")
+    .anyOf(mutationIds)
+    .modify((entry) => {
+      entry.status = "inflight";
+      entry.attempts += 1;
+    });
 }
 
 /**
