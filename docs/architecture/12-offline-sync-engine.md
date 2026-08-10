@@ -54,11 +54,38 @@ flowchart LR
 | `ref_*` (e.g. `ref_outlets`, `ref_products`, `ref_prices`, `ref_journeys`, `ref_templates`) | Reference (read-only) | Territory-scoped snapshot; server-authoritative |
 | `outbox` | Mutations | `{ mutationId, type, payload, status, createdAt, attempts, error? }` |
 | `blobs` | Binaries | Downscaled photos awaiting upload, keyed by mutation + slot |
-| `meta` | Sync state | Per-entity **watermarks**, device id, last sync, snapshot version |
+| `watermarks` | Sync state | How far the device has been told about one entity |
+| `meta` | Sync state | Device id, last sync, snapshot version |
 
 Writes to `outbox`/`blobs` are **synchronous and durable before the UI confirms** — the "no lost
 work" guarantee ([OFF-02](../product/30-offline-behavior.md#6-requirements)). Outbox status:
-`pending → inflight → acked | failed`.
+`pending → inflight → failed`, with an accepted mutation **deleted** rather than given a fourth
+state.
+
+**Three things the implementation (W8 slice 6, [`lib/sync`](../../frontend/lib/sync)) settled that
+this table used to leave open:**
+
+- **One database per tenant *and* signed-in subject**, named `fieldkit:<tenant>:<subject>`. A rep
+  signing in on a colleague's tablet gets an empty store rather than the colleague's territory.
+  Server-side, tenant isolation is a query filter nobody can bypass; the client equivalent is that
+  the data was never in the same database to begin with, rather than a column application code has
+  to remember to filter on. It also makes sign-out total: delete the database.
+- **There is no `acked` status.** A row whose only content is "this finished" is a table that grows
+  for the life of the install with nothing reading it. The record of the work is the visit, which
+  the device already holds and the server now agrees about. What survives is the two states somebody
+  still has a question about: `pending`, which retries, and `failed`, which needs a person.
+- **`watermarks` is its own store, not rows in `meta`.** It is written in the *same transaction* as
+  the rows it describes, and that is easier to get right — and to read — against a typed store than
+  against a stringly-typed blob.
+
+**`inflight` is durable, and reclaimed on startup.** A device killed mid-push — tab closed, battery
+flat, OS reclaiming memory — leaves rows claiming to be in flight on a connection that no longer
+exists, and nothing will ever answer them. Startup returns them to `pending`. Re-sending is safe
+precisely because the mutation id survived the crash: whatever the server did with the first
+attempt, the ledger will say so (§4).
+
+**The blob store is not built yet**, deliberately — photo upload is `OFF-08`/W11, and a store with
+no writer is a schema version spent on nothing.
 
 **Durability is bounded by the platform, and we say so.** Browsers — iOS Safari especially — can
 **evict** IndexedDB/service-worker storage under pressure or inactivity policies. FieldKit therefore
@@ -95,10 +122,16 @@ plus the new high-water mark and any **tombstones** (deletes/out-of-scope):
 }
 ```
 
-- **Row version** = a per-tenant monotonic sequence (Postgres `bigint` from a sequence, or a
-  logical clock column) stamped on every change. It is the single ordering primitive.
+- **Row version** = a per-tenant monotonic counter stamped on every change, and the single ordering
+  primitive. **Not a Postgres sequence** — `nextval()` allocates before commit and never rolls back,
+  so a device can bank a cursor past a version still uncommitted and never see that row again
+  ([ADR-0013](adr/0013-sync-row-version.md)).
 - The client applies upserts/tombstones to `ref_*` and advances the watermark **atomically** per
-  entity type (a partial pull is safe — next pull resumes from the last committed cursor).
+  entity type, in one IndexedDB transaction (`applyOutletChanges`, W8 slice 6). Written separately,
+  either order loses: **cursor first** and a crash advances the device past changes it never stored,
+  which are then gone until something unrelated edits them; **rows first** is merely wasteful, and
+  only safe because upserts happen to be idempotent. A partial pull is safe — the next one resumes
+  from the last committed cursor.
 - **Territory changes** (rep reassigned, outlet moved) arrive as tombstones for now-out-of-scope
   rows + upserts for newly-in-scope rows.
 - **Scope *entry* needs more than `rowVersion > cursor`.** An entity that moves **into** the
