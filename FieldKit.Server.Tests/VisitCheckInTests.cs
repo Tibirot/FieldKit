@@ -90,6 +90,17 @@ public class VisitCheckInTests(ServerFixture fixture)
         Assert.True(visit.WasInsideGeofence);
         Assert.Null(visit.GeofenceOverrideReason);
         Assert.Equal(0, visit.CheckInDistanceMetres!.Value, 3);
+
+        // Worked here, not drained from a phone (W9 slice 0). Asserted on the online path as well as
+        // the offline one, because a `Source` that is only ever written by the ingest service would
+        // make every live visit indistinguishable from a pre-W9 row.
+        Assert.Equal(nameof(VisitSource.Live), visit.Source);
+
+        // And the server stored it as it started it — the online path is the case where the two
+        // timestamps agree, which is what makes the offline one's disagreement mean something.
+        Assert.NotNull(visit.RecordedAtUtc);
+        Assert.True(
+            (visit.RecordedAtUtc.Value - visit.CheckedInAtUtc).Duration() < TimeSpan.FromMinutes(1));
     }
 
     [Fact]

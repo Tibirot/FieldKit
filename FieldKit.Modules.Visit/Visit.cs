@@ -35,6 +35,33 @@ public enum VisitOutcome
 }
 
 /// <summary>
+/// How a visit reached this server (<c>VIS-05</c>, W9 slice 0).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Stored, not derived.</b> The obvious shortcut is to compare <see cref="Visit.CreatedAtUtc"/>
+/// with <see cref="Visit.CheckedOutAtUtc"/> and call a gap "offline" — and it is wrong in the case
+/// that matters. A rep who checks out in a shop with signal drains within seconds, so an ingested
+/// visit and a live one produce identical timestamps. The gap tells you a visit was drained *late*;
+/// only this says it came from a phone at all.
+/// </para>
+/// <para>
+/// <b>Nullable, and null means "recorded before this was tracked".</b> Every visit stored before
+/// this column existed genuinely has no answer: nothing was written down at the time, and inferring
+/// one from timestamps would manufacture a fact with the same shape as a real one and no way to tell
+/// them apart. A column that admits a gap is worth more than a column that fills it in.
+/// </para>
+/// </remarks>
+public enum VisitSource
+{
+    /// <summary>Worked online, through <c>/api/visits/check-in</c>.</summary>
+    Live,
+
+    /// <summary>Captured on a device and drained through <c>/sync/push</c> (<c>OFF-04</c>).</summary>
+    Device,
+}
+
+/// <summary>
 /// One in-store engagement: a rep, an outlet, and what happened between check-in and check-out
 /// (<c>VIS-01</c>, <c>BR-VIS-1</c>).
 /// </summary>
@@ -135,8 +162,42 @@ public sealed class Visit : AggregateRoot, ITenantOwned, IAuditable
     public TimeSpan? TimeOnSite =>
         CheckedOutAtUtc is { } left ? left - CheckedInAtUtc : null;
 
+    /// <summary>
+    /// How this visit reached the server (<c>VIS-05</c>). Null for visits stored before it was
+    /// recorded — see <see cref="VisitSource"/>.
+    /// </summary>
+    public VisitSource? Source { get; private set; }
+
     public TenantId TenantId { get; set; }
+
+    /// <summary>
+    /// <b>When this server first stored the visit</b>, stamped from <c>IClock</c> by
+    /// <c>EntityStampingInterceptor</c> — which makes it the visit's provenance timestamp, and the
+    /// reason there is no second column for one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the audit field every entity carries, and on this one it happens to answer a domain
+    /// question: an ingested visit holds the <i>device's</i> <see cref="CheckedInAtUtc"/> and
+    /// <see cref="CheckedOutAtUtc"/>, so the distance between those and this is how long the work sat
+    /// on a phone. W9 slice 0 was planned as a new <c>RecordedAtUtc</c> beside them; the interceptor
+    /// had been writing exactly that value on both paths since W1, and a second column would have
+    /// been the "second answer to the same question that can disagree with the first" that
+    /// <see cref="TimeOnSite"/> is derived to avoid.
+    /// </para>
+    /// <para>
+    /// It also means the value exists for <b>every</b> visit already stored, with no backfill and no
+    /// guess — unlike <see cref="Source"/>, which nobody was writing down.
+    /// </para>
+    /// <para>
+    /// A device claiming a <see cref="CheckedOutAtUtc"/> later than this is claiming the future,
+    /// which no correct device does. Nothing acts on that: it is a signal for <c>VIS-10</c>/W13
+    /// reporting to weigh against a real population, not a rule, and <c>BR-VIS-2</c>'s "never block
+    /// the rep, always record" is the same answer one layer down.
+    /// </para>
+    /// </remarks>
     public DateTimeOffset CreatedAtUtc { get; set; }
+
     public string? CreatedBy { get; set; }
     public DateTimeOffset? ModifiedAtUtc { get; set; }
     public string? ModifiedBy { get; set; }
@@ -175,6 +236,7 @@ public sealed class Visit : AggregateRoot, ITenantOwned, IAuditable
             UserId = userId,
             PlannedVisitId = plannedVisitId,
             Status = VisitStatus.InProgress,
+            Source = VisitSource.Live,
             CheckedInAtUtc = clock.UtcNow,
             CheckInLatitude = at?.Latitude,
             CheckInLongitude = at?.Longitude,
@@ -222,6 +284,10 @@ public sealed class Visit : AggregateRoot, ITenantOwned, IAuditable
             UserId = userId,
             PlannedVisitId = captured.PlannedVisitId,
             Status = VisitStatus.CheckedOut,
+
+            // The one fact about this visit that only the arrival path knows. Everything else here
+            // is the device's; this is the server saying where it got it.
+            Source = VisitSource.Device,
             CheckedInAtUtc = captured.CheckedInAtUtc,
             CheckInLatitude = captured.CheckInLatitude,
             CheckInLongitude = captured.CheckInLongitude,

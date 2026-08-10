@@ -46,7 +46,18 @@ public sealed record VisitResponse(
     string? OutcomeReason = null,
     // Seconds rather than a TimeSpan: "01:23:45" is a formatting decision, and a client that wants
     // to say "1h 24m" in Romanian should not have to parse one back out first.
-    double? TimeOnSiteSeconds = null);
+    double? TimeOnSiteSeconds = null,
+    // `Live`, `Device`, or null for a visit stored before W9 slice 0 recorded it (`VisitSource`).
+    string? Source = null,
+    /*
+     * When this server first stored the visit — `Visit.CreatedAtUtc`, renamed on the way out.
+     *
+     * `createdAtUtc` would be the honest name for an audit field and the wrong one here: on a visit,
+     * "created" reads as check-in, and the whole value of this field is in the case where the two
+     * are days apart. Together with `source` it is what makes "captured offline on Tuesday, drained
+     * on Friday" visible instead of inferred.
+     */
+    DateTimeOffset? RecordedAtUtc = null);
 
 /// <summary>What the rep was asked to do at one step, and whether they have (<c>VIS-03</c>).</summary>
 public sealed record VisitStepResponse(
@@ -435,5 +446,7 @@ internal static class VisitEndpoints
         visit.CheckOutLongitude,
         visit.Outcome?.ToString(),
         visit.OutcomeReason,
-        visit.TimeOnSite?.TotalSeconds);
+        visit.TimeOnSite?.TotalSeconds,
+        visit.Source?.ToString(),
+        visit.CreatedAtUtc);
 }
