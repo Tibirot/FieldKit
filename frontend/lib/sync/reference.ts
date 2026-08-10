@@ -2,6 +2,8 @@ import type { Table } from "dexie";
 
 import type {
   FieldKitDatabase,
+  ReferenceAssortmentLine,
+  ReferenceAssortmentOverride,
   ReferenceOutlet,
   ReferencePlannedVisit,
   ReferenceProduct,
@@ -30,6 +32,8 @@ export const OUTLETS = "outlets";
 export const JOURNEYS = "journeys";
 export const CONFIGURATION = "configuration";
 export const PRODUCTS = "products";
+export const ASSORTMENT = "assortment";
+export const OUTLET_ASSORTMENT = "outletAssortment";
 
 /**
  * Applies one page of a pull (`OFF-02`, `OFF-03`, sync engine §3).
@@ -217,4 +221,73 @@ export function product(
   id: string,
 ): Promise<ReferenceProduct | undefined> {
   return db.products.get(id);
+}
+
+/** The channel assortment — which products each channel carries. */
+export function applyAssortmentChanges(
+  db: FieldKitDatabase,
+  page: EntityChanges<ReferenceAssortmentLine>,
+): Promise<void> {
+  return apply(db, "ref_assortment", ASSORTMENT, page);
+}
+
+/** The per-outlet exceptions to it. */
+export function applyOutletAssortmentChanges(
+  db: FieldKitDatabase,
+  page: EntityChanges<ReferenceAssortmentOverride>,
+): Promise<void> {
+  return apply(db, "ref_assortment_overrides", OUTLET_ASSORTMENT, page);
+}
+
+/**
+ * Drops overrides for outlets this device no longer holds.
+ *
+ * <b>The server sends no scope tombstones for these, deliberately, and this is why it does not have
+ * to.</b> When an outlet leaves a rep's territory the device is already told — Sync mints an outlet
+ * tombstone — and an override is meaningless without the outlet it qualifies. So the device works it
+ * out from a fact it already has, rather than the server enumerating rows it is about to stop being
+ * allowed to talk about.
+ *
+ * Run after every pull, because an outlet can leave scope on any of them.
+ */
+export async function pruneOutletAssortment(db: FieldKitDatabase): Promise<number> {
+  const held = new Set((await db.outlets.toArray()).map((row) => row.id));
+  const orphans = await db.assortmentOverrides
+    .filter((over) => !held.has(over.outletId))
+    .primaryKeys();
+
+  if (orphans.length === 0) return 0;
+
+  await db.assortmentOverrides.bulkDelete(orphans);
+
+  return orphans.length;
+}
+
+/**
+ * What a rep may sell at one shop (`PRD-02`, `B2`).
+ *
+ * <b>Resolved here, on the device, rather than sent resolved.</b> `PRD-02` stores overrides
+ * precisely so there is no materialised per-outlet list to keep in step; sending one would rebuild
+ * that materialisation on the wire, and a channel edit would then have to invalidate every outlet it
+ * touches. The rule is small and the inputs are local, so the device computes it.
+ *
+ * Returns product ids with their must-stock flag: `Added` overrides join the channel's list,
+ * `Removed` ones leave it, and an override's own flag wins where both apply.
+ */
+export async function assortmentFor(
+  db: FieldKitDatabase,
+  outletId: string,
+  channelId: string,
+): Promise<Map<string, boolean>> {
+  const lines = await db.assortment.where("channelId").equals(channelId).toArray();
+  const overrides = await db.assortmentOverrides.where("outletId").equals(outletId).toArray();
+
+  const effective = new Map(lines.map((line) => [line.productId, line.isMustStock]));
+
+  for (const over of overrides) {
+    if (over.kind === "Removed") effective.delete(over.productId);
+    else effective.set(over.productId, over.isMustStock);
+  }
+
+  return effective;
 }

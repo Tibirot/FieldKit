@@ -55,6 +55,7 @@ public sealed class ProductsModule : IModule
         // Sync pages the catalogue to devices through this rather than reading the products schema
         // (W8 slice 8c) — the module's first public contract, and it waited for a caller.
         services.AddScoped<IProductChangeFeed, ProductChangeFeed>();
+        services.AddScoped<IAssortmentChangeFeed, AssortmentChangeFeed>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

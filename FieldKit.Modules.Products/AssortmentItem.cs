@@ -1,4 +1,5 @@
 using FieldKit.BuildingBlocks;
+using FieldKit.Infrastructure;
 using FieldKit.SharedKernel;
 
 namespace FieldKit.Modules.Products;
@@ -28,8 +29,11 @@ namespace FieldKit.Modules.Products;
 /// (ADR-0005) exists to prevent.
 /// </para>
 /// </remarks>
-public sealed class AssortmentItem : AggregateRoot, ITenantOwned, IAuditable
+public sealed class AssortmentItem : AggregateRoot, ITenantOwned, IAuditable, ISyncTracked
 {
+    /// <summary>Set by the row-version interceptor, never here (ADR-0013). W8 slice 8d.</summary>
+    public long RowVersion { get; set; }
+
     public Guid Id { get; private set; }
 
     /// <summary>The channel this belongs to — an Outlets id, unenforceable here by design.</summary>

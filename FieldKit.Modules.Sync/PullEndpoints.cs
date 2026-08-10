@@ -39,6 +39,7 @@ public static class PullEndpoints
             IJourneyChangeFeed journeys,
             IVisitWorkflowFeed workflows,
             IProductChangeFeed products,
+            IAssortmentChangeFeed assortment,
             ITenantContext tenant,
             IClock clock,
             CancellationToken ct) =>
@@ -111,6 +112,34 @@ public static class PullEndpoints
             var catalogue = await products.GetChangesAsync(
                 request.Cursors?.Products ?? 0, PageLimit, ct);
 
+            /*
+             * What a rep may sell, in two halves with two different scopes (W8 slice 8d).
+             *
+             * The channel list is tenant-wide, like the catalogue. The overrides belong to
+             * individual outlets and are exactly as private as the outlets are — so they are the
+             * first entity to reuse the device's outlet scope, and the first to need the baseline
+             * shape outlets have had since slice 3: an outlet entering a rep's territory brings its
+             * overrides with it *without editing them*.
+             *
+             * `entering` and `retained` come from the territory diff above rather than being
+             * recomputed, which is the point of doing that diff once.
+             */
+            var lines = await assortment.GetLineChangesAsync(
+                request.Cursors?.Assortment ?? 0, PageLimit, ct);
+
+            var overrideCursor = request.Cursors?.OutletAssortment ?? 0;
+            var overridePage = await assortment.GetOverrideChangesAsync(
+                overrideCursor, territory.Retained, PageLimit, ct);
+            var overrideBaseline = await assortment.GetOverrideBaselineAsync(
+                territory.Entering, PageLimit, ct);
+
+            // The cursor has to cover the baseline too — the bug slice 3a shipped and its tests
+            // caught. A first pull sends nothing from the delta half, so a device that banked the
+            // delta's cursor would ask for `> 0` forever and never engage.
+            var overrideCursorAfter = overridePage.Cursor;
+            foreach (var snapshot in overrideBaseline)
+                overrideCursorAfter = Math.Max(overrideCursorAfter, snapshot.RowVersion);
+
             await RecordScopeAsync(
                 db, device.Id, tenant.TenantId, territory.Entering, territory.Leaving, ct);
 
@@ -122,7 +151,13 @@ public static class PullEndpoints
                     new EntityChanges<VisitWorkflowSnapshot>(
                         configuration.Upserts, configuration.Tombstones, configuration.Cursor),
                     new EntityChanges<ProductSnapshot>(
-                        catalogue.Upserts, catalogue.Tombstones, catalogue.Cursor)),
+                        catalogue.Upserts, catalogue.Tombstones, catalogue.Cursor),
+                    new EntityChanges<AssortmentLineSnapshot>(
+                        lines.Upserts, lines.Tombstones, lines.Cursor),
+                    new EntityChanges<AssortmentOverrideSnapshot>(
+                        [.. overrideBaseline, .. overridePage.Upserts],
+                        overridePage.Tombstones,
+                        overrideCursorAfter)),
                 // A patchwork, not a point in time: watermarks advance per entity type, and the
                 // device tolerates the skew because captured work records its own inputs
                 // (sync engine §3). The string names the outlet cursor only — it is a label for
@@ -132,10 +167,16 @@ public static class PullEndpoints
     }
 
     /// <summary>What the outlet half of a pull produced, and what the device's scope set must become.</summary>
+    /// <param name="Retained">
+    /// Outlets the device already held and still holds — the delta half of the diff. Carried out of
+    /// this method because every *other* per-outlet entity needs the same three sets, and computing
+    /// them once is the point of doing the diff at all.
+    /// </param>
     private sealed record Territory(
         EntityChanges<OutletSnapshot> Changes,
         IReadOnlyList<Guid> Entering,
-        IReadOnlyList<Guid> Leaving);
+        IReadOnlyList<Guid> Leaving,
+        IReadOnlyList<Guid> Retained);
 
     /// <summary>
     /// The outlets a device should hold: membership first, then content (sync engine §3).
@@ -208,7 +249,8 @@ public static class PullEndpoints
                 [.. page.Tombstones, .. scopeTombstones],
                 cursorAfter),
             entering,
-            leaving);
+            leaving,
+            retained);
     }
 
     /// <summary>
@@ -270,7 +312,12 @@ public sealed record PullRequest(Guid DeviceId, PullCursors? Cursors);
 /// `journeys` gets its whole round on the next pull and keeps its outlet watermark.
 /// </remarks>
 public sealed record PullCursors(
-    long? Outlets, long? Journeys = null, long? Configuration = null, long? Products = null);
+    long? Outlets,
+    long? Journeys = null,
+    long? Configuration = null,
+    long? Products = null,
+    long? Assortment = null,
+    long? OutletAssortment = null);
 
 public sealed record EntityChanges<T>(
     IReadOnlyList<T> Upserts, IReadOnlyList<ReferenceTombstone> Tombstones, long Cursor);
@@ -279,6 +326,8 @@ public sealed record PullChanges(
     EntityChanges<OutletSnapshot> Outlets,
     EntityChanges<PlannedVisitSnapshot> Journeys,
     EntityChanges<VisitWorkflowSnapshot> Configuration,
-    EntityChanges<ProductSnapshot> Products);
+    EntityChanges<ProductSnapshot> Products,
+    EntityChanges<AssortmentLineSnapshot> Assortment,
+    EntityChanges<AssortmentOverrideSnapshot> OutletAssortment);
 
 public sealed record PullResponse(PullChanges Changes, string SnapshotVersion);

@@ -91,6 +91,36 @@ export type ReferenceProduct = {
   rowVersion: number;
 };
 
+/**
+ * One line of a channel's assortment (`PRD-02`, W8 slice 8d).
+ *
+ * Tenant-wide, like the catalogue: which products a channel carries is not something one rep may
+ * know and another may not.
+ */
+export type ReferenceAssortmentLine = {
+  id: string;
+  channelId: string;
+  productId: string;
+  isMustStock: boolean;
+  rowVersion: number;
+};
+
+/**
+ * One outlet's departure from its channel's list (`PRD-02`, `B2`).
+ *
+ * Scoped to the outlets this device holds — the first entity that is. `kind` is a name rather than
+ * an ordinal: an inserted enum value would turn every stored `Removed` into an `Added`, which is a
+ * product appearing in an order screen that a buyer has explicitly refused.
+ */
+export type ReferenceAssortmentOverride = {
+  id: string;
+  outletId: string;
+  productId: string;
+  kind: string;
+  isMustStock: boolean;
+  rowVersion: number;
+};
+
 /** Where a mutation has got to. The device's own state, never the server's. */
 export type OutboxStatus =
   /** Captured and durable. Waiting for a connection. */
@@ -167,6 +197,8 @@ export class FieldKitDatabase extends Dexie {
   plannedVisits!: EntityTable<ReferencePlannedVisit, "id">;
   workflows!: EntityTable<ReferenceVisitWorkflow, "id">;
   products!: EntityTable<ReferenceProduct, "id">;
+  assortment!: EntityTable<ReferenceAssortmentLine, "id">;
+  assortmentOverrides!: EntityTable<ReferenceAssortmentOverride, "id">;
   outbox!: EntityTable<OutboxEntry, "mutationId">;
   meta!: EntityTable<MetaEntry, "key">;
   watermarks!: EntityTable<Watermark, "entity">;
@@ -205,6 +237,14 @@ export class FieldKitDatabase extends Dexie {
       // the one store big enough for "active only" to be worth an index rather than a scan.
       ref_products: "id, sku, name, status",
 
+      // Indexed by `channelId`, because that is the only question anyone asks of it: "what does
+      // this shop's channel carry". `productId` is not indexed — nothing asks the reverse.
+      ref_assortment: "id, channelId",
+
+      // `outletId` because the resolution reads one shop's exceptions, and because it is what the
+      // cascade prune deletes by when an outlet leaves the rep's territory.
+      ref_assortment_overrides: "id, outletId",
+
       // Indexed by status (the sync manager asks for pending), by createdAt (it sends them in the
       // order the rep worked), and by subjectId (a screen asks about one visit).
       outbox: "mutationId, status, createdAt, subjectId",
@@ -217,6 +257,8 @@ export class FieldKitDatabase extends Dexie {
     this.plannedVisits = this.table("ref_planned_visits");
     this.workflows = this.table("ref_visit_workflows");
     this.products = this.table("ref_products");
+    this.assortment = this.table("ref_assortment");
+    this.assortmentOverrides = this.table("ref_assortment_overrides");
     this.outbox = this.table("outbox");
     this.meta = this.table("meta");
     this.watermarks = this.table("watermarks");

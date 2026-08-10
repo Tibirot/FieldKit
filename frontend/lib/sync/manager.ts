@@ -10,14 +10,19 @@ import {
   reclaimInflight,
 } from "./outbox";
 import {
+  applyAssortmentChanges,
   applyConfigurationChanges,
   applyJourneyChanges,
+  applyOutletAssortmentChanges,
   applyOutletChanges,
   applyProductChanges,
+  ASSORTMENT,
   CONFIGURATION,
   JOURNEYS,
+  OUTLET_ASSORTMENT,
   OUTLETS,
   PRODUCTS,
+  pruneOutletAssortment,
   watermark,
 } from "./reference";
 
@@ -205,6 +210,8 @@ async function refresh(
     journeys: await watermark(db, JOURNEYS),
     configuration: await watermark(db, CONFIGURATION),
     products: await watermark(db, PRODUCTS),
+    assortment: await watermark(db, ASSORTMENT),
+    outletAssortment: await watermark(db, OUTLET_ASSORTMENT),
   };
 
   let response;
@@ -214,7 +221,8 @@ async function refresh(
     return classify(error);
   }
 
-  const { outlets, journeys, configuration, products } = response.changes;
+  const { outlets, journeys, configuration, products, assortment, outletAssortment } =
+    response.changes;
 
   // Two transactions, not one. Failing to store the round must not undo outlets that already
   // landed — a device that got half a pull keeps the half it got, and asks for the rest next time.
@@ -222,6 +230,13 @@ async function refresh(
   await applyJourneyChanges(db, journeys);
   await applyConfigurationChanges(db, configuration);
   await applyProductChanges(db, products);
+  await applyAssortmentChanges(db, assortment);
+  await applyOutletAssortmentChanges(db, outletAssortment);
+
+  // After the outlets have landed, because it reads what the device now holds. An outlet that left
+  // the rep's territory takes its overrides with it, and the server sends no tombstone for them —
+  // the device works it out from the outlet tombstone it was already sent.
+  await pruneOutletAssortment(db);
 
   await db.meta.put({ key: "lastSyncAt", value: String(Date.now()) });
 
@@ -232,7 +247,7 @@ async function refresh(
    * totals only feed an indicator, so nothing failed, and the test that would have caught it did not
    * assert on them. A list is harder to forget to extend than an expression.
    */
-  const pages = [outlets, journeys, configuration, products];
+  const pages = [outlets, journeys, configuration, products, assortment, outletAssortment];
 
   result.pulled += pages.reduce((total, page) => total + page.upserts.length, 0);
   result.dropped += pages.reduce((total, page) => total + page.tombstones.length, 0);

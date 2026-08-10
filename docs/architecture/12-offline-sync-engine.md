@@ -51,7 +51,7 @@ flowchart LR
 
 | Store | Kind | Contents |
 |---|---|---|
-| `ref_*` (built: `ref_outlets`, `ref_planned_visits`, `ref_visit_workflows`, `ref_products`; planned: `ref_prices`, `ref_promotions`) | Reference (read-only) | Rep-scoped snapshot; server-authoritative. What each is scoped *by* differs — see §3 |
+| `ref_*` (built: `ref_outlets`, `ref_planned_visits`, `ref_visit_workflows`, `ref_products`, `ref_assortment`, `ref_assortment_overrides`; planned: `ref_prices`, `ref_promotions`) | Reference (read-only) | Rep-scoped snapshot; server-authoritative. What each is scoped *by* differs — see §3 |
 | `outbox` | Mutations | `{ mutationId, type, payload, status, createdAt, attempts, error? }` |
 | `blobs` | Binaries | Downscaled photos awaiting upload, keyed by mutation + slot |
 | `watermarks` | Sync state | How far the device has been told about one entity |
@@ -145,6 +145,8 @@ row is it*, and the answer changes what the feed's interface has to look like:
 | `journeys` | The rep named on the **plan** ([`IJourneyChangeFeed`](../../FieldKit.Modules.Journey.Contracts/IJourneyChangeFeed.cs)) | No |
 | `configuration` | **Nothing** — every device gets every visit workflow ([`IVisitWorkflowFeed`](../../FieldKit.Modules.Configuration.Contracts/IVisitWorkflowFeed.cs)) | No |
 | `products` | **Nothing** — every device gets the whole catalogue ([`IProductChangeFeed`](../../FieldKit.Modules.Products.Contracts/IProductChangeFeed.cs)) | No |
+| `assortment` | **Nothing** — the channel list ([`IAssortmentChangeFeed`](../../FieldKit.Modules.Products.Contracts/IAssortmentChangeFeed.cs)) | No |
+| `outletAssortment` | The device’s **outlet set** — the per-outlet overrides | **Yes** |
 
 A **baseline** call — "hand me these rows whatever their version" — exists because an outlet can
 enter a rep's territory *without being edited*, carrying a row version far below the device's cursor,
@@ -169,6 +171,25 @@ to another channel puts a workflow in scope *without editing it*, so a pure delt
 it — and it would do so to save a payload of a handful of rows a tenant's own administrators wrote.
 There is nothing in a workflow that one rep may see and another may not. **The cheapest correct scope
 is sometimes no scope**, and a narrowing that buys nothing costs a whole class of bug.
+
+**One rule, two scopes, two cursors.** The assortment is the first thing the protocol carries whose
+two halves do not agree about who owns them: the channel list is a tenant's process and goes
+everywhere, while an outlet's overrides are exactly as private as the outlet. So they are separate
+entity types with separate watermarks, and the overrides are the **first entity scoped by the
+device's outlet set** — reusing the `entering`/`retained`/`leaving` diff outlets have needed since
+slice 3, and needing a baseline for the same reason: an outlet joining a rep's territory brings
+overrides written long ago, whose row versions sit far below the device's cursor.
+
+**An outlet leaving scope needs no override tombstones, and that is a consequence rather than a
+gap.** The device is already told the outlet is gone, and an override is meaningless without the
+outlet it qualifies — so the device prunes them itself from a fact it already holds. Minting a second
+set of tombstones would mean the server enumerating rows it is about to stop being allowed to talk
+about.
+
+**The effective assortment is computed on the device, never sent resolved.** `PRD-02` stores
+overrides precisely so there is no materialised per-outlet list to keep in step; sending one would
+rebuild that materialisation on the wire, and a single channel edit would then have to invalidate
+every outlet it touches.
 
 **The catalogue is unscoped for a second reason of its own, and it is the stronger one.** A rep
 standing in a shop has to be able to **name what they are looking at** — on an unplanned call, at a
