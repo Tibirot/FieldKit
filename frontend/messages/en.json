@@ -1189,6 +1189,45 @@
         "notVisited": "Not visited"
       },
       "openDevice": "This device"
+    },
+    "checkIn": {
+      "opening": "Opening this shop…",
+      "locating": "Finding where you are…",
+      "inside": "You are at this shop — {metres} m away.",
+      "outside": "You are {metres} m from this shop, outside its {radius} m area.",
+      "unplaced": "This phone could not say where you are.",
+      "remote": "This channel does not expect you to be at the shop.",
+      "accuracy": "This fix is good to about {metres} m.",
+      "refresh": "Check again",
+      "action": "Check in and start the visit",
+      "starting": "Starting…",
+      "problem": {
+        "unsupported": "This browser cannot report a location, so the visit will be recorded without one.",
+        "denied": "Location is blocked for this app. Allow it in your browser settings, or say below why you are checking in without it.",
+        "unavailable": "This phone could not get a location. It may help to step outside.",
+        "timeout": "Finding your location took too long."
+      },
+      "reason": {
+        "label": "Why are you checking in from here?",
+        "help": "Your supervisor sees this. The visit goes ahead either way."
+      },
+      "refusal": {
+        "alreadyInProgress": "A visit is already open on this device. Finish it before starting another.",
+        "overrideReasonRequired": "Say why you are checking in from here.",
+        "unexpected": "That could not be recorded. Try again, and tell your supervisor if it keeps happening."
+      },
+      "unknownOutlet": {
+        "title": "This device does not hold this shop",
+        "body": "It may have moved to another rep. Sync to pick up the change, and speak to your supervisor if the call is still yours."
+      },
+      "already": {
+        "title": "You are already in this shop",
+        "body": "The visit you started here is still open. Carry on with it rather than starting a second one."
+      },
+      "elsewhere": {
+        "title": "A visit is open at another shop",
+        "body": "One visit at a time. Check out of the shop you are in before starting here."
+      }
     }
   },
   "Guard": {

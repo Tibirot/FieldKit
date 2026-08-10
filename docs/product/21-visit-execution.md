@@ -150,6 +150,23 @@ written to the **local outbox** and pushed idempotently on reconnect; the visit 
 **device-owned and append-only**, so no server-side conflict arises ([B7](decisions-and-assumptions.md#b7--conflict-resolution-matrix)).
 Geo capture uses the device sensors offline; geofence data is part of the synced outlet record.
 
+### The verdict shown is the verdict stored (W9 slice 6)
+
+The check-in screen takes one fix when it opens, assesses it once, and writes **that** assessment to
+the visit. It deliberately does not re-measure when the rep presses the button, and the reason is the
+one thing this screen cannot afford to get wrong: a rep shown *inside the fence* and recorded
+*outside* it has been handed an override reason they never saw, and a supervisor an exception they
+would deny. The fix is requested with `maximumAge: 0` for the same reason in the other direction — a
+cached position is the previous shop's car park, and the geofence would agree with it perfectly.
+
+Three positions are all ordinary and none of them blocks (`BR-VIS-2`): inside, outside, and **no fix
+at all**. The last still asks for a reason, because a phone reporting no position at a shop that has
+one is both what a supervisor would want to see and how a check-in would be faked. The device's
+reported accuracy is shown to the rep — forty metres outside a hundred-and-fifty metre fence means
+something different when the fix is good to five metres than when it is good to eighty — but it is
+**not** recorded: `CapturedVisit` is a public contract, and widening it is a decision to take on its
+own rather than as a side effect of a screen.
+
 ### Provenance — how the record says where it came from
 
 An offline visit arrives carrying **the device's** timestamps, position and geofence verdict, and the
