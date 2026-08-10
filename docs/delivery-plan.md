@@ -684,6 +684,7 @@ the protocol.
 | | *Two suites, not one: the server answers identically and resumes from any cursor; the client — the real manager against a model server — converges. Fixed sweeps rather than seeded randomness, per the position W6 took. It also disproved slice 3a’s “not self-healing” note* | | |
 | 10 | **Partial failure** — one bad mutation in a batch does not reject the batch; the device learns which, and why | `OFF-09` | 300 |
 | 11 | **Local-store migration** — an app update must not strand a pending outbox | `OFF-13` | 300 |
+| | *Version 2 is a real index the drain needed, not a placeholder: `pending()` sorted in memory at the top of every push. The suite writes a v1 database and opens it with v2 code — and fails on an upgrade that clears the outbox, which is the check that makes it worth having* | | |
 | 12 | **Drain-push on device swap** — a deactivated device completes its last push rather than losing a shift's work | `OFF-12` | 300 |
 | 13 | **Connectivity + pending UI** — the indicator, per-item badges, and *Sync now* | `OFF-05`, `OFF-06` | 350 |
 

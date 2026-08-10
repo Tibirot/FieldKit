@@ -298,15 +298,15 @@ export class FieldKitDatabase extends Dexie {
     super(name);
 
     /*
-     * Version 1.
+     * Version 1 — the schema as W8 slice 6 shipped it.
      *
      * Dexie's schema strings list *indexes*, not columns — the object is stored whole, and only
      * what is named here can be queried. Adding a field to a type above needs no migration; adding
      * a way to *look it up* does.
      *
-     * `OFF-13` (a schema change must not strand a pending outbox) is slice 11, and lands as a
-     * `version(2).upgrade(...)` beside this. The version is declared now, rather than left implicit,
-     * so that slice has something to move from.
+     * <b>Every version stays declared, forever, even once nothing installs it fresh.</b> Dexie
+     * replays them in order to bring an existing database forward, so deleting version 1 would not
+     * simplify this file — it would strand every device that has not opened the app since.
      */
     this.version(1).stores({
       // `name` is indexed because that is what a rep types when looking for a shop; `channelId`
@@ -360,6 +360,30 @@ export class FieldKitDatabase extends Dexie {
 
       meta: "key",
       watermarks: "entity",
+    });
+
+    /*
+     * Version 2 — the outbox drain reads an index instead of sorting in memory (`OFF-13`).
+     *
+     * `pending()` asked for `where("status").equals("pending").sortBy("createdAt")`. Dexie's
+     * `sortBy` is not an index read: it loads every matching row and sorts them in JavaScript. That
+     * is the *hot path* — it runs at the top of every push, on the device with the least CPU and the
+     * most reason to be quick — and it gets slower exactly as a rep's offline day gets longer.
+     *
+     * A compound `[status+createdAt]` index turns it into a range scan that arrives ordered.
+     *
+     * <b>No `upgrade()` callback, deliberately.</b> Dexie builds a new index by walking the existing
+     * rows; nothing about them changes, so there is no data to transform, and an empty upgrade block
+     * would be a hook somebody later fills in by accident. The callback is for *transforms* — a
+     * renamed field, a split table — and this is not one.
+     *
+     * What this version is really for is `migration.test.ts`: `OFF-13` says an app update must not
+     * strand a pending outbox, and until there were two versions that was a claim with nothing
+     * behind it. Now a v1 database with unsent work gets opened by v2 code in a test, and the work
+     * is still there.
+     */
+    this.version(2).stores({
+      outbox: "mutationId, status, createdAt, subjectId, [status+createdAt]",
     });
 
     this.outlets = this.table("ref_outlets");
