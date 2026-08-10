@@ -223,6 +223,73 @@ export type ReferencePromotionAssignment = {
 };
 
 /** Where a mutation has got to. The device's own state, never the server's. */
+/**
+ * One step of a visit as the rep works it (`VIS-03`).
+ *
+ * A copy of the workflow's step, not a reference to it. The workflow can be republished mid-visit —
+ * `BR-VIS-6` — and a rep who checked in at ten must not be asked at four for a step that did not
+ * exist when they walked in. The server's `VisitStep` copies for the same reason.
+ */
+export type LocalVisitStep = {
+  stepId: string;
+  order: number;
+  type: string;
+  mandatory: boolean;
+  label: string;
+  /** What the rep wrote. The whole content of a `Note` step, optional elsewhere. */
+  notes: string | null;
+  /** ISO-8601. Null until the rep does it. */
+  completedAtUtc: string | null;
+};
+
+/**
+ * A visit as the device holds it (`OFF-01`, `OFF-02`, `VIS-01`…`VIS-05`) — W9 slice 4.
+ *
+ * <b>The first thing in this database the device *authors*.</b> Every `ref_*` store is a copy of
+ * something the server still has — lose it and the next pull rebuilds it — and the outbox holds
+ * opaque payloads written once and thereafter only marked. This is neither: it is created on
+ * check-in, mutated repeatedly as a rep works the steps, and only becomes an outbox mutation when
+ * it is sealed. It is the first store where losing a row loses *work*, which is where `OFF-02`'s
+ * "durable" stops being a word.
+ *
+ * <b>The shape is the server's `CapturedVisit`, not a client convenience.</b> Sealing it is then a
+ * projection rather than a translation — and a field this type is missing is a field the push
+ * cannot send, which is a compile error rather than a silently thinner record.
+ *
+ * <b>`id` is minted here.</b> It is the visit's identity on both sides: the ledger makes a replayed
+ * *mutation* free, and this makes a replayed *visit* recognisable even if a mutation id were ever
+ * lost — `VisitIngestService` answers `AlreadyExists` on it.
+ */
+export type LocalVisit = {
+  id: string;
+  outletId: string;
+  /** The planned call this fulfils, when there was one (`JRN-04`). */
+  plannedVisitId: string | null;
+  status: LocalVisitStatus;
+  checkedInAtUtc: string;
+  checkInLatitude: number | null;
+  checkInLongitude: number | null;
+  /** What the *device* measured, and what the server stores unmodified (`VIS-01`). */
+  checkInDistanceMetres: number | null;
+  wasInsideGeofence: boolean;
+  overrideReason: string | null;
+  steps: LocalVisitStep[];
+  checkedOutAtUtc: string | null;
+  checkOutLatitude: number | null;
+  checkOutLongitude: number | null;
+  outcome: string | null;
+  outcomeReason: string | null;
+};
+
+/**
+ * Where a visit has got to on the device.
+ *
+ * Two values, like the server's `VisitStatus`. There is deliberately no `sent` — whether the back
+ * office has it is the *outbox's* question, and a visit carrying its own copy of that answer would
+ * be a second place to keep it in step. `SyncBadge` already reads it from the outbox by subject id.
+ */
+export type LocalVisitStatus = "inProgress" | "checkedOut";
+
 export type OutboxStatus =
   /** Captured and durable. Waiting for a connection. */
   | "pending"
@@ -305,6 +372,7 @@ export class FieldKitDatabase extends Dexie {
   priceAssignments!: EntityTable<ReferencePriceAssignment, "id">;
   promotions!: EntityTable<ReferencePromotion, "id">;
   promotionAssignments!: EntityTable<ReferencePromotionAssignment, "id">;
+  visits!: EntityTable<LocalVisit, "id">;
   outbox!: EntityTable<OutboxEntry, "mutationId">;
   meta!: EntityTable<MetaEntry, "key">;
   watermarks!: EntityTable<Watermark, "entity">;
@@ -454,6 +522,29 @@ export class FieldKitDatabase extends Dexie {
       .stores({})
       .upgrade((tx) => tx.table("watermarks").delete("outlets"));
 
+    /*
+     * Version 5 — the visits store (`OFF-01`, W9 slice 4).
+     *
+     * <b>The first store added since v1, and the first that is not a copy of something the server
+     * holds.</b> No `upgrade()`: there is nothing to transform, because there were no visits before
+     * this version. Dexie creates the table and every existing device carries on with its outbox
+     * and its reference data untouched — which is the whole of `OFF-13`'s promise for a device that
+     * updates mid-day with work still queued.
+     *
+     * Two indexes, and only two:
+     *
+     * - `status`, because the app's most frequent question is "is a visit open on this device" —
+     *   asked on every field screen to decide whether the rep is mid-visit.
+     * - `outletId`, because a shop's row in Today's Journey shows whether it has been worked.
+     *
+     * `checkedInAtUtc` is *not* indexed. Sorting a rep's day is a sort of at most a couple of dozen
+     * rows, and an index that exists to order a list that short is a write cost on every step
+     * completion for a read nobody notices.
+     */
+    this.version(5).stores({
+      visits: "id, status, outletId",
+    });
+
     this.outlets = this.table("ref_outlets");
     this.plannedVisits = this.table("ref_planned_visits");
     this.workflows = this.table("ref_visit_workflows");
@@ -465,6 +556,7 @@ export class FieldKitDatabase extends Dexie {
     this.priceAssignments = this.table("ref_price_assignments");
     this.promotions = this.table("ref_promotions");
     this.promotionAssignments = this.table("ref_promotion_assignments");
+    this.visits = this.table("visits");
     this.outbox = this.table("outbox");
     this.meta = this.table("meta");
     this.watermarks = this.table("watermarks");

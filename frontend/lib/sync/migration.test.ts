@@ -93,6 +93,29 @@ async function openVersionThree(name: string): Promise<Dexie> {
   return third;
 }
 
+/**
+ * Opens a database at version 4 — everything the reference data needs, and no visits store.
+ *
+ * The fourth snapshot of a release. Versions 3 and 4 are declared here identically to the real
+ * schema on purpose: a helper that shortcut them would let this test open a database that never
+ * existed, and the property under test is that a *real* device carries its outbox across.
+ */
+async function openVersionFour(name: string): Promise<Dexie> {
+  const legacy = await openVersionThree(name);
+  legacy.close();
+
+  const fourth = new Dexie(name);
+  fourth.version(1).stores(VERSION_1_STORES);
+  fourth.version(2).stores({
+    outbox: "mutationId, status, createdAt, subjectId, [status+createdAt]",
+  });
+  fourth.version(3).stores({}).upgrade((tx) => tx.table("watermarks").delete("outlets"));
+  fourth.version(4).stores({}).upgrade((tx) => tx.table("watermarks").delete("outlets"));
+  await fourth.open();
+
+  return fourth;
+}
+
 function outletRow(id: string, rowVersion: number) {
   return {
     id,
@@ -159,7 +182,7 @@ describe("upgrading a device that has unsent work", () => {
     // rows. Without this the whole file could be passing against databases that never existed at
     // v1. The number moves with every schema version, which is the point — a device that skipped
     // one still has to arrive at the latest.
-    expect(upgraded.verno).toBe(4);
+    expect(upgraded.verno).toBe(5);
     expect(await upgraded.outbox.count()).toBe(3);
 
     // Still in capture order, which is what the drain depends on — and now read through the new
@@ -440,7 +463,7 @@ describe("upgrading a device whose outlets predate the geofence radius", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(4);
+    expect(upgraded.verno).toBe(5);
     expect(await watermark(upgraded, OUTLETS)).toBe(0);
     expect(await watermark(upgraded, PRODUCTS)).toBe(41);
 
@@ -448,6 +471,39 @@ describe("upgrading a device whose outlets predate the geofence radius", () => {
     const stored = await outlets(upgraded);
     expect(stored).toHaveLength(1);
     expect(stored[0].code).toBe("RO-BUC-0001");
+
+    upgraded.close();
+  });
+});
+
+describe("upgrading a device that predates the visits store", () => {
+  it("adds the store without touching the work already queued", async () => {
+    // Version 5 adds a *table*, which is the first time that has happened since v1 — and the case
+    // `OFF-13` is really about: a rep updates the app mid-day with visits already captured, and the
+    // outbox is the one store nothing can rebuild.
+    const name = `migration:${crypto.randomUUID()}`;
+
+    const legacy = await openVersionFour(name);
+    await legacy.table("outbox").add({
+      mutationId: "m-1",
+      type: "CapturedVisit",
+      subjectId: "visit-1",
+      payload: { visitId: "visit-1" },
+      status: "pending",
+      createdAt: 1_000,
+      attempts: 0,
+    });
+    legacy.close();
+
+    const upgraded = new FieldKitDatabase(name);
+    await upgraded.open();
+
+    expect(upgraded.verno).toBe(5);
+    expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
+
+    // The new store exists and is empty, which is the only correct starting state: there were no
+    // visits before this version, so there is nothing to migrate and no `upgrade()` to write.
+    expect(await upgraded.visits.count()).toBe(0);
 
     upgraded.close();
   });
@@ -463,7 +519,7 @@ describe("the schema itself", () => {
 
     await db.open();
 
-    expect(db.verno).toBe(4);
+    expect(db.verno).toBe(5);
 
     // The outbox is still keyed by the mutation id, which is the property the server's ledger
     // depends on: a re-send has to arrive under the id it was captured with.
