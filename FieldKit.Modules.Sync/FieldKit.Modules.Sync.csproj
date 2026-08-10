@@ -14,6 +14,9 @@
     -->
     <ProjectReference Include="..\FieldKit.Modules.Org.Contracts\FieldKit.Modules.Org.Contracts.csproj" />
     <ProjectReference Include="..\FieldKit.Modules.Outlets.Contracts\FieldKit.Modules.Outlets.Contracts.csproj" />
+    <!-- Journey answers what is on the rep's round; Sync pages it to the device (W8 slice 8a). -->
+    <!-- Journey answers what is on the rep's round; Sync pages it to the device (W8 slice 8a). -->
+    <ProjectReference Include="..\FieldKit.Modules.Journey.Contracts\FieldKit.Modules.Journey.Contracts.csproj" />
     <!-- Visit owns what makes a visit valid; Sync applies pushed work through it, never by writing
          the visit schema (module boundaries §7). -->
     <ProjectReference Include="..\FieldKit.Modules.Visit.Contracts\FieldKit.Modules.Visit.Contracts.csproj" />

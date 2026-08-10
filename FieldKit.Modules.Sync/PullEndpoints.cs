@@ -1,4 +1,5 @@
 using FieldKit.BuildingBlocks;
+using FieldKit.Modules.Journey.Contracts;
 using FieldKit.Modules.Org.Contracts;
 using FieldKit.Modules.Outlets.Contracts;
 using FieldKit.SharedKernel;
@@ -33,6 +34,7 @@ public static class PullEndpoints
             SyncDbContext db,
             IRepScope repScope,
             IReferenceChangeFeed outlets,
+            IJourneyChangeFeed journeys,
             ITenantContext tenant,
             IClock clock,
             CancellationToken ct) =>
@@ -114,16 +116,37 @@ public static class PullEndpoints
                 .Select(outletId => new ReferenceTombstone(outletId, cursorAfter))
                 .ToList();
 
+            /*
+             * The rep's round, and the second entity type this protocol carries (W8 slice 8a).
+             *
+             * Scoped by the subject in the token, not by the device's outlet set — a call belongs to
+             * a rep because the plan names them, and a rep can be given a call at a shop that has
+             * since left their territory. Scoping journeys by outlet would hide exactly the call
+             * whose absence a supervisor would ask about.
+             *
+             * It needs no baseline half, and that asymmetry is the interesting part of this slice: a
+             * planned call is *born* belonging to one rep and never changes hands, so membership
+             * only ever changes by creation — which stamps a version above every cursor by
+             * construction. Outlets need a baseline because a shop can enter a territory without
+             * being edited at all.
+             */
+            var journeyCursor = request.Cursors?.Journeys ?? 0;
+            var round = await journeys.GetChangesAsync(journeyCursor, tenant.UserId, PageLimit, ct);
+
             await RecordScopeAsync(db, device.Id, tenant.TenantId, entering, leaving, ct);
 
             return Results.Ok(new PullResponse(
-                new PullChanges(new EntityChanges<OutletSnapshot>(
-                    [.. baseline, .. page.Upserts],
-                    [.. page.Tombstones, .. scopeTombstones],
-                    cursorAfter)),
+                new PullChanges(
+                    new EntityChanges<OutletSnapshot>(
+                        [.. baseline, .. page.Upserts],
+                        [.. page.Tombstones, .. scopeTombstones],
+                        cursorAfter),
+                    new EntityChanges<PlannedVisitSnapshot>(
+                        round.Upserts, round.Tombstones, round.Cursor)),
                 // A patchwork, not a point in time: watermarks advance per entity type, and the
                 // device tolerates the skew because captured work records its own inputs
-                // (sync engine §3). With one entity type there is nothing to skew yet.
+                // (sync engine §3). Now that there are two, the string names the outlet cursor only
+                // — it is a label for support and a tiebreaker, not something the device parses.
                 $"{clock.UtcNow:O}#{cursorAfter}"));
         }).RequireAuthorization();
     }
@@ -176,11 +199,22 @@ public static class PullEndpoints
 /// </param>
 public sealed record PullRequest(Guid DeviceId, PullCursors? Cursors);
 
-public sealed record PullCursors(long? Outlets);
+/// <summary>
+/// One cursor per entity type, each absent when the device has never been told about that one.
+/// </summary>
+/// <remarks>
+/// Separate cursors rather than a single number, because the entities advance independently: a
+/// tenant that edits outlets hourly and publishes a plan monthly would, on a shared cursor, make
+/// every outlet edit look like a journey change and vice versa. This is also what lets a new entity
+/// type be added without resetting the ones that already work — a device that has never sent
+/// `journeys` gets its whole round on the next pull and keeps its outlet watermark.
+/// </remarks>
+public sealed record PullCursors(long? Outlets, long? Journeys = null);
 
 public sealed record EntityChanges<T>(
     IReadOnlyList<T> Upserts, IReadOnlyList<ReferenceTombstone> Tombstones, long Cursor);
 
-public sealed record PullChanges(EntityChanges<OutletSnapshot> Outlets);
+public sealed record PullChanges(
+    EntityChanges<OutletSnapshot> Outlets, EntityChanges<PlannedVisitSnapshot> Journeys);
 
 public sealed record PullResponse(PullChanges Changes, string SnapshotVersion);

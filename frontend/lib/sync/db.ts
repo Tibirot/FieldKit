@@ -21,6 +21,24 @@ export type ReferenceOutlet = {
   rowVersion: number;
 };
 
+/**
+ * One call on the rep's round, as the device holds it (`JRN-05`, W8 slice 8a).
+ *
+ * `date` is an ISO `yyyy-mm-dd` string rather than a `Date`, and that is load-bearing: a planned
+ * call is a *date*, in no timezone (the plan says so), and storing it as a `Date` would make
+ * "today's round" depend on where the phone thinks it is. It is also what makes `date` a usable
+ * IndexedDB index — strings sort lexicographically, which for ISO dates is chronological order.
+ */
+export type ReferencePlannedVisit = {
+  id: string;
+  outletId: string;
+  date: string;
+  status: string;
+  source: string;
+  notVisitedReason: string | null;
+  rowVersion: number;
+};
+
 /** Where a mutation has got to. The device's own state, never the server's. */
 export type OutboxStatus =
   /** Captured and durable. Waiting for a connection. */
@@ -94,6 +112,7 @@ export type Watermark = { entity: string; cursor: number };
  */
 export class FieldKitDatabase extends Dexie {
   outlets!: EntityTable<ReferenceOutlet, "id">;
+  plannedVisits!: EntityTable<ReferencePlannedVisit, "id">;
   outbox!: EntityTable<OutboxEntry, "mutationId">;
   meta!: EntityTable<MetaEntry, "key">;
   watermarks!: EntityTable<Watermark, "entity">;
@@ -117,6 +136,11 @@ export class FieldKitDatabase extends Dexie {
       // because a visit's workflow is chosen by channel.
       ref_outlets: "id, name, channelId",
 
+      // `date` is the index the whole field app turns on — *Today's Journey* is one range query on
+      // it. `outletId` answers the other direction: "is this shop on my round?", asked from an
+      // outlet screen.
+      ref_planned_visits: "id, date, outletId",
+
       // Indexed by status (the sync manager asks for pending), by createdAt (it sends them in the
       // order the rep worked), and by subjectId (a screen asks about one visit).
       outbox: "mutationId, status, createdAt, subjectId",
@@ -126,6 +150,7 @@ export class FieldKitDatabase extends Dexie {
     });
 
     this.outlets = this.table("ref_outlets");
+    this.plannedVisits = this.table("ref_planned_visits");
     this.outbox = this.table("outbox");
     this.meta = this.table("meta");
     this.watermarks = this.table("watermarks");

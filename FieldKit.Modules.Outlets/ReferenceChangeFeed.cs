@@ -1,5 +1,6 @@
 using FieldKit.Infrastructure;
 using FieldKit.Modules.Outlets.Contracts;
+using FieldKit.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
 namespace FieldKit.Modules.Outlets;

@@ -47,8 +47,18 @@ public enum PlannedVisitStatus
 /// it — a rep marks it not-visited with a reason (<c>JRN-06</c>), moves it within its cycle, or it
 /// becomes an actual Visit — and none of those can name a row that has no id.
 /// </remarks>
-public sealed class PlannedVisit : ITenantOwned
+public sealed class PlannedVisit : ITenantOwned, ISyncTracked
 {
+    /// <summary>
+    /// Set by the row-version interceptor, never here (ADR-0013).
+    /// </summary>
+    /// <remarks>
+    /// On the call rather than on the <see cref="JourneyPlan"/>, because the call is what the device
+    /// holds. Stamping the plan would make one rep marking one shop not-visited look, to every
+    /// device, like the whole round had changed.
+    /// </remarks>
+    public long RowVersion { get; set; }
+
     /// <summary>The column width for a not-visited reason.</summary>
     public const int MaximumReasonLength = 500;
 

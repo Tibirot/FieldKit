@@ -1,6 +1,6 @@
 import { apiSend } from "@/lib/api/client";
 
-import type { ReferenceOutlet } from "@/lib/sync/db";
+import type { ReferenceOutlet, ReferencePlannedVisit } from "@/lib/sync/db";
 import type { EntityChanges } from "@/lib/sync/reference";
 
 /** A device bound to the signed-in rep (`OFF-12`). */
@@ -26,10 +26,13 @@ export function bindDevice(accessToken: string, name: string | null): Promise<De
 }
 
 /** What the device tells the server it already has. Absent means "I have nothing" (sync engine §3). */
-export type PullCursors = { outlets?: number };
+export type PullCursors = { outlets?: number; journeys?: number };
 
 export type PullResponse = {
-  changes: { outlets: EntityChanges<ReferenceOutlet> };
+  changes: {
+    outlets: EntityChanges<ReferenceOutlet>;
+    journeys: EntityChanges<ReferencePlannedVisit>;
+  };
   snapshotVersion: string;
 };
 
