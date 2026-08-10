@@ -14,6 +14,9 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
 
     protected override string Schema => SchemaName;
 
+    /// <summary>Product is <c>ISyncTracked</c>, so this schema owns a row-version counter (ADR-0013).</summary>
+    protected override bool TracksSyncChanges => true;
+
     public DbSet<Product> Products => Set<Product>();
 
     public DbSet<Category> Categories => Set<Category>();

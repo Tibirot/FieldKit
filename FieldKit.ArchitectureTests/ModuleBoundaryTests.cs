@@ -14,6 +14,7 @@ using FieldKit.Modules.Org.Contracts;
 using FieldKit.Modules.Outlets;
 using FieldKit.Modules.Outlets.Contracts;
 using FieldKit.Modules.Products;
+using FieldKit.Modules.Products.Contracts;
 using NetArchTest.Rules;
 
 namespace FieldKit.ArchitectureTests;
@@ -46,6 +47,7 @@ public class ModuleBoundaryTests
     private static readonly Assembly ConfigurationContracts = typeof(IFieldDefinitionCatalog).Assembly;
     private static readonly Assembly JourneyContracts = typeof(IJourneyQuery).Assembly;
     private static readonly Assembly VisitContracts = typeof(IVisitIngest).Assembly;
+    private static readonly Assembly ProductsContracts = typeof(IProductChangeFeed).Assembly;
 
     /// <summary>
     /// Every module <b>implementation</b> assembly — the ones nothing outside may reference.
@@ -96,7 +98,7 @@ public class ModuleBoundaryTests
     private static readonly Assembly[] ContractsAssemblies =
     [
         IamContracts, OrgContracts, OutletsContracts, ConfigurationContracts, JourneyContracts,
-        VisitContracts,
+        VisitContracts, ProductsContracts,
     ];
 
     [Fact] // AT-1 — the core boundary.

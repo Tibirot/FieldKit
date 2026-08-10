@@ -16,6 +16,8 @@
       which channel a shop trades in — see IOutletClassification.
     -->
     <ProjectReference Include="..\FieldKit.Modules.Outlets.Contracts\FieldKit.Modules.Outlets.Contracts.csproj" />
+    <!-- Its own contracts, so the feed implementation can bind to the interface it publishes. -->
+    <ProjectReference Include="..\FieldKit.Modules.Products.Contracts\FieldKit.Modules.Products.Contracts.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

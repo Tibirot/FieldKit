@@ -1,5 +1,6 @@
 using System.Text.Json;
 using FieldKit.BuildingBlocks;
+using FieldKit.Infrastructure;
 using FieldKit.SharedKernel;
 
 namespace FieldKit.Modules.Products;
@@ -25,8 +26,11 @@ namespace FieldKit.Modules.Products;
 /// nothing keys rules off them, and this change is already the size it should be.
 /// </para>
 /// </remarks>
-public sealed class Product : AggregateRoot, ITenantOwned, IAuditable
+public sealed class Product : AggregateRoot, ITenantOwned, IAuditable, ISyncTracked
 {
+    /// <summary>Set by the row-version interceptor, never here (ADR-0013). W8 slice 8c.</summary>
+    public long RowVersion { get; set; }
+
     public Guid Id { get; private set; }
     public string Sku { get; private set; } = null!;
     public string Name { get; private set; } = null!;

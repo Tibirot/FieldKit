@@ -1,4 +1,5 @@
 using FieldKit.Infrastructure;
+using FieldKit.Modules.Products.Contracts;
 using FieldKit.SharedKernel;
 using FieldKit.Web;
 using Microsoft.AspNetCore.Builder;
@@ -26,12 +27,11 @@ namespace FieldKit.Modules.Products;
 /// endpoint files beside this one.
 /// </para>
 /// <para>
-/// <b>The cross-module contracts still do not exist</b>, and that is deliberate rather than
-/// unfinished: <c>IProductCatalog</c>, <c>IAssortmentService</c> and <c>IPricingService</c> are all
-/// consumed by Order, which is Phase 3. W6 built the things they would wrap and found no caller to
-/// design them against, so they wait for one — the discipline
-/// <c>docs/architecture/10-module-boundaries.md</c> §7 applies to every planned contract. Products
-/// is therefore still a single assembly with no <c>.Contracts</c>.
+/// <b>One public contract, and it waited for a caller.</b> <c>IProductCatalog</c>,
+/// <c>IAssortmentService</c> and <c>IPricingService</c> are all still absent, deliberately: their
+/// consumer is Order, which is Phase 3, and W6 built the things they would wrap without ever finding
+/// a caller to design them against. <c>IProductChangeFeed</c> found one in W8 slice 8c — Sync has to
+/// page the catalogue to a device — so the <c>.Contracts</c> assembly landed then and not before.
 /// </para>
 /// </remarks>
 public sealed class ProductsModule : IModule
@@ -51,6 +51,10 @@ public sealed class ProductsModule : IModule
 
         services.AddModuleDbContext<ProductsDbContext>(connectionString, ProductsDbContext.SchemaName);
         services.AddHostedService<ModuleMigrator<ProductsDbContext>>(); // applies this module's EF migrations on startup
+
+        // Sync pages the catalogue to devices through this rather than reading the products schema
+        // (W8 slice 8c) — the module's first public contract, and it waited for a caller.
+        services.AddScoped<IProductChangeFeed, ProductChangeFeed>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

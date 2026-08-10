@@ -3,6 +3,7 @@ using FieldKit.Modules.Configuration.Contracts;
 using FieldKit.Modules.Journey.Contracts;
 using FieldKit.Modules.Org.Contracts;
 using FieldKit.Modules.Outlets.Contracts;
+using FieldKit.Modules.Products.Contracts;
 using FieldKit.SharedKernel;
 using FieldKit.Web;
 using Microsoft.AspNetCore.Builder;
@@ -37,6 +38,7 @@ public static class PullEndpoints
             IReferenceChangeFeed outlets,
             IJourneyChangeFeed journeys,
             IVisitWorkflowFeed workflows,
+            IProductChangeFeed products,
             ITenantContext tenant,
             IClock clock,
             CancellationToken ct) =>
@@ -70,102 +72,143 @@ public static class PullEndpoints
                 tenant.UserId, DateOnly.FromDateTime(clock.UtcNow.UtcDateTime), ct);
 
             /*
-             * Membership, then content — two questions a cursor cannot both answer (sync engine §3).
-             *
-             * The device's stored scope is what it was last told it holds. Diffing it against the
-             * rep's current coverage gives the ids that have *entered* (which need a baseline,
-             * because their row version is whatever it has always been and is almost certainly
-             * below the cursor) and the ids that have *left* (which need a tombstone, because the
-             * rows still exist and the delta will never mention them again).
-             *
-             * The delta then runs over the intersection — outlets the device already had and still
-             * covers — because entering ids are being sent in full anyway.
+             * One block per entity type, each answering "whose row is it" differently — which is the
+             * only thing that varies between them (sync engine §3). Outlets are the complicated one
+             * and live in their own method; the other three are a cursor and a call.
              */
-            var known = await db.DeviceScope
-                .Where(entry => entry.DeviceId == device.Id)
-                .Select(entry => entry.OutletId)
-                .ToListAsync(ct);
-
-            var current = coverage.OutletIds.ToHashSet();
-            var knownSet = known.ToHashSet();
-
-            var entering = current.Except(knownSet).ToList();
-            var leaving = knownSet.Except(current).ToList();
-            var retained = current.Intersect(knownSet).ToList();
-
-            var cursor = request.Cursors?.Outlets ?? 0;
-            var page = await outlets.GetChangesAsync(cursor, retained, PageLimit, ct);
-            var baseline = await outlets.GetBaselineAsync(entering, PageLimit, ct);
+            var territory = await TerritoryAsync(db, outlets, device.Id, coverage.OutletIds, request, ct);
 
             /*
-             * The cursor must cover the baseline too, and this is the bug the tests caught.
+             * The rep's round (W8 slice 8a). Scoped by the subject in the token, not by the device's
+             * outlet set — a call belongs to a rep because the plan names them, and a rep can be
+             * given a call at a shop that has since left their territory. Scoping the round by
+             * outlet would hide exactly the call whose absence a supervisor would ask about.
              *
-             * `GetChangesAsync` reports the highest version it *sent*, and on a first pull it sends
-             * nothing — every id is entering, so `retained` is empty and it returns the cursor it
-             * was given, zero. Meanwhile the baseline hands over rows at version 6. A device that
-             * banked zero would come back asking for `> 0` and be handed the same rows again, and
-             * again, forever: the delta would never engage and the protocol would degrade to a full
-             * snapshot on every sync while looking entirely correct.
+             * No baseline half: a planned call is *born* belonging to one rep and never changes
+             * hands, so membership only ever changes by creation — which stamps a version above
+             * every cursor by construction.
              */
-            var cursorAfter = page.Cursor;
-            foreach (var snapshot in baseline)
-                cursorAfter = Math.Max(cursorAfter, snapshot.RowVersion);
-
-            // A device that has left scope keeps the row unless it is told otherwise, and the row is
-            // not deleted, so there is no tombstone in Outlets to find. Sync mints them: the version
-            // is the page's, which is all the client uses them for — ordering within this response.
-            var scopeTombstones = leaving
-                .Select(outletId => new ReferenceTombstone(outletId, cursorAfter))
-                .ToList();
+            var round = await journeys.GetChangesAsync(
+                request.Cursors?.Journeys ?? 0, tenant.UserId, PageLimit, ct);
 
             /*
-             * The rep's round, and the second entity type this protocol carries (W8 slice 8a).
-             *
-             * Scoped by the subject in the token, not by the device's outlet set — a call belongs to
-             * a rep because the plan names them, and a rep can be given a call at a shop that has
-             * since left their territory. Scoping journeys by outlet would hide exactly the call
-             * whose absence a supervisor would ask about.
-             *
-             * It needs no baseline half, and that asymmetry is the interesting part of this slice: a
-             * planned call is *born* belonging to one rep and never changes hands, so membership
-             * only ever changes by creation — which stamps a version above every cursor by
-             * construction. Outlets need a baseline because a shop can enter a territory without
-             * being edited at all.
+             * Visit workflows (W8 slice 8b). Scoped by nothing: every device in the tenant gets every
+             * workflow. Narrowing to the channels of the rep's outlets would reintroduce the
+             * membership problem the outlet baseline exists to work around — moving a shop to another
+             * channel puts a workflow in scope without editing it — to save a handful of rows a
+             * tenant's own administrators wrote.
              */
-            var journeyCursor = request.Cursors?.Journeys ?? 0;
-            var round = await journeys.GetChangesAsync(journeyCursor, tenant.UserId, PageLimit, ct);
+            var configuration = await workflows.GetChangesAsync(
+                request.Cursors?.Configuration ?? 0, PageLimit, ct);
 
             /*
-             * Visit workflows, and the third distinct answer to "whose row is it" (W8 slice 8b).
-             *
-             * Nobody's: every device in the tenant gets every workflow. It could be narrowed to the
-             * channels of the rep's outlets, and that was rejected on both of its costs — it would
-             * reintroduce the membership problem the outlet baseline exists to work around (moving a
-             * shop to another channel puts a workflow in scope without editing it), and it would do
-             * so to save a handful of rows a tenant's own administrators wrote. There is nothing
-             * here one rep may see and another may not.
+             * The product catalogue (W8 slice 8c), and scoped by nothing for the same reason plus one
+             * of its own: a rep standing in a shop has to be able to *name* what they are looking at.
+             * Narrowing to the assortment would mean an unplanned call, or a shop whose assortment
+             * changed this morning, has products the device cannot label — and the failure would look
+             * like missing data rather than like a scoping decision.
              */
-            var configurationCursor = request.Cursors?.Configuration ?? 0;
-            var configuration = await workflows.GetChangesAsync(configurationCursor, PageLimit, ct);
+            var catalogue = await products.GetChangesAsync(
+                request.Cursors?.Products ?? 0, PageLimit, ct);
 
-            await RecordScopeAsync(db, device.Id, tenant.TenantId, entering, leaving, ct);
+            await RecordScopeAsync(
+                db, device.Id, tenant.TenantId, territory.Entering, territory.Leaving, ct);
 
             return Results.Ok(new PullResponse(
                 new PullChanges(
-                    new EntityChanges<OutletSnapshot>(
-                        [.. baseline, .. page.Upserts],
-                        [.. page.Tombstones, .. scopeTombstones],
-                        cursorAfter),
+                    territory.Changes,
                     new EntityChanges<PlannedVisitSnapshot>(
                         round.Upserts, round.Tombstones, round.Cursor),
                     new EntityChanges<VisitWorkflowSnapshot>(
-                        configuration.Upserts, configuration.Tombstones, configuration.Cursor)),
+                        configuration.Upserts, configuration.Tombstones, configuration.Cursor),
+                    new EntityChanges<ProductSnapshot>(
+                        catalogue.Upserts, catalogue.Tombstones, catalogue.Cursor)),
                 // A patchwork, not a point in time: watermarks advance per entity type, and the
                 // device tolerates the skew because captured work records its own inputs
                 // (sync engine §3). The string names the outlet cursor only — it is a label for
                 // support and a tiebreaker, not something the device parses.
-                $"{clock.UtcNow:O}#{cursorAfter}"));
+                $"{clock.UtcNow:O}#{territory.Changes.Cursor}"));
         }).RequireAuthorization();
+    }
+
+    /// <summary>What the outlet half of a pull produced, and what the device's scope set must become.</summary>
+    private sealed record Territory(
+        EntityChanges<OutletSnapshot> Changes,
+        IReadOnlyList<Guid> Entering,
+        IReadOnlyList<Guid> Leaving);
+
+    /// <summary>
+    /// The outlets a device should hold: membership first, then content (sync engine §3).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Two questions a cursor cannot both answer.</b> The device's stored scope is what it was
+    /// last told it holds. Diffing it against the rep's current coverage gives the ids that have
+    /// <i>entered</i> — which need a baseline, because their row version is whatever it has always
+    /// been and is almost certainly below the cursor — and the ids that have <i>left</i>, which need
+    /// a tombstone, because the rows still exist and the delta will never mention them again.
+    /// </para>
+    /// <para>
+    /// The delta then runs over the intersection: outlets the device already had and still covers.
+    /// Entering ids are being sent in full anyway.
+    /// </para>
+    /// <para>
+    /// It is the only entity type that needs any of this, which is why it is the only one with a
+    /// method. The others answer "whose row is it" with a single value, and a value needs no diff.
+    /// </para>
+    /// </remarks>
+    private static async Task<Territory> TerritoryAsync(
+        SyncDbContext db,
+        IReferenceChangeFeed outlets,
+        Guid deviceId,
+        IReadOnlyCollection<Guid> covered,
+        PullRequest request,
+        CancellationToken ct)
+    {
+        var known = await db.DeviceScope
+            .Where(entry => entry.DeviceId == deviceId)
+            .Select(entry => entry.OutletId)
+            .ToListAsync(ct);
+
+        var current = covered.ToHashSet();
+        var knownSet = known.ToHashSet();
+
+        var entering = current.Except(knownSet).ToList();
+        var leaving = knownSet.Except(current).ToList();
+        var retained = current.Intersect(knownSet).ToList();
+
+        var cursor = request.Cursors?.Outlets ?? 0;
+        var page = await outlets.GetChangesAsync(cursor, retained, PageLimit, ct);
+        var baseline = await outlets.GetBaselineAsync(entering, PageLimit, ct);
+
+        /*
+         * The cursor must cover the baseline too, and this is the bug the tests caught.
+         *
+         * `GetChangesAsync` reports the highest version it *sent*, and on a first pull it sends
+         * nothing — every id is entering, so `retained` is empty and it returns the cursor it was
+         * given, zero. Meanwhile the baseline hands over rows at version 6. A device that banked zero
+         * would come back asking for `> 0` and be handed the same rows again, and again, forever: the
+         * delta would never engage and the protocol would degrade to a full snapshot on every sync
+         * while looking entirely correct.
+         */
+        var cursorAfter = page.Cursor;
+        foreach (var snapshot in baseline)
+            cursorAfter = Math.Max(cursorAfter, snapshot.RowVersion);
+
+        // A device that has left scope keeps the row unless it is told otherwise, and the row is not
+        // deleted, so there is no tombstone in Outlets to find. Sync mints them: the version is the
+        // page's, which is all the client uses them for — ordering within this response.
+        var scopeTombstones = leaving
+            .Select(outletId => new ReferenceTombstone(outletId, cursorAfter))
+            .ToList();
+
+        return new Territory(
+            new EntityChanges<OutletSnapshot>(
+                [.. baseline, .. page.Upserts],
+                [.. page.Tombstones, .. scopeTombstones],
+                cursorAfter),
+            entering,
+            leaving);
     }
 
     /// <summary>
@@ -226,7 +269,8 @@ public sealed record PullRequest(Guid DeviceId, PullCursors? Cursors);
 /// type be added without resetting the ones that already work — a device that has never sent
 /// `journeys` gets its whole round on the next pull and keeps its outlet watermark.
 /// </remarks>
-public sealed record PullCursors(long? Outlets, long? Journeys = null, long? Configuration = null);
+public sealed record PullCursors(
+    long? Outlets, long? Journeys = null, long? Configuration = null, long? Products = null);
 
 public sealed record EntityChanges<T>(
     IReadOnlyList<T> Upserts, IReadOnlyList<ReferenceTombstone> Tombstones, long Cursor);
@@ -234,6 +278,7 @@ public sealed record EntityChanges<T>(
 public sealed record PullChanges(
     EntityChanges<OutletSnapshot> Outlets,
     EntityChanges<PlannedVisitSnapshot> Journeys,
-    EntityChanges<VisitWorkflowSnapshot> Configuration);
+    EntityChanges<VisitWorkflowSnapshot> Configuration,
+    EntityChanges<ProductSnapshot> Products);
 
 public sealed record PullResponse(PullChanges Changes, string SnapshotVersion);

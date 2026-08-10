@@ -13,9 +13,11 @@ import {
   applyConfigurationChanges,
   applyJourneyChanges,
   applyOutletChanges,
+  applyProductChanges,
   CONFIGURATION,
   JOURNEYS,
   OUTLETS,
+  PRODUCTS,
   watermark,
 } from "./reference";
 
@@ -202,6 +204,7 @@ async function refresh(
     outlets: await watermark(db, OUTLETS),
     journeys: await watermark(db, JOURNEYS),
     configuration: await watermark(db, CONFIGURATION),
+    products: await watermark(db, PRODUCTS),
   };
 
   let response;
@@ -211,18 +214,28 @@ async function refresh(
     return classify(error);
   }
 
-  const { outlets, journeys, configuration } = response.changes;
+  const { outlets, journeys, configuration, products } = response.changes;
 
   // Two transactions, not one. Failing to store the round must not undo outlets that already
   // landed — a device that got half a pull keeps the half it got, and asks for the rest next time.
   await applyOutletChanges(db, outlets, response.snapshotVersion);
   await applyJourneyChanges(db, journeys);
   await applyConfigurationChanges(db, configuration);
+  await applyProductChanges(db, products);
 
   await db.meta.put({ key: "lastSyncAt", value: String(Date.now()) });
 
-  result.pulled += outlets.upserts.length + journeys.upserts.length;
-  result.dropped += outlets.tombstones.length + journeys.tombstones.length;
+  /*
+   * Summed over every page rather than named one at a time.
+   *
+   * The hand-written version silently stopped counting configuration when slice 8b added it — the
+   * totals only feed an indicator, so nothing failed, and the test that would have caught it did not
+   * assert on them. A list is harder to forget to extend than an expression.
+   */
+  const pages = [outlets, journeys, configuration, products];
+
+  result.pulled += pages.reduce((total, page) => total + page.upserts.length, 0);
+  result.dropped += pages.reduce((total, page) => total + page.tombstones.length, 0);
 
   return undefined;
 }

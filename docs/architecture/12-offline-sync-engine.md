@@ -51,7 +51,7 @@ flowchart LR
 
 | Store | Kind | Contents |
 |---|---|---|
-| `ref_*` (built: `ref_outlets`, `ref_planned_visits`, `ref_visit_workflows`; planned: `ref_products`, `ref_prices`) | Reference (read-only) | Rep-scoped snapshot; server-authoritative. What each is scoped *by* differs — see §3 |
+| `ref_*` (built: `ref_outlets`, `ref_planned_visits`, `ref_visit_workflows`, `ref_products`; planned: `ref_prices`, `ref_promotions`) | Reference (read-only) | Rep-scoped snapshot; server-authoritative. What each is scoped *by* differs — see §3 |
 | `outbox` | Mutations | `{ mutationId, type, payload, status, createdAt, attempts, error? }` |
 | `blobs` | Binaries | Downscaled photos awaiting upload, keyed by mutation + slot |
 | `watermarks` | Sync state | How far the device has been told about one entity |
@@ -144,6 +144,7 @@ row is it*, and the answer changes what the feed's interface has to look like:
 | `outlets` | The rep's **territory**, as of today ([`IReferenceChangeFeed`](../../FieldKit.Modules.Outlets.Contracts/IReferenceChangeFeed.cs)) | **Yes** |
 | `journeys` | The rep named on the **plan** ([`IJourneyChangeFeed`](../../FieldKit.Modules.Journey.Contracts/IJourneyChangeFeed.cs)) | No |
 | `configuration` | **Nothing** — every device gets every visit workflow ([`IVisitWorkflowFeed`](../../FieldKit.Modules.Configuration.Contracts/IVisitWorkflowFeed.cs)) | No |
+| `products` | **Nothing** — every device gets the whole catalogue ([`IProductChangeFeed`](../../FieldKit.Modules.Products.Contracts/IProductChangeFeed.cs)) | No |
 
 A **baseline** call — "hand me these rows whatever their version" — exists because an outlet can
 enter a rep's territory *without being edited*, carrying a row version far below the device's cursor,
@@ -168,6 +169,23 @@ to another channel puts a workflow in scope *without editing it*, so a pure delt
 it — and it would do so to save a payload of a handful of rows a tenant's own administrators wrote.
 There is nothing in a workflow that one rep may see and another may not. **The cheapest correct scope
 is sometimes no scope**, and a narrowing that buys nothing costs a whole class of bug.
+
+**The catalogue is unscoped for a second reason of its own, and it is the stronger one.** A rep
+standing in a shop has to be able to **name what they are looking at** — on an unplanned call, at a
+shop whose assortment changed this morning, or when a facing turns out to be one of ours after all. A
+catalogue narrowed to the assortment gives a blank where a name should be, and that failure looks
+like missing data rather than like a decision somebody made.
+
+Holding a product is **not** permission to sell it. What a rep may order at a given shop is the
+assortment's question (`PRD-02`), answered on the device from its own entity; the catalogue answers
+only "what is this". Conflating the two is what makes the narrowing look attractive in the first
+place.
+
+**Discontinued rows are sent, not filtered.** A device holding an order taken last week still has to
+name what is on it. Filtering server-side would make the row vanish on the next pull with no
+tombstone and no explanation, and the screen would show an id. `status` travels with the row so the
+device can decide what to *offer* — the client's `products()` reader returns active rows only, while
+`product(id)` will still find a discontinued one.
 
 **A workflow's steps travel inside it, not as a fourth entity type.** A workflow is only ever useful
 whole: a device holding four of five steps would run a visit that silently asks for less than the
