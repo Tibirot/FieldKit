@@ -1166,7 +1166,7 @@
     },
     "rebind": {
       "title": "This device is no longer the active one",
-      "body": "Your account was set up on another device, so this one has stopped syncing. Register it again to carry on — nothing captured here is lost, including the {count, plural, =0 {no items} one {one item} other {# items}} waiting to be sent.",
+      "body": "Your account was set up on another device, so this one has stopped syncing. Register it again to carry on — nothing captured here is lost{count, plural, =0 {} one {, including the one item waiting to be sent} other {, including the # items waiting to be sent}}.",
       "action": "Register this device again",
       "working": "Registering…"
     },

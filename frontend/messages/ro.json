@@ -1166,7 +1166,7 @@
     },
     "rebind": {
       "title": "Acest dispozitiv nu mai este cel activ",
-      "body": "Contul tău a fost configurat pe alt dispozitiv, așa că acesta a încetat să se sincronizeze. Înregistrează-l din nou pentru a continua — nimic din ce ai capturat aici nu se pierde, inclusiv {count, plural, =0 {niciun element} one {un element} few {# elemente} other {# de elemente}} în așteptare.",
+      "body": "Contul tău a fost configurat pe alt dispozitiv, așa că acesta a încetat să se sincronizeze. Înregistrează-l din nou pentru a continua — nimic din ce ai capturat aici nu se pierde{count, plural, =0 {} one {, inclusiv elementul aflat în așteptare} few {, inclusiv cele # elemente aflate în așteptare} other {, inclusiv cele # de elemente aflate în așteptare}}.",
       "action": "Înregistrează din nou dispozitivul",
       "working": "Se înregistrează…"
     },
