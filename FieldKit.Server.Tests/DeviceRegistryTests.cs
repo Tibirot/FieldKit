@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using FieldKit.Modules.Sync;
 
 namespace FieldKit.Server.Tests;
@@ -128,6 +129,51 @@ public class DeviceRegistryTests(ServerFixture fixture)
         // The distinction the endpoint exists for: a stolen phone must not push fabricated visits,
         // where a swapped one may still drain (security §5).
         Assert.Equal(nameof(DeactivationReason.Compromised), revoked.DeactivatedBecause);
+    }
+
+    [Fact]
+    public async Task A_revocation_reason_arrives_as_its_name()
+    {
+        // Raw JSON for the same reason `VisitWorkflowTests` needs it: posting `RevokeDeviceRequest`
+        // serialises with the record's own converter, so the request and the assertion agree
+        // whatever the wire format is. Sent as an administrator would send it — the name that comes
+        // back in `deactivatedBecause` — this was a 400 until the converter was added, and only the
+        // ordinal `2` worked.
+        //
+        // Worth its own test rather than folding into the one below, because the two say different
+        // things: that one is about what revocation *does*, this one about whether an administrator
+        // can express it at all.
+        using var rep = fixture.CreateAuthenticatedClient(fixture.AccessToken);
+        using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var device = await BindAsync(rep, Unique("Stolen"));
+
+        var response = await admin.PostAsync(
+            $"/api/sync/devices/{device.Id}/revoke",
+            new StringContent("""{"reason":"Compromised"}""", Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var revoked = (await response.Content.ReadFromJsonAsync<DeviceResponse>())!;
+        Assert.Equal(nameof(DeactivationReason.Compromised), revoked.DeactivatedBecause);
+    }
+
+    [Fact]
+    public async Task A_revocation_reason_that_is_not_one_is_refused()
+    {
+        // The other half, and it only means something next to the test above: with no converter
+        // every string was refused, so this assertion would have passed against an endpoint that
+        // accepted no reason a caller could name.
+        using var rep = fixture.CreateAuthenticatedClient(fixture.AccessToken);
+        using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var device = await BindAsync(rep, Unique("Muddled"));
+
+        var response = await admin.PostAsync(
+            $"/api/sync/devices/{device.Id}/revoke",
+            new StringContent("""{"reason":"Misplaced"}""", Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]

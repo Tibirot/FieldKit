@@ -263,6 +263,38 @@ public class VisitWorkflowTests(ServerFixture fixture)
     }
 
     [Fact]
+    public async Task A_step_type_arrives_as_its_name()
+    {
+        // Raw JSON, deliberately. Every other test here posts `VisitStepRequest` and gets whatever
+        // the record's own converter produces, so the wire format is never actually asserted — the
+        // request and the response round-trip through the same code and agree with each other by
+        // construction. That is how this endpoint spent W7 documenting a name and accepting only an
+        // ordinal: `"Audit"` was a 400, and nothing in the suite could see it.
+        //
+        // Its sibling below has been here since slice 6 and could not catch it either: with no
+        // converter *every* string was refused, so a test that a bad name is refused passed for the
+        // wrong reason. A refusal is only evidence when the acceptance is also under test.
+        using var client = Admin();
+
+        var channelId = await ChannelAsync(client);
+
+        var response = await client.PutAsync(
+            $"{Workflows}/{channelId}",
+            new StringContent(
+                """{"presenceExpected":true,"steps":[{"type":"Audit","mandatory":true,"label":"Shelf check"}]}""",
+                System.Text.Encoding.UTF8,
+                "application/json"));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var workflow = await client.GetFromJsonAsync<VisitWorkflowResponse>($"{Workflows}/{channelId}");
+
+        // And comes back spelled the same way, which is the whole point of the pair: a caller can
+        // read a workflow and PUT it back without translating anything.
+        Assert.Equal(nameof(VisitStepType.Audit), Assert.Single(workflow!.Steps).Type);
+    }
+
+    [Fact]
     public async Task A_step_type_that_is_not_one_is_the_callers_mistake()
     {
         // The enum travels by name, so a name that is not one of the names is a 400 rather than a

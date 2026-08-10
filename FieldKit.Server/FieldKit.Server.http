@@ -3511,6 +3511,16 @@ Content-Type: application/json
 
 { "reason": "Compromised" }
 
+### A reason that is not one of the reasons — expect 400, not a device revoked under a
+### posture nobody chose. The name is the wire format here as everywhere (api-contracts §1),
+### and both halves are worth a request: this file documented `"Compromised"` for a whole
+### week while the endpoint accepted only the ordinal `2`, and no request in it said so.
+POST {{host}}/api/sync/devices/{{deviceId}}/revoke
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{ "reason": "Misplaced" }
+
 ### ── Sync · pull (OFF-03) ──────────────────────────────────────────────────
 # The reference delta. Cursor 0 (or omitted) means "I have nothing" — a first sync or a
 # rebind — and the server answers with everything in the rep's territory.
