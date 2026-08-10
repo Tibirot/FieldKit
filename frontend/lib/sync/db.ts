@@ -39,6 +39,35 @@ export type ReferencePlannedVisit = {
   rowVersion: number;
 };
 
+/**
+ * One step of a visit workflow, as an admin configured it (`VIS-03`).
+ *
+ * `type` is the name, not the enum ordinal the server stores. Serialised, an ordinal would be
+ * silently reinterpreted the day a value is inserted into the middle of that list — and every
+ * device already holding a workflow would start opening the wrong sub-flow.
+ */
+export type ReferenceWorkflowStep = {
+  order: number;
+  type: string;
+  mandatory: boolean;
+  label: string;
+};
+
+/**
+ * How a visit is worked in one channel (`VIS-03`, W8 slice 8b).
+ *
+ * The steps live *inside* the workflow rather than in a store of their own. A workflow is only ever
+ * useful whole: a device holding four of five steps would run a visit that asks for less than the
+ * tenant configured, and `BR-VIS-3` would gate check-out on a mandatory step it never received.
+ */
+export type ReferenceVisitWorkflow = {
+  id: string;
+  channelId: string;
+  presenceExpected: boolean;
+  steps: ReferenceWorkflowStep[];
+  rowVersion: number;
+};
+
 /** Where a mutation has got to. The device's own state, never the server's. */
 export type OutboxStatus =
   /** Captured and durable. Waiting for a connection. */
@@ -113,6 +142,7 @@ export type Watermark = { entity: string; cursor: number };
 export class FieldKitDatabase extends Dexie {
   outlets!: EntityTable<ReferenceOutlet, "id">;
   plannedVisits!: EntityTable<ReferencePlannedVisit, "id">;
+  workflows!: EntityTable<ReferenceVisitWorkflow, "id">;
   outbox!: EntityTable<OutboxEntry, "mutationId">;
   meta!: EntityTable<MetaEntry, "key">;
   watermarks!: EntityTable<Watermark, "entity">;
@@ -141,6 +171,11 @@ export class FieldKitDatabase extends Dexie {
       // outlet screen.
       ref_planned_visits: "id, date, outletId",
 
+      // `channelId` is unique per tenant server-side and is the only way anything looks a workflow
+      // up — a visit asks "how is this channel worked". Declared unique here too, so a bug that
+      // stored two for one channel fails loudly rather than picking one arbitrarily.
+      ref_visit_workflows: "id, &channelId",
+
       // Indexed by status (the sync manager asks for pending), by createdAt (it sends them in the
       // order the rep worked), and by subjectId (a screen asks about one visit).
       outbox: "mutationId, status, createdAt, subjectId",
@@ -151,6 +186,7 @@ export class FieldKitDatabase extends Dexie {
 
     this.outlets = this.table("ref_outlets");
     this.plannedVisits = this.table("ref_planned_visits");
+    this.workflows = this.table("ref_visit_workflows");
     this.outbox = this.table("outbox");
     this.meta = this.table("meta");
     this.watermarks = this.table("watermarks");

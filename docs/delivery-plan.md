@@ -675,7 +675,8 @@ the protocol.
 |---|---|---|---|
 | 8 | **Pull across the reference set** — journeys, products, prices, promotions, configuration. Mostly slice 3 applied five times; the interesting part is what each one scopes by | `OFF-03` | 400 |
 | 8a | **Journeys** — scoped by the rep the *plan* names, not by territory. No baseline half and no tombstones, and both absences are statements about the domain rather than gaps | `OFF-03` | 400 |
-| 8b–8d | *Configuration (visit workflows), then products + prices + promotions.* Split out because "five times" is five migrations, five feeds and five client stores — one PR each, in the order the field app needs them | `OFF-03` | 400 ea. |
+| 8b | **Configuration (visit workflows)** — scoped by *nothing*, because the cheapest correct scope is sometimes no scope. The first feed whose tombstones are both produced and sendable, and the first whose payload is an aggregate rather than a row | `OFF-03` | 400 |
+| 8c–8d | *Products + prices + promotions.* Split out because "five times" is five migrations, five feeds and five client stores — one PR each, in the order the field app needs them | `OFF-03` | 400 ea. |
 | 9 | **Replay and resume as properties** — a generated suite: any batch replayed changes nothing, any pull interrupted at any point resumes without loss or duplication | `OFF-04` | 350 |
 | 10 | **Partial failure** — one bad mutation in a batch does not reject the batch; the device learns which, and why | `OFF-09` | 300 |
 | 11 | **Local-store migration** — an app update must not strand a pending outbox | `OFF-13` | 300 |

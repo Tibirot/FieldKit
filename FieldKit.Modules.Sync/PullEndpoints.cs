@@ -1,4 +1,5 @@
 using FieldKit.BuildingBlocks;
+using FieldKit.Modules.Configuration.Contracts;
 using FieldKit.Modules.Journey.Contracts;
 using FieldKit.Modules.Org.Contracts;
 using FieldKit.Modules.Outlets.Contracts;
@@ -35,6 +36,7 @@ public static class PullEndpoints
             IRepScope repScope,
             IReferenceChangeFeed outlets,
             IJourneyChangeFeed journeys,
+            IVisitWorkflowFeed workflows,
             ITenantContext tenant,
             IClock clock,
             CancellationToken ct) =>
@@ -133,6 +135,19 @@ public static class PullEndpoints
             var journeyCursor = request.Cursors?.Journeys ?? 0;
             var round = await journeys.GetChangesAsync(journeyCursor, tenant.UserId, PageLimit, ct);
 
+            /*
+             * Visit workflows, and the third distinct answer to "whose row is it" (W8 slice 8b).
+             *
+             * Nobody's: every device in the tenant gets every workflow. It could be narrowed to the
+             * channels of the rep's outlets, and that was rejected on both of its costs — it would
+             * reintroduce the membership problem the outlet baseline exists to work around (moving a
+             * shop to another channel puts a workflow in scope without editing it), and it would do
+             * so to save a handful of rows a tenant's own administrators wrote. There is nothing
+             * here one rep may see and another may not.
+             */
+            var configurationCursor = request.Cursors?.Configuration ?? 0;
+            var configuration = await workflows.GetChangesAsync(configurationCursor, PageLimit, ct);
+
             await RecordScopeAsync(db, device.Id, tenant.TenantId, entering, leaving, ct);
 
             return Results.Ok(new PullResponse(
@@ -142,11 +157,13 @@ public static class PullEndpoints
                         [.. page.Tombstones, .. scopeTombstones],
                         cursorAfter),
                     new EntityChanges<PlannedVisitSnapshot>(
-                        round.Upserts, round.Tombstones, round.Cursor)),
+                        round.Upserts, round.Tombstones, round.Cursor),
+                    new EntityChanges<VisitWorkflowSnapshot>(
+                        configuration.Upserts, configuration.Tombstones, configuration.Cursor)),
                 // A patchwork, not a point in time: watermarks advance per entity type, and the
                 // device tolerates the skew because captured work records its own inputs
-                // (sync engine §3). Now that there are two, the string names the outlet cursor only
-                // — it is a label for support and a tiebreaker, not something the device parses.
+                // (sync engine §3). The string names the outlet cursor only — it is a label for
+                // support and a tiebreaker, not something the device parses.
                 $"{clock.UtcNow:O}#{cursorAfter}"));
         }).RequireAuthorization();
     }
@@ -209,12 +226,14 @@ public sealed record PullRequest(Guid DeviceId, PullCursors? Cursors);
 /// type be added without resetting the ones that already work — a device that has never sent
 /// `journeys` gets its whole round on the next pull and keeps its outlet watermark.
 /// </remarks>
-public sealed record PullCursors(long? Outlets, long? Journeys = null);
+public sealed record PullCursors(long? Outlets, long? Journeys = null, long? Configuration = null);
 
 public sealed record EntityChanges<T>(
     IReadOnlyList<T> Upserts, IReadOnlyList<ReferenceTombstone> Tombstones, long Cursor);
 
 public sealed record PullChanges(
-    EntityChanges<OutletSnapshot> Outlets, EntityChanges<PlannedVisitSnapshot> Journeys);
+    EntityChanges<OutletSnapshot> Outlets,
+    EntityChanges<PlannedVisitSnapshot> Journeys,
+    EntityChanges<VisitWorkflowSnapshot> Configuration);
 
 public sealed record PullResponse(PullChanges Changes, string SnapshotVersion);
