@@ -83,6 +83,11 @@ allow and no requirement asks for.
   written. Unmeasurable next to the save it accompanies.
 - **Every module that syncs needs the table**, added by its own migration. Slice 0 gives it to
   Outlets, the entity the first `/sync/pull` serves; the rest arrive with W8 slice 8.
+- **Opt-in is a thing to remember, so it is a gate.** `ModuleDbContext.TracksSyncChanges` cannot be
+  mapped unconditionally — that gives every module a pending model change and stops `Migrate()` —
+  and forgetting it fails at the first write rather than at build. **AT-12** pairs the two in both
+  directions: a module with an `ISyncTracked` entity must own the tables, and a module that owns
+  them must have something to number. Added after the same mistake cost an afternoon twice.
 
 **Deliberately not solved here**
 
