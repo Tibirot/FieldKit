@@ -3472,3 +3472,41 @@ GET {{Server_HostAddress}}/api/outlets?ids={{outlet.response.body.id}},not-a-gui
 Authorization: Bearer {{adminToken.response.body.access_token}}
 
 ###
+
+### ── Sync · device registry (OFF-12) ───────────────────────────────────────
+# Binding needs a token but no permission: a rep registers their own phone as part of
+# signing in on it. The device belongs to the subject in the token — note there is no
+# user id in the body, deliberately, so one cannot be supplied.
+
+POST {{host}}/api/sync/devices
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{ "name": "Maria's Pixel 8" }
+
+### Bind a second device — this deactivates the first as `Swapped`, which keeps its right
+### to one final drain-push (A8). One active device per rep, enforced by a unique index.
+POST {{host}}/api/sync/devices
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{ "name": "Maria's replacement" }
+
+### The rep's own devices, active first. No permission — seeing which of your own phones
+### is bound is not oversight of anybody.
+GET {{host}}/api/sync/devices/mine
+Authorization: Bearer {{repToken}}
+
+### Everyone's devices — the administrator's view, and the one that needs device:read.
+GET {{host}}/api/sync/devices
+Authorization: Bearer {{adminToken}}
+
+### Revoke a lost or stolen device. `Compromised` blocks the final drain-push that
+### `Swapped` allows: a suspect device must not push fabricated visits (security §5).
+### The reason is required rather than defaulted — a default would pick a security
+### posture on the administrator's behalf.
+POST {{host}}/api/sync/devices/{{deviceId}}/revoke
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{ "reason": "Compromised" }

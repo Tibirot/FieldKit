@@ -4,6 +4,7 @@ using FieldKit.Modules.Iam;
 using FieldKit.Modules.Iam.Contracts;
 using FieldKit.Modules.Journey;
 using FieldKit.Modules.Journey.Contracts;
+using FieldKit.Modules.Sync;
 using FieldKit.Modules.Visit;
 using FieldKit.Modules.Org;
 using FieldKit.Modules.Configuration;
@@ -40,6 +41,7 @@ public class ModuleBoundaryTests
     private static readonly Assembly ConfigurationModuleAssembly = typeof(ConfigurationModule).Assembly;
     private static readonly Assembly JourneyModuleAssembly = typeof(JourneyModule).Assembly;
     private static readonly Assembly VisitModuleAssembly = typeof(VisitModule).Assembly;
+    private static readonly Assembly SyncModuleAssembly = typeof(SyncModule).Assembly;
     private static readonly Assembly ConfigurationContracts = typeof(IFieldDefinitionCatalog).Assembly;
     private static readonly Assembly JourneyContracts = typeof(IJourneyQuery).Assembly;
 
@@ -74,6 +76,7 @@ public class ModuleBoundaryTests
         ConfigurationModuleAssembly,
         JourneyModuleAssembly,
         VisitModuleAssembly,
+        SyncModuleAssembly,
     ];
 
     /// <summary>The same modules by assembly name, for the reference checks.</summary>

@@ -249,7 +249,7 @@ the document a module author trusts when deciding what to depend on.
 | Visit | `…Modules.Visit` | `visit` | `IVisitContext`, `IVisitQuery`, `IVisitIngest` | `VisitCompleted` |
 | Audit | `…Modules.Audit` | `audit` | `IAuditQuery`, `IPerfectStoreScore`, `IAuditIngest` | `AuditCompleted` |
 | Order | `…Modules.Orders` | `order` | `IOrderQuery`, `IOrderIngest` | `OrderSubmitted` |
-| Sync | `…Modules.Sync` | `sync` | `ISyncEndpoints` (pull/push) | `DeviceRegistered` |
+| Sync | `…Modules.Sync` | `sync` | ~~`ISyncEndpoints` (pull/push)~~ — none yet; nothing outside the module calls it | ~~`DeviceRegistered`~~ — no subscriber yet |
 
 **Ten modules.** Contracts and events map 1:1 to the [functional specs'](../product/00-product-overview.md)
 module contract sections — the functional "what" and the technical "how" stay in lockstep.
