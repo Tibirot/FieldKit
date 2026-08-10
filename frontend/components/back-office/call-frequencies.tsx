@@ -438,8 +438,9 @@ function OutletRules({ rules }: { rules: readonly OutletFrequency[] }) {
             noMatches: (search) => t("noOutletMatches", { search }),
             add: t("addOverride"),
             added: t("overridesAdded"),
-            addNamed: (outlet) => t("addOverrideNamed", { name: outlet.name }),
-            removeNamed: (outlet) => t("discardOverrideNamed", { name: outlet.name }),
+            addNamed: (outlet) => t("addOverrideNamed", { name: outlet.name, code: outlet.code }),
+            removeNamed: (outlet) =>
+              t("discardOverrideNamed", { name: outlet.name, code: outlet.code }),
           }}
         />
       ) : null}
@@ -452,7 +453,10 @@ function OutletRules({ rules }: { rules: readonly OutletFrequency[] }) {
         {rules.map((rule, index) => (
           <OutletRow
             key={rule.outletId}
-            name={named[index]?.name ?? t("unknownOutlet")}
+            // `useAssignedOutlets` maps over the ids it was given and preserves their order, so the
+            // index lines up. A shop whose fetch failed arrives carrying its id where its code
+            // would be, which is the honest thing to show — the override exists either way.
+            outlet={named[index] ?? { id: rule.outletId, code: rule.outletId, name: t("unknownOutlet") }}
             rule={rule}
             canWrite={canWrite}
             busy={save.isPending || remove.isPending}
@@ -464,7 +468,7 @@ function OutletRules({ rules }: { rules: readonly OutletFrequency[] }) {
         {drafts.map((draft) => (
           <OutletRow
             key={`draft-${draft.id}`}
-            name={draft.name}
+            outlet={draft}
             rule={{ outletId: draft.id, visitsPerCycle: 1, cycleLengthDays: 7 }}
             draft
             canWrite={canWrite}
@@ -478,9 +482,18 @@ function OutletRules({ rules }: { rules: readonly OutletFrequency[] }) {
   );
 }
 
-/** One shop's override — stored, or a draft that has not been written yet. */
+/**
+ * One shop's override — stored, or a draft that has not been written yet.
+ *
+ * **The whole `OutletPick`, not just its name.** A name does not identify a shop: a chain has
+ * several "Mega Image Dorobanți", and this list showed them as identical rows with identical
+ * controls — `Save the override for Mega Image Dorobanți`, five times, which is what a screen
+ * reader read out. The picker three components up has said so in a comment since W6 and renders the
+ * code in its chips and its results; the list of what was picked did not. Found in the browser,
+ * during the W7+W8 demo.
+ */
 function OutletRow({
-  name,
+  outlet,
   rule,
   draft = false,
   canWrite,
@@ -488,7 +501,7 @@ function OutletRow({
   onSave,
   onRemove,
 }: {
-  name: string;
+  outlet: OutletPick;
   rule: OutletFrequency;
   draft?: boolean;
   canWrite: boolean;
@@ -505,9 +518,19 @@ function OutletRow({
   const dirty =
     draft || visits !== String(rule.visitsPerCycle) || cycleDays !== String(rule.cycleLengthDays);
 
+  const { code, name } = outlet;
+
+  // The two number fields share their labels with the segment rows, which pass a segment letter.
+  // Composing here rather than adding `{code}` to those keys keeps one message serving both, and
+  // matches the parenthetical the rendered row and the other scope screens already use.
+  const labelled = `${name} (${code})`;
+
   return (
     <li className="flex flex-wrap items-center gap-3 py-2.5 text-sm">
-      <span className="min-w-40 font-medium">{name}</span>
+      <span className="min-w-40">
+        <span className="font-medium">{name}</span>{" "}
+        <span className="font-mono text-xs text-muted-foreground">{code}</span>
+      </span>
 
       {draft ? (
         <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
@@ -516,7 +539,7 @@ function OutletRow({
       ) : null}
 
       <Numbers
-        label={name}
+        label={labelled}
         visits={visits}
         cycleDays={cycleDays}
         problem={problem}
@@ -533,7 +556,7 @@ function OutletRow({
             variant={draft ? "default" : "outline"}
             disabled={busy || !dirty || problem !== null}
             onClick={() => onSave({ key: rule.outletId, visits, cycleDays, stored: !draft })}
-            aria-label={t("saveOutletNamed", { name })}
+            aria-label={t("saveOutletNamed", { name, code })}
           >
             {t("save")}
           </Button>
@@ -543,7 +566,11 @@ function OutletRow({
             variant="outline"
             disabled={busy}
             onClick={onRemove}
-            aria-label={draft ? t("discardOverrideNamed", { name }) : t("removeOutletNamed", { name })}
+            aria-label={
+              draft
+                ? t("discardOverrideNamed", { name, code })
+                : t("removeOutletNamed", { name, code })
+            }
           >
             {draft ? t("discard") : t("remove")}
           </Button>

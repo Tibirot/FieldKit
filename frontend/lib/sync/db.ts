@@ -9,9 +9,15 @@ import Dexie, { type EntityTable } from "dexie";
  *
  * `rowVersion` travels with the row rather than only in the cursor, so a page that overlaps what
  * the device already holds can be answered per row rather than by trusting arrival order.
+ *
+ * `code` is the tenant's own identifier for the shop, and it is not indexed. Adding a field needs
+ * no migration; adding a *way to look it up* does, and nothing on the device searches by code yet —
+ * the one screen that lists outlets by code is in the back office and asks the server. When a field
+ * screen needs it, that is a version 3 and a deliberate one, not a line snuck into this type.
  */
 export type ReferenceOutlet = {
   id: string;
+  code: string;
   name: string;
   channelId: string;
   segment: string | null;
@@ -385,6 +391,38 @@ export class FieldKitDatabase extends Dexie {
     this.version(2).stores({
       outbox: "mutationId, status, createdAt, subjectId, [status+createdAt]",
     });
+
+    /*
+     * Version 3 — `OutletSnapshot` gained `code`, so every outlet already on a device is stale.
+     *
+     * <b>This is the first version with an `upgrade()`, and the first one that had to have one.</b>
+     * Version 2 added an index over rows that were already correct; this one does not change the
+     * schema at all — no new index, no renamed field — and would look like nothing if the
+     * `.stores({})` were the whole story. What changed is the *wire*, one layer up: a device that
+     * synced under W8 holds outlet rows with no `code`, and nothing would ever fix them. The delta
+     * only carries outlets whose row version moved, so an unedited shop keeps its codeless row
+     * until somebody in the back office happens to touch it — which is to say, indefinitely, and
+     * differently per device.
+     *
+     * Clearing the outlets watermark makes the next pull re-baseline them. Cursor 0 means "I have
+     * nothing", the server answers with the rep's whole territory, and `applyOutletChanges` upserts
+     * over the codeless rows in one transaction. It costs one full outlet page on the first sync
+     * after the update — tens to hundreds of rows for one rep — and it is self-healing: if the app
+     * is closed before that pull finishes, the watermark is still 0 and the next one does it again.
+     *
+     * <b>Only the outlets row is deleted</b>, not the table. Every other entity's watermark is
+     * still accurate, and clearing them all would re-download the catalogue, the prices and the
+     * promotions to fix a field on one entity — the exact cost the per-entity cursors in §3 exist
+     * to avoid.
+     *
+     * The rows themselves are left alone rather than deleted. A device that goes offline between
+     * the upgrade and the next successful pull keeps a territory it can still work — outlets with
+     * a name and no code, which is what it had yesterday — where an emptied store would give a rep
+     * an app with no shops in it and no way to get them back until they found signal.
+     */
+    this.version(3)
+      .stores({})
+      .upgrade((tx) => tx.table("watermarks").delete("outlets"));
 
     this.outlets = this.table("ref_outlets");
     this.plannedVisits = this.table("ref_planned_visits");

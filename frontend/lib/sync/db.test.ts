@@ -29,6 +29,7 @@ function freshDatabase(): FieldKitDatabase {
 function outletRow(id: string, rowVersion: number, name = "Corner Shop") {
   return {
     id,
+    code: `SHOP-${id}`,
     name,
     channelId: "11111111-1111-4111-8111-111111111111",
     segment: null,

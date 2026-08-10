@@ -4,13 +4,25 @@ namespace FieldKit.Modules.Outlets.Contracts;
 
 /// <summary>One outlet as a device holds it — the shape that crosses the wire on a pull.</summary>
 /// <remarks>
+/// <para>
 /// Deliberately not <c>OutletSummary</c>. That one labels an outlet on a screen; this one is a
 /// device's copy of a row and carries the <see cref="RowVersion"/> the client stores as its
 /// watermark. Sharing a record between "what a page shows" and "what a phone keeps" would tie the
 /// wire format to a UI change.
+/// </para>
+/// <para>
+/// <b><see cref="Code"/> is the tenant's own identifier</b> — what the shop is called in their ERP —
+/// and it was missing from this record until the W7+W8 demo went looking for it. A name is not
+/// unique: a chain has many shops called "Mega Image", and a device that holds only the name can
+/// show a rep a list it cannot tell apart, print a name on a document the back office cannot match
+/// to a row, or ask "which of these three is it?" with no way to answer. The back office has always
+/// had the code (<c>OutletSummary.Code</c>); the field app is the half that has to say a shop's name
+/// out loud to a person, so if either copy needed it, it was this one.
+/// </para>
 /// </remarks>
 public sealed record OutletSnapshot(
     Guid Id,
+    string Code,
     string Name,
     Guid ChannelId,
     string? Segment,

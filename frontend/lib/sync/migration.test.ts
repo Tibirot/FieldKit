@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { closeDatabase, FieldKitDatabase } from "./db";
 import { enqueue, markRejected, pending, pendingCount, statusOf } from "./outbox";
-import { applyOutletChanges, OUTLETS, outlets, watermark } from "./reference";
+import { applyOutletChanges, OUTLETS, outlets, PRODUCTS, watermark } from "./reference";
 
 /**
  * An app update must not strand a pending outbox (`OFF-13`, W8 slice 11).
@@ -44,7 +44,7 @@ const VERSION_1_STORES = {
   watermarks: "entity",
 };
 
-/** Opens a database at version 1 only — the app as it was before this slice. */
+/** Opens a database at version 1 only — the app as it was before the outbox index. */
 async function openVersionOne(name: string): Promise<Dexie> {
   const legacy = new Dexie(name);
   legacy.version(1).stores(VERSION_1_STORES);
@@ -53,9 +53,28 @@ async function openVersionOne(name: string): Promise<Dexie> {
   return legacy;
 }
 
+/**
+ * Opens a database at version 2 — the app as W8 shipped it, before the outlet code.
+ *
+ * A second fixture rather than a parameter on the one above, for the reason that comment gives: each
+ * is a snapshot of a release, and a helper that walked forward with the schema would let a test open
+ * v3 and upgrade v3 to v3.
+ */
+async function openVersionTwo(name: string): Promise<Dexie> {
+  const legacy = new Dexie(name);
+  legacy.version(1).stores(VERSION_1_STORES);
+  legacy.version(2).stores({
+    outbox: "mutationId, status, createdAt, subjectId, [status+createdAt]",
+  });
+  await legacy.open();
+
+  return legacy;
+}
+
 function outletRow(id: string, rowVersion: number) {
   return {
     id,
+    code: `SHOP-${id}`,
     name: `Shop ${id}`,
     channelId: "11111111-1111-4111-8111-111111111111",
     segment: null,
@@ -113,9 +132,11 @@ describe("upgrading a device that has unsent work", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    // It really upgraded rather than finding a fresh one: version 2, holding version 1's rows.
-    // Without this the whole file could be passing against databases that never existed at v1.
-    expect(upgraded.verno).toBe(2);
+    // It really upgraded rather than finding a fresh one: the current version, holding version 1's
+    // rows. Without this the whole file could be passing against databases that never existed at
+    // v1. The number moves with every schema version, which is the point — a device that skipped
+    // one still has to arrive at the latest.
+    expect(upgraded.verno).toBe(3);
     expect(await upgraded.outbox.count()).toBe(3);
 
     // Still in capture order, which is what the drain depends on — and now read through the new
@@ -140,22 +161,30 @@ describe("upgrading a device that has unsent work", () => {
     upgraded.close();
   });
 
-  it("keeps the reference data and the watermarks, so the device does not re-snapshot", async () => {
+  it("keeps the reference data and every watermark no version deliberately drops", async () => {
     // Losing these is survivable — the next pull would rebuild them — but only by re-downloading a
     // tenant's catalogue over a connection the rep may not have. A migration that silently reset
     // every watermark would look like a slow morning rather than a bug.
+    //
+    // The wording moved when version 3 arrived: it drops the *outlets* watermark on purpose, so
+    // "keeps the watermarks" is no longer true and asserting it would have made the next deliberate
+    // reset look like a regression. What holds is narrower and is the thing worth protecting —
+    // nothing is reset as a side effect. `products` is checked because it is the expensive one.
     const name = `migration:${crypto.randomUUID()}`;
 
     const legacy = await openVersionOne(name);
     await legacy.table("ref_outlets").bulkAdd([outletRow("outlet-1", 4), outletRow("outlet-2", 7)]);
-    await legacy.table("watermarks").put({ entity: "outlets", cursor: 7 });
+    await legacy.table("watermarks").bulkPut([
+      { entity: "outlets", cursor: 7 },
+      { entity: "products", cursor: 41 },
+    ]);
     await legacy.table("meta").put({ key: "deviceId", value: "device-1" });
     legacy.close();
 
     const upgraded = new FieldKitDatabase(name);
 
     expect((await outlets(upgraded)).map((row) => row.id)).toEqual(["outlet-1", "outlet-2"]);
-    expect(await watermark(upgraded, OUTLETS)).toBe(7);
+    expect(await watermark(upgraded, PRODUCTS)).toBe(41);
     expect(await upgraded.meta.get("deviceId")).toEqual({ key: "deviceId", value: "device-1" });
 
     upgraded.close();
@@ -275,6 +304,89 @@ describe("upgrading a device that has unsent work", () => {
   });
 });
 
+describe("upgrading a device whose outlets predate the outlet code", () => {
+  it("drops the outlets watermark so the next pull re-baselines them", async () => {
+    // `OutletSnapshot` gained `code`, and the delta will never mention a shop nobody edited — so a
+    // device that synced under W8 would keep codeless outlets indefinitely unless something asks
+    // for them again. Version 3 is that something.
+    const name = `migration:${crypto.randomUUID()}`;
+
+    const legacy = await openVersionTwo(name);
+
+    // Yesterday's row: a name, no code. Written through the raw table rather than
+    // `applyOutletChanges`, because today's function takes today's type — the point of the fixture
+    // is a shape the current code can no longer produce.
+    await legacy.table("ref_outlets").add({
+      id: "outlet-1",
+      name: "Mega Image Dorobanți",
+      channelId: "11111111-1111-4111-8111-111111111111",
+      segment: null,
+      status: "Active",
+      latitude: null,
+      longitude: null,
+      rowVersion: 9,
+    });
+    await legacy.table("watermarks").bulkPut([
+      { entity: "outlets", cursor: 9 },
+      { entity: "products", cursor: 41 },
+    ]);
+    legacy.close();
+
+    const upgraded = new FieldKitDatabase(name);
+    await upgraded.open();
+
+    // Back to "I have nothing", which is what makes the server send the whole territory.
+    expect(await watermark(upgraded, OUTLETS)).toBe(0);
+
+    // And only outlets. Clearing every watermark would re-download the catalogue and the prices to
+    // fix a field on one entity, which is the cost per-entity cursors exist to avoid.
+    expect(await watermark(upgraded, PRODUCTS)).toBe(41);
+
+    // The stale row is still there. A device that goes offline between the update and the next
+    // successful pull keeps a territory it can work — a name and no code, which is what it had
+    // yesterday — rather than an app with no shops in it.
+    expect((await outlets(upgraded)).map((outlet) => outlet.id)).toEqual(["outlet-1"]);
+
+    upgraded.close();
+  });
+
+  it("re-baselines over the codeless rows rather than beside them", async () => {
+    // The half the watermark alone does not prove: the pull that follows has to *replace* the old
+    // row, not add a second one. `applyOutletChanges` upserts by id, so this is really a check that
+    // the id is unchanged by the version bump — if it were not, a rep would see every shop twice.
+    const name = `migration:${crypto.randomUUID()}`;
+
+    const legacy = await openVersionTwo(name);
+    await legacy.table("ref_outlets").add({
+      id: "outlet-1",
+      name: "Mega Image Dorobanți",
+      channelId: "11111111-1111-4111-8111-111111111111",
+      segment: null,
+      status: "Active",
+      latitude: null,
+      longitude: null,
+      rowVersion: 9,
+    });
+    await legacy.table("watermarks").put({ entity: "outlets", cursor: 9 });
+    legacy.close();
+
+    const upgraded = new FieldKitDatabase(name);
+
+    await applyOutletChanges(
+      upgraded,
+      { upserts: [outletRow("outlet-1", 9)], tombstones: [], cursor: 9 },
+      "outlets#9",
+    );
+
+    const stored = await outlets(upgraded);
+
+    expect(stored).toHaveLength(1);
+    expect(stored[0].code).toBe("SHOP-outlet-1");
+
+    upgraded.close();
+  });
+});
+
 describe("the schema itself", () => {
   it("declares every version, so a device that skipped one still arrives", async () => {
     // Dexie replays versions in order to bring an existing database forward. Deleting version 1
@@ -285,7 +397,7 @@ describe("the schema itself", () => {
 
     await db.open();
 
-    expect(db.verno).toBe(2);
+    expect(db.verno).toBe(3);
 
     // The outbox is still keyed by the mutation id, which is the property the server's ledger
     // depends on: a re-send has to arrive under the id it was captured with.
