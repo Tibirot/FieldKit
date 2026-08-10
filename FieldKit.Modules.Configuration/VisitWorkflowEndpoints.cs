@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using FieldKit.Modules.Configuration.Contracts;
 using FieldKit.Modules.Outlets.Contracts;
 using FieldKit.SharedKernel;
@@ -11,10 +12,23 @@ namespace FieldKit.Modules.Configuration;
 
 /// <summary>One step, as an admin sets it. No order — position in the list is the order.</summary>
 /// <remarks>
+/// <para>
 /// The type travels as its name, like every other enum on this API: an ordinal would make the
 /// meaning depend on where a member happens to sit in the enum, and this one will grow.
+/// </para>
+/// <para>
+/// <b>The converter is what makes that true.</b> It is opt-in per property here — nothing registers
+/// a global one — so the paragraph above described an intention rather than the wire format until
+/// it was added: <c>"Audit"</c> was refused with a 400 and only <c>0</c> was accepted, which is the
+/// ordinal this comment rules out. The response side never had the problem, because
+/// <see cref="WorkflowStepResponse.Type"/> is a <c>string</c>; a request and its own response
+/// disagreeing about how one enum is spelled is the shape of the bug.
+/// </para>
 /// </remarks>
-public sealed record VisitStepRequest(VisitStepType Type, bool Mandatory, string Label);
+public sealed record VisitStepRequest(
+    [property: JsonConverter(typeof(JsonStringEnumConverter<VisitStepType>))] VisitStepType Type,
+    bool Mandatory,
+    string Label);
 
 /// <summary>A channel's visit workflow, as an admin sets it.</summary>
 public sealed record VisitWorkflowRequest(bool PresenceExpected, IReadOnlyList<VisitStepRequest> Steps);
