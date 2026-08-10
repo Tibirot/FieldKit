@@ -3155,6 +3155,12 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
 }
 
 ### The visit as it was recorded — position, distance, verdict and reason, not just the verdict.
+###
+### Read `source` and `recordedAtUtc` together (W9 slice 0). `source` is `Live` here because this
+### visit was worked through this endpoint; a visit drained from a phone says `Device`, and one
+### stored before either was tracked says `null` rather than guessing. `recordedAtUtc` is when *this
+### server* first stored it — for a live visit that is check-in time, and for an ingested one the
+### distance from `checkedOutAtUtc` is how long the work sat on the device.
 GET {{Server_HostAddress}}/api/visits/{{visit.response.body.id}}
 Authorization: Bearer {{adminToken.response.body.access_token}}
 

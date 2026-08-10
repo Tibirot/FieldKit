@@ -135,7 +135,7 @@ Visit. It is designed **offline-first**: the entire flow works with zero connect
 | VIS-02 | Outside-geofence override with reason | Must | 2 |
 | VIS-03 | Configurable per-channel step workflow | Must | 2 |
 | VIS-04 | Mandatory-step gating on check-out | Must | 2 |
-| VIS-05 | Check-out with outcome + time-on-site + **check-out geo-stamp** (single point, a cheap duration-fraud counter; still two points, not a trail — consistent with the GDPR posture) | Must | 2 |
+| VIS-05 | Check-out with outcome + time-on-site + **check-out geo-stamp** (single point, a cheap duration-fraud counter; still two points, not a trail — consistent with the GDPR posture) + **provenance** (see below) | Must | 2 |
 | VIS-06 | Notes & photos as visit steps | Should | 2 |
 | VIS-07 | Not-visited handling (from Journey) | Must | 2 |
 | VIS-08 | Signature capture step | Could | 3 |
@@ -149,6 +149,28 @@ on-device data with no network. The completed visit (and its audit/order childre
 written to the **local outbox** and pushed idempotently on reconnect; the visit is
 **device-owned and append-only**, so no server-side conflict arises ([B7](decisions-and-assumptions.md#b7--conflict-resolution-matrix)).
 Geo capture uses the device sensors offline; geofence data is part of the synced outlet record.
+
+### Provenance — how the record says where it came from
+
+An offline visit arrives carrying **the device's** timestamps, position and geofence verdict, and the
+server stores all of them unmodified: re-judging yesterday's visit against today's radius would
+reclassify a rep who was legitimately inside it. That is right, and it leaves two facts about the
+visit that only the *server* can know, so the visit records both (W9 slice 0):
+
+| Field | Meaning |
+|---|---|
+| `source` | `Live` (worked through `/api/visits/check-in`) or `Device` (drained through `/sync/push`). `null` for visits stored before this was tracked — there is nothing to backfill it from, and a default would make those rows claim something nobody recorded |
+| `recordedAtUtc` | When this server first stored the visit. For a live visit that is check-in; for an ingested one, the distance from `checkedOutAtUtc` is how long the work sat on a phone |
+
+**`source` is stored rather than computed from the gap**, because a rep who checks out in a shop with
+signal drains within seconds — that visit's timestamps are indistinguishable from a live one's, and
+only the discriminator tells them apart.
+
+**Neither is a rule.** A device claiming a check-out later than the moment the server received it is
+claiming the future, and nothing acts on that: what a *legitimate* drain lag looks like is a question
+for `VIS-10`/W13 reporting against a real population, and a rep with no signal until Friday is
+precisely the case this design exists for. `BR-VIS-5` already says the same about visit duration —
+these are reporting facts, and they never block.
 
 ## 8. Module contract (exposed to others)
 

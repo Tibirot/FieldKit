@@ -151,6 +151,80 @@ public class SyncPushTests(ServerFixture fixture)
     }
 
     [Fact]
+    public async Task An_ingested_visit_says_where_it_came_from_and_when_it_arrived()
+    {
+        // Two facts about the *arrival*, next to a record that is otherwise entirely the device's
+        // (W9 slice 0, `VIS-05`).
+        using var rep = fixture.CreateAuthenticatedClient(fixture.AccessToken);
+        using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var outletId = await OutletAsync(admin);
+        var device = await BindDeviceAsync(rep);
+        var visit = Captured(outletId);
+
+        await PushAsync(rep, device, Mutation(visit));
+
+        var stored = (await admin.GetFromJsonAsync<VisitDetailResponse>(
+            $"/api/visits/{visit.VisitId}"))!.Visit;
+
+        Assert.Equal(nameof(VisitSource.Device), stored.Source);
+
+        // The drain lag: this visit was worked on the fixture's `Yesterday` and stored now, so the
+        // gap is months. The assertion is the *direction* rather than a duration — it is the one
+        // thing that makes "captured offline" visible rather than inferred, and a server clock
+        // leaking into `CheckedOutAtUtc` (which the test above forbids) would collapse it to zero.
+        Assert.NotNull(stored.RecordedAtUtc);
+        Assert.True(
+            stored.RecordedAtUtc > stored.CheckedOutAtUtc,
+            "a visit cannot be recorded before the device says it ended");
+    }
+
+    [Fact]
+    public async Task A_visit_drained_the_moment_it_ended_is_still_marked_as_a_devices()
+    {
+        // Why `Source` is stored rather than computed, which is the whole argument for the column.
+        //
+        // A rep who checks out in a shop with signal drains within seconds. Every timestamp on that
+        // visit then looks exactly like a live one's, so any rule that infers "offline" from
+        // `RecordedAtUtc − CheckedOutAtUtc` calls this visit `Live`. It is not. This is the test
+        // that fails against the cheaper design.
+        //
+        // The reference time comes from a *live* visit rather than from the test's own clock —
+        // partly because static time is banned here, and mostly because the server's clock is the
+        // one the comparison is actually about.
+        using var rep = fixture.CreateAuthenticatedClient(fixture.AccessToken);
+        using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var outletId = await OutletAsync(admin);
+        var device = await BindDeviceAsync(rep);
+
+        var live = (await (await admin.PostAsJsonAsync(
+                "/api/visits/check-in", new CheckInRequest(outletId, 44.43, 26.10)))
+            .Content.ReadFromJsonAsync<VisitDetailResponse>())!.Visit;
+
+        var serverNow = live.RecordedAtUtc!.Value;
+
+        var captured = Captured(outletId) with
+        {
+            CheckedInAtUtc = serverNow.AddMinutes(-15),
+            CheckedOutAtUtc = serverNow,
+        };
+
+        await PushAsync(rep, device, Mutation(captured));
+
+        var drained = (await admin.GetFromJsonAsync<VisitDetailResponse>(
+            $"/api/visits/{captured.VisitId}"))!.Visit;
+
+        // Two visits at the same shop, minted seconds apart, whose timestamps tell the same story.
+        Assert.True((drained.RecordedAtUtc!.Value - drained.CheckedOutAtUtc!.Value).Duration()
+            < TimeSpan.FromMinutes(1));
+
+        // Only this tells them apart.
+        Assert.Equal(nameof(VisitSource.Live), live.Source);
+        Assert.Equal(nameof(VisitSource.Device), drained.Source);
+    }
+
+    [Fact]
     public async Task Replaying_the_same_mutation_id_changes_nothing_and_answers_the_same()
     {
         // The retry the protocol is built around: the device never learned the first push landed.

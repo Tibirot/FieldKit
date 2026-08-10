@@ -758,7 +758,8 @@ screen below can read anything. The readers the screens need (`plannedVisits`, `
 
 | # | Slice | Requirements | ~Size |
 |---|---|---|---|
-| 0 | **The visit's provenance** — `RecordedAtUtc` and `Source` on `Visit`, set on both paths. Server-side, client-independent, and **first because it is the one thing here that cannot be added later**: every visit ingested before it lacks the data permanently. See below | `VIS-05`, `OFF-04` | 250 |
+| 0 | **The visit's provenance** — `Source` on `Visit`, set on both paths, and `CreatedAtUtc` exposed as `recordedAtUtc`. Server-side, client-independent, and **first because it is the one thing here that cannot be added later**: every visit ingested before it lacks the data permanently. See below | `VIS-05`, `OFF-04` | 250 |
+| | *Shipped as **one** column, not two. The planned `RecordedAtUtc` already existed: `EntityStampingInterceptor` has stamped `CreatedAtUtc` from `IClock` on every entity, on both write paths, since W1 — so adding it would have been a second answer to the same question, which is what `TimeOnSite` is derived to avoid. It is exposed under the domain name and left in place. That also disposes of the backfill problem for half the slice: the timestamp is already right on every visit ever stored, and only `Source` is nullable* | | |
 | 1 | **The field shell** — a mobile-first `(field)` route group whose layout opens the rep's database, binds a device on first run, and mounts `SyncProvider`. Includes the rebind screen the indicator's `deviceRejected` state already points at and nothing implements | `OFF-05`, `OFF-06`, `OFF-12` | 400 |
 | 2 | **The radius travels** — `OutletSnapshot.RadiusMetres`, from `IOutletGeofence`. Per-outlet on the wire though constant in the source, so `OUT-08` is a server change and not a protocol one. Local-store version 4 | `OFF-03`, `VIS-01` | 250 |
 | 3 | **Geofencing in TypeScript** — a mirror of `Geofencing.Assess`, with generated vectors through the existing parity job. The device's verdict is the record; there is no second opinion | `VIS-01`, `VIS-02` | 400 |
@@ -794,7 +795,18 @@ a day cannot tell a visit worked live in the back office from one drained off a 
 
 **Both are answered by slice 0, together, because they are one question.** The visit records
 **`RecordedAtUtc`** — when *this server* first stored it, from `IClock`, on both the live and the
-ingested path — and **`Source`** (`Live` | `Device`). Neither touches the rep's own claim:
+ingested path — and **`Source`** (`Live` | `Device`).
+
+> **Built, and one column smaller than planned.** `RecordedAtUtc` turned out to exist already:
+> `EntityStampingInterceptor` has written `CreatedAtUtc` from `IClock` on insert, on every entity and
+> both write paths, since W1. A new column would have duplicated it exactly — the "second answer that
+> can disagree with the first" `TimeOnSite` is derived to avoid — so the value is exposed under the
+> domain name (`recordedAtUtc`) and left where it was. `createdAtUtc` would be the honest name for an
+> audit field and the wrong one on the wire: on a visit, "created" reads as check-in, and the whole
+> point is the case where the two are days apart. Only `Source` is new, and only `Source` is
+> nullable.
+
+Neither touches the rep's own claim:
 `checkedInAtUtc` and `checkedOutAtUtc` stay exactly as sent, which is the property
 [`IVisitIngest`](../FieldKit.Modules.Visit.Contracts/IVisitIngest.cs) argues for and this does not
 revisit. What they add is a second, independent timestamp beside it, and three things fall out of
@@ -810,10 +822,15 @@ having both:
   computed.
 
 **Why it is slice 0 rather than part of slice 4.** Everything else in W9 can be added to a running
-system afterwards; this cannot. Every visit ingested before it exists lacks both values permanently,
-and there is no backfill — the server never knew when those visits arrived. Today that is a handful
-of demo rows. After the Phase 2 demo it is the demo's whole dataset, and after W11 it is orders too.
-It is also entirely server-side, so it neither blocks nor is blocked by any client slice.
+system afterwards; `Source` cannot. Every visit ingested before it exists lacks it permanently, and
+there is nothing to backfill from — which is exactly why it is nullable rather than defaulted, and
+why `null` is documented as "recorded before this was tracked" instead of being quietly filled with
+`Live`. Today that is a handful of demo rows. After the Phase 2 demo it is the demo's whole dataset,
+and after W11 it is orders too. It is also entirely server-side, so it neither blocks nor is blocked
+by any client slice.
+
+*(The `RecordedAtUtc` half of the original argument turned out to be already solved — see the note
+above. The urgency was real for the half that was not.)*
 
 **What this deliberately does not attempt.** Two device timestamps remain the only witness to an
 offline visit, and `RecordedAtUtc` does not make time-on-site trustworthy — it makes the *trust

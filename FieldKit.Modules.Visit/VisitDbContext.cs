@@ -35,6 +35,11 @@ public sealed class VisitDbContext(DbContextOptions<VisitDbContext> options, ITe
 
             visit.Property(v => v.Outcome).HasConversion<string>().HasMaxLength(20);
 
+            // Nullable on purpose: every visit stored before W9 slice 0 has no answer, and there is
+            // nothing to backfill it from. A default of 'Live' would have made those rows claim
+            // something nobody recorded, in exactly the column that exists to be believed.
+            visit.Property(v => v.Source).HasConversion<string>().HasMaxLength(20);
+
             visit.Property(v => v.OutcomeReason).HasMaxLength(Visit.MaximumOutcomeReasonLength);
 
             // Derived from the two timestamps, so there is no column to map — and saying so here
