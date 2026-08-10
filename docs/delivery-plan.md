@@ -667,6 +667,7 @@ the protocol.
 | 6 | **Client: the local store** — Dexie `ref_*`, `outbox` and `meta`; watermarks persisted where a crash cannot lose them | `OFF-02` | 350 |
 | | *Shipped with three things the spec's table left open: one database per tenant+subject, no `acked` status, and `watermarks` as its own store. `blobs` is not built — photo upload is W11, and a store with no writer is a schema version spent on nothing* | | |
 | 7 | **Client: the sync manager** — push, then pull, then reconcile; the round trip the week is judged on | `OFF-01`, `OFF-06` | 400 |
+| | *Shipped single-flight, a batch of 100 under the server's 200, a lost batch returned to `pending` rather than left in flight, and a four-way interruption taxonomy. The round trip is proven against a mocked API, not a live one — a real device pulling from a real server is W9's demo* | | |
 
 **Week two — widening and hardening**
 

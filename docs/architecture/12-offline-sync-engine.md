@@ -275,7 +275,29 @@ Per [A8](../product/decisions-and-assumptions.md#a8--device--sync-behavior-one-a
 | Periodic background | Background Sync API where supported | Best-effort (iOS PWA-limited) |
 
 **Order of operations** on a sync run: **push** pending mutations → **pull** reference deltas →
-**upload** photos. (Push first so the back office sees the day's work as early as possible.)
+**upload** photos. (Push first so the back office sees the day's work as early as possible — and so
+a rep whose battery dies during the pull has still delivered what they did.)
+
+**What the manager (W8 slice 7, [`lib/sync/manager.ts`](../../frontend/lib/sync/manager.ts)) adds to
+that sentence:**
+
+- **Single-flight.** Tapping *Sync now* during a reconnect-triggered run **joins** it rather than
+  starting a second. Two concurrent runs push the same batch twice — harmless server-side thanks to
+  the ledger, but it doubles traffic on the one connection the rep is short of, and the second run's
+  pull can apply an older page over a newer one.
+- **A failed push cancels the pull.** The pull would be refused for the same reason and fail the
+  same way; one request is enough to learn the answer.
+- **A lost batch returns to `pending` immediately**, rather than waiting for the startup reclaim. We
+  cannot tell a lost response from a lost request, and re-sending is free because the mutation ids
+  have not changed. Leaving them `inflight` would strand them for the session — on a device that
+  stays open all day, that is the same as losing them.
+- **Batches are 100**, under the server's cap of 200 (which refuses the whole batch above it). A
+  batch is the unit a bad connection loses, so smaller means a rep with intermittent signal still
+  makes progress.
+- **An interruption is classified, not collapsed.** `offline` (say nothing louder than "not synced"),
+  `unauthorized` (sign in again), `deviceRejected` (bind again — retrying cannot help), `failed`
+  (a server error). Collapsing these into "sync failed" is how a rep spends an hour retrying against
+  a 401, or waits for a connection that is fine while their device has been revoked.
 
 ## 7. Device lifecycle
 
