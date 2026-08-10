@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using FieldKit.Modules.Products;
+using FieldKit.Modules.Visit;
 using FieldKit.SharedKernel;
 
 namespace FieldKit.Server.Tests;
@@ -66,7 +67,126 @@ internal static class VectorGenerator
         ["pricing/tax-application.generated.v1.json"] = TaxApplication(),
         ["pricing/price-resolution.generated.v1.json"] = PriceResolution(),
         ["pricing/promotion-resolution.generated.v1.json"] = PromotionResolution(),
+        ["visits/geofence.generated.v1.json"] = Geofence(),
     };
+
+    // ── Geofence assessment (W9 slice 3) ─────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Anchor points, chosen for what latitude does to the formula rather than for where they are.
+    /// </summary>
+    /// <remarks>
+    /// A degree of longitude is 111 km at the equator and 2 km at 79°, so the <c>cos(lat)</c> term is
+    /// the part of the haversine most likely to be dropped or misplaced — and an error in it is
+    /// invisible near the equator and enormous near the poles. The sweep therefore runs the same
+    /// offsets at every latitude band rather than clustering where the fixture data happens to live.
+    /// </remarks>
+    private static readonly (double Latitude, double Longitude)[] Anchors =
+    [
+        (0.0, 0.0),          // the equator and the meridian, where sign errors hide
+        (44.4638, 26.0946),  // Bucharest — where the rest of the fixtures are
+        (-33.8688, 151.2093), // southern and eastern, so both signs are exercised together
+        (51.5074, -0.1278),  // northern and western
+        (78.9230, 11.9230),  // Ny-Ålesund: longitude is nearly free this far north
+        (-89.9, 0.0),        // just off the south pole, where cos(lat) is almost zero
+    ];
+
+    /// <summary>
+    /// Offsets in degrees, spanning "inside any radius" to "nowhere near".
+    /// </summary>
+    /// <remarks>
+    /// Both components on most of them: a north-only sweep never multiplies the two sine terms
+    /// together, which is where the formula's only interesting arithmetic happens.
+    /// </remarks>
+    private static readonly (double Lat, double Lon)[] Offsets =
+    [
+        (0, 0),
+        (0.00001, 0), (0, 0.00001), (0.00001, 0.00001),
+        (0.0005, 0), (0, 0.0005), (0.0005, 0.0005),
+        (0.002, -0.002), (-0.01, 0.01), (0.05, 0.05),
+        (0.5, -0.5), (2, 3),
+    ];
+
+    /// <summary>Radii worth crossing the sweep with, including the degenerate one.</summary>
+    private static readonly int[] Radii = [0, 50, 150, 500, 5_000];
+
+    /// <summary>
+    /// How close to the radius a case may sit before it is dropped, in metres.
+    /// </summary>
+    /// <remarks>
+    /// <b>The one thing this generator does that the pricing ones do not need.</b> `inside` is
+    /// `distance &lt;= radius`, so a case landing within a bit or two of the boundary has a verdict
+    /// that two correct implementations may legitimately disagree about — and unlike the distance,
+    /// the verdict is compared exactly, because it is the answer being recorded. Committing such a
+    /// case would pin a coincidence and fail on a runtime whose <c>sin</c> rounds the other way.
+    /// <para>
+    /// A millimetre, which is enormous next to the disagreement doubles can produce and invisible
+    /// next to a GPS fix. The boundary itself is not left untested — the hand-written file has the
+    /// exact-pin cases, where the distance is exactly zero for structural reasons rather than by
+    /// arithmetic luck.
+    /// </para>
+    /// </remarks>
+    private const double BoundaryGuardMetres = 0.001;
+
+    private static string Geofence()
+    {
+        var body = new StringBuilder();
+
+        foreach (var (latitude, longitude) in Anchors)
+        {
+            foreach (var (deltaLat, deltaLon) in Offsets)
+            {
+                // Clamped so an offset near a pole stays a legal latitude rather than throwing.
+                var atLatitude = Math.Clamp(latitude + deltaLat, -90, 90);
+                var atLongitude = Wrap(longitude + deltaLon);
+
+                var outlet = new GeoPoint(latitude, longitude);
+                var at = new GeoPoint(atLatitude, atLongitude);
+                var distance = Geofencing.DistanceMetres(at, outlet);
+
+                foreach (var radius in Radii)
+                {
+                    if (Math.Abs(distance - radius) < BoundaryGuardMetres) continue;
+
+                    var assessment = Geofencing.Assess(at, outlet, radius, presenceExpected: true);
+
+                    body.Append(body.Length == 0 ? "\n    " : ",\n    ");
+                    body.Append(
+                        $$"""
+                          { "at": { "latitude": {{Coordinate(atLatitude)}}, "longitude": {{Coordinate(atLongitude)}} }, "outlet": { "latitude": {{Coordinate(latitude)}}, "longitude": {{Coordinate(longitude)}} }, "radiusMetres": {{radius}}, "presenceExpected": true, "expected": { "inside": {{Bool(assessment.Inside)}}, "distanceMetres": {{Coordinate(assessment.DistanceMetres!.Value)}}, "reasonRequired": {{Bool(assessment.ReasonRequired)}} } }
+                          """);
+                }
+            }
+        }
+
+        return Wrap(
+            "VIS-01, VIS-02 / BR-VIS-2",
+            "Every anchor crossed with every offset and every radius, minus the cases that land "
+            + "within a millimetre of the boundary — see vectors/README.md for why those are dropped "
+            + "rather than pinned. The expectations come from the C# engine, so this file is an "
+            + "oracle for the TypeScript mirror rather than a test of C#. Anchors span the latitude "
+            + "bands because cos(lat) is the term an error hides in.",
+            "assessment",
+            body.ToString());
+    }
+
+    /// <summary>Longitude back into [-180, 180], so an offset near the antimeridian stays legal.</summary>
+    private static double Wrap(double longitude) =>
+        longitude > 180 ? longitude - 360 : longitude < -180 ? longitude + 360 : longitude;
+
+    /// <summary>
+    /// A double as JSON, round-trippable.
+    /// </summary>
+    /// <remarks>
+    /// <c>"R"</c> rather than a fixed number of decimals: these are coordinates and distances, not
+    /// money, and the whole point of the file is that both languages parse the *same* double. A
+    /// formatted-and-truncated value would be a different number than the one the expectation was
+    /// computed from.
+    /// </remarks>
+    private static string Coordinate(double value) =>
+        value.ToString("R", CultureInfo.InvariantCulture);
+
+    private static string Bool(bool value) => value ? "true" : "false";
 
     // ── Tax application ──────────────────────────────────────────────────────────────────────────
 
