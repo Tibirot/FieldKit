@@ -73,7 +73,12 @@ public class TerritoryDirectoryTests(ServerFixture fixture)
         Assert.Equal(name, single.Territory?.Name);
 
         // And on the list, which is the screen this exists for.
-        var listed = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?pageSize={Paging.MaxSize}"))!.Items;
+        //
+        // Scoped to this outlet's code rather than listing the tenant: the shared fixture now holds
+        // more outlets than one page (W8 slice 9's property suites), and a truncated list turned
+        // this into a `Single` over a collection that did not contain the row.
+        var listed = (await client.GetFromJsonAsync<PagedList<OutletResponse>>(
+            $"/api/outlets?search={outlet.Code}&pageSize={Paging.MaxSize}"))!.Items;
         Assert.Equal(territoryId, listed!.Single(row => row.Id == outlet.Id).Territory?.Id);
     }
 

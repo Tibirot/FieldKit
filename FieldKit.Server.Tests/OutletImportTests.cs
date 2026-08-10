@@ -51,7 +51,7 @@ public class OutletImportTests(ServerFixture fixture)
 
     private static async Task<bool> ExistsAsync(HttpClient client, string code)
     {
-        var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?pageSize={Paging.MaxSize}"))!.Items;
+        var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?search={code}&pageSize={Paging.MaxSize}"))!.Items;
         return outlets!.Any(outlet => outlet.Code == code);
     }
 
@@ -167,7 +167,7 @@ public class OutletImportTests(ServerFixture fixture)
         Assert.Empty(result.Problems);
         Assert.Null(result.RejectedRowsCsv);
 
-        var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?pageSize={Paging.MaxSize}"))!.Items;
+        var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?search={code}&pageSize={Paging.MaxSize}"))!.Items;
         var imported = outlets!.Single(outlet => outlet.Code == code);
 
         Assert.Equal("Alimentara Central", imported.Name);
@@ -200,7 +200,7 @@ public class OutletImportTests(ServerFixture fixture)
 
         Assert.Equal(1, result.Imported);
 
-        var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?pageSize={Paging.MaxSize}"))!.Items;
+        var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?search={code}&pageSize={Paging.MaxSize}"))!.Items;
         var imported = outlets!.Single(outlet => outlet.Code == code);
 
         // Stored as a number and a boolean, not as the strings the file held.
@@ -356,7 +356,7 @@ public class OutletImportTests(ServerFixture fixture)
 
         // And the row that was fine is stored upper-cased, by the same rule the API applies.
         var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>(
-            $"/api/outlets?pageSize={Paging.MaxSize}"))!.Items;
+            $"/api/outlets?search={good}&pageSize={Paging.MaxSize}"))!.Items;
 
         Assert.Equal("RO", outlets!.Single(outlet => outlet.Code == good).Address!.CountryCode);
         Assert.False(await ExistsAsync(client, bad));
@@ -403,7 +403,7 @@ public class OutletImportTests(ServerFixture fixture)
         Assert.Equal(0, second.Imported);
         Assert.Contains(second.Problems, problem => problem.Message.Contains("already exists"));
 
-        var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?pageSize={Paging.MaxSize}"))!.Items;
+        var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?search={code}&pageSize={Paging.MaxSize}"))!.Items;
         Assert.Equal("Original Name", outlets!.Single(outlet => outlet.Code == code).Name);
     }
 
@@ -424,7 +424,7 @@ public class OutletImportTests(ServerFixture fixture)
 
         Assert.Equal(1, result.Imported);
 
-        var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?pageSize={Paging.MaxSize}"))!.Items;
+        var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?search={code}&pageSize={Paging.MaxSize}"))!.Items;
         Assert.Equal(channel, outlets!.Single(outlet => outlet.Code == code).ChannelName);
     }
 
@@ -455,7 +455,7 @@ public class OutletImportTests(ServerFixture fixture)
         Assert.Contains(againstStored.Problems, problem => problem.Message.Contains("already exists"));
 
         // And the stored code kept the capitalisation it arrived with.
-        var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?pageSize={Paging.MaxSize}"))!.Items;
+        var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?search={code}&pageSize={Paging.MaxSize}"))!.Items;
         Assert.Contains(outlets!, outlet => outlet.Code == code);
     }
 
@@ -548,7 +548,7 @@ public class OutletImportTests(ServerFixture fixture)
 
         Assert.Equal(1, result.Imported);
 
-        var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?pageSize={Paging.MaxSize}"))!.Items;
+        var outlets = (await client.GetFromJsonAsync<PagedList<OutletResponse>>($"/api/outlets?search={code}&pageSize={Paging.MaxSize}"))!.Items;
         var imported = outlets!.Single(outlet => outlet.Code == code);
 
         Assert.Equal("Smith, Jones & Co", imported.Name);

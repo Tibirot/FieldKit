@@ -319,15 +319,22 @@ public static class PullEndpoints
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Written <b>after</b> the page is built and before it is returned, which is a deliberate and
-    /// imperfect ordering: if the response never reaches the device, the server believes it has rows
-    /// it does not. The device recovers by rebinding, which clears the set and re-snapshots — and
-    /// the alternative, recording only what a device acknowledges, is a second round trip on every
-    /// pull to protect against a case that already has a remedy.
+    /// Written <b>after</b> the page is built and before it is returned: if the response never
+    /// reaches the device, the server believes it has rows it does not. Slice 3a called that "the one
+    /// place this protocol is not self-healing" and left it for slice 9's resume properties to
+    /// revisit. <b>They did, and it was too pessimistic.</b>
     /// </para>
     /// <para>
-    /// Stated rather than hidden because it is the one place this protocol is not
-    /// self-healing, and slice 9's resume properties are where it should be revisited.
+    /// A device that lost the response also lost the cursor, so it asks again from zero — and while
+    /// the outlets are no longer <i>entering</i>, they are <c>retained</c>, and the delta over a
+    /// retained set at cursor zero is every row it holds. The baseline and the delta cover each
+    /// other. <c>SyncPropertyTests</c> asserts it.
+    /// </para>
+    /// <para>
+    /// What would be unrecoverable is a device that advanced its cursor <i>without</i> storing the
+    /// rows — which is precisely what <c>applyOutletChanges</c> makes impossible, by writing both in
+    /// one IndexedDB transaction. The gap needs both halves to fail, and the client is built so they
+    /// cannot fail separately.
     /// </para>
     /// </remarks>
     private static async Task RecordScopeAsync(

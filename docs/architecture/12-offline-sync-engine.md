@@ -495,7 +495,7 @@ they let a genuinely hard distributed-data problem be solved without CRDTs — t
 
 ## 10. Test plan (summary)
 
-- **Property/fuzz:** random connect/drop during push & pull ⇒ no duplicates, no lost mutations,
+- **Property/fuzz** (built, W8 slice 9 — a fixed sweep rather than a random one, see [testing §5](17-testing-strategy.md#5-sync-engine-tests-the-hard-part--property-based)): connect/drop during push & pull ⇒ no duplicates, no lost mutations,
   convergent state.
 - **Idempotency:** replay the same batch N times ⇒ identical server state and results.
 - **Kill-during-capture:** process kill mid-visit ⇒ full recovery on reopen.
