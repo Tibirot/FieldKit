@@ -1150,5 +1150,16 @@
       "backwards": "O perioadă se încheie la data de început sau după.",
       "tooLong": "Planificați cel mult 400 de zile odată."
     }
+  },
+  "Sync": {
+    "offline": "Fără conexiune — lucrul tău este salvat pe acest dispozitiv",
+    "pending": "{count, plural, one {# element așteaptă sincronizarea} few {# elemente așteaptă sincronizarea} other {# de elemente așteaptă sincronizarea}}",
+    "synced": "Totul este sincronizat",
+    "syncing": "Se sincronizează…",
+    "syncNow": "Sincronizează acum",
+    "signInAgain": "Autentifică-te din nou pentru a sincroniza",
+    "rebind": "Înregistrează din nou acest dispozitiv pentru a sincroniza",
+    "itemPending": "Nesincronizat",
+    "itemFailed": "Necesită atenție"
   }
 }
