@@ -40,7 +40,11 @@ public sealed class SyncModule : IModule
         services.AddHostedService<ModuleMigrator<SyncDbContext>>();
     }
 
-    public void MapEndpoints(IEndpointRouteBuilder endpoints) => endpoints.MapDeviceEndpoints();
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapDeviceEndpoints();
+        endpoints.MapPullEndpoints();
+    }
 }
 
 /// <summary>

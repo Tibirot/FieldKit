@@ -43,6 +43,10 @@ public sealed class OutletsModule : IModule
 
         // Where the shop is, for deciding whether a rep is at it (OUT-08, BR-VIS-2).
         services.AddScoped<IOutletGeofence, OutletGeofences>();
+
+        // The pull side of sync (W8 slice 3a). Registered here rather than in Sync because the
+        // implementation reads this module's own schema, and Sync never touches another's tables.
+        services.AddScoped<IReferenceChangeFeed, ReferenceChangeFeed>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
