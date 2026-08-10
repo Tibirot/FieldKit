@@ -63,16 +63,46 @@ export type SyncResult = {
 };
 
 /**
+ * The bind in flight for one database, so two callers cannot each start one.
+ *
+ * <b>Binding is a write, and the check that guards it is a *read that has already happened*.</b>
+ * Two callers arriving together both miss the stored id and both post — and the second one is
+ * refused by the unique index that makes "one active device per rep" true, which the server reports
+ * as a 500. Found in the browser: React's development double-invocation of effects is exactly two
+ * callers arriving together, and it turned the field shell's first launch into a bind, a swap, and
+ * an error screen.
+ *
+ * Keyed by database name rather than a single slot, because the name is per tenant *and* subject —
+ * two reps signed in on one browser are two devices, and collapsing them would give the second one
+ * the first one's id.
+ */
+const binding = new Map<string, Promise<string>>();
+
+/**
  * Makes sure this browser is a registered device, and remembers which one (`OFF-12`).
  *
  * The id is stored in `meta`, so a device binds once and not once per launch. Rebinding on every
  * start would deactivate the previous registration as a swap on every start, and a rep would spend
  * their life being told to sync again from zero.
+ *
+ * Once *per launch* is not the same as once *per caller*, which is what {@link binding} is for.
  */
 export async function ensureDevice(db: FieldKitDatabase, accessToken: string): Promise<string> {
   const known = await db.meta.get("deviceId");
   if (known) return known.value;
 
+  // Checked and set with no `await` between them, so there is no point for a second caller to
+  // interleave: whoever gets here first owns the request and everyone else waits on it.
+  const started = binding.get(db.name);
+  if (started) return started;
+
+  const bind = mint(db, accessToken).finally(() => binding.delete(db.name));
+  binding.set(db.name, bind);
+
+  return bind;
+}
+
+async function mint(db: FieldKitDatabase, accessToken: string): Promise<string> {
   const device = await bindDevice(accessToken, deviceName());
 
   /*
