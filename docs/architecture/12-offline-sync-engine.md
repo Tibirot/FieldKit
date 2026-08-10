@@ -84,6 +84,24 @@ exists, and nothing will ever answer them. Startup returns them to `pending`. Re
 precisely because the mutation id survived the crash: whatever the server did with the first
 attempt, the ledger will say so (§4).
 
+**Schema versions are declared forever, and the outbox is why (`OFF-13`, W8 slice 11).** Dexie
+replays versions in order to bring an existing database forward, so deleting an old one does not
+simplify the file — it strands every device that has not opened the app since, which on a field app
+is the ones that most need to sync.
+
+Every `ref_*` table is a copy of something the server still has: lose it and the next sync rebuilds
+it. **The outbox is the only store the device cannot re-fetch**, so it is the one a migration must
+not touch. [`migration.test.ts`](../../frontend/lib/sync/migration.test.ts) opens a version-1
+database holding unsent work with the version-2 code and checks the work is still there, still
+ordered, still carrying its refusal reasons — and still sendable, which a "rows preserved" assertion
+cannot reach on its own.
+
+Version 2 itself is a compound `[status+createdAt]` index on the outbox. `pending()` used to load
+every pending row and sort it in JavaScript, at the top of every push, on the device with the least
+CPU — and it got slower exactly as a rep’s offline day got longer. There is deliberately **no
+`upgrade()` callback**: Dexie builds a new index by walking the rows, nothing about them changes, and
+an empty upgrade block is a hook somebody later fills in by accident.
+
 **The blob store is not built yet**, deliberately — photo upload is `OFF-08`/W11, and a store with
 no writer is a schema version spent on nothing.
 

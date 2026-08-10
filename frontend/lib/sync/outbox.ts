@@ -52,10 +52,22 @@ export async function enqueue(db: FieldKitDatabase, mutation: NewMutation): Prom
  * tells the rep nothing. It waits for a person (`OFF-09`).
  */
 export async function pending(db: FieldKitDatabase, limit?: number): Promise<OutboxEntry[]> {
-  const query = db.outbox.where("status").equals("pending");
-  const entries = await query.sortBy("createdAt");
+  /*
+   * A range over the compound `[status+createdAt]` index, which arrives ordered (schema version 2).
+   *
+   * The previous form — `where("status").equals("pending").sortBy("createdAt")` — read every
+   * pending row into memory and sorted it in JavaScript, and `limit` then threw most of it away.
+   * That is the wrong shape for the one query that runs at the top of every push, on the device
+   * with the least CPU, and it got slower exactly as a rep's offline day got longer.
+   *
+   * The upper bound is `Infinity` rather than a date: `createdAt` is epoch millis, so this is
+   * "every pending row, whenever it was captured", expressed as the open end of the range.
+   */
+  const query = db.outbox
+    .where("[status+createdAt]")
+    .between(["pending", -Infinity], ["pending", Infinity]);
 
-  return limit === undefined ? entries : entries.slice(0, limit);
+  return limit === undefined ? query.toArray() : query.limit(limit).toArray();
 }
 
 /** How many pieces of work are unsent — the number the connectivity indicator shows (`OFF-05`). */

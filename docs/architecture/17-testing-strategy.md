@@ -90,7 +90,7 @@ adversarial testing:
 | **Rejected-order pull-back** (S1×S2) | Rejected order retained server-side, pulls to the rep's **new** device after swap ⇒ remediation survives the swap |
 | **Rejected-order re-open** (S1) | A hard-rejected order re-opens editable; resubmit under a new id ⇒ accepted once, original id terminal, no duplicate |
 | **Device-swap drain** (S2) | Deactivated device drain-pushes its outbox ⇒ no lost work, no split-brain with the new device |
-| **Local-store migration** | App update changing IndexedDB schema ⇒ pending outbox preserved and migrated |
+| **Local-store migration** | App update changing IndexedDB schema ⇒ pending outbox preserved and migrated (built, W8 slice 11 — a *version-1* database is written and opened by version-2 code, so the test cannot pass against a fresh install) |
 
 **Replay and resume were built in W8 slice 9**, and it is worth being precise about what
 "property-based" means here rather than what it usually means.
