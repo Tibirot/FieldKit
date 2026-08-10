@@ -22,8 +22,14 @@ public enum OutletStatus
 /// <summary>
 /// A retail location — the master data the field app is organized around (<c>OUT-01</c>).
 /// </summary>
-public sealed class Outlet : AggregateRoot, ITenantOwned, IAuditable
+public sealed class Outlet : AggregateRoot, ITenantOwned, IAuditable, ISyncTracked
 {
+    /// <summary>
+    /// Set by the row-version interceptor, never by this aggregate (ADR-0013). It is the first
+    /// entity to carry one because it is the first the device pulls (W8 slice 3).
+    /// </summary>
+    public long RowVersion { get; set; }
+
     private readonly List<OutletContact> _contacts = [];
     private Dictionary<string, JsonElement> _customFields = [];
 

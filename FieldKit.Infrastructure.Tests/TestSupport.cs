@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace FieldKit.Infrastructure.Tests;
 
 /// <summary>A throwaway tenant-owned, auditable aggregate to exercise the persistence + outbox base.</summary>
-public class Widget : AggregateRoot, ITenantOwned, IAuditable
+public class Widget : AggregateRoot, ITenantOwned, IAuditable, ISyncTracked
 {
     public Guid Id { get; set; } = Guid.CreateVersion7();
     public string Name { get; set; } = string.Empty;
@@ -14,6 +14,7 @@ public class Widget : AggregateRoot, ITenantOwned, IAuditable
     public TenantId TenantId { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public string? CreatedBy { get; set; }
+    public long RowVersion { get; set; }
     public DateTimeOffset? ModifiedAtUtc { get; set; }
     public string? ModifiedBy { get; set; }
 
@@ -45,6 +46,9 @@ public class TestDbContext(DbContextOptions<TestDbContext> options, ITenantConte
     : ModuleDbContext(options, tenantContext)
 {
     protected override string Schema => "test";
+
+    /// <summary>Widget is <c>ISyncTracked</c>, so this context needs the counter table.</summary>
+    protected override bool TracksSyncChanges => true;
 
     public DbSet<Widget> Widgets => Set<Widget>();
 }
