@@ -14,6 +14,8 @@ public sealed class SyncDbContext(DbContextOptions<SyncDbContext> options, ITena
 
     public DbSet<Device> Devices => Set<Device>();
 
+    public DbSet<DeviceScopeEntry> DeviceScope => Set<DeviceScopeEntry>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -38,6 +40,15 @@ public sealed class SyncDbContext(DbContextOptions<SyncDbContext> options, ITena
                 .IsUnique()
                 .HasFilter("\"IsActive\"")
                 .HasDatabaseName("UX_device_one_active_per_user");
+        });
+
+        modelBuilder.Entity<DeviceScopeEntry>(entry =>
+        {
+            entry.ToTable("device_scope");
+            entry.HasKey(e => new { e.DeviceId, e.OutletId });
+
+            // The read on every pull: "what was this device told it had". The composite key already
+            // leads with DeviceId, so no second index earns its keep.
         });
     }
 }

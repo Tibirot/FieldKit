@@ -73,4 +73,31 @@ internal sealed class ReferenceChangeFeed(OutletsDbContext db) : IReferenceChang
 
         return new ReferenceChangePage(upserts, tombstones, highest);
     }
+
+    public async Task<IReadOnlyList<OutletSnapshot>> GetBaselineAsync(
+        IReadOnlyCollection<Guid> outletIds,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        if (outletIds.Count == 0) return [];
+
+        var ids = outletIds as IReadOnlyList<Guid> ?? [.. outletIds];
+
+        // No cursor predicate at all. These outlets are new to the asking device, so their age is
+        // irrelevant — an outlet last edited two years ago is exactly the case a delta cannot serve.
+        return await db.Outlets
+            .Where(outlet => ids.Contains(outlet.Id))
+            .OrderBy(outlet => outlet.RowVersion)
+            .Take(limit)
+            .Select(outlet => new OutletSnapshot(
+                outlet.Id,
+                outlet.Name,
+                outlet.ChannelId,
+                outlet.Segment,
+                outlet.Status.ToString(),
+                outlet.Latitude,
+                outlet.Longitude,
+                outlet.RowVersion))
+            .ToListAsync(cancellationToken);
+    }
 }
