@@ -5,6 +5,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import { useSync } from "@/components/sync/sync-provider";
 import { SyncBadge } from "@/components/sync/sync-badge";
 import { Badge } from "@/components/ui/badge";
+import { Link } from "@/i18n/navigation";
 import { useLive } from "@/lib/sync/live";
 import { today, todayOn, type Stop, type StopProgress } from "@/lib/visits/today";
 
@@ -81,13 +82,29 @@ function StopRow({ stop }: { stop: Stop }) {
     <li className="flex flex-col gap-1 rounded-xl border border-border p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col">
+          {/*
+            The whole row is a link only when there is a shop to open (W9 slice 6). A stop whose
+            outlet this device does not hold has nothing behind it — the check-in screen would only
+            be able to say so a second time — so it stays a row and does not offer a tap that leads
+            to a dead end.
+
+            The planned call rides in the query so the visit names it. Without it a rep opening a
+            stop from their round would capture an *unplanned* visit at the right shop, and the
+            supervisor's coverage figure would count the call as still outstanding.
+          */}
           <span className="truncate font-medium">
-            {/*
-              A shop this device does not hold still gets a row — the call is real and a supervisor
-              would ask about it. What it cannot have is a name, so it says so rather than rendering
-              an id at a rep as if it were one.
-            */}
-            {stop.outlet?.name ?? t("unknownOutlet")}
+            {stop.outlet ? (
+              <Link href={`/field/outlets/${stop.outletId}?call=${stop.plannedVisitId}`}>
+                {stop.outlet.name}
+              </Link>
+            ) : (
+              /*
+                A shop this device does not hold still gets a row — the call is real and a supervisor
+                would ask about it. What it cannot have is a name, so it says so rather than
+                rendering an id at a rep as if it were one.
+              */
+              t("unknownOutlet")
+            )}
           </span>
           {stop.outlet ? (
             <span className="font-mono text-xs text-muted-foreground">{stop.outlet.code}</span>

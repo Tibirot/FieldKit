@@ -185,4 +185,31 @@ describe("<TodaysJourney>", () => {
     expect(await screen.findByText("A shop this device does not hold")).toBeTruthy();
     expect(screen.queryByText("gone")).toBeNull();
   });
+
+  it("opens a stop at the shop, carrying the call it answers (W9 slice 6)", async () => {
+    // The call id is what makes the visit answer *this* line. Without it a rep opening a stop from
+    // their round would capture an unplanned visit at the right shop, and the coverage figure the
+    // plan exists to produce would still count the call as outstanding.
+    await db.outlets.add(outlet("outlet-1", "Mega Image", "RO-001"));
+    await db.plannedVisits.add(call("call-1", "outlet-1"));
+
+    render(<TodaysJourney now={TODAY} />);
+
+    expect(await screen.findByRole("link", { name: "Mega Image" })).toHaveProperty(
+      "href",
+      expect.stringContaining("/field/outlets/outlet-1?call=call-1"),
+    );
+  });
+
+  it("does not offer a tap that leads nowhere", async () => {
+    // A stop with no outlet has nothing behind it: the check-in screen could only say so a second
+    // time. The row stays — the call is real — and it simply is not a link.
+    await db.plannedVisits.add(call("call-1", "gone"));
+
+    render(<TodaysJourney now={TODAY} />);
+
+    await screen.findByText("A shop this device does not hold");
+
+    expect(screen.queryByRole("link")).toBeNull();
+  });
 });

@@ -1189,6 +1189,45 @@
         "notVisited": "Nevizitat"
       },
       "openDevice": "Acest dispozitiv"
+    },
+    "checkIn": {
+      "opening": "Se deschide magazinul…",
+      "locating": "Se caută locația ta…",
+      "inside": "Ești la acest magazin — la {metres} m.",
+      "outside": "Ești la {metres} m de magazin, în afara zonei de {radius} m.",
+      "unplaced": "Telefonul nu a putut spune unde ești.",
+      "remote": "Acest canal nu presupune că ești la magazin.",
+      "accuracy": "Precizia locației este de aproximativ {metres} m.",
+      "refresh": "Verifică din nou",
+      "action": "Începe vizita",
+      "starting": "Se începe…",
+      "problem": {
+        "unsupported": "Acest browser nu poate raporta locația, așa că vizita va fi înregistrată fără ea.",
+        "denied": "Locația este blocată pentru această aplicație. Permite-o din setările browserului sau scrie mai jos de ce începi vizita fără ea.",
+        "unavailable": "Telefonul nu a putut obține locația. Încearcă să ieși afară.",
+        "timeout": "Găsirea locației a durat prea mult."
+      },
+      "reason": {
+        "label": "De ce începi vizita de aici?",
+        "help": "Supervizorul tău vede acest text. Vizita începe oricum."
+      },
+      "refusal": {
+        "alreadyInProgress": "O vizită este deja deschisă pe acest dispozitiv. Încheie-o înainte de a începe alta.",
+        "overrideReasonRequired": "Scrie de ce începi vizita de aici.",
+        "unexpected": "Nu s-a putut înregistra. Încearcă din nou și anunță-ți supervizorul dacă se repetă."
+      },
+      "unknownOutlet": {
+        "title": "Dispozitivul nu are acest magazin",
+        "body": "Poate a trecut la alt agent. Sincronizează pentru a prelua schimbarea și vorbește cu supervizorul dacă apelul este în continuare al tău."
+      },
+      "already": {
+        "title": "Ești deja în acest magazin",
+        "body": "Vizita începută aici este încă deschisă. Continu-o în loc să începi una nouă."
+      },
+      "elsewhere": {
+        "title": "O vizită este deschisă la alt magazin",
+        "body": "O singură vizită odată. Încheie vizita în curs înainte de a începe aici."
+      }
     }
   },
   "Guard": {
