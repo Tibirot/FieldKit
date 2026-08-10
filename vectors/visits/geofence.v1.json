@@ -1,0 +1,132 @@
+{
+  "version": 1,
+  "rule": "VIS-01, VIS-02 / BR-VIS-2",
+  "description": "Whether a rep checking in is at the outlet, and whether that needs explaining. Positions are JSON numbers — unlike money, these are genuinely doubles on both sides, and a string would be a lie about the type the rule operates on. See ../README.md, and the note there about why distances are compared with a tolerance while verdicts are compared exactly.",
+  "assessment": [
+    {
+      "name": "standing in the shop",
+      "at": { "latitude": 44.4638, "longitude": 26.0946 },
+      "outlet": { "latitude": 44.4638, "longitude": 26.0946 },
+      "radiusMetres": 150,
+      "presenceExpected": true,
+      "expected": { "inside": true, "distanceMetres": 0, "reasonRequired": false }
+    },
+    {
+      "name": "across the street is still at the shop",
+      "why": "The radius is 150m because consumer GPS is routinely tens of metres out in a street of tall buildings. A rule that only accepted the pin would flag honest reps standing inside the shop.",
+      "at": { "latitude": 44.4642, "longitude": 26.0946 },
+      "outlet": { "latitude": 44.4638, "longitude": 26.0946 },
+      "radiusMetres": 150,
+      "presenceExpected": true,
+      "expected": { "inside": true, "distanceMetres": 44.47797065756609, "reasonRequired": false }
+    },
+    {
+      "name": "two kilometres away needs a sentence",
+      "why": "BR-VIS-2 asks rather than refuses. `reasonRequired` is the strongest thing this rule ever says.",
+      "at": { "latitude": 44.4838, "longitude": 26.0946 },
+      "outlet": { "latitude": 44.4638, "longitude": 26.0946 },
+      "radiusMetres": 150,
+      "presenceExpected": true,
+      "expected": { "inside": false, "distanceMetres": 2223.898532891744, "reasonRequired": true }
+    },
+    {
+      "name": "a device with no fix at a shop that has one still has to explain itself",
+      "why": "The one case where nothing can be measured and a reason is still required — a phone reporting no position at a placed shop is exactly what a faked check-in looks like. Note `distanceMetres: null` alongside `reasonRequired: true`: the two are independent, and an implementation that tied them together would get this wrong.",
+      "at": null,
+      "outlet": { "latitude": 44.4638, "longitude": 26.0946 },
+      "radiusMetres": 150,
+      "presenceExpected": true,
+      "expected": { "inside": false, "distanceMetres": null, "reasonRequired": true }
+    },
+    {
+      "name": "an outlet nobody has placed asks nothing",
+      "why": "The mirror image of the case above, and the reason they are not one branch. Making a rep justify a gap in master data would blame them for it.",
+      "at": { "latitude": 44.4638, "longitude": 26.0946 },
+      "outlet": null,
+      "radiusMetres": 150,
+      "presenceExpected": true,
+      "expected": { "inside": false, "distanceMetres": null, "reasonRequired": false }
+    },
+    {
+      "name": "neither side has a position",
+      "why": "Both gaps at once resolves to the outlet's answer, not the device's — the outlet is checked first, so nobody is asked to explain a shop that was never placed.",
+      "at": null,
+      "outlet": null,
+      "radiusMetres": 150,
+      "presenceExpected": true,
+      "expected": { "inside": false, "distanceMetres": null, "reasonRequired": false }
+    },
+    {
+      "name": "a remote channel asks nothing, wherever the rep is",
+      "why": "A phone call is legitimately not at the outlet. Demanding a reason would record an exception where nothing exceptional happened — and a flag that fires on ordinary work is one supervisors learn to ignore.",
+      "at": { "latitude": 44.4838, "longitude": 26.0946 },
+      "outlet": { "latitude": 44.4638, "longitude": 26.0946 },
+      "radiusMetres": 150,
+      "presenceExpected": false,
+      "expected": { "inside": false, "distanceMetres": null, "reasonRequired": false }
+    },
+    {
+      "name": "presence not expected reports no distance even when both positions are known",
+      "why": "Deliberately `inside: false` and `distanceMetres: null` rather than the measured pair. The question was never asked, so there is no answer to record — an implementation that measured anyway would put a distance on visits where being 'outside' means nothing.",
+      "at": { "latitude": 44.4638, "longitude": 26.0946 },
+      "outlet": { "latitude": 44.4638, "longitude": 26.0946 },
+      "radiusMetres": 150,
+      "presenceExpected": false,
+      "expected": { "inside": false, "distanceMetres": null, "reasonRequired": false }
+    },
+    {
+      "name": "a radius of zero admits only the pin itself",
+      "why": "Not a configuration anyone would choose, and the boundary the comparison is written against: `<=` makes the exact pin inside even here.",
+      "at": { "latitude": 44.4638, "longitude": 26.0946 },
+      "outlet": { "latitude": 44.4638, "longitude": 26.0946 },
+      "radiusMetres": 0,
+      "presenceExpected": true,
+      "expected": { "inside": true, "distanceMetres": 0, "reasonRequired": false }
+    },
+    {
+      "name": "the equator and the meridian, which is where a sign error hides",
+      "why": "Both coordinates zero on one side and a degree away on the other. An implementation that dropped a sign or swapped latitude for longitude still produces a plausible number everywhere else; here it does not.",
+      "at": { "latitude": 0, "longitude": 0 },
+      "outlet": { "latitude": 0, "longitude": 1 },
+      "radiusMetres": 150,
+      "presenceExpected": true,
+      "expected": { "inside": false, "distanceMetres": 111194.92664455874, "reasonRequired": true }
+    },
+    {
+      "name": "across the antimeridian",
+      "why": "179.9E to 179.9W is a fifth of a degree apart, not 359.8. Haversine gets this right through the half-angle sine; a naive difference of longitudes does not, and this is the case that catches it.",
+      "at": { "latitude": 0, "longitude": 179.9 },
+      "outlet": { "latitude": 0, "longitude": -179.9 },
+      "radiusMetres": 150,
+      "presenceExpected": true,
+      "expected": { "inside": false, "distanceMetres": 22238.985328911924, "reasonRequired": true }
+    },
+    {
+      "name": "the same point in both hemispheres is not the same point",
+      "why": "44.46N and 44.46S are ten thousand kilometres apart. A `Math.Abs` anywhere in the latitude arithmetic makes them the same shop.",
+      "at": { "latitude": -44.4638, "longitude": 26.0946 },
+      "outlet": { "latitude": 44.4638, "longitude": 26.0946 },
+      "radiusMetres": 150,
+      "presenceExpected": true,
+      "expected": { "inside": false, "distanceMetres": 9888297.95867666, "reasonRequired": true }
+    },
+    {
+      "name": "the poles are one point however far apart their longitudes are",
+      "why": "Longitude is meaningless at the pole. A formula that weighted it without the `cos(lat)` term would report a distance here.",
+      "at": { "latitude": 90, "longitude": 0 },
+      "outlet": { "latitude": 90, "longitude": 180 },
+      "radiusMetres": 150,
+      "presenceExpected": true,
+      "expected": { "inside": true, "distanceMetres": 7.802224757367787e-10, "reasonRequired": false }
+    },
+    {
+      "name": "antipodes, where the haversine comes closest to leaving the arcsine's domain",
+      "why": "The largest distance this formula produces, and the case nearest the only domain error it can have. Rounding pushes the haversine to 1 + 2^-52 here — above 1, which is why both implementations clamp before `asin`. Measured, though: `sqrt` of that value rounds back to exactly 1 (ties-to-even), so across 6.5 million antipodal pairs the clamp never actually fires. It is kept as insurance for a future change to the expression, and this case does not pretend to exercise it — removing the clamp breaks no test, which is a fact about the arithmetic rather than a gap in the file.",
+      "at": { "latitude": -87.5, "longitude": -180 },
+      "outlet": { "latitude": 87.5, "longitude": 0 },
+      "radiusMetres": 150,
+      "presenceExpected": true,
+      "expected": { "inside": false, "distanceMetres": 20015086.79602057, "reasonRequired": true }
+    }
+  ]
+}

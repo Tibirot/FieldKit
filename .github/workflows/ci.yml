@@ -226,7 +226,8 @@ jobs:
         #
         # `dotnet test --filter` exits 0 when nothing matches, so a renamed class would turn this
         # step green having run nothing. The floor is what makes it a check: under today's count
-        # (~79) so ordinary additions do not touch it, and far above zero.
+        # (~96 since the geofence vectors joined in W9 slice 3) so ordinary additions do not touch
+        # it, and far above zero.
         env:
           NO_COLOR: "1"
         run: |
@@ -261,11 +262,11 @@ jobs:
           NO_COLOR: "1"
         run: |
           set -euo pipefail
-          npx vitest run lib/pricing 2>&1 | sed -r 's/\x1B\[[0-9;]*[mGKH]//g' | tee parity-ts.log
+          npx vitest run lib/pricing lib/visits 2>&1 | sed -r 's/\x1B\[[0-9;]*[mGKH]//g' | tee parity-ts.log
           passed=$(grep -oE 'Tests +[0-9]+ passed' parity-ts.log | grep -oE '[0-9]+' | tail -1)
           echo "TypeScript vector cases: ${passed:-0}"
-          if [ "${passed:-0}" -lt 500 ]; then
-            echo "::error title=Parity suite shrank::Only ${passed:-0} TypeScript vector cases ran (expected >=500). A vector file probably failed to load."
+          if [ "${passed:-0}" -lt 900 ]; then
+            echo "::error title=Parity suite shrank::Only ${passed:-0} TypeScript vector cases ran (expected >=900). A vector file probably failed to load, or a path dropped out of the vitest invocation above."
             exit 1
           fi
 

@@ -1,7 +1,7 @@
 # Cross-language test vectors
 
 Shared inputs and expected outputs for the rules that must behave **identically in C# and
-TypeScript** — pricing today, perfect-store scoring later ([testing strategy
+TypeScript** — pricing and the check-in geofence today, perfect-store scoring later ([testing strategy
 §2](../docs/architecture/17-testing-strategy.md#2-unit-tests-many)).
 
 These files are the contract between the two implementations. The C# engine runs them in
@@ -55,6 +55,44 @@ pass.
 **Every file carries a `version`.** A change that alters what a case means bumps it, so a mirror
 running an older file fails loudly rather than silently testing yesterday's rules.
 
+**Coordinates are JSON numbers, and that is not an exception to the money rule but the same rule.**
+The format has to name the type the engine actually operates on. Money is `decimal` on one side and
+`decimal.js` on the other, so a JSON number would destroy it before either engine looked; a position
+is an IEEE-754 `double` on both sides, so a *string* would mean somebody had made the mirror parse
+text and the two engines would be comparing their parsers rather than their geometry. Both files
+assert their own rule, in opposite directions.
+
+## Floating point: why one file compares with a tolerance (W9 slice 3)
+
+`visits/geofence.*.json` is the first rule here that is not decimal arithmetic, and it needs a rule
+of its own.
+
+**Distances are compared within a micron; verdicts are compared exactly.** Every step of the
+haversine is `double` arithmetic that both languages reproduce bit-for-bit — except `sin`, `cos` and
+`asin`, which are not required to be correctly rounded and do not come from the same library in .NET
+and V8. Two correct engines may therefore differ in the last bit or two.
+
+On the machine the expectations were generated on the two agreed *exactly* — the C# suite passes at
+`1e-12`. The tolerance is not there for that pair; it is there for the pairs nobody has measured,
+and pinning exact equality would be pinning a coincidence observed on one runtime.
+
+**`inside` and `reasonRequired` are still exact**, because they are the answer being recorded rather
+than evidence attached to it — `IVisitIngest` stores the device's verdict unmodified, so there is no
+later recomputation to catch a flip. That is only safe because **the generator drops any case landing
+within a millimetre of the radius**: `inside` is `distance <= radius`, so a case on the boundary has
+a verdict two correct engines could legitimately split on. The boundary is not left untested — the
+hand-written file has the exact-pin cases, where the distance is zero for structural reasons rather
+than by arithmetic luck.
+
+> **A defensive line that never fires, kept anyway.** Both implementations clamp the haversine to 1
+> before `asin`, against the documented hazard that rounding pushes it above 1 and `asin` returns
+> NaN. The first half is real — it reaches `1 + 2^-52` near the antipodes. The second is not:
+> `sqrt` of that value rounds back to exactly 1 (ties-to-even), measured across 6.5 million
+> antipodal pairs, so `asin` never sees an out-of-domain argument and deleting the clamp breaks no
+> test. Found by mutation-probing this slice's own tests, after a vector case had been written
+> claiming to exercise it. The clamp stays as insurance for a future change to the expression; what
+> changed is the comment that oversold it.
+
 ## The harness (W7 slice 15)
 
 Both engines running the same files is the mechanism; a **CI job named after it** is what makes the
@@ -72,7 +110,7 @@ Three things it does that neither suite can do alone:
 - **Neither side may quietly run nothing.** `dotnet test --filter` exits 0 when nothing matches, and
   a vector file that failed to load leaves a green suite of whatever remained. Both steps assert a
   floor on the number of cases that actually ran.
-- **The counts are deliberately unequal.** C# runs ~79 cases and TypeScript ~800, because the
+- **The counts are deliberately unequal.** C# runs ~96 cases and TypeScript ~1,180, because the
   generated files are an *oracle*: their expectations came from the C# engine, so running them back
   against it would confirm a bug rather than find one. Anyone reading the job output should expect
   the asymmetry rather than treat it as a gap.
@@ -108,6 +146,7 @@ from what the strings say. Each hand-written file carries that exact pair.
 | [`pricing/price-resolution.v1.json`](pricing/price-resolution.v1.json) | `PRD-04` / `BR-PRD-2` — which price list wins for an outlet on a date | `PriceResolutionVectorTests` (C#); the device mirror (W7) |
 | [`pricing/promotion-resolution.v1.json`](pricing/promotion-resolution.v1.json) | `PRD-06` / `BR-PRD-3` — which promotion applies to one line, at a quantity, on a date | `PromotionResolutionVectorTests` (C#); the device mirror (W7) |
 | [`pricing/tax.v1.json`](pricing/tax.v1.json) | `PRD-07` / `BR-PRD-5`, `BR-PRD-9` — which rate applies, and what it does to a line | `TaxVectorTests` (C#); the device mirror (W7) |
+| [`visits/geofence.v1.json`](visits/geofence.v1.json) | `VIS-01`, `VIS-02` / `BR-VIS-2` — whether a rep checking in is at the outlet, and whether that needs explaining | `GeofenceVectorTests` (C#); `lib/visits/geofencing.test.ts` (TypeScript) |
 | [`pricing/price-resolution.generated.v1.json`](pricing/price-resolution.generated.v1.json) | the same rules, swept rather than chosen | `GeneratedVectorTests` (C#); the device mirror (W7) |
 | [`pricing/promotion-resolution.generated.v1.json`](pricing/promotion-resolution.generated.v1.json) | ditto | `GeneratedVectorTests` (C#); the device mirror (W7) |
 | [`pricing/tax-application.generated.v1.json`](pricing/tax-application.generated.v1.json) | ditto | `GeneratedVectorTests` (C#); the device mirror (W7) |
