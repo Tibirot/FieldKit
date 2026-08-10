@@ -57,6 +57,7 @@ public sealed class ProductsModule : IModule
         services.AddScoped<IProductChangeFeed, ProductChangeFeed>();
         services.AddScoped<IAssortmentChangeFeed, AssortmentChangeFeed>();
         services.AddScoped<IPriceChangeFeed, PriceChangeFeed>();
+        services.AddScoped<IPromotionChangeFeed, PromotionChangeFeed>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
