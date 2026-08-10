@@ -201,6 +201,37 @@ describe("<TodaysJourney>", () => {
     );
   });
 
+  it("sends a rep back into the visit they are standing in, not to check in again (W9 slice 7)", async () => {
+    // Without this the visit is stranded by a routing decision: a rep who navigated away — to read
+    // the round, or because the phone locked — lands on a check-in screen that correctly refuses to
+    // start a second visit and then has nothing to offer.
+    await db.outlets.add(outlet("outlet-1", "Mega Image", "RO-001"));
+    await db.plannedVisits.add(call("call-1", "outlet-1"));
+    await db.visits.add(visit("visit-1", "outlet-1", { status: "inProgress" }));
+
+    render(<TodaysJourney now={TODAY} />);
+
+    expect(await screen.findByRole("link", { name: "Mega Image" })).toHaveProperty(
+      "href",
+      expect.stringContaining("/field/visits/visit-1"),
+    );
+  });
+
+  it("still offers a second call at a shop whose visit is finished", async () => {
+    // Deliberate rather than an omission: the sealed visit is a record, and what a rep at that shop
+    // wants next is an unplanned call (`JRN-06`), not the read-only page.
+    await db.outlets.add(outlet("outlet-1", "Mega Image", "RO-001"));
+    await db.plannedVisits.add(call("call-1", "outlet-1"));
+    await db.visits.add(visit("visit-1", "outlet-1"));
+
+    render(<TodaysJourney now={TODAY} />);
+
+    expect(await screen.findByRole("link", { name: "Mega Image" })).toHaveProperty(
+      "href",
+      expect.stringContaining("/field/outlets/outlet-1?call=call-1"),
+    );
+  });
+
   it("does not offer a tap that leads nowhere", async () => {
     // A stop with no outlet has nothing behind it: the check-in screen could only say so a second
     // time. The row stays — the call is real — and it simply is not a link.

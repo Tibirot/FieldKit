@@ -127,13 +127,19 @@ describe("<CheckIn> inside the fence", () => {
     expect(visit.status).toBe("inProgress");
   });
 
-  it("goes back to the round, where the rep's own work now shows", async () => {
+  it("opens the visit it just started (W9 slice 7)", async () => {
     render(<CheckIn outletId="outlet-1" />);
 
     await screen.findByText(/You are at this shop/);
     await userEvent.click(screen.getByRole("button", { name: "Check in and start the visit" }));
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/field"));
+    // The id is the device's own, minted here, so the route is reachable from the moment the visit
+    // exists — including for a whole day with no signal.
+    await waitFor(async () => {
+      const started = (await db.visits.toArray())[0];
+
+      expect(replace).toHaveBeenCalledWith(`/field/visits/${started.id}`);
+    });
   });
 
   it("captures nothing in the outbox — a visit reaches the server when it is sealed, not when it opens", async () => {

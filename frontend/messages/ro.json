@@ -1228,6 +1228,38 @@
         "title": "O vizită este deschisă la alt magazin",
         "body": "O singură vizită odată. Încheie vizita în curs înainte de a începe aici."
       }
+    },
+    "visit": {
+      "opening": "Se deschide vizita…",
+      "sealed": "Vizita este încheiată. Nimic de aici nu mai poate fi modificat.",
+      "noSteps": "Nu sunt pași configurați pentru acest magazin. Fă vizita și încheie când ai terminat.",
+      "progress": "{done} din {total} pași finalizați",
+      "required": "Obligatoriu",
+      "done": "Finalizat",
+      "markDone": "Marchează ca finalizat",
+      "saveNote": "Salvează nota",
+      "noteLabel": "Ce vrei să notezi?",
+      "unknownOutlet": "Un magazin pe care dispozitivul nu îl are",
+      "type": {
+        "Audit": "Audit de raft",
+        "Order": "Comandă",
+        "Survey": "Chestionar",
+        "Task": "Sarcină",
+        "Photo": "Fotografie",
+        "Note": "Notă",
+        "Signature": "Semnătură",
+        "unknown": "Pas"
+      },
+      "refusal": {
+        "notInProgress": "Vizita este încheiată, așa că pașii ei nu mai pot fi modificați.",
+        "notOpen": "Pasul este deja finalizat.",
+        "noteRequired": "Scrie nota înainte de a o salva.",
+        "unexpected": "Nu s-a putut salva. Încearcă din nou și anunță-ți supervizorul dacă se repetă."
+      },
+      "unknown": {
+        "title": "Vizita nu se află pe acest dispozitiv",
+        "body": "Poate a fost lucrată pe alt telefon sau acest dispozitiv a fost înregistrat din nou între timp. Deschide magazinul din traseul de azi pentru a începe o vizită nouă."
+      }
     }
   },
   "Guard": {
