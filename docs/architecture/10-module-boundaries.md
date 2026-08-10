@@ -155,10 +155,11 @@ Boundaries that rely on goodwill rot. FieldKit encodes them as **executable test
 | AT-9 | No `IgnoreQueryFilters` or `ExecuteSqlRaw` in production code. | The tenant filter is the isolation guarantee ([ADR-0008](adr/0008-authentication-and-multitenancy.md), BR-IAM-1). |
 | AT-10 | The graph of **contract implementations depending on other modules' contracts** is acyclic. | Two modules may reference each other's contracts; their *implementations* may not call in a circle. |
 | AT-11 | Every module and every `.Contracts` project **in the solution** is one the tests above actually check. | A gate cannot see what it was never given; this is the gate on the gates. |
+| AT-12 | A module with an `ISyncTracked` entity **owns the sync tables**, and one that owns them **has something to number**. | The row-version counter and tombstone table are opt-in per module (ADR-0013); forgetting the flag fails at the first write, not at build. |
 
 **Two enforcement mechanisms, and a third category that is neither.**
 
-- ***Tests*** — AT-1, AT-2, AT-3, AT-4, AT-8, AT-10 and AT-11, in
+- ***Tests*** — AT-1, AT-2, AT-3, AT-4, AT-8, AT-10, AT-11 and AT-12, in
   [`FieldKit.ArchitectureTests`](../../FieldKit.ArchitectureTests). They inspect assemblies, so they
   need the assemblies to exist.
 - ***Compile-time*** — AT-7 and AT-9, via the banned-API analyzer. Banning a symbol outright is
