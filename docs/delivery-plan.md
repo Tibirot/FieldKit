@@ -718,7 +718,7 @@ records what would justify it.
 
 #### Decomposition
 
-**This is not a week of screens.** It reads like one — two of the twelve slices below are a screen
+**This is not a week of screens.** It reads like one — two of the thirteen slices below are a screen
 and nothing else — and taking it that way is how it overruns. Three things W9 has to build have no
 precedent anywhere in the codebase, and each is a slice before any screen can be written.
 
@@ -749,51 +749,77 @@ then disagree silently on the one dimension nobody re-checks — which is the dr
 exists to prevent, arriving through the one value the harness cannot see. It goes on the snapshot.
 
 **What W8 already paid for.** `SyncProvider`, `SyncIndicator` and `SyncBadge` shipped in W8 slice 13
-with **no mount point** — built, tested, and rendered by nothing. Slice 0 is that mount point, and it
-is first for that reason: until a layout owns a database and a bound device, no screen below can read
-anything. The readers the screens need (`plannedVisits`, `workflowFor`, `outlet`, `assortmentFor`,
-`priceOf`, `promotionsFor`) all exist and are unused.
+with **no mount point** — built, tested, and rendered by nothing. Slice 1 is that mount point, and it
+comes before every screen for that reason: until a layout owns a database and a bound device, no
+screen below can read anything. The readers the screens need (`plannedVisits`, `workflowFor`,
+`outlet`, `assortmentFor`, `priceOf`, `promotionsFor`) all exist and are unused.
 
 **Week one — a device that can work a day**
 
 | # | Slice | Requirements | ~Size |
 |---|---|---|---|
-| 0 | **The field shell** — a mobile-first `(field)` route group whose layout opens the rep's database, binds a device on first run, and mounts `SyncProvider`. Includes the rebind screen the indicator's `deviceRejected` state already points at and nothing implements | `OFF-05`, `OFF-06`, `OFF-12` | 400 |
-| 1 | **The radius travels** — `OutletSnapshot.RadiusMetres`, from `IOutletGeofence`. Per-outlet on the wire though constant in the source, so `OUT-08` is a server change and not a protocol one. Local-store version 4 | `OFF-03`, `VIS-01` | 250 |
-| 2 | **Geofencing in TypeScript** — a mirror of `Geofencing.Assess`, with generated vectors through the existing parity job. The device's verdict is the record; there is no second opinion | `VIS-01`, `VIS-02` | 400 |
-| 3 | **The local visit** — the first device-authored store: created on check-in, mutated through the steps, sealed at check-out, and only then enqueued as one `CapturedVisit`. Local-store version 5 | `OFF-01`, `OFF-02` | 450 |
-| 4 | **Today's Journey** — the day's stops from `plannedVisits`, ordered, each with its status and its sync badge. The first screen, and the one the demo opens on | `JRN-05`, `OFF-01`, `OFF-05` | 400 |
-| 5 | **Check-in** — the geofence assessed on the device, the override reason when outside, the presence policy read from the pulled workflow rather than assumed | `VIS-01`, `VIS-02` | 400 |
+| 0 | **The visit's provenance** — `RecordedAtUtc` and `Source` on `Visit`, set on both paths. Server-side, client-independent, and **first because it is the one thing here that cannot be added later**: every visit ingested before it lacks the data permanently. See below | `VIS-05`, `OFF-04` | 250 |
+| 1 | **The field shell** — a mobile-first `(field)` route group whose layout opens the rep's database, binds a device on first run, and mounts `SyncProvider`. Includes the rebind screen the indicator's `deviceRejected` state already points at and nothing implements | `OFF-05`, `OFF-06`, `OFF-12` | 400 |
+| 2 | **The radius travels** — `OutletSnapshot.RadiusMetres`, from `IOutletGeofence`. Per-outlet on the wire though constant in the source, so `OUT-08` is a server change and not a protocol one. Local-store version 4 | `OFF-03`, `VIS-01` | 250 |
+| 3 | **Geofencing in TypeScript** — a mirror of `Geofencing.Assess`, with generated vectors through the existing parity job. The device's verdict is the record; there is no second opinion | `VIS-01`, `VIS-02` | 400 |
+| 4 | **The local visit** — the first device-authored store: created on check-in, mutated through the steps, sealed at check-out, and only then enqueued as one `CapturedVisit`. Local-store version 5 | `OFF-01`, `OFF-02` | 450 |
+| 5 | **Today's Journey** — the day's stops from `plannedVisits`, ordered, each with its status and its sync badge. The first screen, and the one the demo opens on | `JRN-05`, `OFF-01`, `OFF-05` | 400 |
+| 6 | **Check-in** — the geofence assessed on the device, the override reason when outside, the presence policy read from the pulled workflow rather than assumed | `VIS-01`, `VIS-02` | 400 |
 
 **Week two — the visit, and the proof**
 
 | # | Slice | Requirements | ~Size |
 |---|---|---|---|
-| 6 | **Steps** — the sequence rendered from the pulled configuration, not from a hard-coded list. Note steps carry their text; a step nobody has built a control for renders as a labelled no-op rather than breaking the visit | `VIS-03`, `VIS-06` | 400 |
-| 7 | **Check-out** — `BR-VIS-3`'s mandatory gating enforced *on the device*, outcome and reason, then seal → one outbox mutation. The second rule the device has to agree with the server about, and the one that decides whether a rep gets out of the shop | `VIS-04`, `VIS-05` | 400 |
-| 8 | **Not visited, from the device** — the annotation W7 built server-side, reachable with no signal. The **second mutation type** through `/sync/push`, which is what turns `PushedMutation.Type` from a field into a discriminator | `VIS-07`, `OFF-04` | 350 |
-| 9 | **Visit summary** — the recap before check-out. `Should`, and the first candidate to slip | `VIS-09` | 250 |
-| 10 | **The offline shell, actually offline** — the service worker built in W5 caches a shell nothing navigates to. Field routes precached, `/offline` wired as the fallback, install prompt, and `requestPersistentStorage` finally *called* | `OFF-10`, `OFF-11` | 300 |
-| 11 | **The round trip against a live server** — the client stack (`db`, `manager`, `reference`) driven against a real API rather than a mocked one, and the Phase 2 demo recorded | `OFF-01`, `OFF-04` | 350 |
+| 7 | **Steps** — the sequence rendered from the pulled configuration, not from a hard-coded list. Note steps carry their text; a step nobody has built a control for renders as a labelled no-op rather than breaking the visit | `VIS-03`, `VIS-06` | 400 |
+| 8 | **Check-out** — `BR-VIS-3`'s mandatory gating enforced *on the device*, outcome and reason, then seal → one outbox mutation. The second rule the device has to agree with the server about, and the one that decides whether a rep gets out of the shop | `VIS-04`, `VIS-05` | 400 |
+| 9 | **Not visited, from the device** — the annotation W7 built server-side, reachable with no signal. The **second mutation type** through `/sync/push`, which is what turns `PushedMutation.Type` from a field into a discriminator | `VIS-07`, `OFF-04` | 350 |
+| 10 | **Visit summary** — the recap before check-out. `Should`, and the first candidate to slip | `VIS-09` | 250 |
+| 11 | **The offline shell, actually offline** — the service worker built in W5 caches a shell nothing navigates to. Field routes precached, `/offline` wired as the fallback, install prompt, and `requestPersistentStorage` finally *called* | `OFF-10`, `OFF-11` | 300 |
+| 12 | **The round trip against a live server** — the client stack (`db`, `manager`, `reference`) driven against a real API rather than a mocked one, and the Phase 2 demo recorded | `OFF-01`, `OFF-04` | 350 |
 
 **Not in W9:** audit and order capture (`OFF-01b`, W10/W11) — the two step types that make a visit
 *valuable* rather than merely complete, and both are their own modules. Photo upload (`OFF-08`) and
 background sync (`OFF-07`) are separate transports, W11 and Phase 3. `VIS-08` (signature) is `Could`.
 
-**Two decisions W9 has to make and does not inherit.**
+**Two decisions W9 inherits from nobody — and slice 0 is where they are made.**
 
 **Whose clock is a visit stamped with?** `CapturedVisit` carries the device's `checkedInAtUtc` and
 `checkedOutAtUtc`, the server stores them as sent, and nothing records when the visit *arrived*. A
 visit ingested three days late is therefore indistinguishable from one that happened at the time it
 claims — and time-on-site, the measure `VIS-05` exists to produce, is computed entirely from two
-numbers a device controls. The options are to accept it (the device is the only witness), to stamp a
-server-side received-at alongside (cheap, and makes "captured offline" visible in the audit trail),
-or to record clock skew at bind time. **Not decided; slice 3 is where it becomes concrete.**
+numbers a device controls.
 
 **Is an ingested visit marked as one?** `Visit` has no source discriminator, so a supervisor reviewing
-a day cannot tell a visit worked live in the back office from one drained off a phone. That is
-arguably fine — a visit is a visit — but it interacts with the question above, and the two should be
-answered together.
+a day cannot tell a visit worked live in the back office from one drained off a phone.
+
+**Both are answered by slice 0, together, because they are one question.** The visit records
+**`RecordedAtUtc`** — when *this server* first stored it, from `IClock`, on both the live and the
+ingested path — and **`Source`** (`Live` | `Device`). Neither touches the rep's own claim:
+`checkedInAtUtc` and `checkedOutAtUtc` stay exactly as sent, which is the property
+[`IVisitIngest`](../FieldKit.Modules.Visit.Contracts/IVisitIngest.cs) argues for and this does not
+revisit. What they add is a second, independent timestamp beside it, and three things fall out of
+having both:
+
+- **"Captured offline" becomes visible** rather than inferred. `RecordedAtUtc − CheckedOutAtUtc` is
+  the drain lag; `Source` says whether the gap means anything.
+- **Clock skew is detectable.** A device visit claiming a check-out later than the moment the server
+  received it is claiming the future, which no correct device does. Nothing acts on that in W9 —
+  it is a signal, not a rule — but it cannot be recovered later if it is not recorded now.
+- **`Source` is not derivable from `RecordedAtUtc` alone.** A device that drains the moment a rep
+  leaves the shop looks exactly like a live visit, so the discriminator has to be stored rather than
+  computed.
+
+**Why it is slice 0 rather than part of slice 4.** Everything else in W9 can be added to a running
+system afterwards; this cannot. Every visit ingested before it exists lacks both values permanently,
+and there is no backfill — the server never knew when those visits arrived. Today that is a handful
+of demo rows. After the Phase 2 demo it is the demo's whole dataset, and after W11 it is orders too.
+It is also entirely server-side, so it neither blocks nor is blocked by any client slice.
+
+**What this deliberately does not attempt.** Two device timestamps remain the only witness to an
+offline visit, and `RecordedAtUtc` does not make time-on-site trustworthy — it makes the *trust
+visible*. Defending it properly would mean re-deriving a rep's day from data the server does not
+have, which is the same answer `BR-VIS-2` already gives about the geofence: never block the rep,
+always record.
 
 ---
 
