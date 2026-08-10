@@ -166,6 +166,42 @@ public class SyncPullTests(ServerFixture fixture)
     }
 
     [Fact]
+    public async Task An_outlet_reaches_the_device_with_the_code_its_tenant_calls_it_by()
+    {
+        // The snapshot carried a name and no code from W8 slice 3a until this. Nothing failed —
+        // which is the problem with the omission and the reason it took the W7+W8 demo to notice.
+        // A name is not an identifier: a chain has many shops called "Mega Image", and a device
+        // holding only names shows a rep a list they cannot tell apart and names a shop the back
+        // office cannot match to a row.
+        //
+        // Two outlets, identical names, different codes — because a test with one outlet passes
+        // against a device that shows the name and drops the code. This one cannot.
+        using var rep = fixture.CreateAuthenticatedClient(fixture.AccessToken);
+        using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var channelId = await ChannelAsync(admin);
+
+        var firstCode = Unique("TWIN-A");
+        var secondCode = Unique("TWIN-B");
+
+        var first = await OutletAsync(admin, channelId, firstCode, "Mega Image Dorobanți");
+        var second = await OutletAsync(admin, channelId, secondCode, "Mega Image Dorobanți");
+
+        await GiveRepTheTerritoryAsync(admin, rep, first, second);
+
+        var device = await BindDeviceAsync(rep);
+        var pull = await PullAsync(rep, device);
+
+        Assert.Equal(
+            firstCode,
+            Assert.Single(pull.Changes.Outlets.Upserts, outlet => outlet.Id == first).Code);
+
+        Assert.Equal(
+            secondCode,
+            Assert.Single(pull.Changes.Outlets.Upserts, outlet => outlet.Id == second).Code);
+    }
+
+    [Fact]
     public async Task A_second_pull_at_the_cursor_carries_only_what_changed_since()
     {
         using var rep = fixture.CreateAuthenticatedClient(fixture.AccessToken);
@@ -256,7 +292,8 @@ public class SyncPullTests(ServerFixture fixture)
     /// assignment covering today — against the subject in the token rather than a synthetic rep,
     /// because the pull scopes to whoever the token says is asking.
     /// </summary>
-    private static async Task<Guid> GiveRepTheTerritoryAsync(HttpClient admin, HttpClient rep, Guid outletId)
+    private static async Task<Guid> GiveRepTheTerritoryAsync(
+        HttpClient admin, HttpClient rep, params Guid[] outletIds)
     {
         var me = await rep.GetFromJsonAsync<WhoAmIResponse>("/api/auth/whoami");
 
@@ -282,7 +319,7 @@ public class SyncPullTests(ServerFixture fixture)
         var territoryId = (await territory.Content.ReadFromJsonAsync<TerritoryResponse>())!.Id;
 
         await admin.PostAsJsonAsync(
-            $"/api/org/territories/{territoryId}/outlets", new AssignOutletsRequest([outletId]));
+            $"/api/org/territories/{territoryId}/outlets", new AssignOutletsRequest(outletIds));
 
         // Open-ended from a fixed date in the past. The pull asks IRepScope for *today*, so a window
         // that starts tomorrow or ended yesterday produces exactly the empty page the other tests
@@ -299,15 +336,26 @@ public class SyncPullTests(ServerFixture fixture)
 
     private sealed record WhoAmIResponse(string Subject);
 
-    private static async Task<Guid> OutletAsync(HttpClient client)
+    private static async Task<Guid> ChannelAsync(HttpClient client)
     {
         var channel = await client.PostAsJsonAsync(
             "/api/outlets/channels", new ChannelRequest(Unique("Channel")));
-        var channelId = (await channel.Content.ReadFromJsonAsync<ChannelResponse>())!.Id;
 
+        return (await channel.Content.ReadFromJsonAsync<ChannelResponse>())!.Id;
+    }
+
+    private static async Task<Guid> OutletAsync(HttpClient client) =>
+        await OutletAsync(client, await ChannelAsync(client), Unique("OUT"), "Corner Shop");
+
+    /// <summary>
+    /// An outlet whose code and name the caller chose — for the one test where the difference
+    /// between the two is the thing under test.
+    /// </summary>
+    private static async Task<Guid> OutletAsync(HttpClient client, Guid channelId, string code, string name)
+    {
         var response = await client.PostAsJsonAsync(
             "/api/outlets",
-            new CreateOutletRequest(Unique("OUT"), "Corner Shop", channelId, "Europe/Bucharest", null));
+            new CreateOutletRequest(code, name, channelId, "Europe/Bucharest", null));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<OutletResponse>())!.Id;

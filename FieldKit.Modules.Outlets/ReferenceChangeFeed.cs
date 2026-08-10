@@ -40,6 +40,7 @@ internal sealed class ReferenceChangeFeed(OutletsDbContext db) : IReferenceChang
             .Take(limit)
             .Select(outlet => new OutletSnapshot(
                 outlet.Id,
+                outlet.Code,
                 outlet.Name,
                 outlet.ChannelId,
                 outlet.Segment,
@@ -92,6 +93,7 @@ internal sealed class ReferenceChangeFeed(OutletsDbContext db) : IReferenceChang
             .Take(limit)
             .Select(outlet => new OutletSnapshot(
                 outlet.Id,
+                outlet.Code,
                 outlet.Name,
                 outlet.ChannelId,
                 outlet.Segment,

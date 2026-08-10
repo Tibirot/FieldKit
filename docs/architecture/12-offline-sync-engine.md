@@ -102,6 +102,26 @@ CPU — and it got slower exactly as a rep’s offline day got longer. There is 
 `upgrade()` callback**: Dexie builds a new index by walking the rows, nothing about them changes, and
 an empty upgrade block is a hook somebody later fills in by accident.
 
+**Version 3 changes no schema at all, and that is the interesting part.** `OutletSnapshot` gained
+`code` — the tenant's own identifier for a shop, which the device had been doing without — so every
+outlet row already on a device is stale in a way the delta cannot repair: the pull only carries
+outlets whose row version moved, so an unedited shop keeps its codeless row until somebody in the
+back office happens to touch it. Indefinitely, and differently per device.
+
+So the migration is one line — delete the `outlets` watermark — and the next pull re-baselines from
+cursor 0. Three things about it are the pattern for the next time a snapshot grows a field:
+
+- **A wire change can need a store version even when the store's shape is unchanged.** Dexie versions
+  index *schemas*; what went stale here is *content*, one layer up.
+- **Only that entity's watermark.** Clearing all of them would re-download the catalogue, the prices
+  and the promotions to fix a field on one entity — the exact cost the per-entity cursors in §3 exist
+  to avoid.
+- **The rows are left in place, not deleted.** A device that goes offline between the update and the
+  next successful pull keeps a territory it can still work — a name and no code, which is what it had
+  yesterday — where an emptied store would give a rep an app with no shops in it and no way back
+  until they found signal. It is self-healing either way: if the pull never lands, the watermark is
+  still 0 and the next one tries again.
+
 **The blob store is not built yet**, deliberately — photo upload is `OFF-08`/W11, and a store with
 no writer is a schema version spent on nothing.
 

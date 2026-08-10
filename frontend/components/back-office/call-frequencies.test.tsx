@@ -201,6 +201,42 @@ describe("<CallFrequencies>", () => {
     expect(screen.queryByText("outlet-1")).toBeNull();
   });
 
+  it("shows the shop's code, because a name is not an identifier", async () => {
+    // Two shops, one name, different codes — which is ordinary in FMCG and is what this screen
+    // could not represent. The row said "Mega Image Dorobanți" twice and so did both Save buttons,
+    // so neither a reader nor a screen reader could tell which rule they were editing.
+    fetchOutletFrequencies.mockResolvedValue([
+      OVERRIDE,
+      { outletId: "outlet-2", visitsPerCycle: 2, cycleLengthDays: 7 },
+    ]);
+    fetchOutlet.mockImplementation((_token: string, id: string) =>
+      Promise.resolve(
+        id === "outlet-1"
+          ? { id: "outlet-1", code: "RO-BUC-0001", name: "Mega Image Dorobanți" }
+          : { id: "outlet-2", code: "RO-BUC-0009", name: "Mega Image Dorobanți" },
+      ),
+    );
+
+    render(<CallFrequencies />);
+    await ready();
+
+    expect(await screen.findByText("RO-BUC-0001")).toBeTruthy();
+    expect(screen.getByText("RO-BUC-0009")).toBeTruthy();
+
+    // The controls too. `getByRole` throws on more than one match, so these two calls are the
+    // assertion: before the code was in the accessible name, both of them found two buttons.
+    expect(
+      screen.getByRole("button", {
+        name: "Save the override for Mega Image Dorobanți (RO-BUC-0001)",
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", {
+        name: "Remove the override for Mega Image Dorobanți (RO-BUC-0009)",
+      }),
+    ).toBeTruthy();
+  });
+
   it("keeps an override whose shop could not be read", async () => {
     // The rule exists server-side whether or not this screen could name the shop. Dropping the row
     // would hide a rule that is still planning visits.
@@ -210,6 +246,10 @@ describe("<CallFrequencies>", () => {
     await ready();
 
     expect(await screen.findByText("Unknown shop")).toBeTruthy();
+
+    // Carrying its id where its code would be, rather than a blank: the row has to stay
+    // distinguishable from the next unreadable one.
+    expect(screen.getByText("outlet-1")).toBeTruthy();
   });
 
   it("removes an override rather than copying the segment's numbers into it", async () => {
@@ -219,7 +259,7 @@ describe("<CallFrequencies>", () => {
     await ready();
 
     await userEvent.click(
-      await screen.findByRole("button", { name: "Remove the override for Corner Shop" }),
+      await screen.findByRole("button", { name: "Remove the override for Corner Shop (RO-BUC-0001)" }),
     );
 
     await waitFor(() => expect(deleteOutletFrequency).toHaveBeenCalledWith("token", "outlet-1"));
@@ -287,7 +327,7 @@ describe("<CallFrequencies>", () => {
 
     await userEvent.type(screen.getByLabelText("Find a shop"), "kiosk");
     await userEvent.click(
-      await screen.findByRole("button", { name: "Add an override for Kiosk 1 Mai" }),
+      await screen.findByRole("button", { name: "Add an override for Kiosk 1 Mai (RO-BUC-0002)" }),
     );
 
     expect(await screen.findByText("Not saved yet")).toBeTruthy();
@@ -297,18 +337,18 @@ describe("<CallFrequencies>", () => {
     // screen three times (chip, search result, row) with two buttons that both said "discard",
     // attached to different pieces of state. Found in the browser.
     expect(
-      screen.getAllByRole("button", { name: "Discard the override for Kiosk 1 Mai" }),
+      screen.getAllByRole("button", { name: "Discard the override for Kiosk 1 Mai (RO-BUC-0002)" }),
     ).toHaveLength(1);
 
     // And adding it again from the search does not open a second row.
-    await userEvent.click(screen.getByRole("button", { name: "Add an override for Kiosk 1 Mai" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add an override for Kiosk 1 Mai (RO-BUC-0002)" }));
 
     expect(
-      screen.getAllByRole("button", { name: "Discard the override for Kiosk 1 Mai" }),
+      screen.getAllByRole("button", { name: "Discard the override for Kiosk 1 Mai (RO-BUC-0002)" }),
     ).toHaveLength(1);
 
     await userEvent.click(
-      screen.getByRole("button", { name: "Save the override for Kiosk 1 Mai" }),
+      screen.getByRole("button", { name: "Save the override for Kiosk 1 Mai (RO-BUC-0002)" }),
     );
 
     await waitFor(() =>
