@@ -665,6 +665,7 @@ the protocol.
 | 5 | **`/sync/push`, visits only** — a batch applied idempotently, a per-mutation result, refusals in the [ADR-0012](architecture/adr/0012-server-message-localization.md) code shape | `OFF-04`, `OFF-09` | 400 |
 | ~~4~~ | *Folded into 5.* The ledger's table and mapping shipped alone; **nothing could test it.** A ledger is only observably a ledger through the endpoint that consults it, and a test that resolved `IMutationLedger` from the container never got as far as a tenant — `KeycloakTenantContext` throws without a request. A slice whose only evidence is "it compiles" is not a slice | — | — |
 | 6 | **Client: the local store** — Dexie `ref_*`, `outbox` and `meta`; watermarks persisted where a crash cannot lose them | `OFF-02` | 350 |
+| | *Shipped with three things the spec's table left open: one database per tenant+subject, no `acked` status, and `watermarks` as its own store. `blobs` is not built — photo upload is W11, and a store with no writer is a schema version spent on nothing* | | |
 | 7 | **Client: the sync manager** — push, then pull, then reconcile; the round trip the week is judged on | `OFF-01`, `OFF-06` | 400 |
 
 **Week two — widening and hardening**

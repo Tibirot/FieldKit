@@ -66,6 +66,11 @@ Per [B8](../product/decisions-and-assumptions.md#b8--privacy--gdpr-posture):
   — a compromised device exposes one rep's territory, not the tenant.
 - IndexedDB is same-origin; sensitive tokens kept in memory/secure storage, not plain
   localStorage.
+- **The local store is one database per tenant *and* signed-in subject** (`fieldkit:<tenant>:<subject>`,
+  W8 slice 6). Same-origin is not enough on its own: a shared tablet is one origin, and a rep signing
+  in after a colleague would otherwise read a store scoped to somebody else's territory. Separating
+  by database rather than by a column means the isolation cannot be lost to a missing filter, and
+  sign-out becomes a delete rather than a sweep.
 
 ## 6. Application security baseline
 
