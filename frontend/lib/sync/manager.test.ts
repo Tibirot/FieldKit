@@ -153,6 +153,31 @@ describe("binding a device", () => {
     db.close();
   });
 
+  it("binds once for two callers who arrive together, not once each", async () => {
+    // The test above passes on a sequential pair and says nothing about a concurrent one, which is
+    // the case that actually happens: React double-invokes effects in development, and that is two
+    // callers reaching the stored-id check before either has written an id. Both miss, both post,
+    // and the second is refused by the unique index behind "one active device per rep" — reported
+    // as a 500. Found in the browser on the field shell's first launch (W9 slice 1).
+    const db = freshDatabase();
+    vi.stubGlobal("navigator", { userAgent: "Mozilla/5.0", storage: {} });
+
+    // Held open so both callers are genuinely in flight at once rather than merely interleaved.
+    let bound: (device: { id: string }) => void = () => {};
+    api.bindDevice.mockReturnValue(new Promise<{ id: string }>((resolve) => (bound = resolve)));
+
+    const first = ensureDevice(db, TOKEN);
+    const second = ensureDevice(db, TOKEN);
+
+    bound({ id: DEVICE });
+
+    expect(await first).toBe(DEVICE);
+    expect(await second).toBe(DEVICE);
+    expect(api.bindDevice).toHaveBeenCalledOnce();
+
+    db.close();
+  });
+
   it("asks for persistent storage on the first bind, while the answer is still useful", async () => {
     const persist = vi.fn().mockResolvedValue(true);
     vi.stubGlobal("navigator", {

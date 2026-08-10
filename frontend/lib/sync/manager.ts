@@ -63,16 +63,46 @@ export type SyncResult = {
 };
 
 /**
+ * The bind in flight for one database, so two callers cannot each start one.
+ *
+ * <b>Binding is a write, and the check that guards it is a *read that has already happened*.</b>
+ * Two callers arriving together both miss the stored id and both post — and the second one is
+ * refused by the unique index that makes "one active device per rep" true, which the server reports
+ * as a 500. Found in the browser: React's development double-invocation of effects is exactly two
+ * callers arriving together, and it turned the field shell's first launch into a bind, a swap, and
+ * an error screen.
+ *
+ * Keyed by database name rather than a single slot, because the name is per tenant *and* subject —
+ * two reps signed in on one browser are two devices, and collapsing them would give the second one
+ * the first one's id.
+ */
+const binding = new Map<string, Promise<string>>();
+
+/**
  * Makes sure this browser is a registered device, and remembers which one (`OFF-12`).
  *
  * The id is stored in `meta`, so a device binds once and not once per launch. Rebinding on every
  * start would deactivate the previous registration as a swap on every start, and a rep would spend
  * their life being told to sync again from zero.
+ *
+ * Once *per launch* is not the same as once *per caller*, which is what {@link binding} is for.
  */
 export async function ensureDevice(db: FieldKitDatabase, accessToken: string): Promise<string> {
   const known = await db.meta.get("deviceId");
   if (known) return known.value;
 
+  // Checked and set with no `await` between them, so there is no point for a second caller to
+  // interleave: whoever gets here first owns the request and everyone else waits on it.
+  const started = binding.get(db.name);
+  if (started) return started;
+
+  const bind = mint(db, accessToken).finally(() => binding.delete(db.name));
+  binding.set(db.name, bind);
+
+  return bind;
+}
+
+async function mint(db: FieldKitDatabase, accessToken: string): Promise<string> {
   const device = await bindDevice(accessToken, deviceName());
 
   /*
@@ -352,6 +382,17 @@ export function startSync(
   db: FieldKitDatabase,
   accessToken: () => string | null,
   deviceId: string,
+  /**
+   * Told about every run's result, whoever started it (`OFF-05`).
+   *
+   * <b>Added when the field shell mounted this for the first time (W9 slice 1), because without it
+   * one of the indicator's states was unreachable.</b> A run the rep asks for reports back through
+   * the promise; a run triggered by `online` had nowhere to report to — the note on `onOnline`
+   * below said exactly that about failures and it was equally true of results. So a device rejected
+   * during a reconnect sync left the app looking healthy while it had silently stopped pulling,
+   * which is the one failure `deviceRejected` exists to make visible.
+   */
+  onResult?: (result: SyncResult) => void,
 ): SyncManager {
   let running: Promise<SyncResult> | null = null;
 
@@ -380,9 +421,22 @@ export function startSync(
       }
 
       return syncOnce(db, token, deviceId);
-    })().finally(() => {
-      running = null;
-    });
+    })()
+      .then((result) => {
+        // Inside the chain rather than in `finally`, so a caller cannot observe the result before
+        // the observer does — the indicator and the promise describe the same run, in that order.
+        // Guarded because an observer that throws must not turn a completed sync into a failed one.
+        try {
+          onResult?.(result);
+        } catch {
+          // A UI that cannot record the outcome is a UI problem; the work still reached the server.
+        }
+
+        return result;
+      })
+      .finally(() => {
+        running = null;
+      });
 
     return running;
   };

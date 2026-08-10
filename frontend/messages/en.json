@@ -91,15 +91,7 @@
     }
   },
   "BackOffice": {
-    "restoring": "Restoring your session…",
-    "redirecting": "Taking you to sign in…",
-    "signOut": "Sign out",
-    "expired": {
-      "title": "Your session has expired",
-      "body": "You have been signed out for security. Sign in again to pick up where you left off.",
-      "signIn": "Sign in again",
-      "signingIn": "Signing in…"
-    }
+    "signOut": "Sign out"
   },
   "Outlets": {
     "crumb": "Master data / Outlets",
@@ -1161,5 +1153,41 @@
     "rebind": "Register this device again to sync",
     "itemPending": "Not synced",
     "itemFailed": "Needs attention"
+  },
+  "Field": {
+    "title": "FieldKit",
+    "signOut": "Sign out",
+    "opening": "Opening your device…",
+    "binding": "Setting up this device…",
+    "unbindable": {
+      "title": "This device needs a connection once",
+      "body": "A device is registered with the back office before it can work offline. Connect to the internet and try again — after that, this app works with no signal.",
+      "retry": "Try again"
+    },
+    "rebind": {
+      "title": "This device is no longer the active one",
+      "body": "Your account was set up on another device, so this one has stopped syncing. Register it again to carry on — nothing captured here is lost, including the {count, plural, =0 {no items} one {one item} other {# items}} waiting to be sent.",
+      "action": "Register this device again",
+      "working": "Registering…"
+    },
+    "status": {
+      "title": "This device",
+      "intro": "What is on it, and whether the back office has your work.",
+      "outlets": "Shops held",
+      "pending": "Waiting to send",
+      "lastSync": "Last synced",
+      "never": "Never"
+    }
+  },
+  "Guard": {
+    "restoring": "Restoring your session…",
+    "redirecting": "Taking you to sign in…",
+    "signOut": "Sign out",
+    "expired": {
+      "title": "Your session has expired",
+      "body": "You have been signed out for security. Sign in again to pick up where you left off.",
+      "signIn": "Sign in again",
+      "signingIn": "Signing in…"
+    }
   }
 }

@@ -88,7 +88,19 @@ export function SyncProvider({
   const [manager, setManager] = useState<SyncManager | null>(null);
 
   useEffect(() => {
-    const started = startSync(db, () => token.current, deviceId);
+    /*
+     * The outcome is recorded by the *manager's* observer, not by `syncNow` below, so that a run
+     * nobody pressed a button for is reported too.
+     *
+     * It was the other way round until the field shell mounted this (W9 slice 1), and the state
+     * that suffered was `deviceRejected`: a device replaced elsewhere is discovered by whichever
+     * run happens next, which on a phone is almost always the one `online` triggers. Recording only
+     * the button's runs left the app looking healthy while it had quietly stopped pulling.
+     */
+    const started = startSync(db, () => token.current, deviceId, (result) =>
+      setOutcome(result.interrupted),
+    );
+
     setManager(started);
 
     return () => started.stop();
@@ -102,12 +114,12 @@ export function SyncProvider({
     setRunning(true);
 
     try {
-      const result = await manager.syncNow();
-      setOutcome(result.interrupted);
+      await manager.syncNow();
     } catch {
-      // A storage failure throws where a transport failure returns. Both leave the rep with work
-      // still queued, and the indicator says so through `pending` — what this must not do is take
-      // the screen down with it.
+      // A storage failure throws where a transport failure returns — and a throw never reaches the
+      // observer, so this is the one outcome the button still has to record itself. Both leave the
+      // rep with work queued, which the indicator says through `pending`; what this must not do is
+      // take the screen down with it.
       setOutcome("failed");
     } finally {
       setRunning(false);
