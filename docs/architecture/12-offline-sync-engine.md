@@ -122,6 +122,17 @@ cursor 0. Three things about it are the pattern for the next time a snapshot gro
   until they found signal. It is self-healing either way: if the pull never lands, the watermark is
   still 0 and the next one tries again.
 
+**Version 4 is version 3 again, for `radiusMetres`** (W9 slice 2) — and the duplication is the
+lesson rather than a smell. Dexie does **not** replay a version a database has already seen, so
+editing version 3 to cover the new field would leave every device already on 3 holding outlets
+without it, forever. A second identical upgrade costs a device that jumps 2 → 4 one redundant
+`delete`, and is the only thing that reaches a device sitting on 3.
+
+Why that field is worth a re-baseline when a stale outlet is usually harmless: the device assesses
+the geofence and `IVisitIngest` stores its verdict **unmodified**, so an outlet row with no radius
+produces a check-in classified against `undefined` that nothing downstream ever re-checks. **A
+re-baseline is cheap; a wrong answer a rep cannot see is not.**
+
 **The blob store is not built yet**, deliberately — photo upload is `OFF-08`/W11, and a store with
 no writer is a schema version spent on nothing.
 

@@ -47,6 +47,7 @@ internal sealed class ReferenceChangeFeed(OutletsDbContext db) : IReferenceChang
                 outlet.Status.ToString(),
                 outlet.Latitude,
                 outlet.Longitude,
+                IOutletGeofence.DefaultRadiusMetres,
                 outlet.RowVersion))
             .ToListAsync(cancellationToken);
 
@@ -100,6 +101,7 @@ internal sealed class ReferenceChangeFeed(OutletsDbContext db) : IReferenceChang
                 outlet.Status.ToString(),
                 outlet.Latitude,
                 outlet.Longitude,
+                IOutletGeofence.DefaultRadiusMetres,
                 outlet.RowVersion))
             .ToListAsync(cancellationToken);
     }

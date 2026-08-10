@@ -24,6 +24,15 @@ export type ReferenceOutlet = {
   status: string;
   latitude: number | null;
   longitude: number | null;
+  /**
+   * How close counts as at the shop (`OUT-08`), sent per outlet though constant server-side today.
+   *
+   * The device assesses the geofence itself — a rep in a shop with no signal still has to be told
+   * whether they are inside it — and the server stores that verdict unmodified, so this number is
+   * an *input to a record nothing will re-check*. Holding it as a TypeScript constant would agree
+   * with the server exactly until `OUT-08` makes it per-outlet, and then disagree silently.
+   */
+  radiusMetres: number;
   rowVersion: number;
 };
 
@@ -421,6 +430,27 @@ export class FieldKitDatabase extends Dexie {
      * an app with no shops in it and no way to get them back until they found signal.
      */
     this.version(3)
+      .stores({})
+      .upgrade((tx) => tx.table("watermarks").delete("outlets"));
+
+    /*
+     * Version 4 — `OutletSnapshot` gained `radiusMetres`, which is version 3 again for a new field.
+     *
+     * <b>Two versions doing the same thing is the point, not a smell.</b> A device that upgrades
+     * straight from 2 to 4 runs both and clears the same watermark twice, which costs nothing; a
+     * device already on 3 runs only this one and gets the re-baseline it needs. Folding them into
+     * one version by editing 3 would be the mistake — Dexie skips a version a database has already
+     * seen, so a device on 3 would never re-fetch, and the field it is missing is the one the
+     * geofence check reads.
+     *
+     * <b>Why this field is worth a re-baseline at all</b>, when a stale outlet is usually harmless:
+     * the device assesses the geofence, and `IVisitIngest` stores its verdict *unmodified*. An
+     * outlet row with no radius makes that assessment on `undefined` — every check-in either inside
+     * or outside depending on how the comparison coerces — and nothing downstream re-checks it. The
+     * rule the sync engine takes from this: a re-baseline is cheap, and a wrong answer a rep cannot
+     * see is not.
+     */
+    this.version(4)
       .stores({})
       .upgrade((tx) => tx.table("watermarks").delete("outlets"));
 
