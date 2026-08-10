@@ -9,7 +9,15 @@ import {
   pending,
   reclaimInflight,
 } from "./outbox";
-import { applyJourneyChanges, applyOutletChanges, JOURNEYS, OUTLETS, watermark } from "./reference";
+import {
+  applyConfigurationChanges,
+  applyJourneyChanges,
+  applyOutletChanges,
+  CONFIGURATION,
+  JOURNEYS,
+  OUTLETS,
+  watermark,
+} from "./reference";
 
 /**
  * How many mutations go in one push.
@@ -193,6 +201,7 @@ async function refresh(
   const cursors = {
     outlets: await watermark(db, OUTLETS),
     journeys: await watermark(db, JOURNEYS),
+    configuration: await watermark(db, CONFIGURATION),
   };
 
   let response;
@@ -202,12 +211,13 @@ async function refresh(
     return classify(error);
   }
 
-  const { outlets, journeys } = response.changes;
+  const { outlets, journeys, configuration } = response.changes;
 
   // Two transactions, not one. Failing to store the round must not undo outlets that already
   // landed — a device that got half a pull keeps the half it got, and asks for the rest next time.
   await applyOutletChanges(db, outlets, response.snapshotVersion);
   await applyJourneyChanges(db, journeys);
+  await applyConfigurationChanges(db, configuration);
 
   await db.meta.put({ key: "lastSyncAt", value: String(Date.now()) });
 

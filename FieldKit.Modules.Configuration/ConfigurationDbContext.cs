@@ -13,6 +13,9 @@ public sealed class ConfigurationDbContext(
 
     protected override string Schema => SchemaName;
 
+    /// <summary>VisitWorkflow is <c>ISyncTracked</c>, so this schema owns a row-version counter (ADR-0013).</summary>
+    protected override bool TracksSyncChanges => true;
+
     public DbSet<FieldDefinition> FieldDefinitions => Set<FieldDefinition>();
 
     public DbSet<VisitWorkflow> VisitWorkflows => Set<VisitWorkflow>();

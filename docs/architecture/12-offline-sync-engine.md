@@ -51,7 +51,7 @@ flowchart LR
 
 | Store | Kind | Contents |
 |---|---|---|
-| `ref_*` (built: `ref_outlets`, `ref_planned_visits`; planned: `ref_products`, `ref_prices`, `ref_templates`) | Reference (read-only) | Rep-scoped snapshot; server-authoritative. What each is scoped *by* differs — see §3 |
+| `ref_*` (built: `ref_outlets`, `ref_planned_visits`, `ref_visit_workflows`; planned: `ref_products`, `ref_prices`) | Reference (read-only) | Rep-scoped snapshot; server-authoritative. What each is scoped *by* differs — see §3 |
 | `outbox` | Mutations | `{ mutationId, type, payload, status, createdAt, attempts, error? }` |
 | `blobs` | Binaries | Downscaled photos awaiting upload, keyed by mutation + slot |
 | `watermarks` | Sync state | How far the device has been told about one entity |
@@ -143,6 +143,7 @@ row is it*, and the answer changes what the feed's interface has to look like:
 |---|---|---|
 | `outlets` | The rep's **territory**, as of today ([`IReferenceChangeFeed`](../../FieldKit.Modules.Outlets.Contracts/IReferenceChangeFeed.cs)) | **Yes** |
 | `journeys` | The rep named on the **plan** ([`IJourneyChangeFeed`](../../FieldKit.Modules.Journey.Contracts/IJourneyChangeFeed.cs)) | No |
+| `configuration` | **Nothing** — every device gets every visit workflow ([`IVisitWorkflowFeed`](../../FieldKit.Modules.Configuration.Contracts/IVisitWorkflowFeed.cs)) | No |
 
 A **baseline** call — "hand me these rows whatever their version" — exists because an outlet can
 enter a rep's territory *without being edited*, carrying a row version far below the device's cursor,
@@ -159,6 +160,27 @@ shop leaving a territory is not a delete and Outlets has nothing to report. Jour
 all: nothing deletes a planned call (`BR-JRN-2` — a missed call becomes `NotVisited`, which is an
 update), and a tombstone could not be attributed to a rep even if one existed, since the row that
 said whose it was is the row that is gone.
+
+**Scoping to nothing is a real answer, and for configuration it is the right one.** Visit workflows
+*could* be narrowed to the channels of the rep's outlets. That was rejected on both of its costs: it
+would reintroduce the membership problem the outlet baseline exists to work around — moving one shop
+to another channel puts a workflow in scope *without editing it*, so a pure delta would never send
+it — and it would do so to save a payload of a handful of rows a tenant's own administrators wrote.
+There is nothing in a workflow that one rep may see and another may not. **The cheapest correct scope
+is sometimes no scope**, and a narrowing that buys nothing costs a whole class of bug.
+
+**A workflow's steps travel inside it, not as a fourth entity type.** A workflow is only ever useful
+whole: a device holding four of five steps would run a visit that silently asks for less than the
+tenant configured, and `BR-VIS-3` would gate check-out on a mandatory step it never received. Sending
+the aggregate as one row makes a partial workflow unrepresentable rather than merely unlikely — and
+the row version therefore lives on the workflow, not the step. That is safe because every edit goes
+through `VisitWorkflow.Set`, which writes `ModifiedAtUtc` and so marks the root modified whatever the
+steps did.
+
+**Enums cross the wire by name.** Serialised, an enum is an *ordinal*: inserting a value into the
+middle of `VisitStepType` would silently reinterpret every workflow already stored on every device,
+and the device would open the wrong sub-flow with no error anywhere. The name is the stable thing, so
+the name is what travels — the same rule `PlannedVisitSnapshot`'s status and source follow.
 
 **Journeys are pruned on the device, by date, and are not windowed on the server.** A server-side
 date window would make the passage of midnight a membership change with no row version behind it —

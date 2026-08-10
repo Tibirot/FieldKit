@@ -15,11 +15,13 @@ import { ensureDevice, startSync, syncOnce } from "./manager";
 import { enqueue, pending } from "./outbox";
 import {
   applyOutletChanges,
+  CONFIGURATION,
   JOURNEYS,
   outlet,
   OUTLETS,
   plannedVisits,
   watermark,
+  workflowFor,
 } from "./reference";
 
 const api = vi.hoisted(() => ({
@@ -31,6 +33,7 @@ const api = vi.hoisted(() => ({
 vi.mock("@/lib/api/sync", () => api);
 
 const DEVICE = "device-1";
+const CHANNEL = "11111111-1111-4111-8111-111111111111";
 const TOKEN = "token";
 
 function freshDatabase(): FieldKitDatabase {
@@ -56,6 +59,7 @@ function emptyPull(cursor = 0) {
     changes: {
       outlets: { upserts: [], tombstones: [], cursor },
       journeys: { upserts: [], tombstones: [], cursor: 0 },
+      configuration: { upserts: [], tombstones: [], cursor: 0 },
     },
     snapshotVersion: `outlets#${cursor}`,
   };
@@ -219,6 +223,7 @@ describe("one sync run", () => {
       changes: {
         outlets: { upserts: [outletRow("outlet-1", 9)], tombstones: [], cursor: 9 },
         journeys: { upserts: [], tombstones: [], cursor: 0 },
+        configuration: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -242,6 +247,7 @@ describe("one sync run", () => {
       changes: {
         outlets: { upserts: [outletRow("outlet-1", 9)], tombstones: [], cursor: 9 },
         journeys: { upserts: [plannedVisitRow("call-1", 3)], tombstones: [], cursor: 3 },
+        configuration: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -256,6 +262,91 @@ describe("one sync run", () => {
     db.close();
   });
 
+  it("stores a workflow whole, with its steps and its own watermark", async () => {
+    // The steps travel inside the workflow rather than as a fourth entity. A device holding four of
+    // five steps would run a visit asking for less than the tenant configured, and BR-VIS-3 would
+    // gate check-out on a mandatory step it never received.
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValue({
+      changes: {
+        outlets: { upserts: [], tombstones: [], cursor: 0 },
+        journeys: { upserts: [], tombstones: [], cursor: 0 },
+        configuration: {
+          upserts: [
+            {
+              id: "workflow-1",
+              channelId: CHANNEL,
+              presenceExpected: true,
+              steps: [
+                { order: 1, type: "Audit", mandatory: true, label: "Shelf check" },
+                { order: 2, type: "Note", mandatory: false, label: "Anything else" },
+              ],
+              rowVersion: 5,
+            },
+          ],
+          tombstones: [],
+          cursor: 5,
+        },
+      },
+      snapshotVersion: "outlets#0",
+    });
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    const stored = await workflowFor(db, CHANNEL);
+
+    expect(stored?.steps).toHaveLength(2);
+    expect(stored?.steps[0]).toMatchObject({ type: "Audit", mandatory: true });
+    expect(await watermark(db, CONFIGURATION)).toBe(5);
+
+    db.close();
+  });
+
+  it("drops a workflow the tenant deleted, and reports nothing for that channel", async () => {
+    // The device then falls back to the default — no steps, presence expected — which is the same
+    // answer the server gives for a channel nobody configured.
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValueOnce({
+      changes: {
+        outlets: { upserts: [], tombstones: [], cursor: 0 },
+        journeys: { upserts: [], tombstones: [], cursor: 0 },
+        configuration: {
+          upserts: [
+            { id: "workflow-1", channelId: CHANNEL, presenceExpected: true, steps: [], rowVersion: 5 },
+          ],
+          tombstones: [],
+          cursor: 5,
+        },
+      },
+      snapshotVersion: "outlets#0",
+    });
+
+    await syncOnce(db, TOKEN, DEVICE);
+    expect(await workflowFor(db, CHANNEL)).toBeDefined();
+
+    api.pull.mockResolvedValueOnce({
+      changes: {
+        outlets: { upserts: [], tombstones: [], cursor: 0 },
+        journeys: { upserts: [], tombstones: [], cursor: 0 },
+        configuration: {
+          upserts: [],
+          tombstones: [{ id: "workflow-1", rowVersion: 6 }],
+          cursor: 6,
+        },
+      },
+      snapshotVersion: "outlets#0",
+    });
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    expect(await workflowFor(db, CHANNEL)).toBeUndefined();
+    expect(await watermark(db, CONFIGURATION)).toBe(6);
+
+    db.close();
+  });
+
   it("keeps the outlets when storing the round fails", async () => {
     // Two transactions rather than one: a device that got half a pull keeps the half it got, and
     // asks for the rest next time. One transaction would throw the outlets away too.
@@ -265,6 +356,7 @@ describe("one sync run", () => {
       changes: {
         outlets: { upserts: [outletRow("outlet-1", 9)], tombstones: [], cursor: 9 },
         journeys: { upserts: [plannedVisitRow("call-1", 3)], tombstones: [], cursor: 3 },
+        configuration: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -287,7 +379,7 @@ describe("one sync run", () => {
 
     await syncOnce(db, TOKEN, DEVICE);
 
-    expect(api.pull).toHaveBeenCalledWith(TOKEN, DEVICE, { outlets: 4, journeys: 0 }, undefined);
+    expect(api.pull).toHaveBeenCalledWith(TOKEN, DEVICE, { outlets: 4, journeys: 0, configuration: 0 }, undefined);
 
     db.close();
   });

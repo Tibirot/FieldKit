@@ -1,4 +1,5 @@
 using FieldKit.BuildingBlocks;
+using FieldKit.Infrastructure;
 using FieldKit.Modules.Configuration.Contracts;
 using FieldKit.SharedKernel;
 
@@ -59,8 +60,20 @@ public sealed class VisitWorkflowStep : ITenantOwned
 /// screen, and makes it impossible to express anything else.
 /// </para>
 /// </remarks>
-public sealed class VisitWorkflow : AggregateRoot, ITenantOwned, IAuditable
+public sealed class VisitWorkflow : AggregateRoot, ITenantOwned, IAuditable, ISyncTracked
 {
+    /// <summary>
+    /// Set by the row-version interceptor, never here (ADR-0013).
+    /// </summary>
+    /// <remarks>
+    /// <b>On the root, and that is enough because the steps have no path of their own.</b> Every
+    /// edit goes through <see cref="Set"/>, which writes <c>ModifiedAtUtc</c> and therefore marks
+    /// this row modified whatever the steps did — so a workflow whose only change was a reordered
+    /// step still gets a new version. A step is not <c>ISyncTracked</c> on purpose: it is not
+    /// something a device holds separately, it is part of the workflow it arrives with.
+    /// </remarks>
+    public long RowVersion { get; set; }
+
     /// <summary>
     /// The most steps one visit can ask for.
     /// </summary>

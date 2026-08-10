@@ -54,6 +54,11 @@ public sealed class ConfigurationModule : IModule
 
         // …and how a visit is worked in a channel, which is how Visit will ask (VIS-03).
         services.AddScoped<IVisitWorkflow, VisitWorkflowCatalog>();
+
+        // Sync pages workflows to devices through this rather than reading the config schema
+        // (W8 slice 8b). Separate from the catalog above: one answers "how is this channel worked",
+        // the other "what changed since", and only the second needs a cursor.
+        services.AddScoped<IVisitWorkflowFeed, VisitWorkflowFeed>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

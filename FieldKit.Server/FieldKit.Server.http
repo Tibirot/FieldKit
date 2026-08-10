@@ -3527,13 +3527,15 @@ Content-Type: application/json
 # Note what each is scoped by. Outlets: the rep's *territory*, as of today. Journeys: the
 # rep named on the *plan* — a call at a shop that has since left their territory is still
 # their call, and scoping the round by outlet would hide exactly the one a supervisor would
-# ask about.
+# ask about. Configuration: *nothing* — every device gets every visit workflow, because
+# narrowing to the channels of a rep's outlets would make moving one shop a membership
+# change with no row version behind it, to save a handful of rows an admin wrote.
 
 POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
-{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 0, "journeys": 0 } }
+{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 0, "journeys": 0, "configuration": 0 } }
 
 ### A second pull at the cursor the first returned. Carries only what changed since —
 ### an unchanged tenant answers with an empty page and the same cursor.
@@ -3541,7 +3543,7 @@ POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
-{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 42, "journeys": 17 } }
+{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 42, "journeys": 17, "configuration": 3 } }
 
 ### A device that was replaced answers 409 `sync.pull.deviceInactive` — the client's job is
 ### to bind again, which re-snapshots from zero.
@@ -3549,7 +3551,7 @@ POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
-{ "deviceId": "{{revokedDeviceId}}", "cursors": { "outlets": 0, "journeys": 0 } }
+{ "deviceId": "{{revokedDeviceId}}", "cursors": { "outlets": 0, "journeys": 0, "configuration": 0 } }
 
 ### ── Sync · push (OFF-04) ──────────────────────────────────────────────────
 # The drain. Every mutation carries an id minted on the device, and the ledger answers a

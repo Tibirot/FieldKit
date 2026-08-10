@@ -1,6 +1,11 @@
 import type { Table } from "dexie";
 
-import type { FieldKitDatabase, ReferenceOutlet, ReferencePlannedVisit } from "./db";
+import type {
+  FieldKitDatabase,
+  ReferenceOutlet,
+  ReferencePlannedVisit,
+  ReferenceVisitWorkflow,
+} from "./db";
 
 /** An id the device must drop, and the version at which it stopped applying. */
 export type ReferenceTombstone = { id: string; rowVersion: number };
@@ -22,6 +27,7 @@ export type EntityChanges<T> = {
  */
 export const OUTLETS = "outlets";
 export const JOURNEYS = "journeys";
+export const CONFIGURATION = "configuration";
 
 /**
  * Applies one page of a pull (`OFF-02`, `OFF-03`, sync engine §3).
@@ -103,6 +109,19 @@ export function applyJourneyChanges(
 }
 
 /**
+ * The tenant's visit workflows.
+ *
+ * Its own transaction, like the round. Three entities, three cursors, three transactions: a device
+ * that got one page of a pull keeps it whatever happened to the others.
+ */
+export function applyConfigurationChanges(
+  db: FieldKitDatabase,
+  page: EntityChanges<ReferenceVisitWorkflow>,
+): Promise<void> {
+  return apply(db, "ref_visit_workflows", CONFIGURATION, page);
+}
+
+/**
  * How far this device has been told about an entity.
  *
  * `0` for an entity never pulled, which is the same thing the server reads as "I have nothing" —
@@ -149,4 +168,19 @@ export function plannedVisits(
  */
 export async function pruneJourney(db: FieldKitDatabase, before: string): Promise<number> {
   return db.plannedVisits.where("date").below(before).delete();
+}
+
+/**
+ * How visits are worked in one channel (`VIS-03`).
+ *
+ * <b>Undefined is an answer, not a failure.</b> The server returns a default for a channel nobody
+ * configured — no steps, presence expected — and the device has to reach the same conclusion for a
+ * channel whose workflow it has not been sent, or a rep would be stuck at a shop the back office
+ * considers perfectly ordinary. The caller supplies the default; this only says what is held.
+ */
+export function workflowFor(
+  db: FieldKitDatabase,
+  channelId: string,
+): Promise<ReferenceVisitWorkflow | undefined> {
+  return db.workflows.where("channelId").equals(channelId).first();
 }
