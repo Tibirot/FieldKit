@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using FieldKit.BuildingBlocks;
 using FieldKit.SharedKernel;
 using FieldKit.Web;
@@ -128,8 +129,17 @@ public sealed record BindDeviceRequest(string? Name);
 /// Whether the device was replaced or lost. It decides whether the device may still drain captured
 /// work, so it is required rather than defaulted — a default here would quietly pick a security
 /// posture on an administrator's behalf.
+/// <para>
+/// By name, which is not what it did: without the converter this took the ordinal, so an
+/// administrator revoking a stolen phone as <c>"Compromised"</c> got a 400 and <c>2</c> worked. On
+/// a field that decides whether a suspect device may still push, a spelling nobody can guess from
+/// the response — <see cref="DeviceResponse.DeactivatedBecause"/> is already a name — is worse than
+/// merely inconsistent.
+/// </para>
 /// </param>
-public sealed record RevokeDeviceRequest(DeactivationReason Reason);
+public sealed record RevokeDeviceRequest(
+    [property: JsonConverter(typeof(JsonStringEnumConverter<DeactivationReason>))]
+    DeactivationReason Reason);
 
 public sealed record DeviceResponse(
     Guid Id,

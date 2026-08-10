@@ -26,6 +26,32 @@ this doc is the **external** API.
   a plausible price. A .NET consumer needs the same converter; a TypeScript one reads the string and
   hands it to `decimal.js`, which is the point of the format.
 
+- **Enums cross the wire as names, never ordinals** — `"Audit"`, `"Compromised"`, `"Productive"`.
+  An ordinal makes the meaning depend on where a member happens to sit in a list, so inserting a
+  value silently reinterprets every stored and in-flight message that carried the old one; the
+  [sync engine](12-offline-sync-engine.md#3-pull-protocol-reference-delta) makes the same rule for
+  the same reason, and a device holding a name is a device an inserted enum value cannot corrupt.
+
+  **Unlike `Money`, this is attributed per property** (`[property: JsonConverter(typeof(JsonStringEnumConverter<T>))]`),
+  and the `Money` bullet above already says what is wrong with that: an attribute can be forgotten,
+  and forgetting it is silent. **Two were.** `VisitStepRequest.Type` and `RevokeDeviceRequest.Reason`
+  spent W7 and W8 accepting only the ordinal — `{"type":"Audit"}` was a `400` and `{"type":0}` was
+  the only thing that worked — while both endpoints' *responses* returned the name, and while
+  [`FieldKit.Server.http`](../../FieldKit.Server/FieldKit.Server.http) documented requests that
+  could not succeed as written.
+
+  Neither could be caught by the tests as they stood: every test posts the request record, so it
+  serialises through the same converter it deserialises through and agrees with itself whatever the
+  format is. The assertion that closes it is **raw JSON**, and it has to assert the *acceptance* —
+  a test that a bad name is refused passes against an endpoint that refuses every name. Both
+  endpoints now have the pair.
+
+  Registering one converter globally, as `Money` does, would remove the hazard rather than document
+  it, and nothing argues against it — no response DTO carries a bare enum today, so it would change
+  requests only. It is deliberately *not* part of the fix that found the two: changing how every
+  module binds its request bodies is a decision to take on its own evidence, not a rider on a
+  two-property correction.
+
 ## 2. Two API styles
 
 | Style | Used by | Characteristics |
