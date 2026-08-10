@@ -352,6 +352,17 @@ export function startSync(
   db: FieldKitDatabase,
   accessToken: () => string | null,
   deviceId: string,
+  /**
+   * Told about every run's result, whoever started it (`OFF-05`).
+   *
+   * <b>Added when the field shell mounted this for the first time (W9 slice 1), because without it
+   * one of the indicator's states was unreachable.</b> A run the rep asks for reports back through
+   * the promise; a run triggered by `online` had nowhere to report to — the note on `onOnline`
+   * below said exactly that about failures and it was equally true of results. So a device rejected
+   * during a reconnect sync left the app looking healthy while it had silently stopped pulling,
+   * which is the one failure `deviceRejected` exists to make visible.
+   */
+  onResult?: (result: SyncResult) => void,
 ): SyncManager {
   let running: Promise<SyncResult> | null = null;
 
@@ -380,9 +391,22 @@ export function startSync(
       }
 
       return syncOnce(db, token, deviceId);
-    })().finally(() => {
-      running = null;
-    });
+    })()
+      .then((result) => {
+        // Inside the chain rather than in `finally`, so a caller cannot observe the result before
+        // the observer does — the indicator and the promise describe the same run, in that order.
+        // Guarded because an observer that throws must not turn a completed sync into a failed one.
+        try {
+          onResult?.(result);
+        } catch {
+          // A UI that cannot record the outcome is a UI problem; the work still reached the server.
+        }
+
+        return result;
+      })
+      .finally(() => {
+        running = null;
+      });
 
     return running;
   };

@@ -433,6 +433,7 @@ Per [A8](../product/decisions-and-assumptions.md#a8--device--sync-behavior-one-a
 | Trigger | Mechanism | Guarantee |
 |---|---|---|
 | Reconnect | `online` event → sync manager | Primary guarantee |
+| **App open** | The field shell, on mount (W9 slice 1) | The ordinary morning. `online` fires when connectivity *changes*, so a rep opening the app on a working connection never triggers one — without this the first sync of the day waits for them to press a button to fetch the journey they opened the app to read |
 | Manual "Sync now" | User action | Always available — **including when the device believes it is offline**, because `navigator.onLine` is a guess and a disabled button would make the app’s wrong guess final (W8 slice 13) |
 | Periodic background | Background Sync API where supported | Best-effort (iOS PWA-limited) |
 
@@ -447,6 +448,12 @@ that sentence:**
   starting a second. Two concurrent runs push the same batch twice — harmless server-side thanks to
   the ledger, but it doubles traffic on the one connection the rep is short of, and the second run's
   pull can apply an older page over a newer one.
+- **Every run reports its outcome, whoever started it** (W9 slice 1). A run the rep asked for
+  answers through its promise; a run triggered by `online` had nowhere to report to, so the UI only
+  ever learned about the button's runs. The state that suffered was `deviceRejected` — a device
+  replaced elsewhere is discovered by whichever run happens next, which on a phone is almost always
+  the reconnect one, and the app went on looking healthy while it had silently stopped pulling. The
+  manager now takes an observer and the provider is its only caller.
 - **A failed push cancels the pull.** The pull would be refused for the same reason and fail the
   same way; one request is enough to learn the answer.
 - **A lost batch returns to `pending` immediately**, rather than waiting for the startup reclaim. We

@@ -91,15 +91,7 @@
     }
   },
   "BackOffice": {
-    "restoring": "Se restaurează sesiunea…",
-    "redirecting": "Te ducem la autentificare…",
-    "signOut": "Deconectare",
-    "expired": {
-      "title": "Sesiunea a expirat",
-      "body": "Ai fost deconectat din motive de securitate. Autentifică-te din nou pentru a continua de unde ai rămas.",
-      "signIn": "Autentifică-te din nou",
-      "signingIn": "Se autentifică…"
-    }
+    "signOut": "Deconectare"
   },
   "Outlets": {
     "crumb": "Date de bază / Puncte de vânzare",
@@ -1161,5 +1153,41 @@
     "rebind": "Înregistrează din nou acest dispozitiv pentru a sincroniza",
     "itemPending": "Nesincronizat",
     "itemFailed": "Necesită atenție"
+  },
+  "Field": {
+    "title": "FieldKit",
+    "signOut": "Deconectare",
+    "opening": "Se deschide dispozitivul…",
+    "binding": "Se configurează acest dispozitiv…",
+    "unbindable": {
+      "title": "Dispozitivul are nevoie de conexiune o singură dată",
+      "body": "Un dispozitiv este înregistrat la sediu înainte de a putea lucra offline. Conectează-te la internet și încearcă din nou — după aceea, aplicația merge fără semnal.",
+      "retry": "Încearcă din nou"
+    },
+    "rebind": {
+      "title": "Acest dispozitiv nu mai este cel activ",
+      "body": "Contul tău a fost configurat pe alt dispozitiv, așa că acesta a încetat să se sincronizeze. Înregistrează-l din nou pentru a continua — nimic din ce ai capturat aici nu se pierde, inclusiv {count, plural, =0 {niciun element} one {un element} few {# elemente} other {# de elemente}} în așteptare.",
+      "action": "Înregistrează din nou dispozitivul",
+      "working": "Se înregistrează…"
+    },
+    "status": {
+      "title": "Acest dispozitiv",
+      "intro": "Ce are pe el și dacă sediul ți-a primit munca.",
+      "outlets": "Magazine deținute",
+      "pending": "În așteptare",
+      "lastSync": "Ultima sincronizare",
+      "never": "Niciodată"
+    }
+  },
+  "Guard": {
+    "restoring": "Se restaurează sesiunea…",
+    "redirecting": "Te ducem la autentificare…",
+    "signOut": "Deconectare",
+    "expired": {
+      "title": "Sesiunea a expirat",
+      "body": "Ai fost deconectat din motive de securitate. Autentifică-te din nou pentru a continua de unde ai rămas.",
+      "signIn": "Autentifică-te din nou",
+      "signingIn": "Se autentifică…"
+    }
   }
 }
