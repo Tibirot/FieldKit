@@ -30,7 +30,7 @@ sliced into **~1-week work packages**, each sized to a part-time solo cadence.
 | 6 ⚠︎ | Products & Pricing + pricing engine (C#) | 2 | Deterministic price/promo resolution, unit-tested |
 | 7 ⚠︎ | Journey · Visit · TS pricing mirror | 2 | Journeys generate; visit lifecycle; C#≡TS pricing parity |
 | 8 ⚠︎ | Sync engine v1 (server + client) | 2 | Offline visit pushed idempotently; no dupes on retry |
-| 9 | Field PWA + offline journey/visit | 2 | **Sync → offline visits → reconcile** (Phase 2 demo) |
+| 9 ⚠︎ | Field PWA + offline journey/visit | 2 | **Sync → offline visits → reconcile** (Phase 2 demo) |
 | 10 | Audit + config-builder backend | 3 | On-device perfect-store score == server; forms are config |
 | 11 ⚠︎ | Order + offline UIs + sync v2 + photos | 3 | Offline order+audit captured, reconciled, photos uploaded |
 | 12 | Dashboards + config-builder UI | 3 | **Full golden path offline → reconcile** (Phase 3 demo) |
@@ -709,12 +709,91 @@ records what would justify it.
 > slice. What week two still owes on both is *generated* evidence — slice 9's replay/resume property
 > suite over arbitrary batches, rather than the worked examples slice 5 shipped.
 
-### Week 9 · Field PWA + offline journey/visit
+### Week 9 · Field PWA + offline journey/visit ⚠︎
 **Goal:** the Phase 2 demo — the field app, offline.
 - Field route group (mobile-first, shadcn); **Today's Journey** + **Visit** screens reading the local store (per [wireframes](ux/README.md)).
 - Service-worker offline shell; connectivity indicator + outbox/pending UI + **Sync now**.
 
-**Done when:** sync a journey → go offline → complete visits → reconnect → back office sees the results. **▶ Phase 2 demo.**
+**Done when:** sync a journey → go offline → complete visits → reconnect → back office sees the results. **▶ Phase 2 demo.** **⚠︎ Budget ~2 weeks — see the decomposition for why this is not a week of screens.**
+
+#### Decomposition
+
+**This is not a week of screens.** It reads like one — two of the twelve slices below are a screen
+and nothing else — and taking it that way is how it overruns. Three things W9 has to build have no
+precedent anywhere in the codebase, and each is a slice before any screen can be written.
+
+**1. The first entity the device *authors*.** Every store the local database has is a copy of
+something the server still holds: lose it and the next pull rebuilds it. The outbox is the exception
+and it holds *opaque payloads* — one write, then never touched again except to mark its fate. A visit
+in progress is neither. It is created on check-in, mutated several times as a rep works the steps,
+and only becomes an outbox mutation when it is sealed at check-out. It is the first thing on the
+device that a rep would actually lose, which makes it the first store where "durable" (`OFF-02`) has
+teeth.
+
+**2. A second implementation of a server rule, on the device, that the server then trusts.**
+[`Geofencing.Assess`](../FieldKit.Modules.Visit/Geofencing.cs) is pure — two positions, a radius and
+a presence policy — exactly like `PriceResolver`, and it has to run on the device because a rep
+standing in a shop with no signal still has to be told whether they are inside the fence.
+`CapturedVisit` then carries the device's verdict and **the server stores it unmodified, deliberately**
+([`IVisitIngest`](../FieldKit.Modules.Visit.Contracts/IVisitIngest.cs): re-judging yesterday's visit
+against today's radius would reclassify a rep who was legitimately inside it). So a device that
+disagrees with the server writes a permanently wrong record that nothing will ever correct. That is
+the pricing-parity argument again, with a worse failure mode — money can be recomputed; "was the rep
+there" cannot. It gets the same regime: a TS mirror, generated vectors, and the
+[parity job](../.github/workflows/ci.yml) that already exists.
+
+**3. The radius has to travel, and today it does not.** `OutletSnapshot` carries latitude and
+longitude and no radius; the server reads it from `IOutletGeofence.DefaultRadiusMetres`. A TypeScript
+constant of `150` would agree with the server exactly until `OUT-08` makes the radius per-outlet, and
+then disagree silently on the one dimension nobody re-checks — which is the drift the parity harness
+exists to prevent, arriving through the one value the harness cannot see. It goes on the snapshot.
+
+**What W8 already paid for.** `SyncProvider`, `SyncIndicator` and `SyncBadge` shipped in W8 slice 13
+with **no mount point** — built, tested, and rendered by nothing. Slice 0 is that mount point, and it
+is first for that reason: until a layout owns a database and a bound device, no screen below can read
+anything. The readers the screens need (`plannedVisits`, `workflowFor`, `outlet`, `assortmentFor`,
+`priceOf`, `promotionsFor`) all exist and are unused.
+
+**Week one — a device that can work a day**
+
+| # | Slice | Requirements | ~Size |
+|---|---|---|---|
+| 0 | **The field shell** — a mobile-first `(field)` route group whose layout opens the rep's database, binds a device on first run, and mounts `SyncProvider`. Includes the rebind screen the indicator's `deviceRejected` state already points at and nothing implements | `OFF-05`, `OFF-06`, `OFF-12` | 400 |
+| 1 | **The radius travels** — `OutletSnapshot.RadiusMetres`, from `IOutletGeofence`. Per-outlet on the wire though constant in the source, so `OUT-08` is a server change and not a protocol one. Local-store version 4 | `OFF-03`, `VIS-01` | 250 |
+| 2 | **Geofencing in TypeScript** — a mirror of `Geofencing.Assess`, with generated vectors through the existing parity job. The device's verdict is the record; there is no second opinion | `VIS-01`, `VIS-02` | 400 |
+| 3 | **The local visit** — the first device-authored store: created on check-in, mutated through the steps, sealed at check-out, and only then enqueued as one `CapturedVisit`. Local-store version 5 | `OFF-01`, `OFF-02` | 450 |
+| 4 | **Today's Journey** — the day's stops from `plannedVisits`, ordered, each with its status and its sync badge. The first screen, and the one the demo opens on | `JRN-05`, `OFF-01`, `OFF-05` | 400 |
+| 5 | **Check-in** — the geofence assessed on the device, the override reason when outside, the presence policy read from the pulled workflow rather than assumed | `VIS-01`, `VIS-02` | 400 |
+
+**Week two — the visit, and the proof**
+
+| # | Slice | Requirements | ~Size |
+|---|---|---|---|
+| 6 | **Steps** — the sequence rendered from the pulled configuration, not from a hard-coded list. Note steps carry their text; a step nobody has built a control for renders as a labelled no-op rather than breaking the visit | `VIS-03`, `VIS-06` | 400 |
+| 7 | **Check-out** — `BR-VIS-3`'s mandatory gating enforced *on the device*, outcome and reason, then seal → one outbox mutation. The second rule the device has to agree with the server about, and the one that decides whether a rep gets out of the shop | `VIS-04`, `VIS-05` | 400 |
+| 8 | **Not visited, from the device** — the annotation W7 built server-side, reachable with no signal. The **second mutation type** through `/sync/push`, which is what turns `PushedMutation.Type` from a field into a discriminator | `VIS-07`, `OFF-04` | 350 |
+| 9 | **Visit summary** — the recap before check-out. `Should`, and the first candidate to slip | `VIS-09` | 250 |
+| 10 | **The offline shell, actually offline** — the service worker built in W5 caches a shell nothing navigates to. Field routes precached, `/offline` wired as the fallback, install prompt, and `requestPersistentStorage` finally *called* | `OFF-10`, `OFF-11` | 300 |
+| 11 | **The round trip against a live server** — the client stack (`db`, `manager`, `reference`) driven against a real API rather than a mocked one, and the Phase 2 demo recorded | `OFF-01`, `OFF-04` | 350 |
+
+**Not in W9:** audit and order capture (`OFF-01b`, W10/W11) — the two step types that make a visit
+*valuable* rather than merely complete, and both are their own modules. Photo upload (`OFF-08`) and
+background sync (`OFF-07`) are separate transports, W11 and Phase 3. `VIS-08` (signature) is `Could`.
+
+**Two decisions W9 has to make and does not inherit.**
+
+**Whose clock is a visit stamped with?** `CapturedVisit` carries the device's `checkedInAtUtc` and
+`checkedOutAtUtc`, the server stores them as sent, and nothing records when the visit *arrived*. A
+visit ingested three days late is therefore indistinguishable from one that happened at the time it
+claims — and time-on-site, the measure `VIS-05` exists to produce, is computed entirely from two
+numbers a device controls. The options are to accept it (the device is the only witness), to stamp a
+server-side received-at alongside (cheap, and makes "captured offline" visible in the audit trail),
+or to record clock skew at bind time. **Not decided; slice 3 is where it becomes concrete.**
+
+**Is an ingested visit marked as one?** `Visit` has no source discriminator, so a supervisor reviewing
+a day cannot tell a visit worked live in the back office from one drained off a phone. That is
+arguably fine — a visit is a visit — but it interacts with the question above, and the two should be
+answered together.
 
 ---
 
@@ -773,8 +852,15 @@ records what would justify it.
 
 - **Critical path** runs through the sync engine (W8). It's the highest-risk, highest-value
   package — protect its buffer; don't let W6/W7 slip into it.
-- **The four ⚠︎ weeks** (W2, W7, W8, W11) carry most of the schedule risk. If time is tight,
+- **The ⚠︎ weeks** (W2, W4, W6, W7, W8, W9, W11) carry most of the schedule risk. If time is tight,
   they are where a second week gets spent — plan for it rather than compressing them.
+
+  This line used to say "the four ⚠︎ weeks (W2, W7, W8, W11)" while the overview table marked six,
+  which is the kind of drift a plan accumulates when the table is edited and the prose is not. **W9
+  is the new one**, added when it was decomposed: it reads like a week of screens and is not. It
+  carries a parity-engine slice of the kind W6 and W7 each spent several on, two local-store
+  versions, and the first entity the device authors rather than copies — and it ends in the Phase 2
+  demo, so it is also the week with the least room to quietly slip.
 - **Demo-driven checkpoints** at W5, W9, W12, W15 are natural places to stop, record a GIF, and
   bank a portfolio-ready milestone even if later phases slip.
 - **First portfolio-viable cut** is end of **W9** (offline field round-trip). Everything after
