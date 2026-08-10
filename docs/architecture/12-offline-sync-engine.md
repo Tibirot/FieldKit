@@ -52,6 +52,7 @@ flowchart LR
 | Store | Kind | Contents |
 |---|---|---|
 | `ref_*` (built: `ref_outlets`, `ref_planned_visits`, `ref_visit_workflows`, `ref_products`, `ref_assortment`, `ref_assortment_overrides`, `ref_price_lists`, `ref_price_lines`, `ref_price_assignments`, `ref_promotions`, `ref_promotion_assignments`) | Reference (read-only) | Rep-scoped snapshot; server-authoritative. What each is scoped *by* differs — see §3 |
+| `visits` | **Device-authored** | A visit as the rep works it (W9 slice 4). The one store here that is neither a copy of the server's data nor a write-once payload — see below |
 | `outbox` | Mutations | `{ mutationId, type, payload, status, createdAt, attempts, error? }` |
 | `blobs` | Binaries | Downscaled photos awaiting upload, keyed by mutation + slot |
 | `watermarks` | Sync state | How far the device has been told about one entity |
@@ -61,6 +62,29 @@ Writes to `outbox`/`blobs` are **synchronous and durable before the UI confirms*
 work" guarantee ([OFF-02](../product/30-offline-behavior.md#6-requirements)). Outbox status:
 `pending → inflight → failed`, with an accepted mutation **deleted** rather than given a fourth
 state.
+
+**`visits` is the first store the device authors** (W9 slice 4,
+[`lib/visits/local-visit.ts`](../../frontend/lib/visits/local-visit.ts)), and it changes what "no
+lost work" has to mean here. Every `ref_*` table is recoverable — lose it, and the next pull rebuilds
+it. The outbox is written once and thereafter only marked. A visit is neither: it is created at
+check-in, mutated repeatedly as the rep works the steps, and only becomes an outbox mutation when it
+is sealed. Three consequences:
+
+- **Check-out seals the visit and queues the mutation in one transaction.** Two writes leave a window
+  where the visit reads as finished and nothing will ever send it — a lost day in the one place a rep
+  would never think to look, because their phone says it is done. IndexedDB gives real cross-store
+  transactions, so the window is avoidable and is avoided.
+- **Completing a step is a transaction too**, because it is a read-modify-write of a row a second tap
+  can race: two completions from separate reads each rewrite the whole `steps` array, and the later
+  write silently undoes the earlier.
+- **The visit is not deleted once queued.** It is the rep's own record of their day, and the sync
+  badge on it reads the *outbox* by subject id — a `sent` flag on the visit would be a second copy of
+  an answer the outbox already holds.
+
+The device also re-runs the server's rules — the geofence (`VIS-01`), mandatory-step gating
+(`BR-VIS-3`), the reason a non-productive visit owes (`VIS-05`) — because offline there is nobody
+else to run them. The server still checks; a device is not a trust boundary. But a rep told at
+reconnect that their check-out was invalid has been told far too late to walk back into the shop.
 
 **Three things the implementation (W8 slice 6, [`lib/sync`](../../frontend/lib/sync)) settled that
 this table used to leave open:**
@@ -132,6 +156,11 @@ Why that field is worth a re-baseline when a stale outlet is usually harmless: t
 the geofence and `IVisitIngest` stores its verdict **unmodified**, so an outlet row with no radius
 produces a check-in classified against `undefined` that nothing downstream ever re-checks. **A
 re-baseline is cheap; a wrong answer a rep cannot see is not.**
+
+**Version 5 adds the `visits` store and has no `upgrade()`** (W9 slice 4) — the first *table* added
+since v1. There is nothing to transform, because there were no visits before it; Dexie creates the
+table and an existing device carries on with its outbox and its reference data untouched, which is
+`OFF-13`'s promise for a rep who updates the app mid-day with work still queued.
 
 **The blob store is not built yet**, deliberately — photo upload is `OFF-08`/W11, and a store with
 no writer is a schema version spent on nothing.
@@ -390,7 +419,7 @@ flowchart TB
   ([module boundaries §7](10-module-boundaries.md#7-module-registry)).
 - **The work and its ledger entry commit separately, and the device-minted id is what makes that
   safe.** This document used to say "same TX". It cannot be: schema-per-module
-  ([ADR-0005](adr/0005-persistence-postgres-schema-per-module.md)) means Visit and Sync own separate
+  ([ADR-0005](adr/0005-postgres-schema-per-module.md)) means Visit and Sync own separate
   `DbContext`s, so an ingest that deferred its save would leave the work in a change tracker Sync
   never commits. Two saves leave a window — the visit stored, the ledger entry lost to a crash — and
   the device's retry arrives looking new. It is closed one level down: the **entity id is minted on
