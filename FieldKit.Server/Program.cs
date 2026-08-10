@@ -5,6 +5,7 @@ using FieldKit.Modules.Journey;
 using FieldKit.Modules.Org;
 using FieldKit.Modules.Outlets;
 using FieldKit.Modules.Products;
+using FieldKit.Modules.Sync;
 using FieldKit.Modules.Visit;
 using FieldKit.Server;
 using FieldKit.SharedKernel;
@@ -74,6 +75,9 @@ IReadOnlyList<IModule> modules =
     new ProductsModule(),
     new JourneyModule(),
     new VisitModule(),
+    // Sync last. It is the module that will eventually read every other one's change feed, so it is
+    // the one whose dependencies point at the rest rather than the other way round.
+    new SyncModule(),
 ];
 builder.Services.AddModules(builder.Configuration, modules);
 
@@ -98,9 +102,11 @@ if (app.Environment.IsDevelopment())
  * is a design decision nobody has made. A future `.CacheOutput()` would have inherited that hazard
  * silently — in a codebase whose central rule is that a tenant never sees another's data.
  *
- * When something genuinely needs caching, it arrives with its key policy and its own test. Redis
- * itself returns in W8 for the sync idempotency ledger, which is a different registration and a
- * real consumer.
+ * When something genuinely needs caching, it arrives with its key policy and its own test.
+ *
+ * This used to add that Redis would return in W8 for the sync idempotency ledger. It does not: that
+ * ledger is a Postgres table, decided at the start of W8 on cost grounds (ADR-0007 amendment). There
+ * is no Redis in this system.
  */
 
 // Must precede the endpoints: authentication populates HttpContext.User, authorization enforces

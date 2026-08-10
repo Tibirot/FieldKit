@@ -99,6 +99,14 @@
       {
         "name": "config:write",
         "description": "Define and edit custom fields (Configuration module). One pair for the whole module: authoring fields, workflows, forms and weights is one job (ADR-0009)."
+      },
+      {
+        "name": "device:read",
+        "description": "See which devices are bound."
+      },
+      {
+        "name": "device:revoke",
+        "description": "Deactivate a device the rep no longer holds."
       }
     ]
   },
@@ -114,8 +122,12 @@
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": false,
       "implicitFlowEnabled": false,
-      "redirectUris": ["${FIELDKIT_WEB_ORIGIN:http://localhost:3000}/*"],
-      "webOrigins": ["${FIELDKIT_WEB_ORIGIN:http://localhost:3000}"],
+      "redirectUris": [
+        "${FIELDKIT_WEB_ORIGIN:http://localhost:3000}/*"
+      ],
+      "webOrigins": [
+        "${FIELDKIT_WEB_ORIGIN:http://localhost:3000}"
+      ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": "${FIELDKIT_WEB_ORIGIN:http://localhost:3000}/*"
@@ -175,7 +187,12 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["product:read", "product:write", "outlet:read", "channel:read"]
+      "realmRoles": [
+        "product:read",
+        "product:write",
+        "outlet:read",
+        "channel:read"
+      ]
     },
     {
       "username": "viewer",
@@ -191,7 +208,18 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["product:read", "role:read", "orgunit:read", "position:read", "outlet:read", "channel:read", "territory:read", "journey:read", "visit:read", "config:read"]
+      "realmRoles": [
+        "product:read",
+        "role:read",
+        "orgunit:read",
+        "position:read",
+        "outlet:read",
+        "channel:read",
+        "territory:read",
+        "journey:read",
+        "visit:read",
+        "config:read"
+      ]
     },
     {
       "username": "admin",
@@ -207,7 +235,31 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["role:read", "role:write", "user:read", "user:write", "orgunit:read", "orgunit:write", "position:read", "position:write", "outlet:read", "outlet:write", "channel:read", "channel:write", "territory:read", "territory:write", "journey:read", "journey:annotate", "visit:read", "visit:write", "journey:write", "config:read", "config:write"]
+      "realmRoles": [
+        "role:read",
+        "role:write",
+        "user:read",
+        "user:write",
+        "orgunit:read",
+        "orgunit:write",
+        "position:read",
+        "position:write",
+        "outlet:read",
+        "outlet:write",
+        "channel:read",
+        "channel:write",
+        "territory:read",
+        "territory:write",
+        "journey:read",
+        "journey:annotate",
+        "visit:read",
+        "visit:write",
+        "journey:write",
+        "config:read",
+        "config:write",
+        "device:read",
+        "device:revoke"
+      ]
     }
   ]
 }

@@ -8,6 +8,7 @@ using FieldKit.Modules.Journey;
 using FieldKit.Modules.Org;
 using FieldKit.Modules.Outlets;
 using FieldKit.Modules.Products;
+using FieldKit.Modules.Sync;
 using FieldKit.Modules.Visit;
 
 namespace FieldKit.ArchitectureTests;
@@ -43,6 +44,7 @@ public class SyncTrackingTests
         typeof(ConfigurationModule).Assembly,
         typeof(JourneyModule).Assembly,
         typeof(VisitModule).Assembly,
+        typeof(SyncModule).Assembly,
     ];
 
     [Fact]
