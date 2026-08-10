@@ -40,6 +40,7 @@ public static class PullEndpoints
             IVisitWorkflowFeed workflows,
             IProductChangeFeed products,
             IAssortmentChangeFeed assortment,
+            IPriceChangeFeed prices,
             ITenantContext tenant,
             IClock clock,
             CancellationToken ct) =>
@@ -140,6 +141,31 @@ public static class PullEndpoints
             foreach (var snapshot in overrideBaseline)
                 overrideCursorAfter = Math.Max(overrideCursorAfter, snapshot.RowVersion);
 
+            /*
+             * Prices (W8 slice 8e). Lists and lines are tenant-wide; assignments are split the way
+             * the assortment is, because a channel assignment is a tenant's pricing policy and an
+             * outlet assignment is a fact about one shop.
+             *
+             * The assignment half takes `retained` and `entering` for the same reason the overrides
+             * do — an outlet joining a territory brings an assignment written long ago. What differs
+             * is that an *empty* outlet set is not an empty answer here: a rep with no territory
+             * still needs the channel policy, because the shops they are given tomorrow are priced
+             * by it.
+             */
+            var priceLists = await prices.GetListChangesAsync(
+                request.Cursors?.PriceLists ?? 0, PageLimit, ct);
+            var priceLines = await prices.GetLineChangesAsync(
+                request.Cursors?.PriceLines ?? 0, PageLimit, ct);
+
+            var assignmentPage = await prices.GetAssignmentChangesAsync(
+                request.Cursors?.PriceAssignments ?? 0, territory.Retained, PageLimit, ct);
+            var assignmentBaseline = await prices.GetAssignmentBaselineAsync(
+                territory.Entering, PageLimit, ct);
+
+            var assignmentCursorAfter = assignmentPage.Cursor;
+            foreach (var snapshot in assignmentBaseline)
+                assignmentCursorAfter = Math.Max(assignmentCursorAfter, snapshot.RowVersion);
+
             await RecordScopeAsync(
                 db, device.Id, tenant.TenantId, territory.Entering, territory.Leaving, ct);
 
@@ -157,7 +183,15 @@ public static class PullEndpoints
                     new EntityChanges<AssortmentOverrideSnapshot>(
                         [.. overrideBaseline, .. overridePage.Upserts],
                         overridePage.Tombstones,
-                        overrideCursorAfter)),
+                        overrideCursorAfter),
+                    new EntityChanges<PriceListSnapshot>(
+                        priceLists.Upserts, priceLists.Tombstones, priceLists.Cursor),
+                    new EntityChanges<PriceLineSnapshot>(
+                        priceLines.Upserts, priceLines.Tombstones, priceLines.Cursor),
+                    new EntityChanges<PriceAssignmentSnapshot>(
+                        [.. assignmentBaseline, .. assignmentPage.Upserts],
+                        assignmentPage.Tombstones,
+                        assignmentCursorAfter)),
                 // A patchwork, not a point in time: watermarks advance per entity type, and the
                 // device tolerates the skew because captured work records its own inputs
                 // (sync engine §3). The string names the outlet cursor only — it is a label for
@@ -317,7 +351,10 @@ public sealed record PullCursors(
     long? Configuration = null,
     long? Products = null,
     long? Assortment = null,
-    long? OutletAssortment = null);
+    long? OutletAssortment = null,
+    long? PriceLists = null,
+    long? PriceLines = null,
+    long? PriceAssignments = null);
 
 public sealed record EntityChanges<T>(
     IReadOnlyList<T> Upserts, IReadOnlyList<ReferenceTombstone> Tombstones, long Cursor);
@@ -328,6 +365,9 @@ public sealed record PullChanges(
     EntityChanges<VisitWorkflowSnapshot> Configuration,
     EntityChanges<ProductSnapshot> Products,
     EntityChanges<AssortmentLineSnapshot> Assortment,
-    EntityChanges<AssortmentOverrideSnapshot> OutletAssortment);
+    EntityChanges<AssortmentOverrideSnapshot> OutletAssortment,
+    EntityChanges<PriceListSnapshot> PriceLists,
+    EntityChanges<PriceLineSnapshot> PriceLines,
+    EntityChanges<PriceAssignmentSnapshot> PriceAssignments);
 
 public sealed record PullResponse(PullChanges Changes, string SnapshotVersion);

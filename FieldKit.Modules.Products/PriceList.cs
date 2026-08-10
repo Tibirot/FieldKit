@@ -1,4 +1,5 @@
 using FieldKit.BuildingBlocks;
+using FieldKit.Infrastructure;
 using FieldKit.SharedKernel;
 
 namespace FieldKit.Modules.Products;
@@ -28,8 +29,11 @@ namespace FieldKit.Modules.Products;
 /// place's midnight into a rule every other place has to live with.
 /// </para>
 /// </remarks>
-public sealed class PriceList : AggregateRoot, ITenantOwned, IAuditable
+public sealed class PriceList : AggregateRoot, ITenantOwned, IAuditable, ISyncTracked
 {
+    /// <summary>Set by the row-version interceptor, never here (ADR-0013). W8 slice 8e.</summary>
+    public long RowVersion { get; set; }
+
     public Guid Id { get; private set; }
 
     public string Name { get; private set; } = null!;
@@ -117,8 +121,11 @@ public sealed class PriceList : AggregateRoot, ITenantOwned, IAuditable
 /// one of them in.
 /// </para>
 /// </remarks>
-public sealed class PriceListLine : AggregateRoot, ITenantOwned, IAuditable
+public sealed class PriceListLine : AggregateRoot, ITenantOwned, IAuditable, ISyncTracked
 {
+    /// <summary>Set by the row-version interceptor, never here (ADR-0013). W8 slice 8e.</summary>
+    public long RowVersion { get; set; }
+
     public Guid Id { get; private set; }
 
     public Guid PriceListId { get; private set; }

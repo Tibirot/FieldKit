@@ -51,7 +51,7 @@ flowchart LR
 
 | Store | Kind | Contents |
 |---|---|---|
-| `ref_*` (built: `ref_outlets`, `ref_planned_visits`, `ref_visit_workflows`, `ref_products`, `ref_assortment`, `ref_assortment_overrides`; planned: `ref_prices`, `ref_promotions`) | Reference (read-only) | Rep-scoped snapshot; server-authoritative. What each is scoped *by* differs — see §3 |
+| `ref_*` (built: `ref_outlets`, `ref_planned_visits`, `ref_visit_workflows`, `ref_products`, `ref_assortment`, `ref_assortment_overrides`, `ref_price_lists`, `ref_price_lines`, `ref_price_assignments`; planned: `ref_promotions`) | Reference (read-only) | Rep-scoped snapshot; server-authoritative. What each is scoped *by* differs — see §3 |
 | `outbox` | Mutations | `{ mutationId, type, payload, status, createdAt, attempts, error? }` |
 | `blobs` | Binaries | Downscaled photos awaiting upload, keyed by mutation + slot |
 | `watermarks` | Sync state | How far the device has been told about one entity |
@@ -147,6 +147,8 @@ row is it*, and the answer changes what the feed's interface has to look like:
 | `products` | **Nothing** — every device gets the whole catalogue ([`IProductChangeFeed`](../../FieldKit.Modules.Products.Contracts/IProductChangeFeed.cs)) | No |
 | `assortment` | **Nothing** — the channel list ([`IAssortmentChangeFeed`](../../FieldKit.Modules.Products.Contracts/IAssortmentChangeFeed.cs)) | No |
 | `outletAssortment` | The device’s **outlet set** — the per-outlet overrides | **Yes** |
+| `priceLists`, `priceLines` | **Nothing** ([`IPriceChangeFeed`](../../FieldKit.Modules.Products.Contracts/IPriceChangeFeed.cs)) — see the limitation below | No |
+| `priceAssignments` | Channel rows by nothing; outlet rows by the device’s **outlet set** | **Yes** |
 
 A **baseline** call — "hand me these rows whatever their version" — exists because an outlet can
 enter a rep's territory *without being edited*, carrying a row version far below the device's cursor,
@@ -171,6 +173,22 @@ to another channel puts a workflow in scope *without editing it*, so a pure delt
 it — and it would do so to save a payload of a handful of rows a tenant's own administrators wrote.
 There is nothing in a workflow that one rep may see and another may not. **The cheapest correct scope
 is sometimes no scope**, and a narrowing that buys nothing costs a whole class of bug.
+
+**Prices are the one place a device holds data outside its territory, and it is recorded as a
+limitation rather than defended.** Lists and lines go to every device, so a rep’s phone holds price
+lists for regions and channels they never visit. The narrowing — to the lists assigned to this rep’s
+outlets and their channels — needs a per-device record of which lists were sent, because a list
+enters scope when an *assignment* changes rather than when the list does, and a pure delta would
+never mention it. That is a second scope-set table and a baseline, for the first entity where the
+leak is commercial rather than personal. What is on the device is tenant-internal, a rep can already
+read the price of everything they sell, and prices are not personal data — but if a tenant objects,
+[`IPriceChangeFeed`](../../FieldKit.Modules.Products.Contracts/IPriceChangeFeed.cs) records what to
+build.
+
+**An empty outlet set is not always an empty answer.** For assortment overrides it is: a rep with no
+territory has no shop-level exceptions. For price *assignments* it is not — the channel policy still
+has to reach them, because the shops they are given tomorrow are priced by it. Same scope parameter,
+opposite meaning, decided by what the entity is for.
 
 **One rule, two scopes, two cursors.** The assortment is the first thing the protocol carries whose
 two halves do not agree about who owns them: the channel list is a tenant's process and goes

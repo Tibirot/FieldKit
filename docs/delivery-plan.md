@@ -678,7 +678,8 @@ the protocol.
 | 8b | **Configuration (visit workflows)** — scoped by *nothing*, because the cheapest correct scope is sometimes no scope. The first feed whose tombstones are both produced and sendable, and the first whose payload is an aggregate rather than a row | `OFF-03` | 400 |
 | 8c | **The product catalogue** — scoped by nothing again, and for a second reason: a rep has to be able to *name* what is on the shelf, so a catalogue narrowed to the assortment gives a blank where a name should be. Holding a product is not permission to sell it | `OFF-03` | 400 |
 | 8d | **The assortment** — one rule in two halves with two scopes: the channel list by nothing, the per-outlet overrides by the device's own outlet set. The first entity to reuse that scope, and the first besides outlets to need a baseline | `OFF-03` | 400 |
-| 8e | *Prices and promotions.* What a rep may sell it **at** — both scoped per outlet, both reusing the shape 8d established | `OFF-03` | 400 |
+| 8e | **Prices** — lists, lines and assignments. The assignment half reuses 8d's shape; the lists are the one place a device holds data outside its territory, recorded as a limitation rather than defended | `OFF-03` | 400 |
+| 8f | *Promotions.* The last reference entity, and the last one W9's screens need before an order can be priced offline | `OFF-03` | 400 |
 | 9 | **Replay and resume as properties** — a generated suite: any batch replayed changes nothing, any pull interrupted at any point resumes without loss or duplication | `OFF-04` | 350 |
 | 10 | **Partial failure** — one bad mutation in a batch does not reject the batch; the device learns which, and why | `OFF-09` | 300 |
 | 11 | **Local-store migration** — an app update must not strand a pending outbox | `OFF-13` | 300 |

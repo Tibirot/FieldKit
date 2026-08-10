@@ -121,6 +121,46 @@ export type ReferenceAssortmentOverride = {
   rowVersion: number;
 };
 
+/**
+ * A price list header (`PRD-03`).
+ *
+ * The effective window travels as ISO date strings, for the reason a planned visit's date does: a
+ * price list is in effect on a *date*, in no timezone, and `BR-PRD-2` picks the list in effect on
+ * the day of the order — which for a device working offline may not be the day it last synced.
+ */
+export type ReferencePriceList = {
+  id: string;
+  name: string;
+  currency: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  rowVersion: number;
+};
+
+/**
+ * One product's price on one list.
+ *
+ * `amount` arrives as a number because that is what JSON has. Every calculation the device does with
+ * it goes through `lib/pricing`'s Money, which is decimal.js — the parity suite exists because
+ * float arithmetic on money is the one thing the two languages must never disagree about.
+ */
+export type ReferencePriceLine = {
+  id: string;
+  priceListId: string;
+  productId: string;
+  amount: number;
+  rowVersion: number;
+};
+
+/** Which list applies where. Exactly one of the two ids is set (`BR-PRD-2`). */
+export type ReferencePriceAssignment = {
+  id: string;
+  priceListId: string;
+  channelId: string | null;
+  outletId: string | null;
+  rowVersion: number;
+};
+
 /** Where a mutation has got to. The device's own state, never the server's. */
 export type OutboxStatus =
   /** Captured and durable. Waiting for a connection. */
@@ -199,6 +239,9 @@ export class FieldKitDatabase extends Dexie {
   products!: EntityTable<ReferenceProduct, "id">;
   assortment!: EntityTable<ReferenceAssortmentLine, "id">;
   assortmentOverrides!: EntityTable<ReferenceAssortmentOverride, "id">;
+  priceLists!: EntityTable<ReferencePriceList, "id">;
+  priceLines!: EntityTable<ReferencePriceLine, "id">;
+  priceAssignments!: EntityTable<ReferencePriceAssignment, "id">;
   outbox!: EntityTable<OutboxEntry, "mutationId">;
   meta!: EntityTable<MetaEntry, "key">;
   watermarks!: EntityTable<Watermark, "entity">;
@@ -245,6 +288,18 @@ export class FieldKitDatabase extends Dexie {
       // cascade prune deletes by when an outlet leaves the rep's territory.
       ref_assortment_overrides: "id, outletId",
 
+      // No index beyond the key: a tenant has a handful of price lists and resolution reads them
+      // all to find the one in effect.
+      ref_price_lists: "id",
+
+      // Compound, because the one question asked of this store is "what does this list charge for
+      // this product" — and a single-column index on either half would scan the rest.
+      ref_price_lines: "id, [priceListId+productId]",
+
+      // Both directions are asked: outlet assignments win over channel ones (`BR-PRD-2`), so
+      // resolution looks for the outlet's first and falls back to its channel's.
+      ref_price_assignments: "id, outletId, channelId",
+
       // Indexed by status (the sync manager asks for pending), by createdAt (it sends them in the
       // order the rep worked), and by subjectId (a screen asks about one visit).
       outbox: "mutationId, status, createdAt, subjectId",
@@ -259,6 +314,9 @@ export class FieldKitDatabase extends Dexie {
     this.products = this.table("ref_products");
     this.assortment = this.table("ref_assortment");
     this.assortmentOverrides = this.table("ref_assortment_overrides");
+    this.priceLists = this.table("ref_price_lists");
+    this.priceLines = this.table("ref_price_lines");
+    this.priceAssignments = this.table("ref_price_assignments");
     this.outbox = this.table("outbox");
     this.meta = this.table("meta");
     this.watermarks = this.table("watermarks");
