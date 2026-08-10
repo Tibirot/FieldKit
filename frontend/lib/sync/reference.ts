@@ -5,6 +5,9 @@ import type {
   ReferenceAssortmentLine,
   ReferenceAssortmentOverride,
   ReferenceOutlet,
+  ReferencePriceAssignment,
+  ReferencePriceLine,
+  ReferencePriceList,
   ReferencePlannedVisit,
   ReferenceProduct,
   ReferenceVisitWorkflow,
@@ -34,6 +37,9 @@ export const CONFIGURATION = "configuration";
 export const PRODUCTS = "products";
 export const ASSORTMENT = "assortment";
 export const OUTLET_ASSORTMENT = "outletAssortment";
+export const PRICE_LISTS = "priceLists";
+export const PRICE_LINES = "priceLines";
+export const PRICE_ASSIGNMENTS = "priceAssignments";
 
 /**
  * Applies one page of a pull (`OFF-02`, `OFF-03`, sync engine §3).
@@ -290,4 +296,86 @@ export async function assortmentFor(
   }
 
   return effective;
+}
+
+/** Price list headers. */
+export function applyPriceListChanges(
+  db: FieldKitDatabase,
+  page: EntityChanges<ReferencePriceList>,
+): Promise<void> {
+  return apply(db, "ref_price_lists", PRICE_LISTS, page);
+}
+
+/** The prices themselves — the largest thing this protocol carries. */
+export function applyPriceLineChanges(
+  db: FieldKitDatabase,
+  page: EntityChanges<ReferencePriceLine>,
+): Promise<void> {
+  return apply(db, "ref_price_lines", PRICE_LINES, page);
+}
+
+/** Which list applies where. */
+export function applyPriceAssignmentChanges(
+  db: FieldKitDatabase,
+  page: EntityChanges<ReferencePriceAssignment>,
+): Promise<void> {
+  return apply(db, "ref_price_assignments", PRICE_ASSIGNMENTS, page);
+}
+
+/** Drops assignments for outlets this device no longer holds — the cascade the overrides get. */
+export async function pruneOutletPriceAssignments(db: FieldKitDatabase): Promise<number> {
+  const held = new Set((await db.outlets.toArray()).map((row) => row.id));
+  const orphans = await db.priceAssignments
+    .filter((assignment) => assignment.outletId !== null && !held.has(assignment.outletId))
+    .primaryKeys();
+
+  if (orphans.length === 0) return 0;
+
+  await db.priceAssignments.bulkDelete(orphans);
+
+  return orphans.length;
+}
+
+/**
+ * The price list in effect at one outlet on one date (`PRD-04`, `BR-PRD-2`).
+ *
+ * <b>Outlet beats channel, and effective window decides the rest.</b> Both halves are the server's
+ * rule, re-expressed here because the device has to price an order it takes with no connection. The
+ * parity suite is what keeps the two from drifting — this returns the list, and `lib/pricing` does
+ * the arithmetic in decimal.
+ *
+ * `on` is an ISO date the caller supplies rather than a clock this module reads: which day an order
+ * is priced for is the order's question, not this module's.
+ */
+export async function priceListFor(
+  db: FieldKitDatabase,
+  outletId: string,
+  channelId: string,
+  on: string,
+): Promise<ReferencePriceList | undefined> {
+  const candidates = [
+    ...(await db.priceAssignments.where("outletId").equals(outletId).toArray()),
+    ...(await db.priceAssignments.where("channelId").equals(channelId).toArray()),
+  ];
+
+  for (const assignment of candidates) {
+    const list = await db.priceLists.get(assignment.priceListId);
+
+    // In effect on the day, not on the day of the sync. A device that has been offline for a week
+    // may be pricing an order the day a new list takes over.
+    if (list && list.effectiveFrom <= on && (list.effectiveTo === null || on <= list.effectiveTo)) {
+      return list;
+    }
+  }
+
+  return undefined;
+}
+
+/** What one list charges for one product, or undefined if it does not price it. */
+export async function priceOf(
+  db: FieldKitDatabase,
+  priceListId: string,
+  productId: string,
+): Promise<ReferencePriceLine | undefined> {
+  return db.priceLines.where("[priceListId+productId]").equals([priceListId, productId]).first();
 }

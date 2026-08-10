@@ -4,6 +4,9 @@ import type {
   ReferenceAssortmentLine,
   ReferenceAssortmentOverride,
   ReferenceOutlet,
+  ReferencePriceAssignment,
+  ReferencePriceLine,
+  ReferencePriceList,
   ReferencePlannedVisit,
   ReferenceProduct,
   ReferenceVisitWorkflow,
@@ -40,6 +43,9 @@ export type PullCursors = {
   products?: number;
   assortment?: number;
   outletAssortment?: number;
+  priceLists?: number;
+  priceLines?: number;
+  priceAssignments?: number;
 };
 
 export type PullResponse = {
@@ -50,6 +56,9 @@ export type PullResponse = {
     products: EntityChanges<ReferenceProduct>;
     assortment: EntityChanges<ReferenceAssortmentLine>;
     outletAssortment: EntityChanges<ReferenceAssortmentOverride>;
+    priceLists: EntityChanges<ReferencePriceList>;
+    priceLines: EntityChanges<ReferencePriceLine>;
+    priceAssignments: EntityChanges<ReferencePriceAssignment>;
   };
   snapshotVersion: string;
 };

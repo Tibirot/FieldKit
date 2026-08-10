@@ -23,6 +23,11 @@ import {
   OUTLET_ASSORTMENT,
   OUTLETS,
   plannedVisits,
+  PRICE_ASSIGNMENTS,
+  PRICE_LINES,
+  PRICE_LISTS,
+  priceListFor,
+  priceOf,
   product,
   products,
   PRODUCTS,
@@ -69,6 +74,9 @@ function emptyPull(cursor = 0) {
       products: { upserts: [], tombstones: [], cursor: 0 },
       assortment: { upserts: [], tombstones: [], cursor: 0 },
       outletAssortment: { upserts: [], tombstones: [], cursor: 0 },
+      priceLists: { upserts: [], tombstones: [], cursor: 0 },
+      priceLines: { upserts: [], tombstones: [], cursor: 0 },
+      priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
     },
     snapshotVersion: `outlets#${cursor}`,
   };
@@ -251,6 +259,9 @@ describe("one sync run", () => {
         products: { upserts: [], tombstones: [], cursor: 0 },
         assortment: { upserts: [], tombstones: [], cursor: 0 },
         outletAssortment: { upserts: [], tombstones: [], cursor: 0 },
+        priceLists: { upserts: [], tombstones: [], cursor: 0 },
+        priceLines: { upserts: [], tombstones: [], cursor: 0 },
+        priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -278,6 +289,9 @@ describe("one sync run", () => {
         products: { upserts: [], tombstones: [], cursor: 0 },
         assortment: { upserts: [], tombstones: [], cursor: 0 },
         outletAssortment: { upserts: [], tombstones: [], cursor: 0 },
+        priceLists: { upserts: [], tombstones: [], cursor: 0 },
+        priceLines: { upserts: [], tombstones: [], cursor: 0 },
+        priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -321,6 +335,9 @@ describe("one sync run", () => {
         products: { upserts: [], tombstones: [], cursor: 0 },
         assortment: { upserts: [], tombstones: [], cursor: 0 },
         outletAssortment: { upserts: [], tombstones: [], cursor: 0 },
+        priceLists: { upserts: [], tombstones: [], cursor: 0 },
+        priceLines: { upserts: [], tombstones: [], cursor: 0 },
+        priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -359,6 +376,9 @@ describe("one sync run", () => {
         },
         assortment: { upserts: [], tombstones: [], cursor: 0 },
         outletAssortment: { upserts: [], tombstones: [], cursor: 0 },
+        priceLists: { upserts: [], tombstones: [], cursor: 0 },
+        priceLines: { upserts: [], tombstones: [], cursor: 0 },
+        priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -391,6 +411,9 @@ describe("one sync run", () => {
         },
         assortment: { upserts: [], tombstones: [], cursor: 0 },
         outletAssortment: { upserts: [], tombstones: [], cursor: 0 },
+        priceLists: { upserts: [], tombstones: [], cursor: 0 },
+        priceLines: { upserts: [], tombstones: [], cursor: 0 },
+        priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -423,6 +446,9 @@ describe("one sync run", () => {
         products: { upserts: [], tombstones: [], cursor: 0 },
         assortment: { upserts: [], tombstones: [], cursor: 0 },
         outletAssortment: { upserts: [], tombstones: [], cursor: 0 },
+        priceLists: { upserts: [], tombstones: [], cursor: 0 },
+        priceLines: { upserts: [], tombstones: [], cursor: 0 },
+        priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -442,6 +468,9 @@ describe("one sync run", () => {
         products: { upserts: [], tombstones: [], cursor: 0 },
         assortment: { upserts: [], tombstones: [], cursor: 0 },
         outletAssortment: { upserts: [], tombstones: [], cursor: 0 },
+        priceLists: { upserts: [], tombstones: [], cursor: 0 },
+        priceLines: { upserts: [], tombstones: [], cursor: 0 },
+        priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -467,6 +496,9 @@ describe("one sync run", () => {
         products: { upserts: [], tombstones: [], cursor: 0 },
         assortment: { upserts: [], tombstones: [], cursor: 0 },
         outletAssortment: { upserts: [], tombstones: [], cursor: 0 },
+        priceLists: { upserts: [], tombstones: [], cursor: 0 },
+        priceLines: { upserts: [], tombstones: [], cursor: 0 },
+        priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -496,6 +528,9 @@ describe("one sync run", () => {
       products: 0,
       assortment: 0,
       outletAssortment: 0,
+      priceLists: 0,
+      priceLines: 0,
+      priceAssignments: 0,
     }, undefined);
 
     db.close();
@@ -720,6 +755,9 @@ describe("the assortment", () => {
         products: { upserts: [], tombstones: [], cursor: 0 },
         assortment,
         outletAssortment,
+        priceLists: { upserts: [], tombstones: [], cursor: 0 },
+        priceLines: { upserts: [], tombstones: [], cursor: 0 },
+        priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#1",
     };
@@ -859,6 +897,203 @@ describe("the assortment", () => {
     await syncOnce(db, TOKEN, DEVICE);
 
     expect(await db.assortmentOverrides.count()).toBe(1);
+
+    db.close();
+  });
+});
+
+describe("prices", () => {
+  const OUTLET = "outlet-1";
+  const LIST = "list-1";
+
+  function pricePull(
+    priceLists: { upserts: unknown[]; tombstones: unknown[]; cursor: number },
+    priceLines: { upserts: unknown[]; tombstones: unknown[]; cursor: number },
+    priceAssignments: { upserts: unknown[]; tombstones: unknown[]; cursor: number },
+    outlets: { upserts: unknown[]; tombstones: unknown[]; cursor: number } = {
+      upserts: [outletRow(OUTLET, 1)],
+      tombstones: [],
+      cursor: 1,
+    },
+  ) {
+    return {
+      changes: {
+        outlets,
+        journeys: { upserts: [], tombstones: [], cursor: 0 },
+        configuration: { upserts: [], tombstones: [], cursor: 0 },
+        products: { upserts: [], tombstones: [], cursor: 0 },
+        assortment: { upserts: [], tombstones: [], cursor: 0 },
+        outletAssortment: { upserts: [], tombstones: [], cursor: 0 },
+        priceLists,
+        priceLines,
+        priceAssignments,
+      },
+      snapshotVersion: "outlets#1",
+    };
+  }
+
+  function list(id: string, from: string, to: string | null, rowVersion: number) {
+    return { id, name: id, currency: "RON", effectiveFrom: from, effectiveTo: to, rowVersion };
+  }
+
+  function assignment(id: string, priceListId: string, scope: "outlet" | "channel", rowVersion: number) {
+    return {
+      id,
+      priceListId,
+      channelId: scope === "channel" ? CHANNEL : null,
+      outletId: scope === "outlet" ? OUTLET : null,
+      rowVersion,
+    };
+  }
+
+  it("stores all three shapes under their own watermarks", async () => {
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValue(
+      pricePull(
+        { upserts: [list(LIST, "2026-01-01", null, 4)], tombstones: [], cursor: 4 },
+        {
+          upserts: [{ id: "line-1", priceListId: LIST, productId: "product-1", amount: 12.5, rowVersion: 5 }],
+          tombstones: [],
+          cursor: 5,
+        },
+        { upserts: [assignment("assign-1", LIST, "channel", 6)], tombstones: [], cursor: 6 },
+      ),
+    );
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    expect(await watermark(db, PRICE_LISTS)).toBe(4);
+    expect(await watermark(db, PRICE_LINES)).toBe(5);
+    expect(await watermark(db, PRICE_ASSIGNMENTS)).toBe(6);
+
+    db.close();
+  });
+
+  it("prefers the outlet's own list over its channel's", async () => {
+    // BR-PRD-2's precedence, re-expressed on the device because it prices an order with no
+    // connection. The parity suite is what keeps this from drifting from the server's resolver.
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValue(
+      pricePull(
+        {
+          upserts: [list("channel-list", "2026-01-01", null, 4), list("outlet-list", "2026-01-01", null, 5)],
+          tombstones: [],
+          cursor: 5,
+        },
+        { upserts: [], tombstones: [], cursor: 0 },
+        {
+          upserts: [
+            assignment("assign-channel", "channel-list", "channel", 6),
+            assignment("assign-outlet", "outlet-list", "outlet", 7),
+          ],
+          tombstones: [],
+          cursor: 7,
+        },
+      ),
+    );
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    expect((await priceListFor(db, OUTLET, CHANNEL, "2026-06-01"))?.id).toBe("outlet-list");
+
+    db.close();
+  });
+
+  it("picks the list in effect on the day it is asked about, not the day it synced", async () => {
+    // A device offline for a week may be pricing an order on the day a new list takes over.
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValue(
+      pricePull(
+        {
+          upserts: [
+            list("old", "2026-01-01", "2026-05-31", 4),
+            list("new", "2026-06-01", null, 5),
+          ],
+          tombstones: [],
+          cursor: 5,
+        },
+        { upserts: [], tombstones: [], cursor: 0 },
+        {
+          upserts: [
+            assignment("assign-old", "old", "channel", 6),
+            assignment("assign-new", "new", "channel", 7),
+          ],
+          tombstones: [],
+          cursor: 7,
+        },
+      ),
+    );
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    expect((await priceListFor(db, OUTLET, CHANNEL, "2026-05-15"))?.id).toBe("old");
+    expect((await priceListFor(db, OUTLET, CHANNEL, "2026-06-15"))?.id).toBe("new");
+    expect(await priceListFor(db, OUTLET, CHANNEL, "2025-12-31")).toBeUndefined();
+
+    db.close();
+  });
+
+  it("finds a product's price on a list, and nothing for one it does not price", async () => {
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValue(
+      pricePull(
+        { upserts: [list(LIST, "2026-01-01", null, 4)], tombstones: [], cursor: 4 },
+        {
+          upserts: [{ id: "line-1", priceListId: LIST, productId: "product-1", amount: 12.5, rowVersion: 5 }],
+          tombstones: [],
+          cursor: 5,
+        },
+        { upserts: [], tombstones: [], cursor: 0 },
+      ),
+    );
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    expect((await priceOf(db, LIST, "product-1"))?.amount).toBe(12.5);
+    expect(await priceOf(db, LIST, "product-2")).toBeUndefined();
+
+    db.close();
+  });
+
+  it("drops an outlet assignment when the outlet leaves the territory, and keeps the channel one", async () => {
+    // The same cascade the overrides get — and the same trap: an over-eager prune would take the
+    // channel assignment with it, and every shop in that channel would lose its price.
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValueOnce(
+      pricePull(
+        { upserts: [], tombstones: [], cursor: 0 },
+        { upserts: [], tombstones: [], cursor: 0 },
+        {
+          upserts: [
+            assignment("assign-outlet", LIST, "outlet", 6),
+            assignment("assign-channel", LIST, "channel", 7),
+          ],
+          tombstones: [],
+          cursor: 7,
+        },
+      ),
+    );
+    await syncOnce(db, TOKEN, DEVICE);
+    expect(await db.priceAssignments.count()).toBe(2);
+
+    api.pull.mockResolvedValueOnce(
+      pricePull(
+        { upserts: [], tombstones: [], cursor: 0 },
+        { upserts: [], tombstones: [], cursor: 0 },
+        { upserts: [], tombstones: [], cursor: 7 },
+        { upserts: [], tombstones: [{ id: OUTLET, rowVersion: 2 }], cursor: 2 },
+      ),
+    );
+    await syncOnce(db, TOKEN, DEVICE);
+
+    const remaining = await db.priceAssignments.toArray();
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].id).toBe("assign-channel");
 
     db.close();
   });

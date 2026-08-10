@@ -56,6 +56,7 @@ public sealed class ProductsModule : IModule
         // (W8 slice 8c) — the module's first public contract, and it waited for a caller.
         services.AddScoped<IProductChangeFeed, ProductChangeFeed>();
         services.AddScoped<IAssortmentChangeFeed, AssortmentChangeFeed>();
+        services.AddScoped<IPriceChangeFeed, PriceChangeFeed>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

@@ -1,4 +1,5 @@
 using FieldKit.BuildingBlocks;
+using FieldKit.Infrastructure;
 using FieldKit.SharedKernel;
 
 namespace FieldKit.Modules.Products;
@@ -27,8 +28,11 @@ namespace FieldKit.Modules.Products;
 /// <c>IOutletClassification</c> and <c>IOutletCatalog</c>.
 /// </para>
 /// </remarks>
-public sealed class PriceListAssignment : AggregateRoot, ITenantOwned, IAuditable
+public sealed class PriceListAssignment : AggregateRoot, ITenantOwned, IAuditable, ISyncTracked
 {
+    /// <summary>Set by the row-version interceptor, never here (ADR-0013). W8 slice 8e.</summary>
+    public long RowVersion { get; set; }
+
     public Guid Id { get; private set; }
 
     public Guid PriceListId { get; private set; }
