@@ -158,7 +158,12 @@ describe("<FieldShell>", () => {
     await db.meta.put({ key: "deviceId", value: "device-1" });
     await db.watermarks.put({ entity: "products", cursor: 41 });
 
-    api.pull.mockRejectedValue(new ApiError(409, [], "sync.pull.deviceInactive"));
+    // The status is what `classify` reads; the code rides along in the problems array, where the
+    // rest of the app finds it. An earlier version passed it as a third argument that `ApiError`
+    // does not take — harmless at runtime, and a lie about the shape.
+    api.pull.mockRejectedValue(
+      new ApiError(409, [{ field: null, code: "sync.pull.deviceInactive", message: "Rebind." }]),
+    );
 
     render(
       <FieldShell>

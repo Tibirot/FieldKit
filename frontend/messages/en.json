@@ -1177,6 +1177,18 @@
       "pending": "Waiting to send",
       "lastSync": "Last synced",
       "never": "Never"
+    },
+    "journey": {
+      "title": "Today's journey",
+      "empty": "No calls planned for today. Sync to pick up a new round, or ask your supervisor.",
+      "unknownOutlet": "A shop this device does not hold",
+      "progress": {
+        "todo": "To do",
+        "working": "In the shop",
+        "worked": "Worked",
+        "notVisited": "Not visited"
+      },
+      "openDevice": "This device"
     }
   },
   "Guard": {

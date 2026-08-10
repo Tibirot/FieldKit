@@ -1177,6 +1177,18 @@
       "pending": "În așteptare",
       "lastSync": "Ultima sincronizare",
       "never": "Niciodată"
+    },
+    "journey": {
+      "title": "Traseul de azi",
+      "empty": "Niciun apel planificat pentru azi. Sincronizează pentru a prelua un traseu nou sau întreabă-ți supervizorul.",
+      "unknownOutlet": "Un magazin pe care dispozitivul nu îl are",
+      "progress": {
+        "todo": "De făcut",
+        "working": "În magazin",
+        "worked": "Lucrat",
+        "notVisited": "Nevizitat"
+      },
+      "openDevice": "Acest dispozitiv"
     }
   },
   "Guard": {

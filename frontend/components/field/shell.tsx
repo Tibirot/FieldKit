@@ -8,6 +8,7 @@ import { SessionGuard } from "@/components/session-guard";
 import { SyncIndicator } from "@/components/sync/sync-indicator";
 import { SyncProvider, useSync } from "@/components/sync/sync-provider";
 import { Button } from "@/components/ui/button";
+import { Link } from "@/i18n/navigation";
 import { openDatabase } from "@/lib/sync/db";
 import { ensureDevice } from "@/lib/sync/manager";
 
@@ -172,8 +173,27 @@ function FieldFrame({
     return (
       <div className="flex min-h-dvh flex-col">
         <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-2">
-          <span className="text-sm font-medium">{t("title")}</span>
-          <SyncIndicator />
+          {/*
+            The wordmark goes home, which on this app is the rep's round rather than a landing page.
+            A link rather than a button because it navigates — the rule this codebase already fixed
+            once in the back office.
+          */}
+          <Link href="/field" className="text-sm font-medium">
+            {t("title")}
+          </Link>
+
+          <div className="flex items-center gap-2">
+            <SyncIndicator />
+
+            {/* The device screen, one tap from anywhere. It used to *be* the home screen; what it
+                answers — "has my work gone in" — is a real question, just not the first one. */}
+            <Link
+              href="/field/device"
+              className="rounded-lg border border-border px-2 py-1 text-xs text-muted-foreground"
+            >
+              {t("journey.openDevice")}
+            </Link>
+          </div>
         </header>
         <main className="min-w-0 flex-1 p-4">{children}</main>
       </div>
