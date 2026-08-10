@@ -687,6 +687,7 @@ the protocol.
 | | *Version 2 is a real index the drain needed, not a placeholder: `pending()` sorted in memory at the top of every push. The suite writes a v1 database and opens it with v2 code — and fails on an upgrade that clears the outbox, which is the check that makes it worth having* | | |
 | 12 | **Drain-push on device swap** — a deactivated device completes its last push rather than losing a shift's work | `OFF-12` | 300 |
 | 13 | **Connectivity + pending UI** — the indicator, per-item badges, and *Sync now* | `OFF-05`, `OFF-06` | 350 |
+| | *The pending count is the fact and connectivity is the explanation — no green tick, because `navigator.onLine` is true on a captive portal. Counts are live off Dexie, so they move on capture as well as on drain. **Week 8 complete.*** | | |
 
 **Not in W8:** photo upload (`OFF-08`) and background sync (`OFF-07`) — both are W11 and Phase 3
 respectively, and both are separate transports rather than more of this one. Audit and order offline

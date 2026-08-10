@@ -59,6 +59,19 @@ Sync runs **automatically on reconnect**, **periodically in the background**, an
 2. **Pull** — new/changed reference data downloads as a delta since the last watermark.
 3. Badges flip from *pending* → *synced*; the pending count drops to zero.
 
+**How the indicator reads, as built (W8 slice 13).** The headline is always *how much work has not
+reached the back office* — never a green "online" tick. `navigator.onLine` is true on a captive
+portal, and a rep who reads it as "my visits are in" has been misled by the app; connectivity is the
+cheap signal that explains **why** work is still queued, not a claim that it is not. The states are
+ranked so the chip cannot say two things at once: a rejection (needs a person) outranks offline
+(explains the count), which outranks a pending count, which outranks *everything synced*.
+
+Two rules that look inconsistent and are not. The indicator **renders when all is well**, because one
+that disappears cannot be told apart from one that is broken, and a rep deciding whether they can
+close the app needs an answer. A per-item badge **renders nothing** when the item is synced, because
+a column of "synced" against every row is noise a rep stops reading — and the one that says *needs
+attention* would be lost in it.
+
 ### F4 · Partial failure
 - If some items fail to push (e.g. a validation rejection), the rest still succeed; failures are
   shown distinctly as **"needs attention"** with the reason, and retried on the next sync.

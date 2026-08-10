@@ -1150,5 +1150,16 @@
       "backwards": "A window ends on or after it starts.",
       "tooLong": "Plan at most 400 days at a time."
     }
+  },
+  "Sync": {
+    "offline": "Offline — your work is saved on this device",
+    "pending": "{count, plural, one {# item waiting to sync} other {# items waiting to sync}}",
+    "synced": "Everything synced",
+    "syncing": "Syncing…",
+    "syncNow": "Sync now",
+    "signInAgain": "Sign in again to sync",
+    "rebind": "Register this device again to sync",
+    "itemPending": "Not synced",
+    "itemFailed": "Needs attention"
   }
 }

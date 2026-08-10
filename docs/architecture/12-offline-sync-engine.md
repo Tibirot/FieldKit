@@ -413,7 +413,7 @@ Per [A8](../product/decisions-and-assumptions.md#a8--device--sync-behavior-one-a
 | Trigger | Mechanism | Guarantee |
 |---|---|---|
 | Reconnect | `online` event → sync manager | Primary guarantee |
-| Manual "Sync now" | User action | Always available |
+| Manual "Sync now" | User action | Always available — **including when the device believes it is offline**, because `navigator.onLine` is a guess and a disabled button would make the app’s wrong guess final (W8 slice 13) |
 | Periodic background | Background Sync API where supported | Best-effort (iOS PWA-limited) |
 
 **Order of operations** on a sync run: **push** pending mutations → **pull** reference deltas →
