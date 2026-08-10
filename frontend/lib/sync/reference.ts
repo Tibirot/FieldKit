@@ -4,6 +4,7 @@ import type {
   FieldKitDatabase,
   ReferenceOutlet,
   ReferencePlannedVisit,
+  ReferenceProduct,
   ReferenceVisitWorkflow,
 } from "./db";
 
@@ -28,6 +29,7 @@ export type EntityChanges<T> = {
 export const OUTLETS = "outlets";
 export const JOURNEYS = "journeys";
 export const CONFIGURATION = "configuration";
+export const PRODUCTS = "products";
 
 /**
  * Applies one page of a pull (`OFF-02`, `OFF-03`, sync engine §3).
@@ -183,4 +185,36 @@ export function workflowFor(
   channelId: string,
 ): Promise<ReferenceVisitWorkflow | undefined> {
   return db.workflows.where("channelId").equals(channelId).first();
+}
+
+/**
+ * The tenant's product catalogue.
+ *
+ * Its own transaction, like the round and the workflows. Four entities, four cursors, four
+ * transactions: a device that got one page of a pull keeps it whatever happened to the others.
+ */
+export function applyProductChanges(
+  db: FieldKitDatabase,
+  page: EntityChanges<ReferenceProduct>,
+): Promise<void> {
+  return apply(db, "ref_products", PRODUCTS, page);
+}
+
+/**
+ * Products a rep can put on an order or count on a shelf, by name (`PRD-01`).
+ *
+ * <b>Active only, by default.</b> The device holds discontinued products so it can still *name* one
+ * on an order taken last week — but offering them in a picker is how a rep orders something the
+ * tenant stopped selling. Naming and offering are different jobs, and this is the offering one.
+ */
+export function products(db: FieldKitDatabase): Promise<ReferenceProduct[]> {
+  return db.products.where("status").equals("Active").sortBy("name");
+}
+
+/** One product, however it is classified — including a discontinued one. */
+export function product(
+  db: FieldKitDatabase,
+  id: string,
+): Promise<ReferenceProduct | undefined> {
+  return db.products.get(id);
 }

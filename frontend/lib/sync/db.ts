@@ -68,6 +68,29 @@ export type ReferenceVisitWorkflow = {
   rowVersion: number;
 };
 
+/**
+ * One product as the device holds it (`PRD-01`, W8 slice 8c).
+ *
+ * The whole tenant catalogue reaches every device — a rep standing in a shop has to be able to
+ * *name* what they are looking at, including on an unplanned call or at a shop whose assortment
+ * changed this morning. What they may **sell** is a different question, answered by the assortment.
+ *
+ * `status` travels rather than being filtered server-side: a device holding an order taken last week
+ * still has to name a product the tenant has since discontinued.
+ */
+export type ReferenceProduct = {
+  id: string;
+  sku: string;
+  name: string;
+  brandId: string | null;
+  categoryId: string | null;
+  taxClassId: string | null;
+  unitOfMeasure: string | null;
+  packSize: number | null;
+  status: string;
+  rowVersion: number;
+};
+
 /** Where a mutation has got to. The device's own state, never the server's. */
 export type OutboxStatus =
   /** Captured and durable. Waiting for a connection. */
@@ -143,6 +166,7 @@ export class FieldKitDatabase extends Dexie {
   outlets!: EntityTable<ReferenceOutlet, "id">;
   plannedVisits!: EntityTable<ReferencePlannedVisit, "id">;
   workflows!: EntityTable<ReferenceVisitWorkflow, "id">;
+  products!: EntityTable<ReferenceProduct, "id">;
   outbox!: EntityTable<OutboxEntry, "mutationId">;
   meta!: EntityTable<MetaEntry, "key">;
   watermarks!: EntityTable<Watermark, "entity">;
@@ -176,6 +200,11 @@ export class FieldKitDatabase extends Dexie {
       // stored two for one channel fails loudly rather than picking one arbitrarily.
       ref_visit_workflows: "id, &channelId",
 
+      // `sku` is what a rep types or scans and `name` is what they read — both are how the
+      // catalogue gets searched. `status` is indexed here where the outlet store's is not: this is
+      // the one store big enough for "active only" to be worth an index rather than a scan.
+      ref_products: "id, sku, name, status",
+
       // Indexed by status (the sync manager asks for pending), by createdAt (it sends them in the
       // order the rep worked), and by subjectId (a screen asks about one visit).
       outbox: "mutationId, status, createdAt, subjectId",
@@ -187,6 +216,7 @@ export class FieldKitDatabase extends Dexie {
     this.outlets = this.table("ref_outlets");
     this.plannedVisits = this.table("ref_planned_visits");
     this.workflows = this.table("ref_visit_workflows");
+    this.products = this.table("ref_products");
     this.outbox = this.table("outbox");
     this.meta = this.table("meta");
     this.watermarks = this.table("watermarks");

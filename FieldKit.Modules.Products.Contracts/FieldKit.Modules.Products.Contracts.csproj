@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Products module's *only* public surface. Other modules reference this assembly and never
+    FieldKit.Modules.Products (AT-1), which is what keeps the boundary enforceable by assembly
+    reference rather than by convention.
+
+    Note what it does NOT reference: no EF Core, no ASP.NET, no Infrastructure. A contracts assembly
+    that could see a DbContext would let an entity leak through a signature (AT-3), and the arch test
+    for that would be checking types rather than the far simpler fact that the reference is absent.
+
+    It lands in W8 slice 8c, three phases after the module itself, because this is the first slice
+    where anything outside Products asks it a question. The registry has named `IProductCatalog`,
+    `IAssortmentService` and `IPricingService` since W1 and none of them is here: their callers are
+    Order and Audit, which are Phase 3. `IProductChangeFeed` has a caller *now*.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FieldKit.SharedKernel\FieldKit.SharedKernel.csproj" />
+    <ProjectReference Include="..\FieldKit.BuildingBlocks\FieldKit.BuildingBlocks.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -20,6 +20,9 @@ import {
   outlet,
   OUTLETS,
   plannedVisits,
+  product,
+  products,
+  PRODUCTS,
   watermark,
   workflowFor,
 } from "./reference";
@@ -60,6 +63,7 @@ function emptyPull(cursor = 0) {
       outlets: { upserts: [], tombstones: [], cursor },
       journeys: { upserts: [], tombstones: [], cursor: 0 },
       configuration: { upserts: [], tombstones: [], cursor: 0 },
+      products: { upserts: [], tombstones: [], cursor: 0 },
     },
     snapshotVersion: `outlets#${cursor}`,
   };
@@ -73,6 +77,21 @@ function plannedVisitRow(id: string, rowVersion: number, date = "2026-03-17") {
     status: "Planned",
     source: "Generated",
     notVisitedReason: null,
+    rowVersion,
+  };
+}
+
+function productRow(id: string, rowVersion: number, name = "Cola 500ml") {
+  return {
+    id,
+    sku: id.toUpperCase(),
+    name,
+    brandId: null,
+    categoryId: null,
+    taxClassId: null,
+    unitOfMeasure: "EA",
+    packSize: 24,
+    status: "Active",
     rowVersion,
   };
 }
@@ -224,6 +243,7 @@ describe("one sync run", () => {
         outlets: { upserts: [outletRow("outlet-1", 9)], tombstones: [], cursor: 9 },
         journeys: { upserts: [], tombstones: [], cursor: 0 },
         configuration: { upserts: [], tombstones: [], cursor: 0 },
+        products: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -248,6 +268,7 @@ describe("one sync run", () => {
         outlets: { upserts: [outletRow("outlet-1", 9)], tombstones: [], cursor: 9 },
         journeys: { upserts: [plannedVisitRow("call-1", 3)], tombstones: [], cursor: 3 },
         configuration: { upserts: [], tombstones: [], cursor: 0 },
+        products: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -288,6 +309,7 @@ describe("one sync run", () => {
           tombstones: [],
           cursor: 5,
         },
+        products: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -299,6 +321,70 @@ describe("one sync run", () => {
     expect(stored?.steps).toHaveLength(2);
     expect(stored?.steps[0]).toMatchObject({ type: "Audit", mandatory: true });
     expect(await watermark(db, CONFIGURATION)).toBe(5);
+
+    db.close();
+  });
+
+  it("counts every page in the totals, not just the ones that were there first", async () => {
+    // The hand-written sum silently stopped counting configuration when slice 8b added it. Nothing
+    // failed — the totals only feed an indicator — and no test asserted on them. This is that test.
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValue({
+      changes: {
+        outlets: { upserts: [outletRow("outlet-1", 9)], tombstones: [], cursor: 9 },
+        journeys: { upserts: [plannedVisitRow("call-1", 3)], tombstones: [], cursor: 3 },
+        configuration: {
+          upserts: [
+            { id: "workflow-1", channelId: CHANNEL, presenceExpected: true, steps: [], rowVersion: 5 },
+          ],
+          tombstones: [],
+          cursor: 5,
+        },
+        products: {
+          upserts: [productRow("product-1", 7)],
+          tombstones: [{ id: "product-2", rowVersion: 8 }],
+          cursor: 8,
+        },
+      },
+      snapshotVersion: "outlets#9",
+    });
+
+    const result = await syncOnce(db, TOKEN, DEVICE);
+
+    expect(result.pulled).toBe(4);
+    expect(result.dropped).toBe(1);
+
+    db.close();
+  });
+
+  it("stores the catalogue and offers only what is still sold", async () => {
+    // The device holds a discontinued product so it can still *name* one on an order taken last
+    // week. Offering it in a picker is how a rep orders something the tenant stopped selling.
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValue({
+      changes: {
+        outlets: { upserts: [], tombstones: [], cursor: 0 },
+        journeys: { upserts: [], tombstones: [], cursor: 0 },
+        configuration: { upserts: [], tombstones: [], cursor: 0 },
+        products: {
+          upserts: [
+            productRow("product-1", 7, "Alpha"),
+            { ...productRow("product-2", 8, "Beta"), status: "Discontinued" },
+          ],
+          tombstones: [],
+          cursor: 8,
+        },
+      },
+      snapshotVersion: "outlets#0",
+    });
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    expect((await products(db)).map((row) => row.name)).toEqual(["Alpha"]);
+    expect(await product(db, "product-2")).toMatchObject({ status: "Discontinued" });
+    expect(await watermark(db, PRODUCTS)).toBe(8);
 
     db.close();
   });
@@ -319,6 +405,7 @@ describe("one sync run", () => {
           tombstones: [],
           cursor: 5,
         },
+        products: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -335,6 +422,7 @@ describe("one sync run", () => {
           tombstones: [{ id: "workflow-1", rowVersion: 6 }],
           cursor: 6,
         },
+        products: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -357,6 +445,7 @@ describe("one sync run", () => {
         outlets: { upserts: [outletRow("outlet-1", 9)], tombstones: [], cursor: 9 },
         journeys: { upserts: [plannedVisitRow("call-1", 3)], tombstones: [], cursor: 3 },
         configuration: { upserts: [], tombstones: [], cursor: 0 },
+        products: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -379,7 +468,7 @@ describe("one sync run", () => {
 
     await syncOnce(db, TOKEN, DEVICE);
 
-    expect(api.pull).toHaveBeenCalledWith(TOKEN, DEVICE, { outlets: 4, journeys: 0, configuration: 0 }, undefined);
+    expect(api.pull).toHaveBeenCalledWith(TOKEN, DEVICE, { outlets: 4, journeys: 0, configuration: 0, products: 0 }, undefined);
 
     db.close();
   });

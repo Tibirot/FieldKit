@@ -3,6 +3,7 @@ import { apiSend } from "@/lib/api/client";
 import type {
   ReferenceOutlet,
   ReferencePlannedVisit,
+  ReferenceProduct,
   ReferenceVisitWorkflow,
 } from "@/lib/sync/db";
 import type { EntityChanges } from "@/lib/sync/reference";
@@ -30,13 +31,19 @@ export function bindDevice(accessToken: string, name: string | null): Promise<De
 }
 
 /** What the device tells the server it already has. Absent means "I have nothing" (sync engine §3). */
-export type PullCursors = { outlets?: number; journeys?: number; configuration?: number };
+export type PullCursors = {
+  outlets?: number;
+  journeys?: number;
+  configuration?: number;
+  products?: number;
+};
 
 export type PullResponse = {
   changes: {
     outlets: EntityChanges<ReferenceOutlet>;
     journeys: EntityChanges<ReferencePlannedVisit>;
     configuration: EntityChanges<ReferenceVisitWorkflow>;
+    products: EntityChanges<ReferenceProduct>;
   };
   snapshotVersion: string;
 };

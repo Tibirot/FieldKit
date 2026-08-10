@@ -19,6 +19,8 @@
     <ProjectReference Include="..\FieldKit.Modules.Journey.Contracts\FieldKit.Modules.Journey.Contracts.csproj" />
     <!-- Configuration owns the visit workflow; Sync pages it to the device (W8 slice 8b). -->
     <ProjectReference Include="..\FieldKit.Modules.Configuration.Contracts\FieldKit.Modules.Configuration.Contracts.csproj" />
+    <!-- Products owns the catalogue; Sync pages it to the device (W8 slice 8c). -->
+    <ProjectReference Include="..\FieldKit.Modules.Products.Contracts\FieldKit.Modules.Products.Contracts.csproj" />
     <!-- Visit owns what makes a visit valid; Sync applies pushed work through it, never by writing
          the visit schema (module boundaries §7). -->
     <ProjectReference Include="..\FieldKit.Modules.Visit.Contracts\FieldKit.Modules.Visit.Contracts.csproj" />
