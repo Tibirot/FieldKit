@@ -681,6 +681,7 @@ the protocol.
 | 8e | **Prices** — lists, lines and assignments. The assignment half reuses 8d's shape; the lists are the one place a device holds data outside its territory, recorded as a limitation rather than defended | `OFF-03` | 400 |
 | 8f | **Promotions** — the last reference entity. Each travels whole, targets and tiers inside, which found a real bug: the endpoints that set them never touched the root, so the change never reached a device | `OFF-03` | 400 |
 | 9 | **Replay and resume as properties** — a generated suite: any batch replayed changes nothing, any pull interrupted at any point resumes without loss or duplication | `OFF-04` | 350 |
+| | *Two suites, not one: the server answers identically and resumes from any cursor; the client — the real manager against a model server — converges. Fixed sweeps rather than seeded randomness, per the position W6 took. It also disproved slice 3a’s “not self-healing” note* | | |
 | 10 | **Partial failure** — one bad mutation in a batch does not reject the batch; the device learns which, and why | `OFF-09` | 300 |
 | 11 | **Local-store migration** — an app update must not strand a pending outbox | `OFF-13` | 300 |
 | 12 | **Drain-push on device swap** — a deactivated device completes its last push rather than losing a shift's work | `OFF-12` | 300 |

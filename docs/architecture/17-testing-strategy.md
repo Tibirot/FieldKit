@@ -92,6 +92,27 @@ adversarial testing:
 | **Device-swap drain** (S2) | Deactivated device drain-pushes its outbox ⇒ no lost work, no split-brain with the new device |
 | **Local-store migration** | App update changing IndexedDB schema ⇒ pending outbox preserved and migrated |
 
+**Replay and resume were built in W8 slice 9**, and it is worth being precise about what
+"property-based" means here rather than what it usually means.
+[`SyncPropertyTests`](../../FieldKit.Server.Tests/SyncPropertyTests.cs) and
+[`resume.test.ts`](../../frontend/lib/sync/resume.test.ts) run **fixed sweeps**, not a randomised
+generator — the same position §2 takes for the pricing vectors, for the same reason: a suite that
+fails once a fortnight on a seed nobody can reproduce teaches people to re-run CI. The rows above
+that say "random" describe the *shape* of the coverage, not the mechanism. The mechanism is an
+enumerated set of batch shapes, page sizes and failure points, and widening it is a diff somebody
+reviews.
+
+The two halves are deliberately different tests of the same statement. The server suite asserts the
+protocol answers a replay identically and resumes from any cursor. The client suite runs the **real
+sync manager** against a model server and asserts the *device* converges — the half a rep would
+notice, and the half where a bug looks like a missing shop rather than an error.
+
+They also settled an open question. `RecordScopeAsync` had carried a note since slice 3a calling the
+scope-set write "the one place this protocol is not self-healing"; the resume property shows it is
+not, because a device that loses a response also loses its cursor and the delta over its retained set
+covers what the baseline did not. What *would* be unrecoverable needs the device to advance a cursor
+without storing rows, which one IndexedDB transaction makes impossible.
+
 ## 6. E2E tests (few) — Playwright
 
 - The **golden path** ([product overview §5](../product/00-product-overview.md#5-a-day-in-the-life-the-golden-path))
