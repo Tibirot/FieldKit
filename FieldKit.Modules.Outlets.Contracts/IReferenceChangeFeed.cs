@@ -50,11 +50,11 @@ public sealed record ReferenceChangePage(
 /// send it.
 /// </para>
 /// <para>
-/// <b>This overload answers the first question only.</b> It returns changes to outlets already in
-/// the given scope. Baselining outlets that have newly *entered* scope needs the device's previous
-/// scope set, which Sync does not yet keep — W8 slice 3b. Until then a rep given a new territory
-/// sees its outlets when one of them is next edited, and not before; the hole is named here rather
-/// than left for someone to find in the field.
+/// So there are two methods, one per question. <see cref="GetChangesAsync"/> orders content for
+/// outlets the device already holds; <see cref="GetBaselineAsync"/> hands over outlets it has never
+/// been told about, whatever their row version. Sync decides which ids fall in which set by diffing
+/// the device's stored scope against the rep's current one — this module does not know what a
+/// territory is and is not asked to.
 /// </para>
 /// </remarks>
 public interface IReferenceChangeFeed
@@ -74,6 +74,20 @@ public interface IReferenceChangeFeed
     /// </param>
     Task<ReferenceChangePage> GetChangesAsync(
         long cursor,
+        IReadOnlyCollection<Guid> outletIds,
+        int limit,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Every named outlet as it stands, ignoring any cursor — the first thing a device is told about
+    /// rows that have just entered its scope.
+    /// </summary>
+    /// <remarks>
+    /// No cursor parameter, deliberately. These ids are new *to this device*, so "what changed
+    /// since" is not a question that can be asked about them: the answer would exclude an outlet
+    /// last edited before the device existed, which is most of them.
+    /// </remarks>
+    Task<IReadOnlyList<OutletSnapshot>> GetBaselineAsync(
         IReadOnlyCollection<Guid> outletIds,
         int limit,
         CancellationToken cancellationToken = default);

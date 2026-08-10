@@ -65,16 +65,108 @@ public static class PullEndpoints
             var coverage = await repScope.ForRepAsync(
                 tenant.UserId, DateOnly.FromDateTime(clock.UtcNow.UtcDateTime), ct);
 
-            var page = await outlets.GetChangesAsync(
-                request.Cursors?.Outlets ?? 0, coverage.OutletIds, PageLimit, ct);
+            /*
+             * Membership, then content — two questions a cursor cannot both answer (sync engine §3).
+             *
+             * The device's stored scope is what it was last told it holds. Diffing it against the
+             * rep's current coverage gives the ids that have *entered* (which need a baseline,
+             * because their row version is whatever it has always been and is almost certainly
+             * below the cursor) and the ids that have *left* (which need a tombstone, because the
+             * rows still exist and the delta will never mention them again).
+             *
+             * The delta then runs over the intersection — outlets the device already had and still
+             * covers — because entering ids are being sent in full anyway.
+             */
+            var known = await db.DeviceScope
+                .Where(entry => entry.DeviceId == device.Id)
+                .Select(entry => entry.OutletId)
+                .ToListAsync(ct);
+
+            var current = coverage.OutletIds.ToHashSet();
+            var knownSet = known.ToHashSet();
+
+            var entering = current.Except(knownSet).ToList();
+            var leaving = knownSet.Except(current).ToList();
+            var retained = current.Intersect(knownSet).ToList();
+
+            var cursor = request.Cursors?.Outlets ?? 0;
+            var page = await outlets.GetChangesAsync(cursor, retained, PageLimit, ct);
+            var baseline = await outlets.GetBaselineAsync(entering, PageLimit, ct);
+
+            /*
+             * The cursor must cover the baseline too, and this is the bug the tests caught.
+             *
+             * `GetChangesAsync` reports the highest version it *sent*, and on a first pull it sends
+             * nothing — every id is entering, so `retained` is empty and it returns the cursor it
+             * was given, zero. Meanwhile the baseline hands over rows at version 6. A device that
+             * banked zero would come back asking for `> 0` and be handed the same rows again, and
+             * again, forever: the delta would never engage and the protocol would degrade to a full
+             * snapshot on every sync while looking entirely correct.
+             */
+            var cursorAfter = page.Cursor;
+            foreach (var snapshot in baseline)
+                cursorAfter = Math.Max(cursorAfter, snapshot.RowVersion);
+
+            // A device that has left scope keeps the row unless it is told otherwise, and the row is
+            // not deleted, so there is no tombstone in Outlets to find. Sync mints them: the version
+            // is the page's, which is all the client uses them for — ordering within this response.
+            var scopeTombstones = leaving
+                .Select(outletId => new ReferenceTombstone(outletId, cursorAfter))
+                .ToList();
+
+            await RecordScopeAsync(db, device.Id, tenant.TenantId, entering, leaving, ct);
 
             return Results.Ok(new PullResponse(
-                new PullChanges(new EntityChanges<OutletSnapshot>(page.Upserts, page.Tombstones, page.Cursor)),
+                new PullChanges(new EntityChanges<OutletSnapshot>(
+                    [.. baseline, .. page.Upserts],
+                    [.. page.Tombstones, .. scopeTombstones],
+                    cursorAfter)),
                 // A patchwork, not a point in time: watermarks advance per entity type, and the
                 // device tolerates the skew because captured work records its own inputs
                 // (sync engine §3). With one entity type there is nothing to skew yet.
-                $"{clock.UtcNow:O}#{page.Cursor}"));
+                $"{clock.UtcNow:O}#{cursorAfter}"));
         }).RequireAuthorization();
+    }
+
+    /// <summary>
+    /// Rewrites what this device is known to hold, in the same save as nothing else.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Written <b>after</b> the page is built and before it is returned, which is a deliberate and
+    /// imperfect ordering: if the response never reaches the device, the server believes it has rows
+    /// it does not. The device recovers by rebinding, which clears the set and re-snapshots — and
+    /// the alternative, recording only what a device acknowledges, is a second round trip on every
+    /// pull to protect against a case that already has a remedy.
+    /// </para>
+    /// <para>
+    /// Stated rather than hidden because it is the one place this protocol is not
+    /// self-healing, and slice 9's resume properties are where it should be revisited.
+    /// </para>
+    /// </remarks>
+    private static async Task RecordScopeAsync(
+        SyncDbContext db,
+        Guid deviceId,
+        TenantId tenantId,
+        IReadOnlyList<Guid> entering,
+        IReadOnlyList<Guid> leaving,
+        CancellationToken ct)
+    {
+        if (entering.Count == 0 && leaving.Count == 0) return;
+
+        foreach (var outletId in entering)
+            db.DeviceScope.Add(new DeviceScopeEntry { DeviceId = deviceId, OutletId = outletId, TenantId = tenantId });
+
+        if (leaving.Count > 0)
+        {
+            var stale = await db.DeviceScope
+                .Where(entry => entry.DeviceId == deviceId && leaving.Contains(entry.OutletId))
+                .ToListAsync(ct);
+
+            db.DeviceScope.RemoveRange(stale);
+        }
+
+        await db.SaveChangesAsync(ct);
     }
 }
 

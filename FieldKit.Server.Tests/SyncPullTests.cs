@@ -105,13 +105,15 @@ public class SyncPullTests(ServerFixture fixture)
         using var rep = fixture.CreateAuthenticatedClient(fixture.AccessToken);
         using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
 
-        await OutletAsync(admin);
+        var unassigned = await OutletAsync(admin);
         var device = await BindDeviceAsync(rep);
 
         var pull = await PullAsync(rep, device);
 
-        Assert.Empty(pull.Changes.Outlets.Upserts);
-        Assert.Equal(0, pull.Changes.Outlets.Cursor);
+        // Not `Assert.Empty`. The fixture is shared, so another test's territory may legitimately
+        // put outlets in this rep's scope — the property is about *this* outlet, which belongs to
+        // no territory at all. Asserting emptiness made this test a hostage to execution order.
+        Assert.DoesNotContain(pull.Changes.Outlets.Upserts, outlet => outlet.Id == unassigned);
     }
 
     [Fact]
@@ -158,7 +160,9 @@ public class SyncPullTests(ServerFixture fixture)
 
         var delivered = Assert.Single(pull.Changes.Outlets.Upserts, outlet => outlet.Id == outletId);
         Assert.True(delivered.RowVersion > 0, "the outlet arrived unstamped, so no delta could order it");
-        Assert.Equal(delivered.RowVersion, pull.Changes.Outlets.Cursor);
+        Assert.True(
+            pull.Changes.Outlets.Cursor >= delivered.RowVersion,
+            "the cursor must cover every row in the page, or the next pull re-sends it forever");
     }
 
     [Fact]
@@ -180,12 +184,79 @@ public class SyncPullTests(ServerFixture fixture)
         Assert.Equal(first.Changes.Outlets.Cursor, second.Changes.Outlets.Cursor);
     }
 
+    [Fact]
+    public async Task An_outlet_that_enters_scope_after_a_pull_still_arrives()
+    {
+        // The hole slice 3a shipped with, and the reason 3b exists. The outlet was created before
+        // the device ever pulled, so its row version is below the cursor the device already holds:
+        // `rowVersion > cursor` will never mention it. Only the scope diff can.
+        using var rep = fixture.CreateAuthenticatedClient(fixture.AccessToken);
+        using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var outletId = await OutletAsync(admin);
+        var device = await BindDeviceAsync(rep);
+
+        // First pull: no territory yet, so nothing — and the device banks a cursor.
+        var before = await PullAsync(rep, device);
+        Assert.DoesNotContain(before.Changes.Outlets.Upserts, outlet => outlet.Id == outletId);
+
+        await GiveRepTheTerritoryAsync(admin, rep, outletId);
+
+        var after = await PullAsync(rep, device, before.Changes.Outlets.Cursor);
+
+        Assert.Single(after.Changes.Outlets.Upserts, outlet => outlet.Id == outletId);
+    }
+
+    [Fact]
+    public async Task An_outlet_that_leaves_scope_is_tombstoned_rather_than_left_on_the_device()
+    {
+        // The row still exists, so nothing in Outlets will ever mention it again. Without a
+        // scope tombstone the rep keeps a shop they no longer cover, indefinitely.
+        using var rep = fixture.CreateAuthenticatedClient(fixture.AccessToken);
+        using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var outletId = await OutletAsync(admin);
+        var territoryId = await GiveRepTheTerritoryAsync(admin, rep, outletId);
+
+        var device = await BindDeviceAsync(rep);
+        var first = await PullAsync(rep, device);
+        Assert.Single(first.Changes.Outlets.Upserts, outlet => outlet.Id == outletId);
+
+        // Take the outlet out of the territory the rep covers.
+        var removed = await admin.DeleteAsync($"/api/org/territories/{territoryId}/outlets/{outletId}");
+        Assert.Equal(HttpStatusCode.NoContent, removed.StatusCode);
+
+        var second = await PullAsync(rep, device, first.Changes.Outlets.Cursor);
+
+        Assert.Single(second.Changes.Outlets.Tombstones, tombstone => tombstone.Id == outletId);
+    }
+
+    [Fact]
+    public async Task Entering_scope_is_delivered_once_not_on_every_pull()
+    {
+        // Membership is idempotent through the stored scope set. If the set were not rewritten,
+        // every pull would re-send the whole territory forever and the delta would be decoration.
+        using var rep = fixture.CreateAuthenticatedClient(fixture.AccessToken);
+        using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var outletId = await OutletAsync(admin);
+        await GiveRepTheTerritoryAsync(admin, rep, outletId);
+
+        var device = await BindDeviceAsync(rep);
+        var first = await PullAsync(rep, device);
+        Assert.Single(first.Changes.Outlets.Upserts, outlet => outlet.Id == outletId);
+
+        var second = await PullAsync(rep, device, first.Changes.Outlets.Cursor);
+
+        Assert.Empty(second.Changes.Outlets.Upserts);
+    }
+
     /// <summary>
     /// Assembles what a rep needs to cover an outlet today: a unit, a territory holding it, and an
     /// assignment covering today — against the subject in the token rather than a synthetic rep,
     /// because the pull scopes to whoever the token says is asking.
     /// </summary>
-    private static async Task GiveRepTheTerritoryAsync(HttpClient admin, HttpClient rep, Guid outletId)
+    private static async Task<Guid> GiveRepTheTerritoryAsync(HttpClient admin, HttpClient rep, Guid outletId)
     {
         var me = await rep.GetFromJsonAsync<WhoAmIResponse>("/api/auth/whoami");
 
@@ -222,6 +293,8 @@ public class SyncPullTests(ServerFixture fixture)
             new RepAssignmentRequest(me.Subject, new DateOnly(2020, 1, 1), null));
 
         Assert.Equal(HttpStatusCode.Created, assigned.StatusCode);
+
+        return territoryId;
     }
 
     private sealed record WhoAmIResponse(string Subject);
