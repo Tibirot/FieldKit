@@ -19,12 +19,15 @@ namespace FieldKit.Modules.Outlets;
 /// yet, and promoting a string to reference data later is an additive migration plus a backfill.
 /// </para>
 /// </remarks>
-public sealed class Channel : AggregateRoot, ITenantOwned, IAuditable
+public sealed class Channel : AggregateRoot, ITenantOwned, IAuditable, ISyncTracked
 {
     public Guid Id { get; private set; }
 
     /// <summary>Unique within the tenant — two channels with one name are a data-entry accident.</summary>
     public string Name { get; private set; } = null!;
+
+    /// <summary>Set by the row-version interceptor (ADR-0013). A deleted channel leaves a tombstone.</summary>
+    public long RowVersion { get; set; }
 
     public TenantId TenantId { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
