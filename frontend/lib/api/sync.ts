@@ -1,6 +1,8 @@
 import { apiSend } from "@/lib/api/client";
 
 import type {
+  ReferenceAssortmentLine,
+  ReferenceAssortmentOverride,
   ReferenceOutlet,
   ReferencePlannedVisit,
   ReferenceProduct,
@@ -36,6 +38,8 @@ export type PullCursors = {
   journeys?: number;
   configuration?: number;
   products?: number;
+  assortment?: number;
+  outletAssortment?: number;
 };
 
 export type PullResponse = {
@@ -44,6 +48,8 @@ export type PullResponse = {
     journeys: EntityChanges<ReferencePlannedVisit>;
     configuration: EntityChanges<ReferenceVisitWorkflow>;
     products: EntityChanges<ReferenceProduct>;
+    assortment: EntityChanges<ReferenceAssortmentLine>;
+    outletAssortment: EntityChanges<ReferenceAssortmentOverride>;
   };
   snapshotVersion: string;
 };

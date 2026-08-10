@@ -1,4 +1,5 @@
 using FieldKit.BuildingBlocks;
+using FieldKit.Infrastructure;
 using FieldKit.SharedKernel;
 
 namespace FieldKit.Modules.Products;
@@ -32,8 +33,11 @@ public enum AssortmentOverrideKind
 /// a flag from a channel assortment it is not in would be inheriting from nothing.
 /// </para>
 /// </remarks>
-public sealed class OutletAssortmentOverride : AggregateRoot, ITenantOwned, IAuditable
+public sealed class OutletAssortmentOverride : AggregateRoot, ITenantOwned, IAuditable, ISyncTracked
 {
+    /// <summary>Set by the row-version interceptor, never here (ADR-0013). W8 slice 8d.</summary>
+    public long RowVersion { get; set; }
+
     public Guid Id { get; private set; }
 
     /// <summary>The outlet this is about — an Outlets id, unenforceable here by design.</summary>

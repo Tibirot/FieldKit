@@ -15,9 +15,12 @@ import { ensureDevice, startSync, syncOnce } from "./manager";
 import { enqueue, pending } from "./outbox";
 import {
   applyOutletChanges,
+  ASSORTMENT,
+  assortmentFor,
   CONFIGURATION,
   JOURNEYS,
   outlet,
+  OUTLET_ASSORTMENT,
   OUTLETS,
   plannedVisits,
   product,
@@ -64,6 +67,8 @@ function emptyPull(cursor = 0) {
       journeys: { upserts: [], tombstones: [], cursor: 0 },
       configuration: { upserts: [], tombstones: [], cursor: 0 },
       products: { upserts: [], tombstones: [], cursor: 0 },
+      assortment: { upserts: [], tombstones: [], cursor: 0 },
+      outletAssortment: { upserts: [], tombstones: [], cursor: 0 },
     },
     snapshotVersion: `outlets#${cursor}`,
   };
@@ -244,6 +249,8 @@ describe("one sync run", () => {
         journeys: { upserts: [], tombstones: [], cursor: 0 },
         configuration: { upserts: [], tombstones: [], cursor: 0 },
         products: { upserts: [], tombstones: [], cursor: 0 },
+        assortment: { upserts: [], tombstones: [], cursor: 0 },
+        outletAssortment: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -269,6 +276,8 @@ describe("one sync run", () => {
         journeys: { upserts: [plannedVisitRow("call-1", 3)], tombstones: [], cursor: 3 },
         configuration: { upserts: [], tombstones: [], cursor: 0 },
         products: { upserts: [], tombstones: [], cursor: 0 },
+        assortment: { upserts: [], tombstones: [], cursor: 0 },
+        outletAssortment: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -310,6 +319,8 @@ describe("one sync run", () => {
           cursor: 5,
         },
         products: { upserts: [], tombstones: [], cursor: 0 },
+        assortment: { upserts: [], tombstones: [], cursor: 0 },
+        outletAssortment: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -346,6 +357,8 @@ describe("one sync run", () => {
           tombstones: [{ id: "product-2", rowVersion: 8 }],
           cursor: 8,
         },
+        assortment: { upserts: [], tombstones: [], cursor: 0 },
+        outletAssortment: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -376,6 +389,8 @@ describe("one sync run", () => {
           tombstones: [],
           cursor: 8,
         },
+        assortment: { upserts: [], tombstones: [], cursor: 0 },
+        outletAssortment: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -406,6 +421,8 @@ describe("one sync run", () => {
           cursor: 5,
         },
         products: { upserts: [], tombstones: [], cursor: 0 },
+        assortment: { upserts: [], tombstones: [], cursor: 0 },
+        outletAssortment: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -423,6 +440,8 @@ describe("one sync run", () => {
           cursor: 6,
         },
         products: { upserts: [], tombstones: [], cursor: 0 },
+        assortment: { upserts: [], tombstones: [], cursor: 0 },
+        outletAssortment: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -446,6 +465,8 @@ describe("one sync run", () => {
         journeys: { upserts: [plannedVisitRow("call-1", 3)], tombstones: [], cursor: 3 },
         configuration: { upserts: [], tombstones: [], cursor: 0 },
         products: { upserts: [], tombstones: [], cursor: 0 },
+        assortment: { upserts: [], tombstones: [], cursor: 0 },
+        outletAssortment: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -468,7 +489,14 @@ describe("one sync run", () => {
 
     await syncOnce(db, TOKEN, DEVICE);
 
-    expect(api.pull).toHaveBeenCalledWith(TOKEN, DEVICE, { outlets: 4, journeys: 0, configuration: 0, products: 0 }, undefined);
+    expect(api.pull).toHaveBeenCalledWith(TOKEN, DEVICE, {
+      outlets: 4,
+      journeys: 0,
+      configuration: 0,
+      products: 0,
+      assortment: 0,
+      outletAssortment: 0,
+    }, undefined);
 
     db.close();
   });
@@ -668,6 +696,170 @@ describe("the manager", () => {
     expect((await pending(db)).length).toBe(1);
 
     manager.stop();
+    db.close();
+  });
+});
+
+describe("the assortment", () => {
+  const OUTLET = "outlet-1";
+
+  function pullWith(
+    assortment: { upserts: unknown[]; tombstones: unknown[]; cursor: number },
+    outletAssortment: { upserts: unknown[]; tombstones: unknown[]; cursor: number },
+    outlets: { upserts: unknown[]; tombstones: unknown[]; cursor: number } = {
+      upserts: [outletRow(OUTLET, 1)],
+      tombstones: [],
+      cursor: 1,
+    },
+  ) {
+    return {
+      changes: {
+        outlets,
+        journeys: { upserts: [], tombstones: [], cursor: 0 },
+        configuration: { upserts: [], tombstones: [], cursor: 0 },
+        products: { upserts: [], tombstones: [], cursor: 0 },
+        assortment,
+        outletAssortment,
+      },
+      snapshotVersion: "outlets#1",
+    };
+  }
+
+  function line(id: string, productId: string, rowVersion: number, isMustStock = false) {
+    return { id, channelId: CHANNEL, productId, isMustStock, rowVersion };
+  }
+
+  function override(id: string, productId: string, kind: string, rowVersion: number) {
+    return { id, outletId: OUTLET, productId, kind, isMustStock: false, rowVersion };
+  }
+
+  it("stores both halves under their own watermarks", async () => {
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValue(
+      pullWith(
+        { upserts: [line("line-1", "product-1", 4)], tombstones: [], cursor: 4 },
+        { upserts: [override("over-1", "product-2", "Added", 6)], tombstones: [], cursor: 6 },
+      ),
+    );
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    expect(await watermark(db, ASSORTMENT)).toBe(4);
+    expect(await watermark(db, OUTLET_ASSORTMENT)).toBe(6);
+
+    db.close();
+  });
+
+  it("resolves the channel list with the outlet's exceptions applied", async () => {
+    // Computed on the device rather than sent resolved: PRD-02 stores overrides precisely so there
+    // is no materialised per-outlet list to keep in step.
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValue(
+      pullWith(
+        {
+          upserts: [
+            line("line-1", "kept", 4),
+            line("line-2", "refused", 5),
+            line("line-3", "must-stock", 6, true),
+          ],
+          tombstones: [],
+          cursor: 6,
+        },
+        {
+          upserts: [
+            override("over-1", "refused", "Removed", 7),
+            override("over-2", "local-speciality", "Added", 8),
+          ],
+          tombstones: [],
+          cursor: 8,
+        },
+      ),
+    );
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    const effective = await assortmentFor(db, OUTLET, CHANNEL);
+
+    expect([...effective.keys()].sort()).toEqual(["kept", "local-speciality", "must-stock"]);
+    expect(effective.get("must-stock")).toBe(true);
+    expect(effective.has("refused")).toBe(false);
+
+    db.close();
+  });
+
+  it("drops a line the tenant removed from the channel", async () => {
+    // Setting a channel's assortment replaces it, so an ordinary edit deletes lines. Without
+    // tombstones a device would accumulate the union of every list the channel has ever had.
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValueOnce(
+      pullWith(
+        { upserts: [line("line-1", "product-1", 4)], tombstones: [], cursor: 4 },
+        { upserts: [], tombstones: [], cursor: 0 },
+      ),
+    );
+    await syncOnce(db, TOKEN, DEVICE);
+
+    api.pull.mockResolvedValueOnce(
+      pullWith(
+        { upserts: [], tombstones: [{ id: "line-1", rowVersion: 9 }], cursor: 9 },
+        { upserts: [], tombstones: [], cursor: 0 },
+      ),
+    );
+    await syncOnce(db, TOKEN, DEVICE);
+
+    expect((await assortmentFor(db, OUTLET, CHANNEL)).size).toBe(0);
+
+    db.close();
+  });
+
+  it("drops the overrides of an outlet that left the rep's territory", async () => {
+    // The server sends no scope tombstone for these. The device already knows the outlet is gone —
+    // it was tombstoned — and an override is meaningless without the outlet it qualifies.
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValueOnce(
+      pullWith(
+        { upserts: [], tombstones: [], cursor: 0 },
+        { upserts: [override("over-1", "product-1", "Added", 6)], tombstones: [], cursor: 6 },
+      ),
+    );
+    await syncOnce(db, TOKEN, DEVICE);
+    expect(await db.assortmentOverrides.count()).toBe(1);
+
+    api.pull.mockResolvedValueOnce(
+      pullWith(
+        { upserts: [], tombstones: [], cursor: 0 },
+        { upserts: [], tombstones: [], cursor: 6 },
+        { upserts: [], tombstones: [{ id: OUTLET, rowVersion: 2 }], cursor: 2 },
+      ),
+    );
+    await syncOnce(db, TOKEN, DEVICE);
+
+    expect(await db.assortmentOverrides.count()).toBe(0);
+
+    db.close();
+  });
+
+  it("keeps overrides for outlets the device still holds", async () => {
+    // The prune runs after every pull, so it has to be precise about what it deletes — an
+    // over-eager version would quietly strip a shop's exceptions on an ordinary sync.
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValue(
+      pullWith(
+        { upserts: [], tombstones: [], cursor: 0 },
+        { upserts: [override("over-1", "product-1", "Added", 6)], tombstones: [], cursor: 6 },
+      ),
+    );
+
+    await syncOnce(db, TOKEN, DEVICE);
+    await syncOnce(db, TOKEN, DEVICE);
+
+    expect(await db.assortmentOverrides.count()).toBe(1);
+
     db.close();
   });
 });
