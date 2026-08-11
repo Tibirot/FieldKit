@@ -3677,7 +3677,9 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
 }
 
 ### The same name twice — 409 `config.survey.nameTaken`. The name is how an admin picks a form off a
-### list, so two of them is a list with two identical rows.
+### list, so two of them is a list with two identical rows. Note the problem's `args.name`: a
+### translated catalogue cannot dig the name out of the English sentence, so a refusal that wants to
+### quote a value has to send it (ADR-0012).
 POST {{Server_HostAddress}}/api/config/surveys
 Content-Type: application/json
 Authorization: Bearer {{adminToken.response.body.access_token}}
@@ -3713,8 +3715,10 @@ GET {{Server_HostAddress}}/api/config/surveys
 Authorization: Bearer {{adminToken.response.body.access_token}}
 
 ### Deleting a form stops it being asked; the answers already given under it stay where they are, in
-### another module's rows this one may not read (ADR-0005). Safe today because nothing points at a
-### form — refusing to delete one in use is slice 3's rule to add.
+### another module's rows this one may not read (ADR-0005). Audits *do* point at a form by id since
+### slice 3b, and this still cannot be refused on their behalf — a synchronous "is it in use" check
+### would mean reading Audit's schema. What keeps those answers readable is that each one carries its
+### question's text as it was asked.
 DELETE {{Server_HostAddress}}/api/config/surveys/{{survey.response.body.id}}
 Authorization: Bearer {{adminToken.response.body.access_token}}
 

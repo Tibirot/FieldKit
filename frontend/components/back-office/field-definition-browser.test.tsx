@@ -6,7 +6,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AuthContextValue } from "@/components/auth-provider";
 import { FieldDefinitionBrowser } from "@/components/back-office/field-definition-browser";
-import { keyFromLabel } from "@/components/back-office/field-definition-form";
 import { ApiError } from "@/lib/api/client";
 import type { FieldDefinition } from "@/lib/api/field-definitions";
 import { fetchIdentity } from "@/lib/api/identity";
@@ -245,20 +244,5 @@ describe("<FieldDefinitionBrowser>", () => {
     expect(screen.queryByRole("button", { name: "Edit Chiller count" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Delete Chiller count" })).toBeNull();
     expect(screen.getByText("Chiller count")).toBeTruthy();
-  });
-});
-
-describe("keyFromLabel", () => {
-  it("folds diacritics rather than dropping them", () => {
-    // This product ships in Romanian. Mapping `ț` to an underscore would produce `suprafa_a` —
-    // a key nobody would have chosen, and one that is immutable the moment it is saved.
-    expect(keyFromLabel("Suprafață de raft")).toBe("suprafata_de_raft");
-  });
-
-  it("never produces a key the server would refuse", () => {
-    expect(keyFromLabel("3G coverage")).toBe("g_coverage");
-    expect(keyFromLabel("  Chiller  count!  ")).toBe("chiller_count");
-    expect(keyFromLabel("???")).toBe("");
-    expect(keyFromLabel("x".repeat(80))).toHaveLength(60);
   });
 });

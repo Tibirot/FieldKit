@@ -225,8 +225,23 @@ public class SurveyTests(ServerFixture fixture)
         var again = await admin.PostAsJsonAsync("/api/config/surveys", Form(name));
 
         Assert.Equal(HttpStatusCode.Conflict, again.StatusCode);
-        Assert.Equal(
-            "config.survey.nameTaken", Assert.Single(await Refusals.ProblemsOf(again)).Code);
+
+        var problem = Assert.Single(await Refusals.ProblemsOf(again));
+
+        Assert.Equal("config.survey.nameTaken", problem.Code);
+
+        /*
+         * The name travels as an argument, not only inside the English sentence.
+         *
+         * A translated catalogue cannot dig a value out of `message`, so without this the reader's
+         * language can only say "another survey already has that name" — and a catalogue entry that
+         * named a placeholder the server does not send throws inside `next-intl` at render, which is
+         * the coupling ADR-0012 names as its cost. `product.priceList.nameTaken` carries the same
+         * argument for the same reason; this is asserted rather than assumed because nothing in C#
+         * fails when an args dictionary quietly goes missing.
+         */
+        Assert.NotNull(problem.Args);
+        Assert.Equal(name, Assert.Contains("name", problem.Args));
     }
 
     [Fact]
