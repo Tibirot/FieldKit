@@ -217,10 +217,10 @@
     },
     {
       "name": "a kind this server does not carry",
-      "why": "Bound, then refused by name at the routing arm rather than at the parser. The distinction matters to a device: `sync.push.typeUnsupported` is a per-mutation result it records and stops retrying, where a parse failure fails the entire batch. There is no `outbox` half — no client produces this, and the case exists to pin what happens when a newer device meets an older server.\n\nThis case named `CapturedAudit` until W10 slice 6, when the server learned to carry it. That the file had to change is the point: a vector pinning \"unsupported\" is a claim with a shelf life, and `CapturedOrder` is the next one to expire (W11).",
+      "why": "Bound, then refused by name at the routing arm rather than at the parser. The distinction matters to a device: `sync.push.typeUnsupported` is a per-mutation result it records and stops retrying, where a parse failure fails the entire batch. There is no `outbox` half — no client produces this, and the case exists to pin what happens when a newer device meets an older server.\n\nThis case named `CapturedAudit` until W10 slice 6 and `CapturedOrder` until W11 slice 0, each time because the server learned to carry the thing the case assumed it could not. Twice was enough: `CapturedReturn` is drawn from the **Won't** list rather than the *not yet* list — returns and credit orders are `ORD-11` / `BR-ORD-8`, out of scope for v1 by decision rather than by schedule. A negative pin has to name something that is never coming, or it expires the moment the roadmap reaches it, and it expires *silently* — the assertion keeps passing while asserting nothing.",
       "wire": {
         "mutationId": "0195e7c4-0000-7000-8000-00000000a007",
-        "type": "CapturedOrder"
+        "type": "CapturedReturn"
       },
       "expected": { "slot": null, "bound": true }
     }

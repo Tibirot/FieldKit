@@ -418,12 +418,21 @@ public class SyncPushJourneyTests(ServerFixture fixture)
         await RoundAsync(rep, admin);
         var device = await BindDeviceAsync(rep);
 
-        // `CapturedOrder` is the placeholder now; this test named `CapturedAudit` until W10 slice 6
-        // taught the server to carry it, which is the second place that claim expired — the wire
-        // vector file was the first. A test pinning "unsupported" has a shelf life, and W11 is when
-        // this one ends.
+        /*
+         * `CapturedReturn`, and it should be the last name this test needs.
+         *
+         * It said `CapturedAudit` until W10 slice 6 and `CapturedOrder` until W11 slice 0 — each
+         * time because the server learned to carry the very thing the test assumed it could not.
+         * Both expirations were silent: the assertion still passed, having stopped asserting
+         * anything. Returns are `ORD-11` / `BR-ORD-8`, **Won't v1** by decision rather than by
+         * schedule, so this name cannot be overtaken by the roadmap.
+         *
+         * W11 slice 0 also found a third copy of the same claim, in `SyncPushTests`, that neither
+         * this comment nor the vector file knew about — which is the argument for choosing a name
+         * that never needs a sweep over remembering to sweep.
+         */
         var push = await PushAsync(
-            rep, device, new PushedMutation(Guid.CreateVersion7(), "CapturedOrder", null));
+            rep, device, new PushedMutation(Guid.CreateVersion7(), "CapturedReturn", null));
 
         var result = Assert.Single(push.Results);
         Assert.Equal("rejected", result.Status);
