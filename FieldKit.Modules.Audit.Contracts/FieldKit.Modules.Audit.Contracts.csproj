@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Audit module's *only* public surface. Other modules reference this assembly and never
+    FieldKit.Modules.Audit (AT-1), which is what keeps the boundary enforceable by assembly
+    reference rather than by convention.
+
+    No EF Core, no ASP.NET, no Infrastructure — a contracts assembly that could see a DbContext
+    would let an entity leak through a signature (AT-3).
+
+    It arrives with the module rather than a slice later, unlike Visit's, because Audit is the first
+    module born with a consumer already waiting: Sync has to apply a pushed audit, and there is no
+    other way an audit is ever created. A module whose only write path is another module's call
+    cannot usefully exist without its contract.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FieldKit.SharedKernel\FieldKit.SharedKernel.csproj" />
+    <ProjectReference Include="..\FieldKit.BuildingBlocks\FieldKit.BuildingBlocks.csproj" />
+  </ItemGroup>
+
+</Project>

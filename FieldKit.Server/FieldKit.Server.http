@@ -3720,6 +3720,38 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
 
 ###
 
+### ── Audit · reading what was measured (AUD-09, W10 slice 3a) ──────────────
+# **There is no request here that creates an audit, and that is the design.** An audit is worked at a
+# shelf, inside a visit, with no signal, and reaches this server through `/sync/push` — see
+# `IAuditIngest` and [audits §7](../docs/product/22-merchandising-and-audits.md). A live REST capture
+# endpoint would be an API no planned screen calls and a second door into a record that is meant to
+# be append-only. The push wiring lands in W10 slice 6.
+#
+# Reads are gated on `visit:read`, not on a permission of Audit's own: an audit *is* what happened
+# during a visit, and a supervisor who may see where a rep checked in from is not a different person
+# from one who may see what they counted.
+#
+# The audit worked during a visit, or 404 when there was none. Answers 404 for a visit that does not
+# exist too — Audit cannot tell the two apart without reading Visit's schema (ADR-0005), and the
+# difference is not one this reader can act on.
+GET {{Server_HostAddress}}/api/visits/{{visit.response.body.visit.id}}/audit
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### A shop's recent audits, newest first — by **when the rep measured**, not by when the server
+### stored them. A day of offline audits drained at once shares a stored-at timestamp to the second,
+### and ordering by that would put a shop's history in whatever order the outbox happened to flush.
+GET {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}/audits
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Bounded rather than paged. The question is "how has this shop been trending lately", which is a
+### handful of audits; a cursor would be machinery for a screen that does not scroll. A limit above
+### the ceiling is clamped rather than refused — a caller asking for ten thousand has a bug, and the
+### database should not wear it.
+GET {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}/audits?limit=5
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+###
+
 ### ── Sync · device registry (OFF-12) ───────────────────────────────────────
 # Binding needs a token but no permission: a rep registers their own phone as part of
 # signing in on it. The device belongs to the subject in the token — note there is no

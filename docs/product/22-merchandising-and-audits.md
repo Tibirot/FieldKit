@@ -170,6 +170,31 @@ reason that reads correctly: there is no such visit.
 > AUD-10 is explicitly **out** for v1 per [A2](decisions-and-assumptions.md#a2--audit--perfect-store-structured-checks--share-of-shelf--photo)
 > (coordinate-based planograms were the rejected, heaviest option).
 
+### What the module stores, and what it deliberately does not (W10 slice 3a)
+
+The `Audit` aggregate holds **measurements and nothing else**: availability per product, facings per
+product plus the category total, and observed-against-expected prices. Consequences worth stating:
+
+- **Append-only, and created sealed.** There is no edit path at all, not even a private one — a
+  module with no mutating method is one that cannot be argued into having one. `BR-AUD-6` becomes a
+  property of the type rather than a rule somebody remembers to check.
+- **One audit per visit**, enforced in the aggregate *and* in the schema. Two would leave "this shop's
+  availability last Tuesday" with two answers and no rule for choosing.
+- **No score is stored.** `AUD-06` is W10 slice 4 and derives it from these numbers plus the weight
+  version the audit records. A stored score would be a second answer that could disagree with the
+  recomputation `BR-AUD-8` promises.
+- **Nothing is re-resolved server-side.** The MSL (`BR-AUD-1`), the expected price (`BR-AUD-3`) and
+  the weight-set version were all resolved on the device while the rep was at the shelf. Asking
+  Products or Configuration *now* would describe the audit under configuration republished since.
+- **Only what could not have been observed is refused**: a negative count, one product measured twice
+  in one section, prices in two currencies, and an audit that measured nothing at all. A server
+  second-guessing observations teaches reps to enter whatever gets accepted.
+- **A replay is success.** Audit and Sync commit separately, so a pushed audit can land and lose its
+  ledger entry; the retry — checked *before* the visit's seal, because a rep may have checked out in
+  between — returns success rather than stranding work that is already stored.
+- **Reading an audit is `visit:read`**, not a permission of its own. An audit *is* what happened
+  during a visit.
+
 ## 7. Offline behavior
 
 Audits run **fully offline** inside a visit. Templates, MSL, and expected prices are synced
@@ -179,7 +204,8 @@ presigned URLs, retried independently of the JSON push ([B5](decisions-and-assum
 
 ## 8. Module contract (exposed to others)
 
-- `IAuditQuery` — audits/scores for an outlet/visit (reporting).
+- `IAuditQuery` — audits for a visit, or an outlet's recent ones, newest first by **when the rep
+  measured** (reporting). Read-only; everything that creates an audit goes through `IAuditIngest`.
 - `IPerfectStoreScore` — score computation (shared server/device, decimal-parity per BR-AUD-5/12).
 - `IAuditIngest` — apply a pushed audit through this module, used by **Sync** ([module boundaries §7](../architecture/10-module-boundaries.md#7-module-registry)).
 - Consumes `IAssortmentService`, `IPricingService` (MSL + expected price), `IVisitContext`, and

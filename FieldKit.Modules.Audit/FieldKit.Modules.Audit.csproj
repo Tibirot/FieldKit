@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\FieldKit.SharedKernel\FieldKit.SharedKernel.csproj" />
+    <ProjectReference Include="..\FieldKit.BuildingBlocks\FieldKit.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\FieldKit.Infrastructure\FieldKit.Infrastructure.csproj" />
+    <ProjectReference Include="..\FieldKit.Web\FieldKit.Web.csproj" />
+
+    <!--
+      Contracts only, never the implementation (AT-1).
+
+      Visit is the only other module this one reads, and it reads one thing: whether the visit an
+      audit claims to belong to exists, is this rep's, and is still open — every input BR-AUD-6
+      needs. Notably absent are Products and Configuration: the MSL, the expected price and the
+      weight version were all resolved on the device when the rep was at the shelf, and re-resolving
+      them here would describe the audit under configuration republished since.
+    -->
+    <ProjectReference Include="..\FieldKit.Modules.Visit.Contracts\FieldKit.Modules.Visit.Contracts.csproj" />
+
+    <!-- Its own public surface, which ships with the module because Sync is already waiting. -->
+    <ProjectReference Include="..\FieldKit.Modules.Audit.Contracts\FieldKit.Modules.Audit.Contracts.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

@@ -1,4 +1,5 @@
 using FieldKit.BuildingBlocks;
+using FieldKit.Modules.Audit;
 using FieldKit.Modules.Configuration;
 using FieldKit.Modules.Iam;
 using FieldKit.Modules.Journey;
@@ -75,6 +76,10 @@ IReadOnlyList<IModule> modules =
     new ProductsModule(),
     new JourneyModule(),
     new VisitModule(),
+
+    // Audit after Visit, because it reads Visit's contracts and nothing reads its own.
+    new AuditModule(),
+
     // Sync last. It is the module that will eventually read every other one's change feed, so it is
     // the one whose dependencies point at the rest rather than the other way round.
     new SyncModule(),

@@ -18,6 +18,8 @@
     <Project Path="FieldKit.Modules.Products.Contracts/FieldKit.Modules.Products.Contracts.csproj" />
   <Project Path="FieldKit.Modules.Visit/FieldKit.Modules.Visit.csproj" />
   <Project Path="FieldKit.Modules.Visit.Contracts/FieldKit.Modules.Visit.Contracts.csproj" />
+  <Project Path="FieldKit.Modules.Audit/FieldKit.Modules.Audit.csproj" />
+  <Project Path="FieldKit.Modules.Audit.Contracts/FieldKit.Modules.Audit.Contracts.csproj" />
   <Project Path="FieldKit.Modules.Sync/FieldKit.Modules.Sync.csproj" />
   <Project Path="FieldKit.Server.Tests/FieldKit.Server.Tests.csproj" />
   <Project Path="FieldKit.Server/FieldKit.Server.csproj" />

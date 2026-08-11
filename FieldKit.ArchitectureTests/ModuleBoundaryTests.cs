@@ -1,5 +1,7 @@
 using System.Reflection;
 using System.Text.RegularExpressions;
+using FieldKit.Modules.Audit;
+using FieldKit.Modules.Audit.Contracts;
 using FieldKit.Modules.Iam;
 using FieldKit.Modules.Iam.Contracts;
 using FieldKit.Modules.Journey;
@@ -43,10 +45,12 @@ public class ModuleBoundaryTests
     private static readonly Assembly ConfigurationModuleAssembly = typeof(ConfigurationModule).Assembly;
     private static readonly Assembly JourneyModuleAssembly = typeof(JourneyModule).Assembly;
     private static readonly Assembly VisitModuleAssembly = typeof(VisitModule).Assembly;
+    private static readonly Assembly AuditModuleAssembly = typeof(AuditModule).Assembly;
     private static readonly Assembly SyncModuleAssembly = typeof(SyncModule).Assembly;
     private static readonly Assembly ConfigurationContracts = typeof(IFieldDefinitionCatalog).Assembly;
     private static readonly Assembly JourneyContracts = typeof(IJourneyQuery).Assembly;
     private static readonly Assembly VisitContracts = typeof(IVisitIngest).Assembly;
+    private static readonly Assembly AuditContracts = typeof(IAuditIngest).Assembly;
     private static readonly Assembly ProductsContracts = typeof(IProductChangeFeed).Assembly;
 
     /// <summary>
@@ -80,6 +84,7 @@ public class ModuleBoundaryTests
         ConfigurationModuleAssembly,
         JourneyModuleAssembly,
         VisitModuleAssembly,
+        AuditModuleAssembly,
         SyncModuleAssembly,
     ];
 
@@ -98,7 +103,7 @@ public class ModuleBoundaryTests
     private static readonly Assembly[] ContractsAssemblies =
     [
         IamContracts, OrgContracts, OutletsContracts, ConfigurationContracts, JourneyContracts,
-        VisitContracts, ProductsContracts,
+        VisitContracts, AuditContracts, ProductsContracts,
     ];
 
     [Fact] // AT-1 — the core boundary.
@@ -200,6 +205,33 @@ public class ModuleBoundaryTests
 
         Assert.NotEmpty(ingests);
         Assert.All(ingests, type => Assert.False(type.IsPublic, $"{type.Name} should be internal"));
+
+        // And Audit's, which shipped *with* its module in W10 slice 3a rather than a slice later:
+        // an audit's only write path is another module's call, so a module with no contract would
+        // have been a module nothing could put a row into.
+        Assert.Contains(typeof(IAuditIngest), AuditContracts.GetExportedTypes());
+        Assert.Contains(typeof(IAuditQuery), AuditContracts.GetExportedTypes());
+
+        var auditServices = AuditModuleAssembly.GetTypes()
+            .Where(type => !type.IsInterface
+                && (typeof(IAuditIngest).IsAssignableFrom(type)
+                    || typeof(IAuditQuery).IsAssignableFrom(type)))
+            .ToList();
+
+        Assert.NotEmpty(auditServices);
+        Assert.All(auditServices, type => Assert.False(type.IsPublic, $"{type.Name} should be internal"));
+
+        // Visit's second contract, which landed in W10 slice 3a once Audit had a question for it.
+        // Asserted separately for the reason Outlets' pair is: the first one passing is exactly what
+        // makes the file look already covered.
+        Assert.Contains(typeof(IVisitContext), VisitContracts.GetExportedTypes());
+
+        var contexts = VisitModuleAssembly.GetTypes()
+            .Where(type => !type.IsInterface && typeof(IVisitContext).IsAssignableFrom(type))
+            .ToList();
+
+        Assert.NotEmpty(contexts);
+        Assert.All(contexts, type => Assert.False(type.IsPublic, $"{type.Name} should be internal"));
     }
 
 

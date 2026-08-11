@@ -18,9 +18,10 @@ namespace FieldKit.Modules.Visit;
 /// the rep, always record".
 /// </para>
 /// <para>
-/// <b>One public contract</b>, and only because a consumer asked: Sync needs to apply visits a
-/// device captured offline, so <c>IVisitIngest</c> exists (W8 slice 5). <c>IVisitContext</c> and
-/// <c>IVisitQuery</c> still do not — Audit and Order are Phase 3.
+/// <b>Two public contracts, and each only because a consumer asked.</b> Sync needs to apply visits a
+/// device captured offline, so <c>IVisitIngest</c> exists (W8 slice 5); Audit needs to know whether a
+/// visit is open before attaching work to it, so <c>IVisitContext</c> exists (W10 slice 3a).
+/// <c>IVisitQuery</c> still does not — Order is W11.
 /// </para>
 /// </remarks>
 public sealed class VisitModule : IModule
@@ -43,6 +44,10 @@ public sealed class VisitModule : IModule
 
         // Sync applies pushed work through this rather than writing the visit schema (W8 slice 5).
         services.AddScoped<IVisitIngest, VisitIngestService>();
+
+        // …and Audit asks whether a visit exists, whose it is, and whether it is sealed, which is
+        // every input `BR-AUD-6` needs (W10 slice 3a).
+        services.AddScoped<IVisitContext, VisitContextService>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints) => endpoints.MapVisitEndpoints();
