@@ -83,6 +83,60 @@ public class DeviceRegistryTests(ServerFixture fixture)
     }
 
     [Fact]
+    public async Task Two_binds_at_once_leave_one_active_device_and_a_refusal_rather_than_a_500()
+    {
+        /*
+         * The race the unique index exists for, and the answer it used to give.
+         *
+         * `A_rep_has_at_most_one_active_device` above binds three times in sequence, which the
+         * deactivate-then-insert path handles perfectly. Concurrently is a different story: both
+         * requests read no active device, both insert one, and the loser hit
+         * `UX_device_one_active_per_user` as an unhandled `DbUpdateException` — a 500 with a stack
+         * trace, for a case the model has an opinion about.
+         *
+         * Found in the browser during W9 slice 1, where React's development double-invocation made
+         * one component bind twice. The client de-duplicates in flight now, so this can no longer be
+         * reached from FieldKit's own UI — which is exactly why it needs a test rather than a
+         * reproduction: a second tab, a retried request, or any future caller can still race.
+         *
+         * What is asserted is the pair: **one** of the two succeeds, and the other is refused by name
+         * rather than crashing. Which one wins is the database's business.
+         */
+        using var client = fixture.CreateAuthenticatedClient(fixture.AccessToken);
+
+        // Two in flight together. `WhenAll` on two already-started tasks is as close to simultaneous
+        // as an integration test gets, and it reproduced the 500 reliably before the fix.
+        var first = client.PostAsJsonAsync("/api/sync/devices", new BindDeviceRequest(Unique("RaceA")));
+        var second = client.PostAsJsonAsync("/api/sync/devices", new BindDeviceRequest(Unique("RaceB")));
+
+        var responses = await Task.WhenAll(first, second);
+
+        // Whatever happened, nothing was a server error. That is the whole point.
+        Assert.All(responses, response =>
+            Assert.True(
+                (int)response.StatusCode < 500,
+                $"a racing bind answered {(int)response.StatusCode}: {response.Content.ReadAsStringAsync().Result}"));
+
+        var created = responses.Count(response => response.StatusCode == HttpStatusCode.Created);
+        var refused = responses.Count(response => response.StatusCode == HttpStatusCode.Conflict);
+
+        // Either the two serialised cleanly — both created, the second swapping the first, which is
+        // the ordinary path — or they collided and the loser was refused by name.
+        Assert.Equal(2, created + refused);
+        Assert.True(created >= 1, "neither bind succeeded");
+
+        if (refused == 1)
+        {
+            var loser = responses.Single(response => response.StatusCode == HttpStatusCode.Conflict);
+
+            Assert.Equal("device.bind.raced", Assert.Single(await Refusals.ProblemsOf(loser)).Code);
+        }
+
+        // The invariant the index is there to protect, whichever way the race went.
+        Assert.Single((await MineAsync(client)).Where(device => device.IsActive));
+    }
+
+    [Fact]
     public async Task A_nameless_device_is_refused_with_a_code()
     {
         using var client = fixture.CreateAuthenticatedClient(fixture.AccessToken);
