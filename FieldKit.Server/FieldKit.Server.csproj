@@ -33,6 +33,7 @@
     <ProjectReference Include="..\FieldKit.Modules.Journey\FieldKit.Modules.Journey.csproj" />
     <ProjectReference Include="..\FieldKit.Modules.Visit\FieldKit.Modules.Visit.csproj" />
     <ProjectReference Include="..\FieldKit.Modules.Audit\FieldKit.Modules.Audit.csproj" />
+    <ProjectReference Include="..\FieldKit.Modules.Order\FieldKit.Modules.Order.csproj" />
     <ProjectReference Include="..\FieldKit.Modules.Sync\FieldKit.Modules.Sync.csproj" />
   </ItemGroup>
 </Project>

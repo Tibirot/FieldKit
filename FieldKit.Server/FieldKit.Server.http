@@ -4323,3 +4323,34 @@ Content-Type: application/json
     { "mutationId": "0195e7c4-0000-7000-8000-00000000a023", "type": "NotVisitedCall" }
   ]
 }
+
+###
+
+### ── Order · reading what was sold (ORD-01, W11 slice 1) ────────────────────
+# **There is no request here that creates an order, and that is the design.** An order is taken at a
+# counter, inside a visit, with no signal, and reaches this server through `/sync/push` — see
+# `IOrderIngest` and [order capture §7](../docs/product/23-order-capture.md). A live REST capture
+# endpoint would be an API no planned screen calls and a second writer into a record whose whole
+# conflict story (B7) rests on there being exactly one. The push wiring lands in W11 slice 5.
+#
+# The same call `AuditEndpoints` made in W10 slice 3a, and for the same reason — worth noticing that
+# two modules now have a read-only HTTP surface and a write path that belongs to Sync.
+
+### The order taken during a visit, or 404. At most one per visit — a rep at one counter on one call
+### places one order, and two would be a double-tap far more often than an intention.
+GET {{host}}/api/orders/by-visit/{{visit.response.body.visit.id}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### An outlet's order history, newest **captured** first — not newest received. An order taken in a
+### basement on Tuesday and pushed from a car park on Thursday belongs on Tuesday.
+GET {{host}}/api/orders/by-outlet/{{outlet.response.body.id}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Gated on `visit:read`, not an `order:read` of its own — and unlike Audit that is a compromise
+### rather than a conclusion. A finance reader who should see order values without seeing a rep's
+### movements is a reasonable person to exist; they do not exist yet, and a realm role minted before
+### its holder is one nobody was granted. It also costs a Keycloak change that a deploy does not
+### apply (docs/engineering/deploying.md). Expect a 403 here with the `viewer` token only once that
+### reader arrives — today `viewer` holds `visit:read` and sees these.
+GET {{host}}/api/orders/by-outlet/{{outlet.response.body.id}}
+Authorization: Bearer {{viewerToken.response.body.access_token}}
