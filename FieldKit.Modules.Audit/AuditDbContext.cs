@@ -84,8 +84,26 @@ public sealed class AuditDbContext(DbContextOptions<AuditDbContext> options, ITe
                 .UsePropertyAccessMode(PropertyAccessMode.Field);
             audit.Navigation(a => a.Answers).HasField("_answers")
                 .UsePropertyAccessMode(PropertyAccessMode.Field);
+            audit.HasMany(a => a.ScoredPillars)
+                .WithOne()
+                .HasForeignKey(entry => new { entry.TenantId, entry.AuditId })
+                .HasPrincipalKey(a => new { a.TenantId, a.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+
             audit.Navigation(a => a.Photos).HasField("_photos")
                 .UsePropertyAccessMode(PropertyAccessMode.Field);
+            audit.Navigation(a => a.ScoredPillars).HasField("_scoredPillars")
+                .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            /*
+             * `numeric(5,2)`: 0–100 to two places, the scale the scorer rounds to.
+             *
+             * Explicit because Npgsql's default for `decimal` is unconstrained `numeric`, which would
+             * store a score at whatever precision happened to arrive — and a column that can hold
+             * more precision than the arithmetic produces is a column somebody eventually writes an
+             * unrounded value into. The same call `score_weight.Percentage` makes.
+             */
+            audit.Property(a => a.Score).HasPrecision(5, 2);
 
             audit.ToTable("audit", table => table.HasCheckConstraint(
                 // The denominator is a count or it is absent; a negative one is not a shelf.
@@ -182,6 +200,28 @@ public sealed class AuditDbContext(DbContextOptions<AuditDbContext> options, ITe
             entry.HasIndex(e => new { e.TenantId, e.AuditId, e.ObjectKey }).IsUnique();
 
             entry.ToTable("audit_photo");
+        });
+
+        modelBuilder.Entity<ScoredPillar>(entry =>
+        {
+            entry.HasKey(e => e.Id);
+
+            // By name, never as an ordinal — a pillar inserted in the middle of the enum would
+            // silently re-interpret every stored breakdown, which is the same reason `score_weight`
+            // stores it this way and the reason the two must agree.
+            entry.Property(e => e.Pillar).HasConversion<string>().HasMaxLength(30).IsRequired();
+
+            entry.Property(e => e.Percentage).HasPrecision(5, 2);
+            entry.Property(e => e.Weight).HasPrecision(5, 2);
+
+            // One row per pillar per audit. Two would leave the breakdown summing to something the
+            // total cannot be, which is the one property a breakdown has to have.
+            entry.HasIndex(e => new { e.TenantId, e.AuditId, e.Pillar }).IsUnique();
+
+            entry.ToTable("audit_scored_pillar", table => table.HasCheckConstraint(
+                // Nullable on purpose — null is *skipped*, which is not zero (W10 slice 0).
+                "ck_audit_scored_pillar_range",
+                @"(""Percentage"" IS NULL OR (""Percentage"" >= 0 AND ""Percentage"" <= 100)) AND ""Weight"" >= 0"));
         });
     }
 }

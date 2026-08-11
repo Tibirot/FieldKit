@@ -63,6 +63,11 @@ public sealed class ConfigurationModule : IModule
         // …and what a tenant's questionnaires ask, which is how Audit will read them (AUD-04). Bound
         // one slice ahead of that module, exactly as IVisitWorkflow was bound ahead of check-in.
         services.AddScoped<ISurveyForms, SurveyFormCatalog>();
+
+        // …and what a published weighting says, which is how Audit recomputes a pushed audit against
+        // the version it was scored under (BR-AUD-8, W10 slice 6). Deferred in slice 1 because it had
+        // no caller; this is the caller.
+        services.AddScoped<IScoreWeights, ScoreWeightCatalog>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

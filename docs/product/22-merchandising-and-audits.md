@@ -260,6 +260,21 @@ Consequences worth stating:
   supervisor reading `AUD-09` needs, and what makes the parity vectors able to check the intermediate
   values as well as the answer.
 
+**The score is computed at ingest and stored** (W10 slice 6). `IScoreWeights` resolves the version
+the audit names — **published sets only**, because a draft can still be edited and an audit scored
+against one would have a score nobody could reproduce — and `Audit.Record` scores in the same step as
+storing, so the score, the entries and the version are one row that either exists or does not.
+
+That reverses a line written in slice 4 ("no stored score"), and the distinction is worth keeping:
+what would have been a second answer is the *device's* score, which is why the wire carries none. What
+is stored is the server's own recomputation over sealed inputs. A score derived on read would instead
+change silently the day the scorer is corrected — re-scoring a sealed record without anyone deciding
+to.
+
+An audit naming a version this tenant never published is **refused** (`audit.ingest.weightSetUnknown`)
+rather than scored against something else, and — because `/sync/push` answers per mutation — that
+refusal cannot strand the visit the audit belonged to.
+
 **`BR-AUD-5` is checked, not asserted** (W10 slice 5). `frontend/lib/audits/score.ts` is the device
 mirror, on `decimal.js` with the same `ROUND_HALF_UP` clone money uses, and both engines run the same
 files under [`vectors/audits/`](../../vectors/README.md) — 16 hand-written cases that say what the

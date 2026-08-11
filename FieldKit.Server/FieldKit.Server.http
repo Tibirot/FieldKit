@@ -3750,7 +3750,60 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
 GET {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}/audits?limit=5
 Authorization: Bearer {{adminToken.response.body.access_token}}
 
-### The response also carries `surveyFormId`, `answers` and `photos` (W10 slice 3b).
+### Pushing an audit (W10 slice 6). **This is the only way an audit comes into existence** — there is
+### no live capture endpoint, because an audit is worked at a shelf with no signal.
+###
+### `weightSetVersion` is what the whole of `BR-AUD-8` rests on. The server resolves *that* published
+### weighting and scores against it, never the current one: a re-weighting between the rep working
+### the shelf and the phone draining would otherwise score their audit against numbers they were
+### never shown. A version that is unknown — or still a draft — is refused
+### `audit.ingest.weightSetUnknown` rather than scored against something else.
+###
+### Note what the payload does **not** carry: no score, because the device computes one for the rep's
+### screen and the server's recomputation is the record; and no outlet, because that comes from the
+### visit.
+POST {{Server_HostAddress}}/api/sync/push
+Content-Type: application/json
+Authorization: Bearer {{repToken.response.body.access_token}}
+
+{
+  "deviceId": "{{device.response.body.id}}",
+  "mutations": [
+    {
+      "mutationId": "0195e7c4-0000-7000-8000-0000000000f1",
+      "type": "CapturedAudit",
+      "audit": {
+        "auditId": "0195e7c4-0000-7000-8000-0000000000f2",
+        "visitId": "{{visit.response.body.visit.id}}",
+        "capturedAtUtc": "2026-04-06T09:30:00+00:00",
+        "weightSetVersion": {{weights.response.body.version}},
+        "categoryFacings": 40,
+        "availability": [
+          { "productId": "{{product.response.body.id}}", "status": "Present" }
+        ],
+        "facings": [{ "productId": "{{product.response.body.id}}", "facings": 10 }],
+        "prices": [
+          {
+            "productId": "{{product.response.body.id}}",
+            "observedMinorUnits": 999,
+            "expectedMinorUnits": 999,
+            "currency": "RON"
+          }
+        ]
+      }
+    }
+  ]
+}
+
+### The response also carries `score`, `scoredPillars`, `surveyFormId`, `answers` and `photos`.
+###
+### `score` is **stored, not derived on read** — this server's own recomputation over sealed entries
+### and a frozen weight set, both on the row beside it. Anyone can reproduce it; nothing can move
+### underneath it. A score derived on read would silently change the day the scorer is corrected,
+### re-scoring history without anybody deciding to.
+###
+### A pillar with `"percentage": null` was **skipped** — not measured, so renormalised away rather
+### than scored zero (W10 slice 0). A client shows "not measured", never a 0.
 ###
 ### **Every answer carries the question as it was asked**, not just its key. The form can be
 ### re-worded — or the question dropped — between the rep answering and the push arriving, and a key

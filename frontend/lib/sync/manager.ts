@@ -189,10 +189,11 @@ export async function syncOnce(
  * (`sync.push.typeUnsupported`), and a client that dropped the mutation instead would leave work in
  * the outbox with nothing ever explaining why.
  */
-function slotOf(type: string): "visit" | "notVisited" | "rescheduled" | "unplanned" {
+function slotOf(type: string): "visit" | "notVisited" | "rescheduled" | "unplanned" | "audit" {
   if (type === "NotVisitedCall") return "notVisited";
   if (type === "RescheduledCall") return "rescheduled";
   if (type === "UnplannedCall") return "unplanned";
+  if (type === "CapturedAudit") return "audit";
 
   return "visit";
 }

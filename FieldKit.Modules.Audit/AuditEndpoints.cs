@@ -33,7 +33,19 @@ public sealed record AnswerResponse(int Order, string QuestionKey, string Questi
 /// </param>
 public sealed record PhotoResponse(string Section, string ObjectKey);
 
+/// <summary>One pillar's contribution to the score (<c>AUD-06</c>).</summary>
+/// <param name="Percentage">
+/// Null when the pillar was <b>skipped</b> — not measured, so renormalised away rather than scored
+/// zero. A client rendering this shows "not measured", never a 0.
+/// </param>
+public sealed record ScoredPillarResponse(string Pillar, decimal? Percentage, decimal Weight);
+
 /// <summary>An audit, as stored.</summary>
+/// <param name="Score">
+/// The perfect-store score this server computed at ingest, from the entries below and the weighting
+/// at <c>WeightSetVersion</c> (<c>BR-AUD-8</c>). Null when the audit could not be scored — nothing
+/// measured, or every measured pillar weighted zero.
+/// </param>
 public sealed record AuditResponse(
     Guid Id,
     Guid VisitId,
@@ -47,7 +59,9 @@ public sealed record AuditResponse(
     IReadOnlyList<PriceCheckResponse> Prices,
     Guid? SurveyFormId,
     IReadOnlyList<AnswerResponse> Answers,
-    IReadOnlyList<PhotoResponse> Photos);
+    IReadOnlyList<PhotoResponse> Photos,
+    decimal? Score,
+    IReadOnlyList<ScoredPillarResponse> ScoredPillars);
 
 /// <summary>
 /// Reading audits (<c>AUD-09</c>).
@@ -129,5 +143,8 @@ internal static class AuditEndpoints
         [.. audit.Answers.Select(line =>
             new AnswerResponse(line.Order, line.QuestionKey, line.QuestionText, line.Value))],
         [.. audit.Photos.Select(line =>
-            new PhotoResponse(line.Section.ToString(), line.ObjectKey))]);
+            new PhotoResponse(line.Section.ToString(), line.ObjectKey))],
+        audit.Score,
+        [.. audit.ScoredPillars.Select(line =>
+            new ScoredPillarResponse(line.Pillar, line.Percentage, line.Weight))]);
 }

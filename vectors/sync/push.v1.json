@@ -110,11 +110,117 @@
       "expected": { "slot": "unplanned", "bound": true }
     },
     {
-      "name": "a kind this server does not carry",
-      "why": "Bound, then refused by name at the routing arm rather than at the parser. The distinction matters to a device: `sync.push.typeUnsupported` is a per-mutation result it records and stops retrying, where a parse failure fails the entire batch. There is no `outbox` half — no client produces this, and the case exists to pin what happens when a newer device meets an older server.",
+      "name": "what a rep measured at a shelf",
+      "why": "The audit is its own mutation (W10 slice 0), queued in the visit's own transaction: `/sync/push` answers per mutation precisely so one refusal cannot take a completed visit with it. `weightSetVersion` is the field the whole of `BR-AUD-8` rests on — the server resolves *that* published weighting and scores against it, never the current one. Note what the payload omits: no score, because the device's number is for the rep's screen and the server's is the record, and no outlet, because that comes from the visit.",
+      "outbox": {
+        "type": "CapturedAudit",
+        "payload": {
+          "auditId": "0195e7c4-0000-7000-8000-00000000f001",
+          "visitId": "0195e7c4-0000-7000-8000-00000000b001",
+          "capturedAtUtc": "2026-04-06T09:30:00+00:00",
+          "weightSetVersion": 3,
+          "categoryFacings": 40,
+          "availability": [
+            { "productId": "0195e7c4-0000-7000-8000-00000000d001", "status": "Present" },
+            { "productId": "0195e7c4-0000-7000-8000-00000000d002", "status": "OutOfStock" }
+          ],
+          "facings": [{ "productId": "0195e7c4-0000-7000-8000-00000000d001", "facings": 6 }],
+          "prices": [
+            {
+              "productId": "0195e7c4-0000-7000-8000-00000000d001",
+              "observedMinorUnits": 1099,
+              "expectedMinorUnits": 999,
+              "currency": "RON"
+            }
+          ]
+        }
+      },
       "wire": {
         "mutationId": "0195e7c4-0000-7000-8000-00000000a005",
-        "type": "CapturedAudit"
+        "type": "CapturedAudit",
+        "audit": {
+          "auditId": "0195e7c4-0000-7000-8000-00000000f001",
+          "visitId": "0195e7c4-0000-7000-8000-00000000b001",
+          "capturedAtUtc": "2026-04-06T09:30:00+00:00",
+          "weightSetVersion": 3,
+          "categoryFacings": 40,
+          "availability": [
+            { "productId": "0195e7c4-0000-7000-8000-00000000d001", "status": "Present" },
+            { "productId": "0195e7c4-0000-7000-8000-00000000d002", "status": "OutOfStock" }
+          ],
+          "facings": [{ "productId": "0195e7c4-0000-7000-8000-00000000d001", "facings": 6 }],
+          "prices": [
+            {
+              "productId": "0195e7c4-0000-7000-8000-00000000d001",
+              "observedMinorUnits": 1099,
+              "expectedMinorUnits": 999,
+              "currency": "RON"
+            }
+          ]
+        }
+      },
+      "expected": { "slot": "audit", "bound": true }
+    },
+    {
+      "name": "an audit that is only a questionnaire and a photograph",
+      "why": "A shop that would not let the rep count the shelf still lets them answer questions and take a picture, and that is a real audit (W10 slice 3b). Every optional slot the other case fills is omitted here rather than sent as null — which is the property this file exists to pin, and the one a serialised record would have silently broken.",
+      "outbox": {
+        "type": "CapturedAudit",
+        "payload": {
+          "auditId": "0195e7c4-0000-7000-8000-00000000f002",
+          "visitId": "0195e7c4-0000-7000-8000-00000000b001",
+          "capturedAtUtc": "2026-04-06T10:15:00+00:00",
+          "weightSetVersion": 3,
+          "categoryFacings": null,
+          "availability": [],
+          "facings": [],
+          "prices": [],
+          "surveyFormId": "0195e7c4-0000-7000-8000-000000009001",
+          "answers": [
+            {
+              "questionKey": "chiller_lit",
+              "questionText": "Is the chiller lit?",
+              "value": "Yes"
+            }
+          ],
+          "photos": [
+            { "section": "General", "objectKey": "tenant-a/audits/f002/display.jpg" }
+          ]
+        }
+      },
+      "wire": {
+        "mutationId": "0195e7c4-0000-7000-8000-00000000a006",
+        "type": "CapturedAudit",
+        "audit": {
+          "auditId": "0195e7c4-0000-7000-8000-00000000f002",
+          "visitId": "0195e7c4-0000-7000-8000-00000000b001",
+          "capturedAtUtc": "2026-04-06T10:15:00+00:00",
+          "weightSetVersion": 3,
+          "categoryFacings": null,
+          "availability": [],
+          "facings": [],
+          "prices": [],
+          "surveyFormId": "0195e7c4-0000-7000-8000-000000009001",
+          "answers": [
+            {
+              "questionKey": "chiller_lit",
+              "questionText": "Is the chiller lit?",
+              "value": "Yes"
+            }
+          ],
+          "photos": [
+            { "section": "General", "objectKey": "tenant-a/audits/f002/display.jpg" }
+          ]
+        }
+      },
+      "expected": { "slot": "audit", "bound": true }
+    },
+    {
+      "name": "a kind this server does not carry",
+      "why": "Bound, then refused by name at the routing arm rather than at the parser. The distinction matters to a device: `sync.push.typeUnsupported` is a per-mutation result it records and stops retrying, where a parse failure fails the entire batch. There is no `outbox` half — no client produces this, and the case exists to pin what happens when a newer device meets an older server.\n\nThis case named `CapturedAudit` until W10 slice 6, when the server learned to carry it. That the file had to change is the point: a vector pinning \"unsupported\" is a claim with a shelf life, and `CapturedOrder` is the next one to expire (W11).",
+      "wire": {
+        "mutationId": "0195e7c4-0000-7000-8000-00000000a007",
+        "type": "CapturedOrder"
       },
       "expected": { "slot": null, "bound": true }
     }

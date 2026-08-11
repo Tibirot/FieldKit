@@ -24,7 +24,8 @@ namespace FieldKit.Modules.Audit;
 /// </para>
 /// </remarks>
 internal sealed class AuditIngestService(
-    AuditDbContext db, IVisitContext visits, ISurveyForms surveys) : IAuditIngest
+    AuditDbContext db, IVisitContext visits, ISurveyForms surveys, IScoreWeights weights)
+    : IAuditIngest
 {
     public async Task<AuditIngestResult> IngestAsync(
         CapturedAudit captured, string userId, CancellationToken cancellationToken = default)
@@ -95,7 +96,32 @@ internal sealed class AuditIngestService(
                 "That questionnaire is not one this tenant has.");
         }
 
-        var (audit, refusal) = Audit.Record(captured, visit.OutletId, userId);
+        /*
+         * The weighting the audit was scored against — `BR-AUD-8`, and the reason W10 slice 0 had
+         * the device record a version at all.
+         *
+         * Resolved by version, never "the current one". A re-weighting between the rep working the
+         * shelf and the phone draining would otherwise score their audit against numbers they were
+         * never shown, which is precisely what that rule forbids.
+         *
+         * `IScoreWeights` answers for *published* sets only: a draft can still be edited, so an audit
+         * scored against one would have a score nobody could reproduce. An unknown version and a
+         * still-draft version are one answer, so a device cannot learn which drafts a tenant is
+         * working on.
+         */
+        if (await weights.ByVersionAsync(captured.WeightSetVersion, cancellationToken) is not { } weighting)
+        {
+            return new AuditIngestResult(
+                AuditIngestRefusal.UnknownWeightSet,
+                $"There is no published weighting at version {captured.WeightSetVersion}.");
+        }
+
+        var (audit, refusal) = Audit.Record(
+            captured,
+            visit.OutletId,
+            userId,
+            [.. weighting.Weights.Select(weight => new PillarWeight(weight.Pillar, weight.Percentage))]);
+
         if (refusal is not AuditRefusal.None) return Refuse(refusal);
 
         db.Audits.Add(audit!);

@@ -21,6 +21,24 @@ public sealed record AnswerLine(int Order, string QuestionKey, string QuestionTe
 /// </param>
 public sealed record PhotoLine(AuditSection Section, string ObjectKey);
 
+/// <summary>One pillar's contribution to the score, as stored (<c>AUD-06</c>, <c>AUD-09</c>).</summary>
+/// <param name="Pillar">
+/// <c>Availability</c>, <c>ShareOfShelf</c> or <c>PriceCompliance</c> — the names of Configuration's
+/// <c>ScorePillar</c>, as a <b>string</b> rather than the enum itself.
+/// <para>
+/// The call <c>CapturedStep.Type</c> already made, for the same reason: it keeps this assembly from
+/// referencing another module's contracts to describe its own record. A consumer of
+/// <see cref="IAuditQuery"/> would otherwise inherit a dependency on Configuration to read a
+/// breakdown, and the cost of the string is one comparison at the two places that care.
+/// </para>
+/// </param>
+/// <param name="Percentage">
+/// <c>0</c>–<c>100</c>, or null when the pillar was <b>skipped</b> — renormalised away rather than
+/// scored zero (W10 slice 0). The distinction is the whole scoring rule, so it survives to the
+/// reader rather than being flattened here.
+/// </param>
+public sealed record ScoredPillarLine(string Pillar, decimal? Percentage, decimal Weight);
+
 /// <summary>
 /// An audit as a reader sees it (<c>AUD-09</c>).
 /// </summary>
@@ -47,7 +65,9 @@ public sealed record AuditRecord(
     IReadOnlyList<PriceLine> Prices,
     Guid? SurveyFormId,
     IReadOnlyList<AnswerLine> Answers,
-    IReadOnlyList<PhotoLine> Photos);
+    IReadOnlyList<PhotoLine> Photos,
+    decimal? Score,
+    IReadOnlyList<ScoredPillarLine> ScoredPillars);
 
 /// <summary>
 /// Audits for an outlet or a visit (<c>AUD-09</c>).
