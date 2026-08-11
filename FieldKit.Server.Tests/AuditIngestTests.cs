@@ -120,10 +120,20 @@ public class AuditIngestTests(ServerFixture fixture)
         return (await created.Content.ReadFromJsonAsync<OutletResponse>())!.Id;
     }
 
-    /// <summary>Checks in over HTTP and returns the visit and its outlet.</summary>
-    private async Task<(Guid VisitId, Guid OutletId)> VisitAsync(HttpClient client)
+    /// <summary>
+    /// Checks in over HTTP and returns the visit, its outlet, and a published weighting to score
+    /// against.
+    /// </summary>
+    /// <remarks>
+    /// The weighting comes with the visit because from W10 slice 6 an audit cannot be ingested
+    /// without one — <c>BR-AUD-8</c> has the server resolve the version the audit names, and there is
+    /// no fallback to "the current one". Every test that pushes an audit therefore needs a published
+    /// set, and bundling it here keeps that from being a line each of them forgets.
+    /// </remarks>
+    private async Task<(Guid VisitId, Guid OutletId, int Weighting)> VisitAsync(HttpClient client)
     {
         var outletId = await OutletAsync(client);
+        var weighting = await WeightingAsync(client);
 
         var response = await client.PostAsJsonAsync(
             "/api/visits/check-in", new CheckInRequest(outletId, Shop.Latitude, Shop.Longitude));
@@ -132,14 +142,45 @@ public class AuditIngestTests(ServerFixture fixture)
 
         var visit = (await response.Content.ReadFromJsonAsync<VisitDetailResponse>())!.Visit;
 
-        return (visit.Id, outletId);
+        return (visit.Id, outletId, weighting);
     }
 
-    private static CapturedAudit Audit(Guid visitId, Guid? auditId = null) => new(
+    /// <summary>
+    /// Drafts a weighting, publishes it, and returns the version the server assigned.
+    /// </summary>
+    /// <remarks>
+    /// <b>Published, not drafted</b> — <c>IScoreWeights</c> answers for published sets only, because
+    /// a draft can still be edited and an audit scored against one would have a score nobody could
+    /// reproduce (<c>BR-AUD-8</c>).
+    /// <para>
+    /// The version is read back rather than assumed: these tests share a collection and a database,
+    /// and the tenant's version counter is genuinely shared state. A test demanding "version 3" would
+    /// pass alone and fail the moment another published first.
+    /// </para>
+    /// </remarks>
+    private static async Task<int> WeightingAsync(HttpClient client)
+    {
+        var drafted = await client.PostAsJsonAsync("/api/config/score-weights", new ScoreWeightSetRequest([
+            new ScoreWeightRequest(ScorePillar.Availability, 50m),
+            new ScoreWeightRequest(ScorePillar.ShareOfShelf, 30m),
+            new ScoreWeightRequest(ScorePillar.PriceCompliance, 20m),
+        ]));
+
+        Assert.Equal(HttpStatusCode.Created, drafted.StatusCode);
+
+        var version = (await drafted.Content.ReadFromJsonAsync<ScoreWeightSetResponse>())!.Version;
+
+        var published = await client.PostAsync($"/api/config/score-weights/{version}/publish", null);
+        Assert.Equal(HttpStatusCode.OK, published.StatusCode);
+
+        return version;
+    }
+
+    private static CapturedAudit Audit(Guid visitId, int weightSetVersion, Guid? auditId = null) => new(
         auditId ?? Guid.CreateVersion7(),
         visitId,
         new DateTimeOffset(2026, 4, 6, 9, 30, 0, TimeSpan.Zero),
-        WeightSetVersion: 3,
+        weightSetVersion,
         CategoryFacings: 40,
         Availability: [new CapturedAvailability(Guid.CreateVersion7(), AvailabilityStatus.OutOfStock)],
         Facings: [new CapturedFacings(Guid.CreateVersion7(), 6)],
@@ -155,9 +196,9 @@ public class AuditIngestTests(ServerFixture fixture)
     {
         using var client = Admin();
 
-        var (visitId, outletId) = await VisitAsync(client);
+        var (visitId, outletId, weights) = await VisitAsync(client);
 
-        Assert.True((await IngestAsync(Audit(visitId))).Applied);
+        Assert.True((await IngestAsync(Audit(visitId, weights))).Applied);
 
         var stored = await client.GetFromJsonAsync<AuditResponse>($"/api/visits/{visitId}/audit");
 
@@ -167,7 +208,7 @@ public class AuditIngestTests(ServerFixture fixture)
         // The outlet came from the visit, not the payload — `CapturedAudit` has no field for it, and
         // this is the assertion that keeps it that way.
         Assert.Equal(outletId, stored.OutletId);
-        Assert.Equal(3, stored.WeightSetVersion);
+        Assert.Equal(weights, stored.WeightSetVersion);
         Assert.Equal(40, stored.CategoryFacings);
         Assert.Single(stored.Availability);
         Assert.Equal(nameof(AvailabilityStatus.OutOfStock), stored.Availability[0].Status);
@@ -187,10 +228,10 @@ public class AuditIngestTests(ServerFixture fixture)
          */
         using var client = Admin();
 
-        var (visitId, _) = await VisitAsync(client);
+        var (visitId, _, weights) = await VisitAsync(client);
 
-        var fabricated = await IngestAsync(Audit(Guid.CreateVersion7()));
-        var somebodyElses = await IngestAsync(Audit(visitId), fixture.ReadOnlyAccessToken);
+        var fabricated = await IngestAsync(Audit(Guid.CreateVersion7(), weights));
+        var somebodyElses = await IngestAsync(Audit(visitId, weights), fixture.ReadOnlyAccessToken);
 
         Assert.Equal(AuditIngestRefusal.UnknownVisit, fabricated.Refusal);
         Assert.Equal(AuditIngestRefusal.UnknownVisit, somebodyElses.Refusal);
@@ -204,9 +245,9 @@ public class AuditIngestTests(ServerFixture fixture)
         // the same answer as for a visit nobody created.
         using var client = Admin();
 
-        var (visitId, _) = await VisitAsync(client);
+        var (visitId, _, weights) = await VisitAsync(client);
 
-        var result = await IngestAsync(Audit(visitId), fixture.TenantBAccessToken);
+        var result = await IngestAsync(Audit(visitId, weights), fixture.TenantBAccessToken);
 
         Assert.Equal(AuditIngestRefusal.UnknownVisit, result.Refusal);
     }
@@ -218,14 +259,14 @@ public class AuditIngestTests(ServerFixture fixture)
         // measurement to it would change a record that has already been counted.
         using var client = Admin();
 
-        var (visitId, _) = await VisitAsync(client);
+        var (visitId, _, weights) = await VisitAsync(client);
 
         var checkedOut = await client.PostAsJsonAsync(
             $"/api/visits/{visitId}/check-out", new CheckOutRequest(VisitOutcome.Productive));
 
         Assert.Equal(HttpStatusCode.OK, checkedOut.StatusCode);
 
-        var result = await IngestAsync(Audit(visitId));
+        var result = await IngestAsync(Audit(visitId, weights));
 
         Assert.Equal(AuditIngestRefusal.VisitSealed, result.Refusal);
     }
@@ -240,8 +281,8 @@ public class AuditIngestTests(ServerFixture fixture)
          */
         using var client = Admin();
 
-        var (visitId, _) = await VisitAsync(client);
-        var audit = Audit(visitId);
+        var (visitId, _, weights) = await VisitAsync(client);
+        var audit = Audit(visitId, weights);
 
         Assert.True((await IngestAsync(audit)).Applied);
         Assert.True((await IngestAsync(audit)).Applied);
@@ -267,8 +308,8 @@ public class AuditIngestTests(ServerFixture fixture)
          */
         using var client = Admin();
 
-        var (visitId, _) = await VisitAsync(client);
-        var audit = Audit(visitId);
+        var (visitId, _, weights) = await VisitAsync(client);
+        var audit = Audit(visitId, weights);
 
         Assert.True((await IngestAsync(audit)).Applied);
 
@@ -286,11 +327,11 @@ public class AuditIngestTests(ServerFixture fixture)
         // as a unique-index violation.
         using var client = Admin();
 
-        var (visitId, _) = await VisitAsync(client);
+        var (visitId, _, weights) = await VisitAsync(client);
 
-        Assert.True((await IngestAsync(Audit(visitId))).Applied);
+        Assert.True((await IngestAsync(Audit(visitId, weights))).Applied);
 
-        var second = await IngestAsync(Audit(visitId));
+        var second = await IngestAsync(Audit(visitId, weights));
 
         Assert.Equal(AuditIngestRefusal.AlreadyAudited, second.Refusal);
     }
@@ -303,10 +344,10 @@ public class AuditIngestTests(ServerFixture fixture)
         // rep the wrong message.
         using var client = Admin();
 
-        var (visitId, _) = await VisitAsync(client);
+        var (visitId, _, weights) = await VisitAsync(client);
 
-        var empty = Audit(visitId) with { Availability = [], Facings = [], Prices = [] };
-        var negative = Audit(visitId) with { CategoryFacings = -1 };
+        var empty = Audit(visitId, weights) with { Availability = [], Facings = [], Prices = [] };
+        var negative = Audit(visitId, weights) with { CategoryFacings = -1 };
 
         Assert.Equal(AuditIngestRefusal.Empty, (await IngestAsync(empty)).Refusal);
         Assert.Equal(AuditIngestRefusal.NegativeCount, (await IngestAsync(negative)).Refusal);
@@ -331,9 +372,12 @@ public class AuditIngestTests(ServerFixture fixture)
         using var client = Admin();
 
         var outletId = await OutletAsync(client);
+        var weighting = await WeightingAsync(client);
 
-        var newer = await AuditedVisitAsync(client, outletId, new DateTimeOffset(2026, 4, 5, 9, 0, 0, TimeSpan.Zero));
-        var older = await AuditedVisitAsync(client, outletId, new DateTimeOffset(2026, 4, 1, 9, 0, 0, TimeSpan.Zero));
+        var newer = await AuditedVisitAsync(
+            client, outletId, weighting, new DateTimeOffset(2026, 4, 5, 9, 0, 0, TimeSpan.Zero));
+        var older = await AuditedVisitAsync(
+            client, outletId, weighting, new DateTimeOffset(2026, 4, 1, 9, 0, 0, TimeSpan.Zero));
 
         var audits = await client.GetFromJsonAsync<List<AuditResponse>>($"/api/outlets/{outletId}/audits");
 
@@ -359,10 +403,10 @@ public class AuditIngestTests(ServerFixture fixture)
     {
         using var client = Admin();
 
-        var (visitId, _) = await VisitAsync(client);
+        var (visitId, _, weights) = await VisitAsync(client);
         var formId = await SurveyAsync(client);
 
-        var captured = Audit(visitId) with
+        var captured = Audit(visitId, weights) with
         {
             SurveyFormId = formId,
             Answers = [new CapturedAnswer("chiller_lit", "Is the chiller lit?", "Yes")],
@@ -401,9 +445,9 @@ public class AuditIngestTests(ServerFixture fixture)
          */
         using var client = Admin();
 
-        var (visitId, _) = await VisitAsync(client);
+        var (visitId, _, weights) = await VisitAsync(client);
 
-        var captured = Audit(visitId) with
+        var captured = Audit(visitId, weights) with
         {
             SurveyFormId = Guid.CreateVersion7(),
             Answers = [new CapturedAnswer("chiller_lit", "Is the chiller lit?", "Yes")],
@@ -420,10 +464,10 @@ public class AuditIngestTests(ServerFixture fixture)
         using var client = Admin();
         using var other = fixture.CreateAuthenticatedClient(fixture.TenantBAccessToken);
 
-        var (visitId, _) = await VisitAsync(client);
+        var (visitId, _, weights) = await VisitAsync(client);
         var theirForm = await SurveyAsync(other);
 
-        var captured = Audit(visitId) with
+        var captured = Audit(visitId, weights) with
         {
             SurveyFormId = theirForm,
             Answers = [new CapturedAnswer("chiller_lit", "Is the chiller lit?", "Yes")],
@@ -445,10 +489,10 @@ public class AuditIngestTests(ServerFixture fixture)
          */
         using var client = Admin();
 
-        var (visitId, _) = await VisitAsync(client);
+        var (visitId, _, weights) = await VisitAsync(client);
         var formId = await SurveyAsync(client);
 
-        var captured = Audit(visitId) with
+        var captured = Audit(visitId, weights) with
         {
             SurveyFormId = formId,
             Answers = [new CapturedAnswer("chiller_lit", "Is the chiller lit?", "Yes")],
@@ -476,10 +520,10 @@ public class AuditIngestTests(ServerFixture fixture)
     {
         using var client = Admin();
 
-        var (visitId, _) = await VisitAsync(client);
+        var (visitId, _, weights) = await VisitAsync(client);
         var formId = await SurveyAsync(client);
 
-        var twiceAnswered = Audit(visitId) with
+        var twiceAnswered = Audit(visitId, weights) with
         {
             SurveyFormId = formId,
             Answers =
@@ -489,7 +533,7 @@ public class AuditIngestTests(ServerFixture fixture)
             ],
         };
 
-        var twiceReferenced = Audit(visitId) with
+        var twiceReferenced = Audit(visitId, weights) with
         {
             Photos =
             [
@@ -508,11 +552,113 @@ public class AuditIngestTests(ServerFixture fixture)
     }
 
     [Fact]
+    public async Task An_audit_is_scored_against_the_version_it_names_and_the_working_is_stored()
+    {
+        /*
+         * `BR-AUD-8` end to end, which is what W10 slice 6 exists for.
+         *
+         * The default fixture is one product out of stock (availability 0), six facings against a
+         * category total of 40 (share of shelf 15), and one price 100 over expectation (compliance 0),
+         * weighted 50/30/20 — so (0 × 50 + 15 × 30 + 0 × 20) ÷ 100 = 4.5.
+         */
+        using var client = Admin();
+
+        var (visitId, _, weights) = await VisitAsync(client);
+
+        Assert.True((await IngestAsync(Audit(visitId, weights))).Applied);
+
+        var stored = await client.GetFromJsonAsync<AuditResponse>($"/api/visits/{visitId}/audit");
+
+        Assert.Equal(weights, stored!.WeightSetVersion);
+        Assert.Equal(4.5m, stored.Score);
+
+        // The breakdown is stored beside the total, weights included, so the arithmetic can be
+        // checked by hand from the row alone — which is what "recomputes with those weights" means.
+        Assert.Equal(3, stored.ScoredPillars.Count);
+        Assert.Equal(0m, stored.ScoredPillars.Single(p => p.Pillar == "Availability").Percentage);
+        Assert.Equal(15m, stored.ScoredPillars.Single(p => p.Pillar == "ShareOfShelf").Percentage);
+        Assert.Equal(20m, stored.ScoredPillars.Single(p => p.Pillar == "PriceCompliance").Weight);
+    }
+
+    [Fact]
+    public async Task An_audit_naming_a_weighting_this_tenant_never_published_is_refused()
+    {
+        // A device that pushed this has a weight set its own pull feed never gave it. Scoring it
+        // against something else would produce a number nobody could reproduce from the row.
+        using var client = Admin();
+
+        var (visitId, _, _) = await VisitAsync(client);
+
+        var result = await IngestAsync(Audit(visitId, 99_999));
+
+        Assert.Equal(AuditIngestRefusal.UnknownWeightSet, result.Refusal);
+    }
+
+    [Fact]
+    public async Task A_weighting_that_is_still_a_draft_is_not_a_weighting_an_audit_can_name()
+    {
+        /*
+         * The half of `BR-AUD-8` that is easy to miss. A draft can still be edited, so an audit
+         * scored against one would have a score that stops reproducing the moment somebody moves a
+         * slider — which is exactly what the one-way publish in slice 1 exists to prevent.
+         *
+         * Same refusal as a version nobody drafted, so a device cannot learn which drafts a tenant is
+         * working on.
+         */
+        using var client = Admin();
+
+        var (visitId, _, _) = await VisitAsync(client);
+
+        var drafted = await client.PostAsJsonAsync("/api/config/score-weights", new ScoreWeightSetRequest([
+            new ScoreWeightRequest(ScorePillar.Availability, 100m),
+        ]));
+
+        var draftVersion = (await drafted.Content.ReadFromJsonAsync<ScoreWeightSetResponse>())!.Version;
+
+        var result = await IngestAsync(Audit(visitId, draftVersion));
+
+        Assert.Equal(AuditIngestRefusal.UnknownWeightSet, result.Refusal);
+    }
+
+    [Fact]
+    public async Task Re_weighting_the_tenant_afterwards_does_not_re_score_a_sealed_audit()
+    {
+        /*
+         * `BR-AUD-8`'s promise in one test: "re-weighting a tenant does not retroactively re-score
+         * sealed audits — historical scores stay comparable".
+         *
+         * Structurally guaranteed twice over. The score is stored, so nothing recomputes it; and the
+         * version it names is published, so those weights cannot move even if it did.
+         */
+        using var client = Admin();
+
+        var (visitId, _, weights) = await VisitAsync(client);
+
+        Assert.True((await IngestAsync(Audit(visitId, weights))).Applied);
+
+        var before = await client.GetFromJsonAsync<AuditResponse>($"/api/visits/{visitId}/audit");
+
+        // A new weighting that would have scored this shelf very differently.
+        var replacement = await client.PostAsJsonAsync("/api/config/score-weights", new ScoreWeightSetRequest([
+            new ScoreWeightRequest(ScorePillar.Availability, 0m),
+            new ScoreWeightRequest(ScorePillar.ShareOfShelf, 100m),
+        ]));
+
+        var version = (await replacement.Content.ReadFromJsonAsync<ScoreWeightSetResponse>())!.Version;
+        await client.PostAsync($"/api/config/score-weights/{version}/publish", null);
+
+        var after = await client.GetFromJsonAsync<AuditResponse>($"/api/visits/{visitId}/audit");
+
+        Assert.Equal(before!.Score, after!.Score);
+        Assert.Equal(weights, after.WeightSetVersion);
+    }
+
+    [Fact]
     public async Task A_visit_with_no_audit_is_not_found()
     {
         using var client = Admin();
 
-        var (visitId, _) = await VisitAsync(client);
+        var (visitId, _, weights) = await VisitAsync(client);
 
         var response = await client.GetAsync($"/api/visits/{visitId}/audit");
 
@@ -525,9 +671,9 @@ public class AuditIngestTests(ServerFixture fixture)
         using var client = Admin();
         using var other = fixture.CreateAuthenticatedClient(fixture.TenantBAccessToken);
 
-        var (visitId, _) = await VisitAsync(client);
+        var (visitId, _, weights) = await VisitAsync(client);
 
-        Assert.True((await IngestAsync(Audit(visitId))).Applied);
+        Assert.True((await IngestAsync(Audit(visitId, weights))).Applied);
 
         var theirs = await other.GetAsync($"/api/visits/{visitId}/audit");
 
@@ -550,7 +696,7 @@ public class AuditIngestTests(ServerFixture fixture)
         using var client = Admin();
         using var withoutVisitRead = fixture.CreateAuthenticatedClient(fixture.AccessToken);
 
-        var (visitId, _) = await VisitAsync(client);
+        var (visitId, _, weights) = await VisitAsync(client);
 
         Assert.Equal(
             HttpStatusCode.Forbidden,
@@ -563,14 +709,15 @@ public class AuditIngestTests(ServerFixture fixture)
 
     /// <summary>Checks in at <paramref name="outletId"/>, audits it at a given moment, and returns the visit id.</summary>
     private async Task<Guid> AuditedVisitAsync(
-        HttpClient client, Guid outletId, DateTimeOffset capturedAt)
+        HttpClient client, Guid outletId, int weighting, DateTimeOffset capturedAt)
     {
         var response = await client.PostAsJsonAsync(
             "/api/visits/check-in", new CheckInRequest(outletId, Shop.Latitude, Shop.Longitude));
 
         var visit = (await response.Content.ReadFromJsonAsync<VisitDetailResponse>())!.Visit;
 
-        Assert.True((await IngestAsync(Audit(visit.Id) with { CapturedAtUtc = capturedAt })).Applied);
+        Assert.True(
+            (await IngestAsync(Audit(visit.Id, weighting) with { CapturedAtUtc = capturedAt })).Applied);
 
         // Sealed so the next check-in at this outlet is not refused for one already in progress.
         await client.PostAsJsonAsync(

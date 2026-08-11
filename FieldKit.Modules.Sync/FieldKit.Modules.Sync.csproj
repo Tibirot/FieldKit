@@ -24,6 +24,9 @@
     <!-- Visit owns what makes a visit valid; Sync applies pushed work through it, never by writing
          the visit schema (module boundaries §7). -->
     <ProjectReference Include="..\FieldKit.Modules.Visit.Contracts\FieldKit.Modules.Visit.Contracts.csproj" />
+    <!-- And Audit owns what makes an audit valid and what it scores to (W10 slice 6). Sync holds no
+         opinion about either: it routes the mutation and reports what came back. -->
+    <ProjectReference Include="..\FieldKit.Modules.Audit.Contracts\FieldKit.Modules.Audit.Contracts.csproj" />
   </ItemGroup>
 
   <!--

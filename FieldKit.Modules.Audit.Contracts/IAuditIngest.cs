@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace FieldKit.Modules.Audit.Contracts;
 
 /// <summary>
@@ -28,7 +30,17 @@ public enum AvailabilityStatus
 /// module's schema (AT-1), and an audit records what was checked even if the product is delisted
 /// afterwards.
 /// </param>
-public sealed record CapturedAvailability(Guid ProductId, AvailabilityStatus Status);
+/// <remarks>
+/// <see cref="Status"/> travels as its <b>name</b>, and the converter is what makes that true. It is
+/// opt-in per property because nothing registers a global one — without it this record accepts only
+/// the ordinal, which is the bug the visit workflow's step type shipped with and the survey
+/// question's type shipped with. <b>Third occurrence</b>: the wire vectors caught this one on their
+/// first run, which is what they are for, but three is the point at which the global converter is
+/// worth arguing for.
+/// </remarks>
+public sealed record CapturedAvailability(
+    Guid ProductId,
+    [property: JsonConverter(typeof(JsonStringEnumConverter<AvailabilityStatus>))] AvailabilityStatus Status);
 
 /// <summary>
 /// Facings counted for one product (<c>AUD-02</c>).
@@ -114,7 +126,9 @@ public enum AuditSection
 /// Where the image will be in object storage. Minted on the device, so the reference and the upload
 /// agree without a round trip — the same reason <c>AuditId</c> is the device's.
 /// </param>
-public sealed record CapturedPhoto(AuditSection Section, string ObjectKey);
+public sealed record CapturedPhoto(
+    [property: JsonConverter(typeof(JsonStringEnumConverter<AuditSection>))] AuditSection Section,
+    string ObjectKey);
 
 /// <summary>
 /// One survey answer, as the rep gave it (<c>AUD-04</c>).
@@ -215,6 +229,16 @@ public enum AuditIngestRefusal
 
     /// <summary>Answers naming a questionnaire this tenant does not have (<c>AUD-04</c>).</summary>
     UnknownSurveyForm,
+
+    /// <summary>
+    /// No <b>published</b> weighting at the version the audit names (<c>BR-AUD-8</c>).
+    /// </summary>
+    /// <remarks>
+    /// A device that pushed this has a weight set its own pull feed never gave it, or one that was
+    /// still a draft when it did. Refusing rather than scoring against something else is the point:
+    /// a score computed from weights the audit does not name cannot be reproduced from the row.
+    /// </remarks>
+    UnknownWeightSet,
 
     /// <summary>Two answers under one question key, or answers with no form named.</summary>
     MalformedAnswers,

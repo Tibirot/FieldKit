@@ -1,5 +1,6 @@
 using FieldKit.Modules.Audit;
 using FieldKit.Modules.Audit.Contracts;
+using FieldKit.Modules.Configuration.Contracts;
 
 namespace FieldKit.Server.Tests;
 
@@ -42,8 +43,25 @@ public class AuditRecordTests
     private static CapturedAnswer Answer(string key, string value = "Yes") =>
         new(key, $"Question {key}?", value);
 
-    private static (Modules.Audit.Audit? Audit, AuditRefusal Refusal) Record(CapturedAudit captured) =>
-        Modules.Audit.Audit.Record(captured, Outlet, "rep-1");
+    /// <summary>
+    /// The weighting these cases score against. Incidental to almost all of them.
+    /// </summary>
+    /// <remarks>
+    /// This file is about what a stored audit must be <i>true of</i>; the arithmetic is
+    /// <see cref="PerfectStoreScoreTests"/>'s and the resolution of a version is
+    /// <see cref="AuditIngestTests"/>'s. What the two scoring cases below assert is only that
+    /// <c>Record</c> scores at all, and from the entries it just stored.
+    /// </remarks>
+    private static PillarWeight[] Balanced() =>
+    [
+        new(ScorePillar.Availability, 50m),
+        new(ScorePillar.ShareOfShelf, 30m),
+        new(ScorePillar.PriceCompliance, 20m),
+    ];
+
+    private static (Modules.Audit.Audit? Audit, AuditRefusal Refusal) Record(
+        CapturedAudit captured, IReadOnlyList<PillarWeight>? weights = null) =>
+        Modules.Audit.Audit.Record(captured, Outlet, "rep-1", weights ?? Balanced());
 
     [Fact]
     public void An_audit_records_what_was_measured_and_where()
@@ -246,6 +264,50 @@ public class AuditRecordTests
 
         Assert.Equal(100, over!.Prices.Single().DeltaMinorUnits);
         Assert.Equal(-100, under!.Prices.Single().DeltaMinorUnits);
+    }
+
+    [Fact]
+    public void An_audit_is_scored_from_the_entries_it_just_stored()
+    {
+        /*
+         * W10 slice 6, and the reason scoring is in the same step as storing: it is the only moment
+         * the weights are unambiguous. From here on the score, the entries and the version are one
+         * row that either exists or does not.
+         *
+         * Availability 100 (weight 50), share of shelf skipped, price 0 (weight 20) →
+         * (100 × 50 + 0 × 20) ÷ 70 = 71.428… → 71.43.
+         */
+        var product = Guid.CreateVersion7();
+
+        var (audit, _) = Record(Audit(
+            availability: [new CapturedAvailability(product, AvailabilityStatus.Present)],
+            prices: [new CapturedPrice(product, 1200, 1000, "RON")],
+            categoryFacings: null));
+
+        Assert.Equal(71.43m, audit!.Score);
+
+        Assert.Equal(100m, audit.ScoredPillars.Single(p => p.Pillar == ScorePillar.Availability).Percentage);
+        Assert.Null(audit.ScoredPillars.Single(p => p.Pillar == ScorePillar.ShareOfShelf).Percentage);
+        Assert.Equal(0m, audit.ScoredPillars.Single(p => p.Pillar == ScorePillar.PriceCompliance).Percentage);
+
+        // The weights are stored beside the percentages, so the arithmetic can be checked by hand
+        // from the row alone — which is what "the server recomputes with those weights" has to mean.
+        Assert.Equal(30m, audit.ScoredPillars.Single(p => p.Pillar == ScorePillar.ShareOfShelf).Weight);
+    }
+
+    [Fact]
+    public void A_weighting_that_scores_nothing_leaves_the_score_null_and_the_breakdown_intact()
+    {
+        // Null is not zero, all the way out to the row. The breakdown still records what was measured
+        // and what each pillar was worth, so a reader can see *why* there is no score.
+        var (audit, _) = Record(
+            Audit(availability: [new CapturedAvailability(Guid.CreateVersion7(), AvailabilityStatus.Present)],
+                categoryFacings: null),
+            [new PillarWeight(ScorePillar.Availability, 0m), new PillarWeight(ScorePillar.ShareOfShelf, 100m)]);
+
+        Assert.Null(audit!.Score);
+        Assert.Equal(100m, audit.ScoredPillars.Single(p => p.Pillar == ScorePillar.Availability).Percentage);
+        Assert.Equal(0m, audit.ScoredPillars.Single(p => p.Pillar == ScorePillar.Availability).Weight);
     }
 
     [Fact]

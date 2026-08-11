@@ -418,8 +418,12 @@ public class SyncPushJourneyTests(ServerFixture fixture)
         await RoundAsync(rep, admin);
         var device = await BindDeviceAsync(rep);
 
+        // `CapturedOrder` is the placeholder now; this test named `CapturedAudit` until W10 slice 6
+        // taught the server to carry it, which is the second place that claim expired — the wire
+        // vector file was the first. A test pinning "unsupported" has a shelf life, and W11 is when
+        // this one ends.
         var push = await PushAsync(
-            rep, device, new PushedMutation(Guid.CreateVersion7(), "CapturedAudit", null));
+            rep, device, new PushedMutation(Guid.CreateVersion7(), "CapturedOrder", null));
 
         var result = Assert.Single(push.Results);
         Assert.Equal("rejected", result.Status);

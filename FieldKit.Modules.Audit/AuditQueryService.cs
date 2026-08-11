@@ -49,6 +49,7 @@ internal sealed class AuditQueryService(AuditDbContext db) : IAuditQuery
         .Include(audit => audit.Prices)
         .Include(audit => audit.Answers)
         .Include(audit => audit.Photos)
+        .Include(audit => audit.ScoredPillars)
 
         // Five collection includes on one query would otherwise multiply into a cartesian product of
         // the five sections — thirty availability lines, twenty prices and a dozen answers returning

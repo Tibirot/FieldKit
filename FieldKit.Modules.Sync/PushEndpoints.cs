@@ -1,4 +1,5 @@
 using FieldKit.BuildingBlocks;
+using FieldKit.Modules.Audit.Contracts;
 using FieldKit.Modules.Journey.Contracts;
 using FieldKit.Modules.Visit.Contracts;
 using FieldKit.Web;
@@ -34,6 +35,7 @@ public static class PushEndpoints
             IMutationLedger ledger,
             IVisitIngest visits,
             IJourneyIngest journeys,
+            IAuditIngest audits,
             ITenantContext tenant,
             CancellationToken ct) =>
         {
@@ -76,7 +78,7 @@ public static class PushEndpoints
                     continue;
                 }
 
-                var outcome = await ApplyAsync(mutation, visits, journeys, tenant.UserId, ct);
+                var outcome = await ApplyAsync(mutation, visits, journeys, audits, tenant.UserId, ct);
 
                 ledger.Record(device.Id, mutation.MutationId, outcome);
                 results.Add(MutationResult.From(mutation.MutationId, outcome));
@@ -98,13 +100,14 @@ public static class PushEndpoints
     /// round annotatable. Applying through the owning module is what keeps that true.
     /// </remarks>
     private static async Task<MutationOutcome> ApplyAsync(
-        PushedMutation mutation, IVisitIngest visits, IJourneyIngest journeys, string userId,
-        CancellationToken ct) => mutation.Type switch
+        PushedMutation mutation, IVisitIngest visits, IJourneyIngest journeys, IAuditIngest audits,
+        string userId, CancellationToken ct) => mutation.Type switch
         {
             nameof(CapturedVisit) => await ApplyVisitAsync(mutation, visits, userId, ct),
             nameof(NotVisitedCall) => await ApplyNotVisitedAsync(mutation, journeys, userId, ct),
             nameof(RescheduledCall) => await ApplyRescheduleAsync(mutation, journeys, userId, ct),
             nameof(UnplannedCall) => await ApplyUnplannedAsync(mutation, journeys, userId, ct),
+            nameof(CapturedAudit) => await ApplyAuditAsync(mutation, audits, userId, ct),
 
             // An unknown type is rejected rather than ignored: a device that keeps retrying something
             // the server silently drops never drains.
@@ -155,6 +158,44 @@ public static class PushEndpoints
 
         return Outcome(await journeys.AddUnplannedAsync(mutation.Unplanned, userId, ct));
     }
+
+    /// <summary>
+    /// Applies a pushed audit (<c>AUD-06</c>, <c>BR-AUD-8</c>) — W10 slice 6.
+    /// </summary>
+    /// <remarks>
+    /// <b>The audit is its own mutation, decided in W10 slice 0.</b> A rep's phone drains the visit
+    /// and the audit as two entries in the same outbox, and <c>/sync/push</c> answers per mutation
+    /// precisely so one refusal cannot take a completed visit with it — an audit rejected for naming
+    /// a weight version this server has never published must not strand the visit it belonged to.
+    /// </remarks>
+    private static async Task<MutationOutcome> ApplyAuditAsync(
+        PushedMutation mutation, IAuditIngest audits, string userId, CancellationToken ct)
+    {
+        if (mutation.Audit is null) return Missing("audit");
+
+        var result = await audits.IngestAsync(mutation.Audit, userId, ct);
+
+        return result.Applied
+            ? new MutationOutcome(MutationStatus.Accepted)
+            : new MutationOutcome(MutationStatus.Rejected, RefusalCode(result.Refusal), result.Reason);
+    }
+
+    /// <summary>Maps Audit's refusal onto an <c>ADR-0012</c> code the device can branch on.</summary>
+    private static string RefusalCode(AuditIngestRefusal refusal) => refusal switch
+    {
+        AuditIngestRefusal.UnknownVisit => "audit.ingest.visitUnknown",
+        AuditIngestRefusal.VisitSealed => "audit.ingest.visitSealed",
+        AuditIngestRefusal.AlreadyAudited => "audit.ingest.alreadyAudited",
+        AuditIngestRefusal.NegativeCount => "audit.ingest.negativeCount",
+        AuditIngestRefusal.DuplicateProduct => "audit.ingest.duplicateProduct",
+        AuditIngestRefusal.CurrencyMismatch => "audit.ingest.currencyMismatch",
+        AuditIngestRefusal.Empty => "audit.ingest.empty",
+        AuditIngestRefusal.UnknownSurveyForm => "audit.ingest.surveyFormUnknown",
+        AuditIngestRefusal.MalformedAnswers => "audit.ingest.answersMalformed",
+        AuditIngestRefusal.MalformedPhotos => "audit.ingest.photosMalformed",
+        AuditIngestRefusal.UnknownWeightSet => "audit.ingest.weightSetUnknown",
+        _ => "audit.ingest.refused",
+    };
 
     private static MutationOutcome Missing(string what) => new(
         MutationStatus.Rejected, "sync.push.payloadMissing", $"The mutation carried no {what}.");
@@ -213,7 +254,8 @@ public sealed record PushedMutation(
     CapturedVisit? Visit = null,
     NotVisitedCall? NotVisited = null,
     RescheduledCall? Rescheduled = null,
-    UnplannedCall? Unplanned = null);
+    UnplannedCall? Unplanned = null,
+    CapturedAudit? Audit = null);
 
 public sealed record MutationResult(Guid MutationId, string Status, string? Reason, string? Detail)
 {

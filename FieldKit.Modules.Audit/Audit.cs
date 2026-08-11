@@ -1,5 +1,6 @@
 using FieldKit.BuildingBlocks;
 using FieldKit.Modules.Audit.Contracts;
+using FieldKit.Modules.Configuration.Contracts;
 using FieldKit.SharedKernel;
 
 namespace FieldKit.Modules.Audit;
@@ -210,6 +211,50 @@ public sealed class PhotoEntry : ITenantOwned
     };
 }
 
+/// <summary>
+/// One pillar's contribution to a stored score (<c>AUD-06</c>, <c>AUD-09</c>).
+/// </summary>
+/// <remarks>
+/// The breakdown is stored beside the total rather than recomputed for display, and for the reason
+/// the total is: it is the working the server did at ingest, against weights that cannot move. A
+/// screen deriving it later would be a second arithmetic that could disagree with the first.
+/// </remarks>
+public sealed class ScoredPillar : ITenantOwned
+{
+    public Guid Id { get; private set; }
+
+    public Guid AuditId { get; private set; }
+
+    public ScorePillar Pillar { get; private set; }
+
+    /// <summary>
+    /// <c>0</c>–<c>100</c>, or null when the pillar was <b>skipped</b>.
+    /// </summary>
+    /// <remarks>
+    /// Null is not zero. A skipped pillar was renormalised away (W10 slice 0); a zero one was
+    /// measured and found empty. Storing them the same way would lose the distinction the whole
+    /// scoring rule turns on.
+    /// </remarks>
+    public decimal? Percentage { get; private set; }
+
+    /// <summary>What the weight set said this pillar was worth, whether or not it was measured.</summary>
+    public decimal Weight { get; private set; }
+
+    public TenantId TenantId { get; set; }
+
+    private ScoredPillar() { } // EF
+
+    internal static ScoredPillar Create(Guid auditId, ScorePillar pillar, decimal? percentage, decimal weight) =>
+        new()
+        {
+            Id = Guid.CreateVersion7(),
+            AuditId = auditId,
+            Pillar = pillar,
+            Percentage = percentage,
+            Weight = weight,
+        };
+}
+
 /// <summary>Why an audit was refused. <see cref="None"/> means it was not.</summary>
 public enum AuditRefusal
 {
@@ -271,6 +316,7 @@ public sealed class Audit : AggregateRoot, ITenantOwned, IAuditable
     private readonly List<PriceEntry> _prices = [];
     private readonly List<SurveyAnswerEntry> _answers = [];
     private readonly List<PhotoEntry> _photos = [];
+    private readonly List<ScoredPillar> _scoredPillars = [];
 
     /// <summary>Minted on the device, so a replayed push maps to this audit rather than a second one.</summary>
     public Guid Id { get; private set; }
@@ -333,6 +379,33 @@ public sealed class Audit : AggregateRoot, ITenantOwned, IAuditable
     public IReadOnlyList<SurveyAnswerEntry> Answers => _answers;
     public IReadOnlyList<PhotoEntry> Photos => _photos;
 
+    /// <summary>
+    /// The perfect-store score, as this server computed it (<c>AUD-06</c>, <c>BR-AUD-8</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Stored, and W10 slice 4's comment said it would not be.</b> That comment objected to
+    /// storing the <i>device's</i> score, which would have been a second answer competing with the
+    /// server's recomputation. What is stored is the recomputation itself: this server's own
+    /// arithmetic over sealed entries and a frozen weight set, both of which are on the row beside
+    /// it. Anyone can reproduce it; nothing can move underneath it.
+    /// </para>
+    /// <para>
+    /// <b>Computed once, at ingest, rather than on every read.</b> <c>BR-AUD-6</c> makes an audit a
+    /// sealed record, and a score derived on read would silently change the day the scorer is
+    /// corrected — re-scoring history without anyone deciding to. Storing it makes a re-score a
+    /// deliberate act with a migration behind it, which is what re-scoring a sealed record should be.
+    /// </para>
+    /// <para>
+    /// <b>Null when the audit could not be scored</b> — nothing measured, or every measured pillar
+    /// weighted zero. A zero would be a claim about a shop nobody looked at.
+    /// </para>
+    /// </remarks>
+    public decimal? Score { get; private set; }
+
+    /// <summary>The pillar breakdown behind <see cref="Score"/>, including the skipped ones.</summary>
+    public IReadOnlyList<ScoredPillar> ScoredPillars => _scoredPillars;
+
     public TenantId TenantId { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public string? CreatedBy { get; set; }
@@ -356,9 +429,22 @@ public sealed class Audit : AggregateRoot, ITenantOwned, IAuditable
     /// audit on their phone until it is done; a half-finished audit on this server would be a row
     /// every reader has to learn to ignore.
     /// </para>
+    /// <para>
+    /// <b>Scoring happens here, in the same step as storing</b> (W10 slice 6). Not because it is
+    /// convenient, but because it is the only moment the weights are unambiguous: the version the
+    /// audit names is resolved by the caller, and from here on the score, the entries and the version
+    /// are one row that either exists or does not. A two-step "store, then score" would admit a row
+    /// with entries and no score, which every reader would then have to handle.
+    /// </para>
     /// </remarks>
+    /// <param name="weights">
+    /// The <b>published</b> weighting the audit was scored against (<c>BR-AUD-8</c>), resolved from
+    /// <c>CapturedAudit.WeightSetVersion</c> by the caller. Taken as a parameter rather than looked
+    /// up here for the reason the outlet is: the aggregate stays testable without a database, and it
+    /// cannot quietly disagree with what the caller resolved.
+    /// </param>
     public static (Audit? Audit, AuditRefusal Refusal) Record(
-        CapturedAudit captured, Guid outletId, string userId)
+        CapturedAudit captured, Guid outletId, string userId, IReadOnlyList<PillarWeight> weights)
     {
         if (Check(captured) is var refusal && refusal is not AuditRefusal.None)
         {
@@ -401,6 +487,28 @@ public sealed class Audit : AggregateRoot, ITenantOwned, IAuditable
 
         audit._photos.AddRange(PhotosOf(captured).Select(
             photo => PhotoEntry.Create(audit.Id, photo.Section, photo.ObjectKey)));
+
+        /*
+         * The score, from the entries just stored and the weighting just resolved (AUD-06,
+         * BR-AUD-8).
+         *
+         * `PerfectStoreScore` is handed the descriptors rather than the entities, so the scorer sees
+         * exactly what `IAuditQuery` will hand a reader — one shape, one arithmetic, and no way for
+         * "what was scored" to drift from "what is shown".
+         */
+        var described = audit.Describe();
+
+        var scored = PerfectStoreScore.Compute(new ScoreInputs(
+            described.Availability,
+            described.Facings,
+            described.CategoryFacings,
+            described.Prices,
+            weights));
+
+        audit.Score = scored.Score;
+
+        audit._scoredPillars.AddRange(scored.Pillars.Select(
+            pillar => ScoredPillar.Create(audit.Id, pillar.Pillar, pillar.Percentage, pillar.Weight)));
 
         return (audit, AuditRefusal.None);
     }
@@ -567,5 +675,10 @@ public sealed class Audit : AggregateRoot, ITenantOwned, IAuditable
             .OrderBy(entry => entry.Order)
             .Select(entry => new AnswerLine(
                 entry.Order, entry.QuestionKey, entry.QuestionText, entry.Value))],
-        [.. _photos.Select(entry => new PhotoLine(entry.Section, entry.ObjectKey))]);
+        [.. _photos.Select(entry => new PhotoLine(entry.Section, entry.ObjectKey))],
+        Score,
+        [.. _scoredPillars
+            .OrderBy(entry => entry.Pillar)
+            .Select(entry => new ScoredPillarLine(
+                entry.Pillar.ToString(), entry.Percentage, entry.Weight))]);
 }
