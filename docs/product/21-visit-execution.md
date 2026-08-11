@@ -208,6 +208,26 @@ shop, and a satellite is not. Nothing judges it, per §F3.
 **Time on site is derived on the device exactly as it is server-side** — check-out minus check-in,
 never stored (`BR-VIS-5`).
 
+### The recap, and why it is not an interstitial (`VIS-09`, W9 slice 10)
+
+"Recap before check-out" reads naturally as a confirm screen between the button and the seal. It is
+not one. That shape taxes every visit of every day with an extra tap in order to catch a mistake on a
+few of them, and what a rep needs is the *information*, not the ceremony — so it sits inline, above
+the outcome, where they are already looking when they decide.
+
+It deliberately does not restate the step list above it. Three of its four facts are unavailable
+anywhere else on the screen:
+
+- **Optional steps still open.** `BR-VIS-3` gates check-out on *mandatory* steps, so the check-out
+  panel names those and stops. An optional step nobody did is the one thing a rep can still act on
+  and nothing else tells them about. Mandatory ones are deliberately absent here — one fact in two
+  places makes the lists look like they disagree.
+- **Time in the shop while the visit is open**, which is otherwise visible only after sealing.
+  Computed at render rather than ticking: a clock counting up in a rep's face is pressure, and the
+  number is a fact `BR-VIS-5` derives afterwards, not a target.
+- **That check-out is final.** A visit seals and queues; nothing edits it afterwards, on the device or
+  in the back office. That is worth one sentence at the moment it becomes true.
+
 ### Provenance — how the record says where it came from
 
 An offline visit arrives carrying **the device's** timestamps, position and geofence verdict, and the

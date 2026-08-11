@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
+import { VisitSummary } from "@/components/field/visit-summary";
 import { useSync } from "@/components/sync/sync-provider";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "@/i18n/navigation";
@@ -79,6 +80,10 @@ export function CheckOut({ visit }: { visit: LocalVisit }) {
   return (
     <section className="flex flex-col gap-3 rounded-xl border border-border p-3">
       <h2 className="font-medium">{t("title")}</h2>
+
+      {/* The recap, above the outcome rather than between the button and the seal (`VIS-09`,
+          W9 slice 10). A rep reads it while deciding, which is the moment it is worth anything. */}
+      <VisitSummary visit={visit} />
 
       {outstanding.length > 0 ? (
         <div className="flex flex-col gap-1" role="status">

@@ -1267,7 +1267,8 @@
       "outcomes": {
         "Productive": "Productive",
         "NonProductive": "Nothing came of it"
-      }
+      },
+      "stepsLabel": "Visit steps"
     },
     "checkOut": {
       "title": "Finish the visit",
@@ -1306,6 +1307,16 @@
         "reasonRequired": "Say why the call did not happen. A skipped shop with no reason is a gap nobody can act on.",
         "alreadyReported": "You have already reported this call."
       }
+    },
+    "summary": {
+      "title": "Before you finish",
+      "timeOnSite": "Time in the shop",
+      "minutes": "{minutes, plural, one {# minute} other {# minutes}}",
+      "steps": "Steps",
+      "stepsDone": "{done} of {total} done",
+      "optionalOpen": "{count, plural, one {# optional step is not done} other {# optional steps are not done}}:",
+      "notes": "What you wrote",
+      "final": "Checking out files this visit. It cannot be changed afterwards, on this phone or in the back office."
     }
   },
   "Guard": {
