@@ -1,10 +1,14 @@
 "use client";
 
 import { useFormatter, useTranslations } from "next-intl";
+import { useEffect, useState } from "react";
+
+import { InstallPrompt } from "@/components/field/install-prompt";
 
 import { useSync } from "@/components/sync/sync-provider";
 import { useLive } from "@/lib/sync/live";
 import { outlets } from "@/lib/sync/reference";
+import { concernOf, storageStatus, type StorageStatus } from "@/lib/sync/storage";
 
 /**
  * What this device is holding, and whether the back office has it (`OFF-05`, `OFF-06`).
@@ -24,6 +28,29 @@ export function DeviceStatus() {
 
   const shops = useLive(() => outlets(db), [], [db]);
   const lastSync = useLive(() => db.meta.get("lastSyncAt"), undefined, [db]);
+
+  /*
+   * Read once per mount rather than live (`OFF-11`, W9 slice 11).
+   *
+   * `storageStatus` reads the browser, not the database, so `useLive` has nothing to observe — and
+   * a quota figure that moved while a rep watched it would be noise. This screen is opened to
+   * answer a question, and the answer is true as of opening it.
+   */
+  const [storage, setStorage] = useState<StorageStatus | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void storageStatus().then((status) => {
+      if (!cancelled) setStorage(status);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const concern = storage ? concernOf(storage, pending) : "none";
 
   return (
     <div className="flex flex-col gap-6">
@@ -49,9 +76,39 @@ export function DeviceStatus() {
               : t("status.never")
           }
         />
+
+        {/* Read from the browser rather than the store, and shown as a fact whether or not it is a
+            problem — a rep who has never seen the number cannot judge the day it changes. */}
+        <Fact
+          label={t("status.storage")}
+          value={
+            storage?.usedBytes !== null && storage?.usedBytes !== undefined
+              ? t("status.storageUsed", {
+                  used: megabytes(storage.usedBytes),
+                  quota: storage.quotaBytes ? megabytes(storage.quotaBytes) : "—",
+                })
+              : t("status.storageUnknown")
+          }
+        />
       </dl>
+
+      {/* The only two states a rep can act on, and neither is "the number is large" (`OFF-11`). */}
+      {concern !== "none" ? (
+        <p className="rounded-xl border border-border p-3 text-sm" role="alert">
+          {t(`storagePressure.${concern}`)}
+        </p>
+      ) : null}
+
+      {/* Below the numbers, because it is the answer to the problem above rather than a feature
+          being advertised: installing is what makes a browser agree to keep this data. */}
+      <InstallPrompt />
     </div>
   );
+}
+
+/** Whole megabytes. A rep comparing "18" with "2048" does not need either to three decimals. */
+function megabytes(bytes: number): number {
+  return Math.round(bytes / 1024 / 1024);
 }
 
 function Fact({ label, value }: { label: string; value: string }) {

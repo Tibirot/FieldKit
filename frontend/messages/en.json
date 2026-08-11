@@ -1176,7 +1176,10 @@
       "outlets": "Shops held",
       "pending": "Waiting to send",
       "lastSync": "Last synced",
-      "never": "Never"
+      "never": "Never",
+      "storage": "Storage used",
+      "storageUsed": "{used} of {quota} MB",
+      "storageUnknown": "Not reported"
     },
     "journey": {
       "title": "Today's journey",
@@ -1317,6 +1320,16 @@
       "optionalOpen": "{count, plural, one {# optional step is not done} other {# optional steps are not done}}:",
       "notes": "What you wrote",
       "final": "Checking out files this visit. It cannot be changed afterwards, on this phone or in the back office."
+    },
+    "storagePressure": {
+      "full": "This phone is nearly out of space. Sync to send your work, then clear space in your browser settings — a full phone cannot take a new round.",
+      "evictable": "Your browser has not promised to keep this app's data, and you have work that has not been sent. Sync now if you can, and install the app so this stops being a risk."
+    },
+    "install": {
+      "title": "Install FieldKit",
+      "why": "Installed, it opens from your home screen and your browser stops clearing its data — which is what keeps a day of offline work safe.",
+      "action": "Install",
+      "dismiss": "Not now"
     }
   },
   "Guard": {
