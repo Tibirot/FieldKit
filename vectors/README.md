@@ -24,6 +24,22 @@ them, which is why they live here rather than inside either project.
 > and its tests are deliberately the same cases as `MoneyTests.cs`, so the two files can be compared
 > by eye. The resolvers that consume the vector files land in slices 12–14.
 
+> **`sync/push.v1.json` is a different kind of vector, and worth explaining** (W9 slice 12). Every
+> other file here pins a *rule* — same inputs, same answer, two languages. This one pins the
+> **wire**: which property each mutation's payload travels under, and that a device's payload omits
+> the properties it does not use.
+>
+> It exists because two bugs shipped in one slice from the same blind spot: the client sent every
+> payload under `visit` whatever `type` said, and the server made `visit` a required constructor
+> argument. Both suites were green throughout — the client mocked the API and asserted that `push`
+> was *called*, and the server serialised a constructed record, which always writes `"visit": null`.
+> **Each side tested its own idea of the contract and neither tested the contract.**
+>
+> So the payloads are **hand-authored, as a device sends them**. Generating them by serialising a
+> record would reproduce exactly the blindness being fixed. C# asserts each binds through the API's
+> own serializer options; TypeScript asserts its client produces those bytes. Replaying both shipped
+> bugs against the file fails it — which is the only evidence that a vector file is worth anything.
+
 ## Why a file rather than a shared test suite
 
 The two engines cannot share code — one is .NET on a server, the other is TypeScript on a phone

@@ -1,0 +1,122 @@
+{
+  "version": 1,
+  "rule": "OFF-04 / sync engine §4",
+  "description": "The bytes a device puts on the wire for `POST /sync/push`, and which module contract each one routes to. Hand-authored as a *device* sends them — omitting every property the mutation does not use — because that is the exact shape both sides got wrong: the client sent every payload under `visit`, and the server made `visit` a required constructor argument. Neither suite could see it, because the client mocked the API and the server serialised a fully-constructed record, which always writes `\"visit\": null`. See ../README.md.",
+  "mutations": [
+    {
+      "name": "a visit worked offline",
+      "why": "The original mutation type, and the only one until W9 slice 9. Kept first so a change to the shared envelope shows up here before it shows up in the three that came later.",
+      "outbox": {
+        "type": "CapturedVisit",
+        "payload": {
+          "visitId": "0195e7c4-0000-7000-8000-00000000b001",
+          "outletId": "0195e7c4-0000-7000-8000-00000000e001",
+          "plannedVisitId": null,
+          "checkedInAtUtc": "2026-03-17T09:00:00.000Z",
+          "checkInLatitude": 44.4325,
+          "checkInLongitude": 26.1039,
+          "checkInDistanceMetres": 12.5,
+          "wasInsideGeofence": true,
+          "overrideReason": null,
+          "steps": [],
+          "outcome": "Productive",
+          "outcomeReason": null,
+          "checkedOutAtUtc": "2026-03-17T09:25:00.000Z",
+          "checkOutLatitude": 44.4325,
+          "checkOutLongitude": 26.1039
+        }
+      },
+      "wire": {
+        "mutationId": "0195e7c4-0000-7000-8000-00000000a001",
+        "type": "CapturedVisit",
+        "visit": {
+          "visitId": "0195e7c4-0000-7000-8000-00000000b001",
+          "outletId": "0195e7c4-0000-7000-8000-00000000e001",
+          "plannedVisitId": null,
+          "checkedInAtUtc": "2026-03-17T09:00:00.000Z",
+          "checkInLatitude": 44.4325,
+          "checkInLongitude": 26.1039,
+          "checkInDistanceMetres": 12.5,
+          "wasInsideGeofence": true,
+          "overrideReason": null,
+          "steps": [],
+          "outcome": "Productive",
+          "outcomeReason": null,
+          "checkedOutAtUtc": "2026-03-17T09:25:00.000Z",
+          "checkOutLatitude": 44.4325,
+          "checkOutLongitude": 26.1039
+        }
+      },
+      "expected": { "slot": "visit", "bound": true }
+    },
+    {
+      "name": "a call the rep could not make",
+      "why": "The case that shipped broken twice. The payload travels under `notVisited`, and `visit` is absent entirely — not null. A server whose `Visit` parameter has no default rejects this whole batch with a 400 before any routing runs, and a 400 is retried on every reconnect forever rather than recorded and stopped.",
+      "outbox": {
+        "type": "NotVisitedCall",
+        "payload": {
+          "plannedVisitId": "0195e7c4-0000-7000-8000-00000000c001",
+          "reason": "Closed for refurbishment"
+        }
+      },
+      "wire": {
+        "mutationId": "0195e7c4-0000-7000-8000-00000000a002",
+        "type": "NotVisitedCall",
+        "notVisited": {
+          "plannedVisitId": "0195e7c4-0000-7000-8000-00000000c001",
+          "reason": "Closed for refurbishment"
+        }
+      },
+      "expected": { "slot": "notVisited", "bound": true }
+    },
+    {
+      "name": "a call moved to another day",
+      "why": "`date` is a plain `yyyy-mm-dd` with no time and no zone, because a planned call is dated to a business day rather than to an instant (BR-PRD-6). A client sending an ISO timestamp here would bind on some servers and shift the call by a day near midnight on others.",
+      "outbox": {
+        "type": "RescheduledCall",
+        "payload": {
+          "plannedVisitId": "0195e7c4-0000-7000-8000-00000000c002",
+          "date": "2026-04-08"
+        }
+      },
+      "wire": {
+        "mutationId": "0195e7c4-0000-7000-8000-00000000a003",
+        "type": "RescheduledCall",
+        "rescheduled": {
+          "plannedVisitId": "0195e7c4-0000-7000-8000-00000000c002",
+          "date": "2026-04-08"
+        }
+      },
+      "expected": { "slot": "rescheduled", "bound": true }
+    },
+    {
+      "name": "a call nobody planned",
+      "why": "A shop and a day and no call id, because this one does not exist yet — and no plan id either, because a pulled round is flat calls with no plan on them. Journey resolves which round covers the day.",
+      "outbox": {
+        "type": "UnplannedCall",
+        "payload": {
+          "outletId": "0195e7c4-0000-7000-8000-00000000e001",
+          "date": "2026-04-12"
+        }
+      },
+      "wire": {
+        "mutationId": "0195e7c4-0000-7000-8000-00000000a004",
+        "type": "UnplannedCall",
+        "unplanned": {
+          "outletId": "0195e7c4-0000-7000-8000-00000000e001",
+          "date": "2026-04-12"
+        }
+      },
+      "expected": { "slot": "unplanned", "bound": true }
+    },
+    {
+      "name": "a kind this server does not carry",
+      "why": "Bound, then refused by name at the routing arm rather than at the parser. The distinction matters to a device: `sync.push.typeUnsupported` is a per-mutation result it records and stops retrying, where a parse failure fails the entire batch. There is no `outbox` half — no client produces this, and the case exists to pin what happens when a newer device meets an older server.",
+      "wire": {
+        "mutationId": "0195e7c4-0000-7000-8000-00000000a005",
+        "type": "CapturedAudit"
+      },
+      "expected": { "slot": null, "bound": true }
+    }
+  ]
+}

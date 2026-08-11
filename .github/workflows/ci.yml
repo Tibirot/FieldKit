@@ -233,7 +233,7 @@ jobs:
         run: |
           set -euo pipefail
           dotnet test FieldKit.Server.Tests -c Release \
-            --filter "FullyQualifiedName~VectorTests|FullyQualifiedName~VectorPropertyTests" \
+            --filter "FullyQualifiedName~VectorTests|FullyQualifiedName~VectorPropertyTests|FullyQualifiedName~WireTests" \
             --logger "console;verbosity=normal" 2>&1 \
             | sed -r 's/\x1B\[[0-9;]*[mGKH]//g' | tee parity-dotnet.log
           passed=$(grep -oE 'Passed: +[0-9]+' parity-dotnet.log | grep -oE '[0-9]+' | tail -1)
@@ -253,6 +253,11 @@ jobs:
         # that failed to load would leave a green suite of whatever remained — the floor is what
         # turns that into a failure rather than a quieter success.
         #
+        # `lib/sync/push-wire.test.ts` is named as a file rather than by directory (W9 slice 12):
+        # `lib/sync` holds the whole sync suite, and pulling it in here would put a hundred tests
+        # that are nothing to do with cross-language agreement behind a check whose name says they
+        # are. The wire vectors belong; their neighbours do not.
+        #
         # NO_COLOR because vitest colours its summary on a CI runner and not through a local pipe,
         # so `Tests  808 passed` arrives as `\e[2m Tests \e[22m \e[1m\e[32m808 passed` and the regex
         # below matches nothing. The first run of this job failed exactly that way: 808 tests green,
@@ -262,7 +267,7 @@ jobs:
           NO_COLOR: "1"
         run: |
           set -euo pipefail
-          npx vitest run lib/pricing lib/visits 2>&1 | sed -r 's/\x1B\[[0-9;]*[mGKH]//g' | tee parity-ts.log
+          npx vitest run lib/pricing lib/visits lib/sync/push-wire.test.ts 2>&1 | sed -r 's/\x1B\[[0-9;]*[mGKH]//g' | tee parity-ts.log
           passed=$(grep -oE 'Tests +[0-9]+ passed' parity-ts.log | grep -oE '[0-9]+' | tail -1)
           echo "TypeScript vector cases: ${passed:-0}"
           if [ "${passed:-0}" -lt 900 ]; then
