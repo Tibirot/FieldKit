@@ -1,0 +1,357 @@
+{
+  "version": 1,
+  "rule": "perfect-store-score",
+  "description": "AUD-06 / BR-AUD-4 / BR-AUD-5. Hand-written cases: what the score should be, decided before either implementation. Percentages are strings; counts and minor units are integers.",
+  "cases": [
+    {
+      "name": "the worked example from W10 slice 0 — availability 80, share of shelf not captured, price 90",
+      "availability": [
+        { "status": "Present" }, { "status": "Present" }, { "status": "Present" }, { "status": "Present" },
+        { "status": "Present" }, { "status": "Present" }, { "status": "Present" }, { "status": "Present" },
+        { "status": "Absent" }, { "status": "Absent" }
+      ],
+      "facings": [],
+      "categoryFacings": null,
+      "prices": [
+        { "observedMinorUnits": 100, "expectedMinorUnits": 100 },
+        { "observedMinorUnits": 100, "expectedMinorUnits": 100 },
+        { "observedMinorUnits": 100, "expectedMinorUnits": 100 },
+        { "observedMinorUnits": 100, "expectedMinorUnits": 100 },
+        { "observedMinorUnits": 100, "expectedMinorUnits": 100 },
+        { "observedMinorUnits": 100, "expectedMinorUnits": 100 },
+        { "observedMinorUnits": 100, "expectedMinorUnits": 100 },
+        { "observedMinorUnits": 100, "expectedMinorUnits": 100 },
+        { "observedMinorUnits": 100, "expectedMinorUnits": 100 },
+        { "observedMinorUnits": 120, "expectedMinorUnits": 100 }
+      ],
+      "weights": [
+        { "pillar": "Availability", "percentage": "50" },
+        { "pillar": "ShareOfShelf", "percentage": "30" },
+        { "pillar": "PriceCompliance", "percentage": "20" }
+      ],
+      "priceToleranceMinorUnits": 0,
+      "expected": {
+        "score": "82.86",
+        "pillars": [
+          { "pillar": "Availability", "percentage": "80", "weight": "50" },
+          { "pillar": "ShareOfShelf", "percentage": null, "weight": "30" },
+          { "pillar": "PriceCompliance", "percentage": "90", "weight": "20" }
+        ]
+      }
+    },
+    {
+      "name": "every pillar measured is the plain weighted mean",
+      "availability": [{ "status": "Present" }, { "status": "Present" }],
+      "facings": [{ "facings": 15 }],
+      "categoryFacings": 30,
+      "prices": [{ "observedMinorUnits": 120, "expectedMinorUnits": 100 }],
+      "weights": [
+        { "pillar": "Availability", "percentage": "50" },
+        { "pillar": "ShareOfShelf", "percentage": "30" },
+        { "pillar": "PriceCompliance", "percentage": "20" }
+      ],
+      "priceToleranceMinorUnits": 0,
+      "expected": {
+        "score": "65",
+        "pillars": [
+          { "pillar": "Availability", "percentage": "100", "weight": "50" },
+          { "pillar": "ShareOfShelf", "percentage": "50", "weight": "30" },
+          { "pillar": "PriceCompliance", "percentage": "0", "weight": "20" }
+        ]
+      }
+    },
+    {
+      "name": "a zero pillar drags where a skipped one does not — measured and empty",
+      "availability": [
+        { "status": "Present" }, { "status": "Present" }, { "status": "Present" }, { "status": "Present" },
+        { "status": "Present" }, { "status": "Present" }, { "status": "Present" }, { "status": "Present" },
+        { "status": "Absent" }, { "status": "OutOfStock" }
+      ],
+      "facings": [{ "facings": 0 }],
+      "categoryFacings": 30,
+      "prices": [],
+      "weights": [
+        { "pillar": "Availability", "percentage": "50" },
+        { "pillar": "ShareOfShelf", "percentage": "30" }
+      ],
+      "priceToleranceMinorUnits": 0,
+      "expected": {
+        "score": "50",
+        "pillars": [
+          { "pillar": "Availability", "percentage": "80", "weight": "50" },
+          { "pillar": "ShareOfShelf", "percentage": "0", "weight": "30" },
+          { "pillar": "PriceCompliance", "percentage": null, "weight": "0" }
+        ]
+      }
+    },
+    {
+      "name": "the same shelf with share of shelf skipped instead — 80 stays 80",
+      "availability": [
+        { "status": "Present" }, { "status": "Present" }, { "status": "Present" }, { "status": "Present" },
+        { "status": "Present" }, { "status": "Present" }, { "status": "Present" }, { "status": "Present" },
+        { "status": "Absent" }, { "status": "OutOfStock" }
+      ],
+      "facings": [],
+      "categoryFacings": null,
+      "prices": [],
+      "weights": [
+        { "pillar": "Availability", "percentage": "50" },
+        { "pillar": "ShareOfShelf", "percentage": "30" }
+      ],
+      "priceToleranceMinorUnits": 0,
+      "expected": {
+        "score": "80",
+        "pillars": [
+          { "pillar": "Availability", "percentage": "80", "weight": "50" },
+          { "pillar": "ShareOfShelf", "percentage": null, "weight": "30" },
+          { "pillar": "PriceCompliance", "percentage": null, "weight": "0" }
+        ]
+      }
+    },
+    {
+      "name": "absent and out-of-stock are both misses",
+      "availability": [
+        { "status": "Present" }, { "status": "Absent" },
+        { "status": "OutOfStock" }, { "status": "Present" }
+      ],
+      "facings": [],
+      "categoryFacings": null,
+      "prices": [],
+      "weights": [{ "pillar": "Availability", "percentage": "100" }],
+      "priceToleranceMinorUnits": 0,
+      "expected": {
+        "score": "50",
+        "pillars": [
+          { "pillar": "Availability", "percentage": "50", "weight": "100" },
+          { "pillar": "ShareOfShelf", "percentage": null, "weight": "0" },
+          { "pillar": "PriceCompliance", "percentage": null, "weight": "0" }
+        ]
+      }
+    },
+    {
+      "name": "share of shelf divides by the captured total, not by own facings",
+      "availability": [],
+      "facings": [{ "facings": 6 }, { "facings": 4 }],
+      "categoryFacings": 40,
+      "prices": [],
+      "weights": [{ "pillar": "ShareOfShelf", "percentage": "100" }],
+      "priceToleranceMinorUnits": 0,
+      "expected": {
+        "score": "25",
+        "pillars": [
+          { "pillar": "Availability", "percentage": null, "weight": "0" },
+          { "pillar": "ShareOfShelf", "percentage": "25", "weight": "100" },
+          { "pillar": "PriceCompliance", "percentage": null, "weight": "0" }
+        ]
+      }
+    },
+    {
+      "name": "a category total of zero is undefined, not nought — the pillar is skipped",
+      "availability": [{ "status": "Present" }],
+      "facings": [{ "facings": 5 }],
+      "categoryFacings": 0,
+      "prices": [],
+      "weights": [
+        { "pillar": "Availability", "percentage": "60" },
+        { "pillar": "ShareOfShelf", "percentage": "40" }
+      ],
+      "priceToleranceMinorUnits": 0,
+      "expected": {
+        "score": "100",
+        "pillars": [
+          { "pillar": "Availability", "percentage": "100", "weight": "60" },
+          { "pillar": "ShareOfShelf", "percentage": null, "weight": "40" },
+          { "pillar": "PriceCompliance", "percentage": null, "weight": "0" }
+        ]
+      }
+    },
+    {
+      "name": "share of shelf is capped at 100 when the rep miscounted the category",
+      "availability": [],
+      "facings": [{ "facings": 50 }],
+      "categoryFacings": 30,
+      "prices": [],
+      "weights": [{ "pillar": "ShareOfShelf", "percentage": "100" }],
+      "priceToleranceMinorUnits": 0,
+      "expected": {
+        "score": "100",
+        "pillars": [
+          { "pillar": "Availability", "percentage": null, "weight": "0" },
+          { "pillar": "ShareOfShelf", "percentage": "100", "weight": "100" },
+          { "pillar": "PriceCompliance", "percentage": null, "weight": "0" }
+        ]
+      }
+    },
+    {
+      "name": "a price with nothing expected leaves the denominator as well as the numerator",
+      "availability": [],
+      "facings": [],
+      "categoryFacings": null,
+      "prices": [
+        { "observedMinorUnits": 100, "expectedMinorUnits": 100 },
+        { "observedMinorUnits": 120, "expectedMinorUnits": 100 },
+        { "observedMinorUnits": 100, "expectedMinorUnits": null }
+      ],
+      "weights": [{ "pillar": "PriceCompliance", "percentage": "100" }],
+      "priceToleranceMinorUnits": 0,
+      "expected": {
+        "score": "50",
+        "pillars": [
+          { "pillar": "Availability", "percentage": null, "weight": "0" },
+          { "pillar": "ShareOfShelf", "percentage": null, "weight": "0" },
+          { "pillar": "PriceCompliance", "percentage": "50", "weight": "100" }
+        ]
+      }
+    },
+    {
+      "name": "nothing had an expected price — the pillar is skipped, not scored 100",
+      "availability": [{ "status": "Present" }, { "status": "Absent" }],
+      "facings": [],
+      "categoryFacings": null,
+      "prices": [{ "observedMinorUnits": 100, "expectedMinorUnits": null }],
+      "weights": [
+        { "pillar": "Availability", "percentage": "50" },
+        { "pillar": "PriceCompliance", "percentage": "50" }
+      ],
+      "priceToleranceMinorUnits": 0,
+      "expected": {
+        "score": "50",
+        "pillars": [
+          { "pillar": "Availability", "percentage": "50", "weight": "50" },
+          { "pillar": "ShareOfShelf", "percentage": null, "weight": "0" },
+          { "pillar": "PriceCompliance", "percentage": null, "weight": "50" }
+        ]
+      }
+    },
+    {
+      "name": "the tolerance is absolute and inclusive — +5 and -5 comply at 5, +6 and -10 do not",
+      "availability": [],
+      "facings": [],
+      "categoryFacings": null,
+      "prices": [
+        { "observedMinorUnits": 105, "expectedMinorUnits": 100 },
+        { "observedMinorUnits": 95, "expectedMinorUnits": 100 },
+        { "observedMinorUnits": 106, "expectedMinorUnits": 100 },
+        { "observedMinorUnits": 90, "expectedMinorUnits": 100 }
+      ],
+      "weights": [{ "pillar": "PriceCompliance", "percentage": "100" }],
+      "priceToleranceMinorUnits": 5,
+      "expected": {
+        "score": "50",
+        "pillars": [
+          { "pillar": "Availability", "percentage": null, "weight": "0" },
+          { "pillar": "ShareOfShelf", "percentage": null, "weight": "0" },
+          { "pillar": "PriceCompliance", "percentage": "50", "weight": "100" }
+        ]
+      }
+    },
+    {
+      "name": "an audit that measured nothing scores null rather than zero",
+      "availability": [],
+      "facings": [],
+      "categoryFacings": null,
+      "prices": [],
+      "weights": [
+        { "pillar": "Availability", "percentage": "50" },
+        { "pillar": "ShareOfShelf", "percentage": "30" },
+        { "pillar": "PriceCompliance", "percentage": "20" }
+      ],
+      "priceToleranceMinorUnits": 0,
+      "expected": {
+        "score": null,
+        "pillars": [
+          { "pillar": "Availability", "percentage": null, "weight": "50" },
+          { "pillar": "ShareOfShelf", "percentage": null, "weight": "30" },
+          { "pillar": "PriceCompliance", "percentage": null, "weight": "20" }
+        ]
+      }
+    },
+    {
+      "name": "pillars measured but all weighted zero score null too",
+      "availability": [{ "status": "Present" }, { "status": "Present" }],
+      "facings": [],
+      "categoryFacings": null,
+      "prices": [],
+      "weights": [
+        { "pillar": "Availability", "percentage": "0" },
+        { "pillar": "ShareOfShelf", "percentage": "100" }
+      ],
+      "priceToleranceMinorUnits": 0,
+      "expected": {
+        "score": null,
+        "pillars": [
+          { "pillar": "Availability", "percentage": "100", "weight": "0" },
+          { "pillar": "ShareOfShelf", "percentage": null, "weight": "100" },
+          { "pillar": "PriceCompliance", "percentage": null, "weight": "0" }
+        ]
+      }
+    },
+    {
+      "name": "half rounds away from zero — 1 of 32 is exactly 3.125",
+      "availability": [
+        { "status": "Present" },
+        { "status": "Absent" }, { "status": "Absent" }, { "status": "Absent" }, { "status": "Absent" },
+        { "status": "Absent" }, { "status": "Absent" }, { "status": "Absent" }, { "status": "Absent" },
+        { "status": "Absent" }, { "status": "Absent" }, { "status": "Absent" }, { "status": "Absent" },
+        { "status": "Absent" }, { "status": "Absent" }, { "status": "Absent" }, { "status": "Absent" },
+        { "status": "Absent" }, { "status": "Absent" }, { "status": "Absent" }, { "status": "Absent" },
+        { "status": "Absent" }, { "status": "Absent" }, { "status": "Absent" }, { "status": "Absent" },
+        { "status": "Absent" }, { "status": "Absent" }, { "status": "Absent" }, { "status": "Absent" },
+        { "status": "Absent" }, { "status": "Absent" }, { "status": "Absent" }
+      ],
+      "facings": [],
+      "categoryFacings": null,
+      "prices": [],
+      "weights": [{ "pillar": "Availability", "percentage": "100" }],
+      "priceToleranceMinorUnits": 0,
+      "expected": {
+        "score": "3.13",
+        "pillars": [
+          { "pillar": "Availability", "percentage": "3.13", "weight": "100" },
+          { "pillar": "ShareOfShelf", "percentage": null, "weight": "0" },
+          { "pillar": "PriceCompliance", "percentage": null, "weight": "0" }
+        ]
+      }
+    },
+    {
+      "name": "the total comes from the rounded pillars, so the breakdown reconciles",
+      "availability": [{ "status": "Present" }, { "status": "Absent" }, { "status": "Absent" }],
+      "facings": [{ "facings": 10 }],
+      "categoryFacings": 10,
+      "prices": [],
+      "weights": [
+        { "pillar": "Availability", "percentage": "50" },
+        { "pillar": "ShareOfShelf", "percentage": "50" }
+      ],
+      "priceToleranceMinorUnits": 0,
+      "expected": {
+        "score": "66.67",
+        "pillars": [
+          { "pillar": "Availability", "percentage": "33.33", "weight": "50" },
+          { "pillar": "ShareOfShelf", "percentage": "100", "weight": "50" },
+          { "pillar": "PriceCompliance", "percentage": null, "weight": "0" }
+        ]
+      }
+    },
+    {
+      "name": "weights that do not sum to a hundred still renormalise over what was measured",
+      "availability": [],
+      "facings": [{ "facings": 5 }],
+      "categoryFacings": 10,
+      "prices": [],
+      "weights": [
+        { "pillar": "Availability", "percentage": "10" },
+        { "pillar": "ShareOfShelf", "percentage": "30" }
+      ],
+      "priceToleranceMinorUnits": 0,
+      "expected": {
+        "score": "50",
+        "pillars": [
+          { "pillar": "Availability", "percentage": null, "weight": "10" },
+          { "pillar": "ShareOfShelf", "percentage": "50", "weight": "30" },
+          { "pillar": "PriceCompliance", "percentage": null, "weight": "0" }
+        ]
+      }
+    }
+  ]
+}

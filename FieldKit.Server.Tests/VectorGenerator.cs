@@ -1,5 +1,8 @@
 using System.Globalization;
 using System.Text;
+using FieldKit.Modules.Audit;
+using FieldKit.Modules.Audit.Contracts;
+using FieldKit.Modules.Configuration.Contracts;
 using FieldKit.Modules.Products;
 using FieldKit.Modules.Visit;
 using FieldKit.SharedKernel;
@@ -68,7 +71,150 @@ internal static class VectorGenerator
         ["pricing/price-resolution.generated.v1.json"] = PriceResolution(),
         ["pricing/promotion-resolution.generated.v1.json"] = PromotionResolution(),
         ["visits/geofence.generated.v1.json"] = Geofence(),
+        ["audits/perfect-store.generated.v1.json"] = PerfectStore(),
     };
+
+    // ── Perfect-store score (W10 slice 5) ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Weight sets to cross the sweep with.
+    /// </summary>
+    /// <remarks>
+    /// Chosen for what renormalisation does to them rather than for realism. A set that sums to 100
+    /// is the ordinary case; a set with a zero pillar exercises "measured and disregarded"; a set
+    /// naming one pillar exercises "the tenant weighted the rest at nothing"; and the thirds are
+    /// where a weighted mean stops landing on round numbers.
+    /// </remarks>
+    private static readonly decimal[][] WeightSets =
+    [
+        [50m, 30m, 20m],
+        [100m, 0m, 0m],
+        [0m, 0m, 100m],
+        [33.34m, 33.33m, 33.33m],
+        [70m, 0m, 30m],
+        [10m, 30m, 60m],
+    ];
+
+    /// <summary>
+    /// Availability shapes as (present, absent, out-of-stock).
+    /// </summary>
+    /// <remarks>
+    /// The denominators matter more than the numerators: 3, 7, 16 and 32 produce recurring decimals,
+    /// exact halves and exact eighths, which is where two rounding policies stop agreeing. The empty
+    /// one is the skipped pillar.
+    /// </remarks>
+    private static readonly (int Present, int Absent, int OutOfStock)[] AvailabilityShapes =
+    [
+        (0, 0, 0),
+        (1, 0, 0), (0, 1, 0), (0, 0, 1),
+        (1, 1, 1), (2, 1, 0), (5, 1, 1),
+        (1, 30, 1), (7, 8, 1), (11, 5, 0),
+    ];
+
+    /// <summary>
+    /// Facings as (own counts, captured category total).
+    /// </summary>
+    /// <remarks>
+    /// Includes the three skipped shapes — no total, a zero total, no facings — and the miscount that
+    /// the cap exists for. The rest are ratios that recur.
+    /// </remarks>
+    private static readonly (int[] Own, int? Category)[] FacingsShapes =
+    [
+        ([], null),
+        ([5], null),
+        ([5], 0),
+        ([], 30),
+        ([0], 30),
+        ([1], 3),
+        ([7], 30),
+        ([6, 4], 40),
+        ([15], 30),
+        ([50], 30),
+        ([1, 1, 1], 16),
+    ];
+
+    /// <summary>
+    /// Price checks as (observed, expected) in minor units — <c>null</c> expected means unpriced.
+    /// </summary>
+    private static readonly (long Observed, long? Expected)[][] PriceShapes =
+    [
+        [],
+        [(100, null)],
+        [(100, 100)],
+        [(120, 100)],
+        [(100, 100), (120, 100), (100, null)],
+        [(105, 100), (95, 100), (106, 100), (90, 100)],
+        [(100, 100), (100, 100), (100, 100), (101, 100), (99, 100), (100, null), (250, 250)],
+    ];
+
+    /// <summary>Tolerances, including the default the spec assumes and one wide enough to matter.</summary>
+    private static readonly long[] Tolerances = [0, 5];
+
+    /// <summary>
+    /// A pseudo-random walk over the shapes above rather than their full cross product.
+    /// </summary>
+    /// <remarks>
+    /// The full cross is 10 × 11 × 7 × 2 × 6 ≈ 9,000 cases, which is a file nobody can read in a
+    /// diff and a suite whose runtime says nothing extra. A seeded walk of this size covers every
+    /// shape many times over in combinations nobody would have thought to pair, and the PRNG is the
+    /// hand-rolled one above so the file is stable across .NET versions.
+    /// </remarks>
+    private const int PerfectStoreCases = 400;
+
+    private static string PerfectStore()
+    {
+        var random = new Prng(0xA0D17C0);
+        var body = new StringBuilder();
+
+        for (var index = 0; index < PerfectStoreCases; index++)
+        {
+            var (present, absent, outOfStock) = random.Pick(AvailabilityShapes);
+            var (own, category) = random.Pick(FacingsShapes);
+            var prices = random.Pick(PriceShapes);
+            var weights = random.Pick(WeightSets);
+            var tolerance = random.Pick(Tolerances);
+
+            IReadOnlyList<AvailabilityStatus> availability =
+            [
+                .. Enumerable.Repeat(AvailabilityStatus.Present, present),
+                .. Enumerable.Repeat(AvailabilityStatus.Absent, absent),
+                .. Enumerable.Repeat(AvailabilityStatus.OutOfStock, outOfStock),
+            ];
+
+            var inputs = new ScoreInputs(
+                [.. availability.Select(status => new AvailabilityLine(Guid.Empty, status))],
+                [.. own.Select(count => new FacingsLine(Guid.Empty, count))],
+                category,
+                [.. prices.Select(price => new PriceLine(Guid.Empty, price.Observed, price.Expected, "RON"))],
+                [.. weights.Select((percentage, pillar) => new PillarWeight((ScorePillar)pillar, percentage))],
+                tolerance);
+
+            var result = PerfectStoreScore.Compute(inputs);
+
+            body.Append(body.Length == 0 ? "\n    " : ",\n    ");
+            body.Append(
+                $$"""
+                  { "availability": [{{string.Join(", ", availability.Select(status => $"{{ \"status\": \"{status}\" }}"))}}], "facings": [{{string.Join(", ", own.Select(count => $"{{ \"facings\": {count} }}"))}}], "categoryFacings": {{Nullable(category)}}, "prices": [{{string.Join(", ", prices.Select(price => $"{{ \"observedMinorUnits\": {price.Observed}, \"expectedMinorUnits\": {Nullable(price.Expected)} }}"))}}], "weights": [{{string.Join(", ", weights.Select((percentage, pillar) => $"{{ \"pillar\": \"{(ScorePillar)pillar}\", \"percentage\": \"{Text(percentage)}\" }}"))}}], "priceToleranceMinorUnits": {{tolerance}}, "expected": { "score": {{Quoted(result.Score)}}, "pillars": [{{string.Join(", ", result.Pillars.Select(pillar => $"{{ \"pillar\": \"{pillar.Pillar}\", \"percentage\": {Quoted(pillar.Percentage)}, \"weight\": \"{Text(pillar.Weight)}\" }}"))}}] } }
+                  """);
+        }
+
+        return Wrap(
+            "perfect-store-score",
+            "AUD-06 / BR-AUD-5 / BR-AUD-12. Generated from the C# engine: an oracle for the TypeScript mirror, not a test of C#. Percentages are strings; counts and minor units are integers.",
+            "cases",
+            body.ToString());
+    }
+
+    /// <summary>An integer that may be absent — a JSON number or <c>null</c>, never a string.</summary>
+    /// <remarks>
+    /// Counts and minor units are integers, so the format rule about decimals does not reach them:
+    /// there is no fraction to lose to a float, and quoting them would make the mirror parse numbers
+    /// out of strings for no gain.
+    /// </remarks>
+    private static string Nullable(long? value) =>
+        value is { } number ? number.ToString(CultureInfo.InvariantCulture) : "null";
+
+    private static string Nullable(int? value) => Nullable((long?)value);
 
     // ── Geofence assessment (W9 slice 3) ─────────────────────────────────────────────────────────
 
