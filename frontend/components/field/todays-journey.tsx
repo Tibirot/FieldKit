@@ -94,9 +94,7 @@ function StopRow({ stop }: { stop: Stop }) {
           */}
           <span className="truncate font-medium">
             {stop.outlet ? (
-              <Link href={`/field/outlets/${stop.outletId}?call=${stop.plannedVisitId}`}>
-                {stop.outlet.name}
-              </Link>
+              <Link href={destinationOf(stop)}>{stop.outlet.name}</Link>
             ) : (
               /*
                 A shop this device does not hold still gets a row — the call is real and a supervisor
@@ -126,6 +124,25 @@ function StopRow({ stop }: { stop: Stop }) {
       ) : null}
     </li>
   );
+}
+
+/**
+ * Where tapping a stop goes.
+ *
+ * <b>A stop the rep is standing in goes to the visit, not back to check-in</b> (W9 slice 7). Without
+ * this, a rep who navigated away from a visit — to look at the round, or because the phone locked —
+ * could not get back into it: the check-in screen would correctly refuse to start a second one and
+ * then have nothing to offer. That is a visit stranded on the device by a routing decision, which is
+ * the opposite of what the local store is for.
+ *
+ * A *finished* visit still goes to check-in, and that is deliberate rather than an omission: the
+ * sealed visit is a record, and what a rep at that shop wants next is an unplanned second call
+ * (`JRN-06`), not the read-only page.
+ */
+function destinationOf(stop: Stop): string {
+  if (stop.visit?.status === "inProgress") return `/field/visits/${stop.visit.id}`;
+
+  return `/field/outlets/${stop.outletId}?call=${stop.plannedVisitId}`;
 }
 
 /**

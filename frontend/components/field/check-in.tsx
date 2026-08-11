@@ -130,13 +130,11 @@ export function CheckIn({
     }
 
     /*
-     * Back to the round, where the stop now reads *In the shop*.
-     *
-     * The visit screen this will eventually open is slice 7, and routing to a stub would be the
-     * worse lie: the journey genuinely reflects the check-in, live, because the stop reads the same
-     * store this just wrote to.
+     * Straight into the visit (W9 slice 7), and `replace` rather than `push` on purpose: *back* from
+     * a visit should be the round, not the check-in screen the rep has already answered. Returning
+     * there would offer to start a visit that is now open, which the screen would then refuse.
      */
-    router.replace("/field");
+    router.replace(`/field/visits/${result.value.id}`);
   };
 
   return (

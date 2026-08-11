@@ -167,6 +167,27 @@ something different when the fix is good to five metres than when it is good to 
 **not** recorded: `CapturedVisit` is a public contract, and widening it is a decision to take on its
 own rather than as a side effect of a screen.
 
+### A step whose control does not exist yet (W9 slice 7)
+
+The device renders the sequence from **the visit**, never from Configuration — the copy check-in took
+under the snapshot rule above. Of the seven step types, W9 builds controls for two: `Task` is
+complete as a checklist tick, and `Note` captures its text (`VIS-06`). `Audit`, `Order`, `Survey`,
+`Photo` and `Signature` open sub-flows that arrive in W10, W11 and Phase 3.
+
+Until then those steps render as what they already are — a labelled item on a checklist the rep works
+in the shop — and can be marked done. **The alternative is a mandatory step nobody can complete**,
+which by `BR-VIS-3` is a rep who cannot check out: the visit would be broken by a feature not being
+finished yet.
+
+What that costs is worth stating rather than discovering: a ticked `Audit` step records that the rep
+did an audit and carries none of its numbers. `CapturedStep` sends the type alongside the label, so
+the back office can see exactly which kind of step was ticked rather than inferring it from a name an
+admin chose.
+
+A step type the *device* does not recognise is named generically and stays completable, for the same
+reason: a device is offline-first and therefore routinely older than the server, and a tenant
+configuring a newer step type must not leave a rep with a blank mandatory row and no way out.
+
 ### Provenance — how the record says where it came from
 
 An offline visit arrives carrying **the device's** timestamps, position and geofence verdict, and the

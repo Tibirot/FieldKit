@@ -209,6 +209,19 @@ describe("working the steps", () => {
     expect(written.ok && written.value.steps[2].notes).toBe("Reordered two cases.");
   });
 
+  it("records no note as no note, rather than as an empty one", async () => {
+    // Found by reading a real device store after ticking an `Audit` step from the visit screen
+    // (W9 slice 7): the row said `notes: ""`, because `?? null` keeps an empty string — it is falsy
+    // but not nullish. That travels to the server through `captured()` as a note nobody wrote, and
+    // gives one fact two representations in a store the server trusts as sent.
+    const visit = await started();
+    const audit = visit.steps[0];
+
+    const done = await completeStep(db, visit.id, audit.stepId, { notes: "  ", now: NINE_TEN });
+
+    expect(done.ok && done.value.steps[0].notes).toBeNull();
+  });
+
   it("survives two completions racing each other", async () => {
     // The read-modify-write this function exists to make safe. Both calls read the visit, both
     // rewrite the whole `steps` array — without a transaction the later write is computed from a

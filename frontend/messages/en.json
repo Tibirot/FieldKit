@@ -1228,6 +1228,38 @@
         "title": "A visit is open at another shop",
         "body": "One visit at a time. Check out of the shop you are in before starting here."
       }
+    },
+    "visit": {
+      "opening": "Opening this visit…",
+      "sealed": "This visit is finished. Nothing here can be changed.",
+      "noSteps": "No steps are set up for this shop. Do the call and check out when you are done.",
+      "progress": "{done} of {total} steps done",
+      "required": "Required",
+      "done": "Done",
+      "markDone": "Mark done",
+      "saveNote": "Save note",
+      "noteLabel": "What did you want to record?",
+      "unknownOutlet": "A shop this device does not hold",
+      "type": {
+        "Audit": "Shelf audit",
+        "Order": "Order",
+        "Survey": "Survey",
+        "Task": "Task",
+        "Photo": "Photo",
+        "Note": "Note",
+        "Signature": "Signature",
+        "unknown": "Step"
+      },
+      "refusal": {
+        "notInProgress": "This visit is finished, so its steps can no longer be changed.",
+        "notOpen": "That step is already done.",
+        "noteRequired": "Write the note before saving it.",
+        "unexpected": "That could not be saved. Try again, and tell your supervisor if it keeps happening."
+      },
+      "unknown": {
+        "title": "That visit is not on this device",
+        "body": "It may have been worked on another phone, or this device was registered again since. Open the shop from today's journey to start a new visit."
+      }
     }
   },
   "Guard": {

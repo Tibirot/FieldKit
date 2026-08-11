@@ -164,7 +164,11 @@ export async function completeStep(
       ...visit,
       steps: visit.steps.map((candidate) =>
         candidate.stepId === stepId
-          ? { ...candidate, notes: notes ?? null, completedAtUtc: options.now.toISOString() }
+          ? // `|| null`, not `?? null`: an empty string is *not* a note, and `??` kept it because
+            // `""` is not nullish. Found by reading a real device store after ticking an `Audit`
+            // step from the new screen (W9 slice 7) — the row said `notes: ""`, which travels to
+            // the server through `captured()` as a note nobody wrote. One fact, one representation.
+            { ...candidate, notes: notes || null, completedAtUtc: options.now.toISOString() }
           : candidate,
       ),
     };
