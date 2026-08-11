@@ -61,6 +61,59 @@ public sealed class OrderLine : ITenantOwned
     };
 }
 
+/// <summary>
+/// One attempt to submit an order (<c>BR-ORD-9</c>) — W11 slice 3.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Append-only, and the reason the lock is checkable.</b> W11 slice 0 settled that an order has
+/// one identity and many submissions: without this collection, "the original submission's mutation id
+/// is terminal" has nothing to be terminal <i>against</i> — the aggregate would hold only the latest
+/// attempt, and a replay of a rejected id would be indistinguishable from a first arrival.
+/// </para>
+/// <para>
+/// It is also what reconciles a re-opened order with <c>B7</c>. Device-owned data is append-only, and
+/// moving an order <c>Rejected → Draft</c> looks like an exception to that until you notice the
+/// <i>history</i> is what appends while the <i>aggregate</i> is what re-opens.
+/// </para>
+/// <para>
+/// <b>There is no outcome column yet.</b> Slice 0 named one, and nothing can write it until rejection
+/// exists in slice 4 — a column with no writer is the same waste as W8 slice 6's storeless blob table.
+/// It lands with the thing that sets it.
+/// </para>
+/// </remarks>
+public sealed class OrderSubmission : ITenantOwned
+{
+    public Guid Id { get; private set; }
+
+    public Guid OrderId { get; private set; }
+
+    /// <summary>
+    /// The device-generated id of the push that carried it.
+    /// </summary>
+    /// <remarks>
+    /// Unique per tenant, in the schema: it is the same id Sync's ledger keys on, and two orders
+    /// claiming one mutation would make "has this already been applied" ambiguous in the one place
+    /// that must not be.
+    /// </remarks>
+    public Guid MutationId { get; private set; }
+
+    /// <summary>When this server accepted it — its own clock, unlike the order's capture time.</summary>
+    public DateTimeOffset SubmittedAtUtc { get; private set; }
+
+    public TenantId TenantId { get; set; }
+
+    private OrderSubmission() { } // EF
+
+    internal static OrderSubmission Of(Guid orderId, Guid mutationId, DateTimeOffset at) => new()
+    {
+        Id = Guid.CreateVersion7(),
+        OrderId = orderId,
+        MutationId = mutationId,
+        SubmittedAtUtc = at,
+    };
+}
+
 /// <summary>Why an order was refused. <see cref="None"/> means it was not.</summary>
 public enum OrderRefusal
 {
@@ -136,6 +189,7 @@ public sealed class Order : AggregateRoot, ITenantOwned, IAuditable
     public const int MaximumLines = 500;
 
     private readonly List<OrderLine> _lines = [];
+    private readonly List<OrderSubmission> _submissions = [];
 
     public Guid Id { get; private set; }
 
@@ -174,6 +228,9 @@ public sealed class Order : AggregateRoot, ITenantOwned, IAuditable
 
     public IReadOnlyList<OrderLine> Lines => _lines;
 
+    /// <summary>Every attempt to submit this order, oldest first.</summary>
+    public IReadOnlyList<OrderSubmission> Submissions => _submissions;
+
     public TenantId TenantId { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public string? CreatedBy { get; set; }
@@ -191,7 +248,7 @@ public sealed class Order : AggregateRoot, ITenantOwned, IAuditable
     /// different kind of question with a different kind of answer; see the class remarks.
     /// </remarks>
     public static (Order? Order, OrderRefusal Refusal) Record(
-        CapturedOrder captured, Guid outletId, string userId)
+        CapturedOrder captured, Guid outletId, string userId, Guid mutationId, IClock clock)
     {
         if (Check(captured) is var refusal && refusal is not OrderRefusal.None)
         {
@@ -218,6 +275,32 @@ public sealed class Order : AggregateRoot, ITenantOwned, IAuditable
         {
             order._lines.Add(OrderLine.Create(order.Id, position++, line));
         }
+
+        order._submissions.Add(OrderSubmission.Of(order.Id, mutationId, clock.UtcNow));
+
+        /*
+         * Raised here rather than by the ingest service, and that is the seal.
+         *
+         * `BR-ORD-4` locks an order the moment it is submitted, and on this server there is no
+         * earlier moment: the aggregate has exactly one factory and it produces a `Submitted` order
+         * with a submission already recorded. There is no window in which a stored order is
+         * unannounced, and no path that could construct one without announcing it.
+         *
+         * The event goes to the outbox in the same transaction as the rows (ADR-0006), so a
+         * subscriber cannot learn of an order that failed to store, and a stored order cannot go
+         * unlearned-of.
+         */
+        order.Raise(new OrderSubmitted(
+            Guid.CreateVersion7(),
+            clock.UtcNow,
+            order.Id,
+            order.VisitId,
+            order.OutletId,
+            order.UserId,
+            order.CurrencyCode,
+            order.Total,
+            order._lines.Count,
+            order.CapturedAtUtc));
 
         return (order, OrderRefusal.None);
     }
@@ -283,3 +366,32 @@ public sealed class Order : AggregateRoot, ITenantOwned, IAuditable
                 line.UnitPrice,
                 line.LineTotal))]);
 }
+
+/// <summary>
+/// An order a rep sealed and pushed (<c>ORD-07</c>) — the boundary event W11 slice 3.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Value and a line count, not the lines.</b> The [order spec §8](../docs/product/23-order-capture.md)
+/// asks for "value, lines summary", and a subscriber wanting the lines has <c>IOrderQuery</c> — an
+/// event carrying them would be a second copy of the order, free to be read after the order itself
+/// has moved on. What this says is the fact that happened: this shop ordered this much, then.
+/// </para>
+/// <para>
+/// <b><see cref="CapturedAtUtc"/> and <see cref="OccurredOn"/> are both here and mean different
+/// things.</b> The first is when the rep sealed it at a counter; the second is when this server heard.
+/// An order taken in a basement on Tuesday and pushed from a car park on Thursday has a two-day gap
+/// between them, and a reporting read that used the wrong one would file the sale in the wrong week.
+/// </para>
+/// </remarks>
+public sealed record OrderSubmitted(
+    Guid Id,
+    DateTimeOffset OccurredOn,
+    Guid OrderId,
+    Guid VisitId,
+    Guid OutletId,
+    string UserId,
+    string CurrencyCode,
+    decimal Total,
+    int LineCount,
+    DateTimeOffset CapturedAtUtc) : IIntegrationEvent;

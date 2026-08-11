@@ -1,4 +1,5 @@
 using FieldKit.Modules.Order.Contracts;
+using FieldKit.SharedKernel;
 using FieldKit.Modules.Visit.Contracts;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,23 +23,49 @@ namespace FieldKit.Modules.Order;
 /// re-open path would strand exactly the work <c>BR-ORD-9</c> exists to protect.
 /// </para>
 /// </remarks>
-internal sealed class OrderIngestService(OrderDbContext db, IVisitContext visits) : IOrderIngest
+internal sealed class OrderIngestService(OrderDbContext db, IVisitContext visits, IClock clock)
+    : IOrderIngest
 {
     public async Task<OrderIngestResult> IngestAsync(
-        CapturedOrder captured, string userId, CancellationToken cancellationToken = default)
+        CapturedOrder captured,
+        Guid mutationId,
+        string userId,
+        CancellationToken cancellationToken = default)
     {
         /*
          * The replay check comes first, before the visit is even looked up.
          *
          * Order and Sync commit separately, so a mutation can land here and lose its ledger entry;
-         * the device retries with the same order id. That retry has to succeed — a device told
-         * "refused" forever about work that is done has no way back — and it has to succeed even
-         * once the visit it belongs to has been sealed, which is the case the check below would get
-         * wrong. The same window `IAuditIngest` and `IVisitIngest.AlreadyExists` close.
+         * the device retries. That retry has to succeed — a device told "refused" forever about work
+         * that is done has no way back — and it has to succeed even once the visit it belongs to has
+         * been sealed, which is the case the check below would get wrong. The same window
+         * `IAuditIngest` and `IVisitIngest.AlreadyExists` close.
+         *
+         * **It tests the mutation id, not the order id, and that is W11 slice 3's whole point.**
+         * Keying on the order alone made every second push of an order a "replay" — including one
+         * carrying different lines, which is an edit after submit and exactly what `BR-ORD-4`
+         * forbids. The lock was written down in slice 1 and enforced by nothing.
          */
-        if (await db.Orders.AnyAsync(row => row.Id == captured.OrderId, cancellationToken))
+        var submissions = await db.Set<OrderSubmission>()
+            .Where(submission => submission.OrderId == captured.OrderId)
+            .Select(submission => submission.MutationId)
+            .ToListAsync(cancellationToken);
+
+        if (submissions.Contains(mutationId)) return OrderIngestResult.Ok();
+
+        if (submissions.Count > 0)
         {
-            return OrderIngestResult.Ok();
+            /*
+             * A second, different submission against an order that is already sealed.
+             *
+             * `BR-ORD-9` makes a *rejected* order the one exception — it re-opens so the rep can fix
+             * the offending line and resubmit under a new mutation id. Nothing can reject one until
+             * slice 4, so every case reaching here today is the lock doing its job; slice 4 is where
+             * this grows its `Rejected` branch rather than where the refusal is loosened.
+             */
+            return new OrderIngestResult(
+                OrderIngestRefusal.AlreadySubmitted,
+                "That order was already submitted. A submitted order cannot be changed.");
         }
 
         if (await visits.FindAsync(captured.VisitId, cancellationToken) is not { } visit
@@ -64,7 +91,7 @@ internal sealed class OrderIngestService(OrderDbContext db, IVisitContext visits
                 "That visit is not one of yours, or no longer exists.");
         }
 
-        var (order, refusal) = Order.Record(captured, visit.OutletId, userId);
+        var (order, refusal) = Order.Record(captured, visit.OutletId, userId, mutationId, clock);
 
         if (refusal is not OrderRefusal.None)
         {
@@ -78,6 +105,7 @@ internal sealed class OrderIngestService(OrderDbContext db, IVisitContext visits
         // that match no row. Fifth occurrence — workflow steps, the unplanned call, score weights,
         // survey questions, now order lines. W11 slice 0b is where this stops being a comment.
         db.Set<OrderLine>().AddRange(order!.Lines);
+        db.Set<OrderSubmission>().AddRange(order.Submissions);
 
         await db.SaveChangesAsync(cancellationToken);
 

@@ -72,6 +72,32 @@ public sealed class OrderDbContext(DbContextOptions<OrderDbContext> options, ITe
                 .OnDelete(DeleteBehavior.Cascade);
 
             order.Navigation(o => o.Lines).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            order.HasMany(o => o.Submissions)
+                .WithOne()
+                .HasForeignKey(submission => submission.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            order.Navigation(o => o.Submissions).UsePropertyAccessMode(PropertyAccessMode.Field);
+        });
+
+        modelBuilder.Entity<OrderSubmission>(submission =>
+        {
+            submission.HasKey(s => s.Id);
+
+            /*
+             * One order per mutation, tenant-wide — not per order.
+             *
+             * The narrower `(tenant, order, mutation)` would let two *different* orders claim the same
+             * mutation id, and "has this push already been applied" is precisely the question that
+             * must have one answer. It is the same id Sync's ledger keys on; disagreeing with it here
+             * would make a replay land twice under two orders.
+             */
+            submission.HasIndex(s => new { s.TenantId, s.MutationId }).IsUnique();
+
+            // "What happened to this order" reads oldest-first, and BR-ORD-9's terminal-id check
+            // reads every submission of one order — both are this index.
+            submission.HasIndex(s => new { s.TenantId, s.OrderId, s.SubmittedAtUtc });
         });
 
         modelBuilder.Entity<OrderLine>(line =>

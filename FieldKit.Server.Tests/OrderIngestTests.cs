@@ -2,10 +2,13 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text.Json;
+using FieldKit.Infrastructure.Outbox;
+using FieldKit.Modules.Order;
 using FieldKit.Modules.Order.Contracts;
 using FieldKit.Modules.Outlets;
 using FieldKit.Modules.Visit;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FieldKit.Server.Tests;
@@ -113,13 +116,99 @@ public class OrderIngestTests(ServerFixture fixture)
         var (visitId, _) = await VisitAsync(admin);
         var captured = Captured(visitId, Line());
 
-        Assert.Equal(OrderIngestRefusal.None, (await IngestAsync(captured)).Refusal);
+        // The *same* mutation id both times — that is what makes this a replay rather than a second
+        // submission, and from W11 slice 3 the difference is what the lock turns on.
+        var mutationId = Guid.CreateVersion7();
+
+        Assert.Equal(
+            OrderIngestRefusal.None, (await IngestAsync(captured, mutationId: mutationId)).Refusal);
 
         var checkedOut = await admin.PostAsJsonAsync(
             $"/api/visits/{visitId}/check-out", new CheckOutRequest(VisitOutcome.Productive));
         Assert.Equal(HttpStatusCode.OK, checkedOut.StatusCode);
 
+        Assert.Equal(
+            OrderIngestRefusal.None, (await IngestAsync(captured, mutationId: mutationId)).Refusal);
+    }
+
+    [Fact]
+    public async Task A_second_submission_of_a_submitted_order_is_refused_rather_than_taken_as_a_replay()
+    {
+        /*
+         * `BR-ORD-4`, and the gap W11 slice 3 closed. Until then the replay test was the *order* id,
+         * so this — a different push, different lines, same order — was silently accepted as a retry
+         * and then ignored. An edit after submit, wearing a retry's clothes, and the rule that
+         * forbids it enforced by nothing.
+         *
+         * `BR-ORD-9`'s rejected order is the documented exception and re-opens for exactly this;
+         * nothing can reject one until slice 4.
+         */
+        using var admin = Admin();
+
+        var (visitId, _) = await VisitAsync(admin);
+        var captured = Captured(visitId, Line());
+
         Assert.Equal(OrderIngestRefusal.None, (await IngestAsync(captured)).Refusal);
+
+        var edited = captured with { Lines = [Line(quantity: 99m, lineTotal: 445.50m)] };
+
+        var second = await IngestAsync(edited);
+
+        Assert.Equal(OrderIngestRefusal.AlreadySubmitted, second.Refusal);
+        Assert.Contains("cannot be changed", second.Message);
+
+        // …and the stored order is still the one the rep actually sealed.
+        var stored = await admin.GetFromJsonAsync<OrderReadback>($"/api/orders/by-visit/{visitId}");
+
+        Assert.Equal(6m, Assert.Single(stored!.Lines).Quantity);
+    }
+
+    [Fact]
+    public async Task Submitting_an_order_announces_it()
+    {
+        /*
+         * `OrderSubmitted` on the outbox, in the same transaction as the rows (ADR-0006) — so a
+         * subscriber cannot learn of an order that failed to store, and a stored order cannot go
+         * unlearned-of.
+         *
+         * Asserted through the outbox table rather than a subscriber, because there is none yet:
+         * this is the boundary the reporting read-side consumes in W12, and the event has to exist
+         * before it can be subscribed to.
+         */
+        using var admin = Admin();
+
+        var (visitId, outletId) = await VisitAsync(admin);
+        var captured = Captured(visitId, Line());
+
+        Assert.Equal(OrderIngestRefusal.None, (await IngestAsync(captured)).Refusal);
+
+        var payloads = await AsAsync(fixture.AdminAccessToken, async services =>
+        {
+            var db = services.GetRequiredService<OrderDbContext>();
+
+            // Filtered by type in the database and by payload in memory: Content is jsonb and
+            // Postgres has no LIKE for it. The shape VisitCheckOutTests uses, for the same reason.
+            return await db.Set<OutboxMessage>()
+                .Where(message => message.Type.Contains(nameof(OrderSubmitted)))
+                .Select(message => message.Content)
+                .ToListAsync();
+        });
+
+        var mine = Assert.Single(payloads.Where(content =>
+            content.Contains(captured.OrderId.ToString(), StringComparison.OrdinalIgnoreCase)));
+
+        using var document = JsonDocument.Parse(mine);
+        var root = document.RootElement;
+
+        Assert.Equal(captured.OrderId, root.GetProperty("OrderId").GetGuid());
+        Assert.Equal(outletId, root.GetProperty("OutletId").GetGuid());
+        Assert.Equal("EUR", root.GetProperty("CurrencyCode").GetString());
+        Assert.Equal(27.00m, root.GetProperty("Total").GetDecimal());
+        Assert.Equal(1, root.GetProperty("LineCount").GetInt32());
+
+        // The capture time travels, and is not the same as when this server heard about it.
+        Assert.Equal(
+            captured.CapturedAtUtc, root.GetProperty("CapturedAtUtc").GetDateTimeOffset());
     }
 
     [Fact]
@@ -205,10 +294,15 @@ public class OrderIngestTests(ServerFixture fixture)
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    private Task<OrderIngestResult> IngestAsync(CapturedOrder captured, string? userId = null) =>
+    /// <summary>Ingests under a fresh mutation id unless the caller is testing a replay.</summary>
+    private Task<OrderIngestResult> IngestAsync(
+        CapturedOrder captured, string? userId = null, Guid? mutationId = null) =>
         AsAsync(fixture.AdminAccessToken, services => services
             .GetRequiredService<IOrderIngest>()
-            .IngestAsync(captured, userId ?? SubjectOf(fixture.AdminAccessToken)));
+            .IngestAsync(
+                captured,
+                mutationId ?? Guid.CreateVersion7(),
+                userId ?? SubjectOf(fixture.AdminAccessToken)));
 
     private async Task<(Guid VisitId, Guid OutletId)> VisitAsync(
         HttpClient client, Guid? existingOutlet = null)

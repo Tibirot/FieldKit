@@ -1,4 +1,5 @@
 using FieldKit.Modules.Order;
+using FieldKit.SharedKernel;
 using FieldKit.Modules.Order.Contracts;
 
 namespace FieldKit.Server.Tests;
@@ -13,6 +14,23 @@ namespace FieldKit.Server.Tests;
 public class OrderRecordTests
 {
     private static readonly Guid OutletId = Guid.CreateVersion7();
+
+    /// <summary>
+    /// <see cref="Order.Record"/> with the two arguments these tests never vary.
+    /// </summary>
+    /// <remarks>
+    /// The mutation id and the clock arrived in W11 slice 3 — the first so a replay can be told from
+    /// an edit, the second so the submission and the event carry a time this server chose. Neither
+    /// changes any rule asserted here, and threading them through sixteen call sites would bury the
+    /// thing each test is actually about.
+    /// </remarks>
+    private static (Order? Order, OrderRefusal Refusal) Record(CapturedOrder captured) =>
+        Order.Record(captured, OutletId, "rep-1", Guid.CreateVersion7(), new FixedClock());
+
+    private sealed class FixedClock : IClock
+    {
+        public DateTimeOffset UtcNow => DateTimeOffset.Parse("2026-08-12T10:00:00Z");
+    }
 
     private static CapturedOrderLine Line(Guid? productId = null, decimal quantity = 6m) =>
         new(productId ?? Guid.CreateVersion7(), quantity, "case", 12, 4.50m, 27.00m);
@@ -33,7 +51,7 @@ public class OrderRecordTests
         // B4 puts Draft on the device. The first status this server ever writes is Submitted —
         // there is no create-a-draft path, and an order that could be drafted here would be a
         // second writer into a record whose conflict story depends on one (B7).
-        var (order, refusal) = Order.Record(Captured(), OutletId, "rep-1");
+        var (order, refusal) = Record(Captured());
 
         Assert.Equal(OrderRefusal.None, refusal);
         Assert.Equal(OrderStatus.Submitted, order!.Status);
@@ -45,7 +63,7 @@ public class OrderRecordTests
         // The payload has no outlet id in it — deliberately. A device that could name the outlet
         // could name a different one from the visit's, and "which shop was this" would have two
         // answers. It comes from the visit the ingest already had to look up.
-        var (order, _) = Order.Record(Captured(), OutletId, "rep-1");
+        var (order, _) = Record(Captured());
 
         Assert.Equal(OutletId, order!.OutletId);
     }
@@ -55,7 +73,7 @@ public class OrderRecordTests
     {
         var lines = new[] { Line(), Line(), Line() };
 
-        var (order, _) = Order.Record(Captured(lines), OutletId, "rep-1");
+        var (order, _) = Record(Captured(lines));
 
         Assert.Equal([1, 2, 3], order!.Lines.Select(line => line.Position));
     }
@@ -63,7 +81,7 @@ public class OrderRecordTests
     [Fact]
     public void An_order_for_nothing_is_refused()
     {
-        var (order, refusal) = Order.Record(Captured([]), OutletId, "rep-1");
+        var (order, refusal) = Record(Captured([]));
 
         Assert.Null(order);
         Assert.Equal(OrderRefusal.Empty, refusal);
@@ -74,7 +92,7 @@ public class OrderRecordTests
     {
         // Not rounded away and not dropped. A line the rep left at zero is either a mistake or a
         // removal they did not finish, and storing it would put a product on an order nobody bought.
-        var (_, refusal) = Order.Record(Captured([Line(quantity: 0m)]), OutletId, "rep-1");
+        var (_, refusal) = Record(Captured([Line(quantity: 0m)]));
 
         Assert.Equal(OrderRefusal.NonPositiveQuantity, refusal);
     }
@@ -86,8 +104,7 @@ public class OrderRecordTests
         // rep entered. Neither is something a later reader could unpick.
         var productId = Guid.CreateVersion7();
 
-        var (_, refusal) = Order.Record(
-            Captured([Line(productId), Line(productId)]), OutletId, "rep-1");
+        var (_, refusal) = Record(Captured([Line(productId), Line(productId)]));
 
         Assert.Equal(OrderRefusal.DuplicateProduct, refusal);
     }
@@ -99,7 +116,7 @@ public class OrderRecordTests
         // recovered from the product later — by then it may have been corrected.
         var line = Line() with { UnitOfMeasure = "  " };
 
-        var (_, refusal) = Order.Record(Captured([line]), OutletId, "rep-1");
+        var (_, refusal) = Record(Captured([line]));
 
         Assert.Equal(OrderRefusal.UnitOfMeasureMissing, refusal);
     }
@@ -111,7 +128,7 @@ public class OrderRecordTests
     [InlineData("")]
     public void A_currency_that_is_not_three_letters_is_refused(string currency)
     {
-        var (_, refusal) = Order.Record(Captured(currency: currency), OutletId, "rep-1");
+        var (_, refusal) = Record(Captured(currency: currency));
 
         Assert.Equal(OrderRefusal.CurrencyInvalid, refusal);
     }
@@ -121,7 +138,7 @@ public class OrderRecordTests
     {
         // A device sending "eur" means EUR. Refusing it would strand an order over capitalisation,
         // which is the sort of refusal a rep in a shop can do nothing about.
-        var (order, refusal) = Order.Record(Captured(currency: "eur"), OutletId, "rep-1");
+        var (order, refusal) = Record(Captured(currency: "eur"));
 
         Assert.Equal(OrderRefusal.None, refusal);
         Assert.Equal("EUR", order!.CurrencyCode);
@@ -140,7 +157,7 @@ public class OrderRecordTests
          */
         var line = Line() with { UnitPrice = 4.4550m, LineTotal = 26.7300m };
 
-        var (order, _) = Order.Record(Captured([line]) with { Total = 26.7300m }, OutletId, "rep-1");
+        var (order, _) = Record(Captured([line]) with { Total = 26.7300m });
 
         Assert.Equal(4.4550m, order!.Lines[0].UnitPrice);
         Assert.Equal(26.7300m, order.Lines[0].LineTotal);
@@ -155,7 +172,7 @@ public class OrderRecordTests
         // about the sync rather than about the order.
         var captured = Captured() with { CapturedAtUtc = DateTimeOffset.Parse("2026-08-04T07:15:00Z") };
 
-        var (order, _) = Order.Record(captured, OutletId, "rep-1");
+        var (order, _) = Record(captured);
 
         Assert.Equal(DateTimeOffset.Parse("2026-08-04T07:15:00Z"), order!.CapturedAtUtc);
     }
@@ -165,7 +182,7 @@ public class OrderRecordTests
     {
         // Copied, never reached for: a product's UoM can be corrected in the back office, and
         // "12 cases" re-described as "12 bottles" is a tenfold error nobody typed.
-        var (order, _) = Order.Record(Captured(), OutletId, "rep-1");
+        var (order, _) = Record(Captured());
 
         Assert.Equal("case", order!.Lines[0].UnitOfMeasure);
         Assert.Equal(12, order.Lines[0].PackSize);
@@ -176,7 +193,7 @@ public class OrderRecordTests
     {
         var lines = Enumerable.Range(0, Order.MaximumLines + 1).Select(_ => Line()).ToList();
 
-        var (_, refusal) = Order.Record(Captured(lines), OutletId, "rep-1");
+        var (_, refusal) = Record(Captured(lines));
 
         Assert.Equal(OrderRefusal.TooManyLines, refusal);
     }

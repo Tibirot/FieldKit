@@ -119,6 +119,14 @@ hold only the latest attempt, and a replay of the rejected id would have nothing
 device-owned data is append-only, and moving `Rejected → Draft` looks like an exception to that until
 you notice the *history* is what appends while the aggregate is what re-opens.
 
+> **Built in W11 slice 3, with the outcome column deferred.** `OrderSubmission` carries the mutation
+> id, the submission time and its order; there is no outcome on it yet because nothing can produce a
+> second value for one — every submission that exists today succeeded. It arrives in slice 4 with the
+> rejection that makes it mean something, alongside the `Rejected → Draft` branch that is the whole
+> reason the child record is append-only. Its mutation id is the same id
+> [Sync's ledger](../architecture/adr/0007-offline-sync-strategy.md) keys on, deliberately: two
+> different answers to "has this push already been applied" is how a replay lands twice.
+
 ## 6. Requirements
 
 | ID | Requirement | MoSCoW | Phase |
