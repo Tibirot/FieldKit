@@ -24,6 +24,15 @@ import { render } from "@/test/render";
  * the store: which sequence is rendered, what a note step refuses, and that a step whose control
  * does not exist yet can still be finished.
  */
+// `<Visit>` mounts the check-out panel (W9 slice 8), which navigates once a visit is sealed. Nothing
+// in this file exercises that — it is check-out's own test — but the module has to resolve.
+vi.mock("@/i18n/navigation", () => ({
+  Link: ({ href, children }: { href: string; children: React.ReactNode }) => (
+    <a href={href}>{children}</a>
+  ),
+  useRouter: () => ({ replace: vi.fn() }),
+}));
+
 const sync = vi.hoisted(() => ({ current: {} as SyncContextValue }));
 
 vi.mock("@/components/sync/sync-provider", async (importOriginal) => ({
