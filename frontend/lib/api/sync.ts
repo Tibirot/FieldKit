@@ -86,7 +86,22 @@ export function pull(
  * beside `visit`, which is additive (sync engine §4). The outbox stores `payload` generically
  * because it does not care what is in it; this is where it becomes a named thing again.
  */
-export type PushedMutation = { mutationId: string; type: string; visit?: unknown };
+/**
+ * One captured mutation on the wire (sync engine §4).
+ *
+ * <b>A typed property per kind, not a `payload` blob</b>, which is the server's shape and therefore
+ * this one's: the property a payload travels under is decided by `type`, and sending it under the
+ * wrong one is a 400 rather than a refusal — the server cannot bind a not-visited call into a
+ * `CapturedVisit`. `slotOf` in the manager is the single place that mapping lives.
+ */
+export type PushedMutation = {
+  mutationId: string;
+  type: string;
+  visit?: unknown;
+  notVisited?: unknown;
+  rescheduled?: unknown;
+  unplanned?: unknown;
+};
 
 export type MutationResult = {
   mutationId: string;

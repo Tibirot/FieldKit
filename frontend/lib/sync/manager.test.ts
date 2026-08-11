@@ -247,6 +247,47 @@ describe("one sync run", () => {
     db.close();
   });
 
+  it("puts each kind of mutation under the property its type names (W9 slice 9)", async () => {
+    /*
+     * Found by a live round trip, not by this suite — which is why it is here now.
+     *
+     * The wire format is a typed property per kind, so `type` alone does not say where the payload
+     * goes: the server binds `notVisited` into a `NotVisitedCall` and `visit` into a `CapturedVisit`.
+     * A payload under the wrong name is a **400**, and a 400 fails the whole batch and is retried on
+     * every reconnect forever — strictly worse than a refusal, which is recorded once and stops.
+     *
+     * With one mutation type the manager hard-coded `visit:` and was right by accident. This is the
+     * assertion that stops the next type being wrong by accident too.
+     */
+    const db = freshDatabase();
+
+    const visit = await enqueue(db, {
+      type: "CapturedVisit",
+      subjectId: "visit-1",
+      payload: { visitId: "visit-1" },
+    });
+    const report = await enqueue(db, {
+      type: "NotVisitedCall",
+      subjectId: "call-1",
+      payload: { plannedVisitId: "call-1", reason: "Closed on arrival" },
+    });
+
+    api.push.mockResolvedValue(accepted([visit.mutationId, report.mutationId]));
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    expect(api.push).toHaveBeenCalledWith(TOKEN, DEVICE, [
+      { mutationId: visit.mutationId, type: "CapturedVisit", visit: { visitId: "visit-1" } },
+      {
+        mutationId: report.mutationId,
+        type: "NotVisitedCall",
+        notVisited: { plannedVisitId: "call-1", reason: "Closed on arrival" },
+      },
+    ], undefined);
+
+    db.close();
+  });
+
   it("clears accepted work and keeps a rejection with its reason", async () => {
     const db = freshDatabase();
 
