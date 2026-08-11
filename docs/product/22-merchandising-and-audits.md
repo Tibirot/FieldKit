@@ -222,6 +222,44 @@ Survey answers and photo references land in **W10 slice 3b**, on the same aggreg
   the lists diverge: `Survey` and `General` are things a rep points a camera at and nothing weighs.
   Sharing one enum would make adding a scored pillar silently change where photos can be filed.
 
+### How the score is actually computed (W10 slice 4)
+
+A pure function — measurements and a weight set in, a score out — so the same rules run on a phone
+that is offline and on the server (`BR-AUD-5`). `decimal` throughout, never `double`: a
+share-of-shelf ratio is a division, and `7 / 30` in float64 is where two systems start disagreeing
+about one shelf.
+
+| Pillar | Computed as | Skipped when |
+|---|---|---|
+| Availability | products **present** ÷ products checked | nothing was checked |
+| Share of shelf | own facings ÷ **captured category total**, capped at 100 | no total, no facings, or a total of 0 |
+| Price compliance | prices within tolerance ÷ prices **with an expected price** | nothing had an expected price |
+
+Then `Σ(pillar × weight) ÷ Σ(weight of measured pillars)` — the renormalisation decided in slice 0.
+
+Consequences worth stating:
+
+- **Absent and out-of-stock are both misses.** They mean opposite things to the business, which is
+  why they are stored separately; from the shelf's point of view the product was not there to sell.
+  Splitting them is `AUD-09`'s job, not the score's.
+- **An unpriced product leaves the denominator as well as the numerator.** The gap is in somebody's
+  price list, not the rep's work, and scoring it either way would be a claim nobody measured.
+- **The price tolerance is absolute.** Charging under the expected price is as non-compliant as
+  charging over — an under-price is a margin leak and often an unauthorised promotion. The bound is
+  inclusive: "within 5 bani" plainly includes 5. The default is **0** ([§10](#10-open-questions)) and
+  nothing configures it yet.
+- **Share of shelf is capped at 100.** Own facings above the category total is a miscount — usually
+  the rep forgot to include their own products in the total. Uncapped it produces a score above 100,
+  which means nothing to any consumer; the raw numbers stay in the audit, so the miscount is still
+  visible.
+- **The score is null, not zero, in two cases**: nothing was measured, or every pillar that *was*
+  measured is weighted zero. A zero would be a claim about a shop nobody looked at, or a verdict with
+  no basis.
+- **The total is computed from the rounded pillar percentages**, not from the unrounded ones. That
+  loses a hair of precision and buys a breakdown that reconciles with its total — which is what a
+  supervisor reading `AUD-09` needs, and what makes the parity vectors able to check the intermediate
+  values as well as the answer.
+
 ## 7. Offline behavior
 
 Audits run **fully offline** inside a visit. Templates, MSL, and expected prices are synced

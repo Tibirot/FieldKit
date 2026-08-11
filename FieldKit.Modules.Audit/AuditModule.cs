@@ -18,10 +18,10 @@ namespace FieldKit.Modules.Audit;
 /// contracts. A module nothing can write to is not a module yet.
 /// </para>
 /// <para>
-/// <b>It computes nothing in this slice.</b> The perfect-store score is <c>AUD-06</c>, W10 slice 4,
-/// and it is derived from these measurements plus the weight version each audit records
-/// (<c>BR-AUD-8</c>). Storing a score here would be a second answer that could disagree with the
-/// recomputation that rule promises.
+/// <b>It stores no score.</b> <see cref="PerfectStoreScore"/> derives one from an audit's
+/// measurements plus the weight version it recorded (<c>BR-AUD-8</c>), and it is a pure function
+/// rather than a column: a stored score would be a second answer that could disagree with the
+/// recomputation that rule promises. Slice 6 is what calls it on the way in.
 /// </para>
 /// <para>
 /// Survey answers (<c>AUD-04</c>) and photo references (<c>AUD-05</c>) arrived in W10 slice 3b, on

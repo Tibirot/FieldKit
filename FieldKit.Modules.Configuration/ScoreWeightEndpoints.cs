@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using FieldKit.Modules.Configuration.Contracts;
 using FieldKit.SharedKernel;
 using FieldKit.Web;
 using Microsoft.AspNetCore.Builder;
