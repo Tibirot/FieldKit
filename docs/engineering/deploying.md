@@ -4,10 +4,14 @@ The live demo runs on **Azure Container Apps**, published from the Aspire AppHos
 ([ADR-0011](../architecture/adr/0011-deployment-azure-container-apps.md)). This page is the runbook:
 what has to be true first, what the command does, and what to check afterwards.
 
-> **Deployed, 2026-08-09.** Resource group `FieldKit`, **Sweden Central**, running at
+> **Deployed, 2026-08-09**, at commit **`fb31f75`**. Resource group `FieldKit`, **Sweden Central**,
+> running at
 > [webfrontend.jollysmoke-c6d79515.swedencentral.azurecontainerapps.io](https://webfrontend.jollysmoke-c6d79515.swedencentral.azurecontainerapps.io).
 > Everything below has now been executed rather than reasoned about, and the corrections that took
 > are marked where they belong.
+>
+> **Record the commit on every deploy.** It is the only way to answer "what is actually out there",
+> and [Redeploying](#redeploying) needs it to compute what a redeploy will *not* carry.
 
 ## Prerequisites
 
@@ -166,6 +170,71 @@ for everything instead.
 4. **Scale-to-zero is observable**: leave it alone for ten minutes, then load the app and time the
    first response. Seconds is expected. Anything worse is worth recording before it becomes the
    thing a reader notices first.
+
+## Redeploying
+
+`aspire deploy` again. It rebuilds the images and updates the container apps — 1–2 minutes — and
+carries **two** kinds of change automatically:
+
+- **Code**, in the images.
+- **Database schema.** Each module applies its own EF migrations on startup
+  (`ModuleMigrator<TContext>`, ADR-0005), so a redeploy migrates the live database as a side effect
+  of the server booting. Read the new migrations before you deploy them, and watch the server's
+  startup log afterwards — a migration that throws leaves the app up and the module unusable, which
+  looks like a bug in a feature rather than a failed deploy.
+
+### A realm change is not deployed by deploying
+
+**This is the one that does not announce itself.** Editing `FieldKit.AppHost/realms/*.json`, building
+the image and running `aspire deploy` puts the new file inside the running container **and changes
+nothing**. Keycloak imports a realm with `IGNORE_EXISTING`: if the realm is already in its database,
+the file is skipped. The deployed Keycloak keeps a Postgres database, so it always is.
+
+Development is the opposite by deliberate design — the Keycloak resource has **no data volume**
+([realms/README.md](../../FieldKit.AppHost/realms/README.md#no-data-volume-by-design)), so every
+start re-imports and every edit takes immediately. That is exactly why this is invisible until it is
+deployed: the workflow that proves the change locally is the one that cannot reproduce the problem.
+
+**Symptom:** a permission-gated endpoint answers **403** in the deployed demo for a user whose realm
+file grants the role. Nothing else is wrong; the token simply does not carry a role Keycloak never
+heard of.
+
+**Check before deploying** — realm commits since what is live:
+
+```bash
+git log <deployed-commit>..HEAD --oneline -- FieldKit.AppHost/realms/
+```
+
+**Or ask the deployed realm directly**, which is the answer that cannot be stale. With an admin token
+from the master realm:
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" https://<keycloak-fqdn>/admin/realms/fieldkit-dev/roles | grep -o '"name":"[^"]*"'
+```
+
+**The fix is not another deploy.** Pick one:
+
+| | When | How |
+|---|---|---|
+| Add by hand | a role or two — the usual case | Keycloak admin console → *Realm roles* → create, then *Users* → assign. Minutes, and no downtime. |
+| Re-import | the realm has drifted badly, or a client's redirect URIs changed | Delete the realm in the console, restart the `keycloak` container app so `--import-realm` sees it missing. **Destroys anything created in the console**, including users added by hand. |
+
+Re-import is the honest reset and it is rarely what you want mid-demo: the realm file is the source of
+truth, but the deployed realm is where a hand-added account lives, and nothing reconciles the two.
+Realm **provisioning** through the admin API (`IAM-10`, Phase 2) is what eventually removes this
+whole section.
+
+> **Known drift, as of 2026-08-11.** `device:read` and `device:revoke` were added to the realm in W8
+> slice 2 (#169), after the `fb31f75` deploy, and the live Keycloak does not have them. Impact is
+> confined to an administrator revoking a device over the API: the field app binds with
+> `POST /api/sync/devices`, which deliberately requires a token and **no** permission, and no screen
+> calls the other two.
+
+### The service worker will serve the old build
+
+Covered under [After the first deploy](#after-the-first-deploy), and it matters more on a redeploy
+than on a first one — a browser that has visited before has a precache. Verify in a fresh private
+window, and remember `curl` of the CSP header is the check that cannot be cached.
 
 ## Tearing it down
 
