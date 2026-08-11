@@ -2,7 +2,7 @@
 
 import "fake-indexeddb/auto";
 
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -87,6 +87,15 @@ function visit(steps: LocalVisitStep[], overrides: Partial<LocalVisit> = {}): Lo
   };
 }
 
+/**
+ * The configured sequence, by the name the list now carries (W9 slice 10).
+ *
+ * The recap above check-out renders optional step labels and the notes written against them, so an
+ * unscoped query for either matches twice — and would pass on the recap whether or not this list
+ * held anything.
+ */
+const steps = () => within(screen.getByRole("list", { name: "Visit steps" }));
+
 let db: FieldKitDatabase;
 
 beforeEach(async () => {
@@ -117,7 +126,8 @@ describe("<Visit> and the sequence it shows", () => {
 
     render(<Visit visitId="visit-1" />);
 
-    expect(await screen.findByText("Check the chiller is lit")).toBeTruthy();
+    expect(await screen.findByText("0 of 1 steps done")).toBeTruthy();
+    expect(steps().getByText("Check the chiller is lit")).toBeTruthy();
     expect(screen.queryByText("Renamed this morning")).toBeNull();
   });
 
@@ -132,9 +142,9 @@ describe("<Visit> and the sequence it shows", () => {
 
     render(<Visit visitId="visit-1" />);
 
-    await screen.findByText("Shelf audit");
+    await screen.findByText("0 of 3 steps done");
 
-    expect(screen.getAllByRole("listitem").map((row) => row.textContent?.split("Task")[0])).toEqual([
+    expect(steps().getAllByRole("listitem").map((row) => row.textContent?.split("Task")[0])).toEqual([
       "Shelf audit",
       "Take order",
       "Fridge photo",
@@ -167,8 +177,9 @@ describe("<Visit> and the sequence it shows", () => {
 
     render(<Visit visitId="visit-1" />);
 
-    expect(await screen.findByText("Scan the shelf")).toBeTruthy();
-    expect(screen.getByText("Step")).toBeTruthy();
+    expect(await screen.findByText("0 of 1 steps done")).toBeTruthy();
+    expect(steps().getByText("Scan the shelf")).toBeTruthy();
+    expect(steps().getByText("Step")).toBeTruthy();
   });
 
   it("says so when the channel has no steps at all", async () => {
@@ -235,7 +246,9 @@ describe("<Visit> working a step", () => {
     );
 
     // A finished note showing only a tick would have swallowed the whole point of writing it.
-    expect(await screen.findByText("Manager asked about the promotion end date")).toBeTruthy();
+    // Scoped to the step list: the recap gathers notes too (W9 slice 10), so an unscoped query
+    // would pass on the recap whether or not the step kept its text.
+    expect(steps().getByText("Manager asked about the promotion end date")).toBeTruthy();
   });
 
   it("works one step without disturbing the other", async () => {

@@ -11,6 +11,7 @@ import type { LocalVisit, LocalVisitStep } from "@/lib/sync/db";
 import { useLive } from "@/lib/sync/live";
 import { outlet as heldOutlet } from "@/lib/sync/reference";
 import { completeStep, visit as heldVisit, type VisitRefusal } from "@/lib/visits/local-visit";
+import { minutesOnSite } from "@/lib/visits/summary";
 
 /**
  * The visit a rep is working (`VIS-03`, `VIS-06`) — W9 slice 7.
@@ -83,7 +84,14 @@ export function Visit({ visitId }: { visitId: string }) {
             {t("progress", { done, total: visit.steps.length })}
           </p>
 
-          <ol className="flex flex-col gap-2">
+          {/*
+            Named, because there are now three lists on this screen and they say different things:
+            the steps, the recap's optional-and-not-done, and check-out's mandatory-and-blocking
+            (W9 slices 8 and 10). "List" three times tells a screen-reader user nothing about which
+            one they have landed in — and it was ambiguous for the tests first, which is how the
+            problem announced itself.
+          */}
+          <ol aria-label={t("stepsLabel")} className="flex flex-col gap-2">
             {visit.steps.map((step) => (
               <StepRow key={step.stepId} visit={visit} step={step} />
             ))}
@@ -132,20 +140,12 @@ function Sealed({ visit }: { visit: LocalVisit }) {
         {visit.checkedOutAtUtc ? (
           <div className="flex gap-2">
             <dt>{t("timeOnSiteLabel")}</dt>
-            <dd>{t("minutes", { minutes: minutesOnSite(visit) })}</dd>
+            <dd>{t("minutes", { minutes: minutesOnSite(visit, new Date()) })}</dd>
           </div>
         ) : null}
       </dl>
     </div>
   );
-}
-
-/** Whole minutes, rounded down: a rep reading "18 minutes" does not want 18.4. */
-function minutesOnSite(visit: LocalVisit): number {
-  const from = Date.parse(visit.checkedInAtUtc);
-  const to = Date.parse(visit.checkedOutAtUtc ?? visit.checkedInAtUtc);
-
-  return Math.max(0, Math.floor((to - from) / 60_000));
 }
 
 function StepRow({ visit, step }: { visit: LocalVisit; step: LocalVisitStep }) {

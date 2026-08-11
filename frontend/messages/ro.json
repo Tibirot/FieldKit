@@ -1267,7 +1267,8 @@
       "outcomes": {
         "Productive": "Productivă",
         "NonProductive": "Fără rezultat"
-      }
+      },
+      "stepsLabel": "Pașii vizitei"
     },
     "checkOut": {
       "title": "Încheie vizita",
@@ -1306,6 +1307,16 @@
         "reasonRequired": "Scrie de ce nu a avut loc vizita. Un magazin sărit fără motiv este o lipsă pe care nimeni nu o poate rezolva.",
         "alreadyReported": "Ai raportat deja această vizită."
       }
+    },
+    "summary": {
+      "title": "Înainte să închei vizita",
+      "timeOnSite": "Timp în magazin",
+      "minutes": "{minutes, plural, one {# minut} few {# minute} other {# de minute}}",
+      "steps": "Pași",
+      "stepsDone": "{done} din {total} finalizați",
+      "optionalOpen": "{count, plural, one {# pas opțional nu este finalizat} few {# pași opționali nu sunt finalizați} other {# de pași opționali nu sunt finalizați}}:",
+      "notes": "Ce ai scris",
+      "final": "La încheiere, vizita este înregistrată. Nu mai poate fi modificată nici pe telefon, nici în back office."
     }
   },
   "Guard": {

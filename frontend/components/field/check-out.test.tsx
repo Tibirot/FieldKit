@@ -2,7 +2,7 @@
 
 import "fake-indexeddb/auto";
 
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -100,6 +100,18 @@ function locate(at: { latitude: number; longitude: number } | null) {
     },
   });
 }
+
+/**
+ * The recap section, by its heading (W9 slice 10).
+ *
+ * Two lists on this screen name steps and they say different things — the recap's *optional and not
+ * done*, the check-out panel's *mandatory and blocking*. Every assertion about either has to say
+ * which, or it passes on the other's contents.
+ */
+const recap = () => screen.getByText("Before you finish").closest("section")!;
+
+/** The block that names what `BR-VIS-3` is holding the rep for. */
+const blockedBySteps = () => screen.getByRole("status");
 
 let db: FieldKitDatabase;
 
@@ -200,8 +212,11 @@ describe("what BR-VIS-3 refuses", () => {
 
     expect(await screen.findByText("2 steps still have to be done before you can finish:")).toBeTruthy();
 
-    // The names, not a count — and only the mandatory ones.
-    const outstanding = screen.getAllByRole("listitem").map((row) => row.textContent);
+    // Scoped to the outstanding block: the recap above it lists the *optional* steps left (W9
+    // slice 10), so an unscoped `getAllByRole("listitem")` now spans two lists that say different
+    // things — and a test that mixed them would pass on either one's contents.
+    const outstanding = within(blockedBySteps()).getAllByRole("listitem").map((row) => row.textContent);
+
     expect(outstanding).toContain("Shelf check");
     expect(outstanding).toContain("Fridge photo");
     expect(outstanding).not.toContain("Optional chat");
@@ -315,5 +330,94 @@ describe("a visit that is already sealed", () => {
     await screen.findByText("This visit is finished. Nothing here can be changed.");
 
     expect(screen.queryByRole("button", { name: "Check out" })).toBeNull();
+  });
+});
+
+describe("the recap before checking out (VIS-09, W9 slice 10)", () => {
+  it("names the optional steps nothing else will stop the rep leaving behind", async () => {
+    // The one thing on this screen a rep can still act on that no other list tells them about:
+    // `BR-VIS-3` gates on mandatory steps, so the check-out panel names those and stops.
+    await db.visits.add(
+      visit([
+        step({ order: 1, mandatory: true, label: "Shelf check", completedAtUtc: "2026-03-17T09:05:00.000Z" }),
+        step({ order: 2, label: "Fridge photo" }),
+      ]),
+    );
+
+    render(<Visit visitId="visit-1" />);
+
+    expect(await screen.findByText("1 optional step is not done:")).toBeTruthy();
+
+    // Scoped: "Fridge photo" is also the label of the step row further up the screen, and an
+    // unscoped query would pass on that one whether or not the recap listed anything.
+    expect(within(recap()).getByText("Fridge photo")).toBeTruthy();
+  });
+
+  it("does not repeat the mandatory ones the check-out panel already lists", async () => {
+    await db.visits.add(visit([step({ order: 1, mandatory: true, label: "Shelf check" })]));
+
+    render(<Visit visitId="visit-1" />);
+
+    await screen.findByText("1 step still has to be done before you can finish:");
+
+    expect(screen.queryByText(/optional step/)).toBeNull();
+  });
+
+  it("gathers what the rep wrote, which is otherwise scattered under its steps", async () => {
+    await db.visits.add(
+      visit([
+        step({
+          order: 1,
+          type: "Note",
+          label: "Anything to report?",
+          notes: "Manager asked about the promotion end date",
+          completedAtUtc: "2026-03-17T09:05:00.000Z",
+        }),
+      ]),
+    );
+
+    render(<Visit visitId="visit-1" />);
+
+    expect(await screen.findByText("What you wrote")).toBeTruthy();
+    expect(
+      screen.getAllByText("Manager asked about the promotion end date").length,
+    ).toBeGreaterThanOrEqual(1);
+  });
+
+  it("counts the time in the shop while the visit is still open", async () => {
+    // Not available anywhere else until the visit is sealed — and the case the sealed record's own
+    // copy of this derivation answered zero for.
+    vi.setSystemTime(new Date("2026-03-17T09:18:40.000Z"));
+    await db.visits.add(visit([]));
+
+    render(<Visit visitId="visit-1" />);
+
+    expect(await screen.findByText("18 minutes")).toBeTruthy();
+
+    vi.useRealTimers();
+  });
+
+  it("says check-out is final, because that is what a recap is for", async () => {
+    await db.visits.add(visit([]));
+
+    render(<Visit visitId="visit-1" />);
+
+    expect(
+      await screen.findByText(
+        "Checking out files this visit. It cannot be changed afterwards, on this phone or in the back office.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("is gone once the visit is sealed — there is nothing left to review", async () => {
+    await db.visits.add(
+      visit([], { status: "checkedOut", checkedOutAtUtc: "2026-03-17T09:25:00.000Z", outcome: "Productive" }),
+    );
+
+    render(<Visit visitId="visit-1" />);
+
+    await screen.findByText("This visit is finished. Nothing here can be changed.");
+
+    expect(screen.queryByText("Before you finish")).toBeNull();
   });
 });
