@@ -1,0 +1,182 @@
+{
+  "version": 1,
+  "rule": "ORD-02 / ORD-03, BR-ORD-2, BR-ORD-3, BR-PRD-8, BR-PRD-9",
+  "description": "What one order line costs once its promotion and tax are applied. This is the arithmetic the three resolvers stop short of: they answer *which* price, *which* promotion and *which* rate apply, and this turns those into the four numbers a document shows. See ../README.md for the format rules — money and percentages are strings, so neither language parses a float on the way in.\n\nThe promotion here is already **resolved**: a tiered promotion arrives with its winning tier's discount projected onto percentOff/amountOff, because PromotionResolver settles that contest before this runs. A null promotion means none applied; a null taxPercentage means this tenant has no rate for the product's class and country, which is deliberately a different fact from a rate of zero.",
+  "cases": [
+    {
+      "name": "no promotion and no tax is just the multiplication",
+      "unitPrice": "4.50",
+      "currency": "EUR",
+      "quantity": "6",
+      "promotion": null,
+      "taxPercentage": null,
+      "expected": {
+        "subtotal": "27.00",
+        "discount": "0.00",
+        "net": "27.00",
+        "tax": "0.00",
+        "total": "27.00"
+      }
+    },
+    {
+      "name": "tax is charged on the discounted net, not the subtotal",
+      "why": "The rule the whole ordering exists for. Taxing the subtotal would charge the shopkeeper for 20.00 nobody paid.",
+      "unitPrice": "10.00",
+      "currency": "EUR",
+      "quantity": "10",
+      "promotion": { "kind": "percentOff", "percentOff": "20.00" },
+      "taxPercentage": "19.00",
+      "expected": {
+        "subtotal": "100.00",
+        "discount": "20.00",
+        "net": "80.00",
+        "tax": "15.20",
+        "total": "95.20"
+      }
+    },
+    {
+      "name": "a fixed amount comes off the line, not off each unit",
+      "why": "Both readings are defensible and differ by the quantity. '5 off' on a line of twelve is 5, not 60 — which is what a shopkeeper hears, and what keeps a fixed-amount promotion bounded as the order grows.",
+      "unitPrice": "2.00",
+      "currency": "EUR",
+      "quantity": "12",
+      "promotion": { "kind": "amountOff", "amountOff": "5.00", "currency": "EUR" },
+      "taxPercentage": null,
+      "expected": {
+        "subtotal": "24.00",
+        "discount": "5.00",
+        "net": "19.00",
+        "tax": "0.00",
+        "total": "19.00"
+      }
+    },
+    {
+      "name": "a discount larger than the line gives the line away rather than paying the shop",
+      "why": "Unclamped this lands at -2.00 and the order total falls as the shopkeeper buys more. Refusing instead would strand an order over a promotion the rep did not choose and cannot edit, which BR-ORD-9 exists to avoid.",
+      "unitPrice": "3.00",
+      "currency": "EUR",
+      "quantity": "1",
+      "promotion": { "kind": "amountOff", "amountOff": "5.00", "currency": "EUR" },
+      "taxPercentage": "19.00",
+      "expected": {
+        "subtotal": "3.00",
+        "discount": "3.00",
+        "net": "0.00",
+        "tax": "0.00",
+        "total": "0.00"
+      }
+    },
+    {
+      "name": "a bundle discounts whole groups and charges the remainder in full",
+      "why": "Buy 2 get 1 on a line of 14 is four complete groups of three: four units free, two left over paid for. Rounding groups up would give away stock the shopkeeper did not buy enough to earn.",
+      "unitPrice": "3.00",
+      "currency": "EUR",
+      "quantity": "14",
+      "promotion": { "kind": "bundle", "buyQuantity": 2, "getQuantity": 1, "getPercentOff": "100.00", "getProductId": null },
+      "taxPercentage": null,
+      "expected": {
+        "subtotal": "42.00",
+        "discount": "12.00",
+        "net": "30.00",
+        "tax": "0.00",
+        "total": "30.00"
+      }
+    },
+    {
+      "name": "a bundle the quantity does not reach discounts nothing",
+      "why": "Two units against 'buy 2 get 1' is not one group — the group is three.",
+      "unitPrice": "3.00",
+      "currency": "EUR",
+      "quantity": "2",
+      "promotion": { "kind": "bundle", "buyQuantity": 2, "getQuantity": 1, "getPercentOff": "100.00", "getProductId": null },
+      "taxPercentage": null,
+      "expected": {
+        "subtotal": "6.00",
+        "discount": "0.00",
+        "net": "6.00",
+        "tax": "0.00",
+        "total": "6.00"
+      }
+    },
+    {
+      "name": "a fractional quantity earns only the whole bundles it reaches",
+      "why": "Where a weight-based unit of measure meets a count-based promotion. 6.5 kg earns the same free weight as 6 kg — half a free kilo is not what the author meant — but the extra half is still charged.",
+      "unitPrice": "4.00",
+      "currency": "EUR",
+      "quantity": "6.5",
+      "promotion": { "kind": "bundle", "buyQuantity": 2, "getQuantity": 1, "getPercentOff": "100.00", "getProductId": null },
+      "taxPercentage": null,
+      "expected": {
+        "subtotal": "26.00",
+        "discount": "8.00",
+        "net": "18.00",
+        "tax": "0.00",
+        "total": "18.00"
+      }
+    },
+    {
+      "name": "a cross-product bundle discounts nothing on this line",
+      "why": "'Buy six of these, get one of those free' puts the discount on a line this function cannot see. BR-ORD-3 calls the line-level promotion line-level; crediting it here would balance the order total while putting the money against the wrong product for every report downstream. The order-level pass applies it.",
+      "unitPrice": "5.00",
+      "currency": "EUR",
+      "quantity": "12",
+      "promotion": { "kind": "bundle", "buyQuantity": 6, "getQuantity": 1, "getPercentOff": "100.00", "getProductId": "0195f000-0000-7000-8000-0000000000aa" },
+      "taxPercentage": null,
+      "expected": {
+        "subtotal": "60.00",
+        "discount": "0.00",
+        "net": "60.00",
+        "tax": "0.00",
+        "total": "60.00"
+      }
+    },
+    {
+      "name": "every step rounds half up rather than to even",
+      "why": "BR-PRD-9. 3 x 3.335 is 10.005, a half-cent: banker's rounding gives 10.00 and half-up gives 10.01. Chosen because the two policies disagree here — at 10.015 they agree and the case would pass against either.",
+      "unitPrice": "3.335",
+      "currency": "EUR",
+      "quantity": "3",
+      "promotion": null,
+      "taxPercentage": null,
+      "expected": {
+        "subtotal": "10.01",
+        "discount": "0.00",
+        "net": "10.01",
+        "tax": "0.00",
+        "total": "10.01"
+      }
+    },
+    {
+      "name": "a percentage discount rounds before it is taxed",
+      "why": "12.5% of 13.93 is 1.74125, which rounds to 1.74. Carrying the untruncated figure into the tax step would give a different cent on the total, and the four printed numbers would not add up.",
+      "unitPrice": "1.99",
+      "currency": "EUR",
+      "quantity": "7",
+      "promotion": { "kind": "percentOff", "percentOff": "12.50" },
+      "taxPercentage": "19.00",
+      "expected": {
+        "subtotal": "13.93",
+        "discount": "1.74",
+        "net": "12.19",
+        "tax": "2.32",
+        "total": "14.51"
+      }
+    },
+    {
+      "name": "a zero-decimal currency rounds to whole units",
+      "why": "JPY has no minor unit, so every step lands on an integer. A calculation hard-coded to two decimals passes every EUR case in this file and fails here.",
+      "unitPrice": "1250",
+      "currency": "JPY",
+      "quantity": "3",
+      "promotion": { "kind": "percentOff", "percentOff": "12.50" },
+      "taxPercentage": "10.00",
+      "expected": {
+        "subtotal": "3750",
+        "discount": "469",
+        "net": "3281",
+        "tax": "328",
+        "total": "3609"
+      }
+    }
+  ]
+}
