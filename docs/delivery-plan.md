@@ -945,6 +945,100 @@ crossed a re-weighting without saying so would be a chart of two different quest
 
 **Done when:** an offline audit + order are captured, submitted, and reconciled; photos upload independently. **⚠︎ Heavy** — budget ~1.5 weeks.
 
+#### Decomposition
+
+**Two things are new, and neither is "another aggregate with a screen".**
+
+**A server refusal now has to be survivable.** Every mutation the outbox has carried so far was
+unconditionally acceptable: a visit happened, an audit measured a shelf. Neither can be argued with,
+which is why the push protocol's whole conflict story is [B7](product/decisions-and-assumptions.md#b7--conflict-resolution-matrix)'s
+"engineered out". An order can be **refused** — by the assortment, by the minimum, or by a human in
+the back office — and `BR-ORD-9` says the rep's work must never be stranded when it is. That inverts
+the ledger's assumption: it exists so a **retry** returns the first answer, and this is the one case
+where the correct behaviour is a **new** mutation, because the first is terminally rejected rather
+than merely done. The outbox has no vocabulary for that today.
+
+**Photos are the first thing that is not JSON.** Everything queued so far is a record; a photo is
+bytes, on a different transport, retried on a different schedule, referenced by a key that already
+exists before the object does — W10 slice 3b stores those dangling keys deliberately. So "the audit
+synced" and "the audit's photos uploaded" become two different truths, and a rep who can only see the
+first will believe a half-uploaded visit is finished.
+
+**Three decisions cannot be added afterwards, and slice 0 is where they are made.**
+
+**1. The reprice flag has to be on the first order row ever stored.** `BR-ORD-6` says an order records
+the pricing snapshot it was captured against, and that a server disagreement is *flagged, not
+silently changed*. There is nothing to backfill from: an order ingested before the flag exists is
+indistinguishable from one the server agreed with. This is exactly the `Source`-on-`Visit` argument
+from W9 slice 0, and it is the second time the same shape has come up — worth noticing as a pattern
+rather than treating as a coincidence.
+
+**2. What a re-opened order *is*.** `BR-ORD-9` says a rejected order re-opens editable and is
+resubmitted under a new mutation id, with the original terminal. That leaves one thing genuinely
+open: whether the re-opened order keeps its **order id** with a second submission, or becomes a
+**new order** that references the rejected one. Both satisfy the rule; they give different answers to
+"how many orders did this outlet place", and the answer is permanent in the data the moment the first
+rejection lands.
+
+**3. `CapturedOrder` stops being a stand-in.** In W10 slice 6 it became the wire vectors' example of
+*"a kind this server does not carry"*, in [`vectors/sync/push.v1.json`](../vectors/sync/push.v1.json)
+**and** in `SyncPushJourneyTests`. That was recorded at the time as expiring in W11, and this is W11:
+the moment the order arm ships, both assertions quietly stop asserting anything unless a different
+unsupported kind replaces them. A negative pin has a shelf life, and this one has a date.
+
+**The W11 row is partly already done, and the row is what is wrong.** It lists *"device-swap
+drain-push + local-store migration"* under sync v2. **Both shipped in W8** — drain-push as slice 12,
+local-store migration as slice 11 — because each turned out to be a property of the mechanism being
+built rather than a later hardening pass. What actually remains of "sync v2" is the **transactional
+conflict rules** (as-of-capture validation and the reprice flag) and **photo upload**. This is the
+same error W9 slice 11 recorded: a row written from the plan rather than from the code.
+
+**What W11 inherits, and it is a lot.** The pricing engine already exists **in TypeScript**, parity-
+tested against C# on a generated corpus (W7 slices 11–15) — so `ORD-02`/`ORD-03` are a *caller* of an
+engine, not a second engine, and the week's riskiest-sounding requirement is its cheapest. The
+outbox, the mutation ledger, the idempotent push and the `PushedMutation` discriminator are W8's; an
+order is one more arm, the shape the audit arm took in W10 slice 6. The audit **engine** — capture
+model, score, ingest, recompute — is W10's, so the capture screen writes into a shape that already
+exists and already checks itself. Dexie's versioned migration regime with its "what must not be
+deleted" test is W8 slice 11's. And `Audit`, `Order` and `Photo` are already on the device as
+**labelled no-op steps** (W9 slice 7): three seams cut to exact size, waiting.
+
+| # | Slice | Requirements | ~Size |
+|---|---|---|---|
+| 0 | **The three the order cannot be given later** — the reprice flag on the row, what a re-opened order *is*, and retiring `CapturedOrder` as the vectors' unsupported-kind stand-in | `ORD-08`, `BR-ORD-6/9` | 250 |
+| 0b | **Two defects with four occurrences each** — a global `JsonStringEnumConverter` (three per-property band-aids so far, and order status would be the fourth) and an EF helper for entities reached through a navigation with a client-generated key (four, and order lines would be the fifth). Both get *cheaper* before the module and more expensive after | — | 200 |
+| 1 | **The Order module and a draft** — aggregate, lines in UoM/pack, the assortment gate, currency from the resolved price list | `ORD-01`, `BR-ORD-1/7` | 450 |
+| 2 | **What an order costs** — line pricing and tax through the existing C# engine, one line-level promotion plus an order-level one, and the order minimum | `ORD-02/03/06`, `BR-ORD-2/3/5` | 400 |
+| 3 | **Submit, seal, lock** — editable only while `Draft`, and `OrderSubmitted` | `ORD-05/07`, `BR-ORD-4` | 300 |
+| 4 | **Rejected, and re-opened** — the sole exception to the lock: whole-order reason plus the offending line, the original mutation id terminal, resubmission under a new one | `ORD-12`, `BR-ORD-9` | 400 |
+| 5 | **The push path** — `/sync/push` grows an `order` arm and `CapturedOrder` becomes real, in the wire vectors and in C# | `OFF-04` | 350 |
+| 6 | **The device's order store** — Dexie v7, a draft that survives a reload and an app update | `ORD-05`, `OFF-01b/13` | 300 |
+| 7 | **The order capture screen** — pick from the assortment, quantities in pack, totals live from the **TypeScript** engine | `ORD-01/02/03` | 450 |
+| 8 | **Minimum, submit, outbox** — the refusal a rep meets before the server does, and the queue afterwards | `ORD-06/07` | 300 |
+| 9 | **The audit capture screen** — MSL availability, facings and the category total, observed prices, survey answers. W10's deferral, into a shape that already ingests | `AUD-01/02/03/05`, `OFF-01b` | 450 |
+| 10 | **The score at the shelf** — W10 slice 5's TypeScript engine, rendered while the rep is still standing there | `AUD-06` | 250 |
+| 11 | **Photos: capture and downscale** — ~1600px / JPEG ~0.7, and the `blobs` store W8 deliberately did not create because it had no writer | `OFF-08`, `B5` | 350 |
+| 12 | **Photos: presigned upload, retried on its own schedule** — a second transport, independent of the JSON push | `OFF-08` | 400 |
+| 13 | **Two truths a rep can see** — *synced* and *uploaded* are different, and a half-uploaded visit must not read as finished | `OFF-05/06/08` | 250 |
+| 14 | **As-of-capture, and a flag that is not a silent change** — the server re-prices, disagrees, and says so | `ORD-08`, `BR-ORD-6`, `B7` | 350 |
+
+**This is two weeks, not 1.5, and the row's own ⚠︎ was closer than the estimate.** Sixteen slices at
+~5,400 lines against a ~400-line PR budget. The fault line is **after slice 8**: orders exist end to
+end, server and device, and a rep can place one offline. Slices 9–14 are a different subject — the
+audit screen, a binary transport, and the conflict rule that needs both. Splitting there gives two
+weeks that are each demonstrable, rather than one that is neither.
+
+**Not in W11.** `ORD-09` (back-office accept/reject) is `Could`/Phase 4 — but `ORD-12` is a `Must`
+and needs *something* to do the rejecting, so **rejection ships as an API with no screen**, driven in
+the demo by an `.http` request. Saying that out loud because an endpoint with no caller is exactly
+what the Phase 1 review found five of. `ORD-04` (suggested list) and `ORD-13` (custom fields on
+orders) are `Should`s deferred to keep the split above honest; `ORD-13` in particular is the
+custom-field catalogue a fourth time and carries no new decision. `ORD-15` (block submission on
+credit hold) needs an **order-hold flag on the outlet that does not exist** — an Outlets-module
+change, not an Order one, and naming that dependency is cheaper than discovering it mid-slice.
+`ORD-10`/`ORD-11` stay `Could`/`Won't`. Background sync (`OFF-07`) is Phase 3's own thing and a third
+transport.
+
 ### Week 12 · Dashboards + config-builder UI
 **Goal:** the Phase 3 demo — the full loop, both sides.
 - Supervisor **dashboard** (coverage, strike rate, perfect-store, order value) from module query contracts ([reporting](product/00-product-overview.md#reporting--kpis-cross-cutting-read-side)).
