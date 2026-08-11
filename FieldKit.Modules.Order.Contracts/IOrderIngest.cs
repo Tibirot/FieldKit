@@ -103,6 +103,20 @@ public enum OrderIngestRefusal
 
     /// <summary>The aggregate refused it — see <see cref="OrderIngestResult.Message"/>.</summary>
     Invalid,
+
+    /// <summary>
+    /// This order is already submitted and this is a <b>different</b> submission (<c>BR-ORD-4</c>).
+    /// </summary>
+    /// <remarks>
+    /// Not a replay: a replay carries the mutation id that was already applied and succeeds. This is
+    /// a second, distinct push naming an order that is already sealed — which is an <i>edit after
+    /// submit</i> wearing a retry's clothes, and the one thing the lock exists to refuse.
+    /// <para>
+    /// A rejected order is the documented exception (<c>BR-ORD-9</c>) and re-opens for exactly this;
+    /// nothing can reject one until slice 4, so today every second submission lands here.
+    /// </para>
+    /// </remarks>
+    AlreadySubmitted,
 }
 
 /// <summary>The outcome of applying one pushed order.</summary>
@@ -134,11 +148,24 @@ public interface IOrderIngest
     /// Applies a captured order for <paramref name="userId"/>, or says why not.
     /// </summary>
     /// <remarks>
-    /// <b>A repeat is a success.</b> Order and Sync commit separately, so a mutation can land here and
-    /// lose its ledger entry; the device retries with the same order id. That retry must succeed —
-    /// a device told "refused" forever about work that is done has no way back — and it must succeed
-    /// even once the visit has been sealed, which is the case a later check gets wrong.
+    /// <para>
+    /// <b>A repeat is a success, and <paramref name="mutationId"/> is what makes "repeat" mean
+    /// something.</b> Order and Sync commit separately, so a mutation can land here and lose its
+    /// ledger entry; the device retries. That retry must succeed — a device told "refused" forever
+    /// about work that is done has no way back — and it must succeed even once the visit has been
+    /// sealed, which is the case a later check gets wrong.
+    /// </para>
+    /// <para>
+    /// Until W11 slice 3 the replay test was the <i>order</i> id, which silently accepted a second,
+    /// different push of the same order as though it were a retry — <c>BR-ORD-4</c>'s lock, unenforced.
+    /// The mutation id tells a retry from an edit, and it is the same id Sync's ledger keys on: this
+    /// module records it so the two agree about what has already been applied.
+    /// </para>
     /// </remarks>
+    /// <param name="mutationId">The device-generated id of the push carrying this order.</param>
     Task<OrderIngestResult> IngestAsync(
-        CapturedOrder captured, string userId, CancellationToken cancellationToken = default);
+        CapturedOrder captured,
+        Guid mutationId,
+        string userId,
+        CancellationToken cancellationToken = default);
 }
