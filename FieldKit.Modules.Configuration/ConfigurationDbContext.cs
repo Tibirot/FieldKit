@@ -22,6 +22,8 @@ public sealed class ConfigurationDbContext(
 
     public DbSet<ScoreWeightSet> ScoreWeightSets => Set<ScoreWeightSet>();
 
+    public DbSet<SurveyForm> SurveyForms => Set<SurveyForm>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -142,6 +144,53 @@ public sealed class ConfigurationDbContext(
 
             weight.ToTable("score_weight", table => table.HasCheckConstraint(
                 "ck_score_weight_percentage", @"""Percentage"" >= 0 AND ""Percentage"" <= 100"));
+        });
+
+        modelBuilder.Entity<SurveyForm>(form =>
+        {
+            form.HasKey(f => f.Id);
+
+            form.Property(f => f.Name).HasMaxLength(SurveyForm.MaximumNameLength).IsRequired();
+
+            // One form per name. The name is how an admin picks a form off a list, so two of them is
+            // a list with two identical rows and no way to tell which the audit meant.
+            form.HasIndex(f => new { f.TenantId, f.Name }).IsUnique();
+
+            form.HasMany(f => f.Questions)
+                .WithOne()
+                .HasForeignKey(question => new { question.TenantId, question.SurveyFormId })
+                .HasPrincipalKey(f => new { f.TenantId, f.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+
+            form.Navigation(f => f.Questions).HasField("_questions").UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            form.ToTable("survey_form");
+        });
+
+        modelBuilder.Entity<SurveyQuestion>(question =>
+        {
+            question.HasKey(q => q.Id);
+
+            // By name, never as an ordinal — a question type inserted in the middle of the enum would
+            // silently re-interpret every stored form rather than breaking a build.
+            question.Property(q => q.Type).HasConversion<string>().HasMaxLength(20).IsRequired();
+
+            question.Property(q => q.Key).HasMaxLength(SurveyQuestion.MaximumKeyLength).IsRequired();
+            question.Property(q => q.Text).HasMaxLength(SurveyQuestion.MaximumTextLength).IsRequired();
+
+            // A value list, not an entity — the same call `FieldDefinition.Options` makes: the options
+            // exist only inside this question, and a table would invite an answer to point at one.
+            question.PrimitiveCollection(q => q.Options).HasColumnName("options").IsRequired();
+
+            // The sequence is what the rep works through, so two questions cannot claim one position.
+            question.HasIndex(q => new { q.TenantId, q.SurveyFormId, q.Order }).IsUnique();
+
+            // And two cannot share a key, because an answer is filed under it. The aggregate refuses
+            // a duplicate; this is what holds if anything else ever writes the table.
+            question.HasIndex(q => new { q.TenantId, q.SurveyFormId, q.Key }).IsUnique();
+
+            question.ToTable("survey_question", table => table.HasCheckConstraint(
+                "ck_survey_question_order", @"""Order"" >= 1"));
         });
     }
 }

@@ -26,9 +26,9 @@ public static class ConfigurationPermissions
 /// The Configuration module: every tenant definition, owned in one place (ADR-0009 §0).
 /// </summary>
 /// <remarks>
-/// Custom fields (<c>CFG-01</c>/<c>CFG-02</c>), visit workflows (<c>CFG-03</c>) and the perfect-store
-/// weighting (<c>CFG-05</c>) are here today. Survey forms and the versioned configuration set arrive
-/// with the features that interpret them.
+/// Custom fields (<c>CFG-01</c>/<c>CFG-02</c>), visit workflows (<c>CFG-03</c>), survey forms
+/// (<c>CFG-04</c>) and the perfect-store weighting (<c>CFG-05</c>) are here today. The versioned
+/// configuration set arrives with the features that interpret it.
 /// </remarks>
 public sealed class ConfigurationModule : IModule
 {
@@ -59,6 +59,10 @@ public sealed class ConfigurationModule : IModule
         // (W8 slice 8b). Separate from the catalog above: one answers "how is this channel worked",
         // the other "what changed since", and only the second needs a cursor.
         services.AddScoped<IVisitWorkflowFeed, VisitWorkflowFeed>();
+
+        // …and what a tenant's questionnaires ask, which is how Audit will read them (AUD-04). Bound
+        // one slice ahead of that module, exactly as IVisitWorkflow was bound ahead of check-in.
+        services.AddScoped<ISurveyForms, SurveyFormCatalog>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
@@ -66,5 +70,6 @@ public sealed class ConfigurationModule : IModule
         endpoints.MapFieldDefinitionEndpoints();
         endpoints.MapVisitWorkflowEndpoints();
         endpoints.MapScoreWeightEndpoints();
+        endpoints.MapSurveyFormEndpoints();
     }
 }

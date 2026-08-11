@@ -3587,6 +3587,139 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
 
 ###
 
+### ── Configuration · survey forms (AUD-04/CFG-04, W10 slice 2) ─────────────
+# A tenant's questionnaires. Named and identified, *not* keyed by channel the way a visit workflow
+# is: a channel has one answer to "how is a visit worked here", but a tenant genuinely runs a
+# standing compliance form and a quarterly brand survey at the same time.
+#
+# Nothing points at a form yet. A `Survey` step in a visit workflow names none, and how an audit
+# chooses one is W10 slice 3's decision — taken with the module that has to live with it.
+#
+# @name survey
+POST {{Server_HostAddress}}/api/config/surveys
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Chiller compliance",
+  "questions": [
+    { "key": "chiller_lit", "text": "Is the chiller lit?", "type": "Boolean", "mandatory": true },
+    { "key": "facings", "text": "How many facings?", "type": "Number" },
+    { "key": "facing_quality", "text": "Facing quality?", "type": "SingleChoice",
+      "options": ["Good", "Acceptable", "Poor"] },
+    { "key": "issues", "text": "Which issues did you see?", "type": "MultiChoice",
+      "options": ["Out of stock", "Damaged", "Wrong price", "No poster"] },
+    { "key": "notes", "text": "Anything to add?", "type": "Text" }
+  ]
+}
+
+### `mandatory` and `options` may be omitted; key, text and type may not. The server runs with
+### `RespectRequiredConstructorParameters`, so a positional parameter without a default is required
+### *on the wire* — nullable is not enough. That is why most of a text question's JSON is not
+### `"options": null`, and why a question missing its text is still a 400.
+POST {{Server_HostAddress}}/api/config/surveys
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Terse",
+  "questions": [ { "key": "notes", "text": "Anything to add?", "type": "Text" } ]
+}
+
+### A form with no questions — 400 `config.survey.empty`. Unlike a visit workflow, where an empty
+### step list is a real thing (a presence call); a form that asks nothing is a screen that opens and
+### offers nothing to do.
+POST {{Server_HostAddress}}/api/config/surveys
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{ "name": "Hollow", "questions": [] }
+
+### A choice with nothing to choose from — 400 `config.survey.choiceWithoutOptions`. Not a detail:
+### the rep gets a control with no answers in it, and a mandatory one would make the step
+### impossible to finish.
+POST {{Server_HostAddress}}/api/config/surveys
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Unanswerable",
+  "questions": [ { "key": "quality", "text": "Facing quality?", "type": "SingleChoice" } ]
+}
+
+### Two questions sharing a key — 400 `config.survey.duplicateKey`. An answer is filed under the key,
+### so two questions sharing one means two answers under one name and no way to tell them apart.
+POST {{Server_HostAddress}}/api/config/surveys
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Duplicated",
+  "questions": [
+    { "key": "chiller_lit", "text": "Is the chiller lit?", "type": "Boolean" },
+    { "key": "chiller_lit", "text": "Is the second chiller lit?", "type": "Boolean" }
+  ]
+}
+
+### A bad question is named by its position — `questions[1].key` and `questions[1].text`, and nothing
+### is said about question 0. An admin looking at twelve questions cannot work out which one "a
+### question needs text" is about.
+POST {{Server_HostAddress}}/api/config/surveys
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Malformed",
+  "questions": [
+    { "key": "chiller_lit", "text": "Is the chiller lit?", "type": "Boolean" },
+    { "key": "Shelf Clean", "text": "", "type": "Text" }
+  ]
+}
+
+### The same name twice — 409 `config.survey.nameTaken`. The name is how an admin picks a form off a
+### list, so two of them is a list with two identical rows.
+POST {{Server_HostAddress}}/api/config/surveys
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Chiller compliance",
+  "questions": [ { "key": "notes", "text": "Anything to add?", "type": "Text" } ]
+}
+
+### Re-authoring. Questions are replaced wholesale and renumbered from 1 — an ordered thing cannot be
+### patched without the caller knowing the current order, and two admins editing one form would
+### interleave into a sequence neither designed. Keeping the *name* it already has is fine.
+PUT {{Server_HostAddress}}/api/config/surveys/{{survey.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "name": "Chiller compliance",
+  "questions": [
+    { "key": "poster_up", "text": "Is the poster up?", "type": "Boolean", "mandatory": true },
+    { "key": "chiller_lit", "text": "Is the chiller lit?", "type": "Boolean", "mandatory": true }
+  ]
+}
+
+### The whole form, questions included. Note `chiller_lit` survived the edit with its key intact and
+### a *new* id at a new position — which is exactly why an answer is filed under the key.
+GET {{Server_HostAddress}}/api/config/surveys/{{survey.response.body.id}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Every form, by name — with the questions, so a screen showing "5 questions" beside each row does
+### not need a request per row.
+GET {{Server_HostAddress}}/api/config/surveys
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Deleting a form stops it being asked; the answers already given under it stay where they are, in
+### another module's rows this one may not read (ADR-0005). Safe today because nothing points at a
+### form — refusing to delete one in use is slice 3's rule to add.
+DELETE {{Server_HostAddress}}/api/config/surveys/{{survey.response.body.id}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+###
+
 ### ── Sync · device registry (OFF-12) ───────────────────────────────────────
 # Binding needs a token but no permission: a rep registers their own phone as part of
 # signing in on it. The device belongs to the subject in the token — note there is no

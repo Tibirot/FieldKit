@@ -60,7 +60,7 @@ rather than scattering them.
   from the same definitions for UX (a mirrored surface — kept simple: the server always re-validates,
   so drift degrades UX, not integrity).
 - **BR-CFG-4** Perfect-store weights must sum to **exactly 100%** — checked on **every write**, not
-  only at publish (`BR-AUD-4`; see [§6.3](#63-authoring-the-perfect-store-weighting-week-10)).
+  only at publish (`BR-AUD-4`; see [§6.4](#64-authoring-the-perfect-store-weighting-week-10)).
 - **BR-CFG-6** A **published** weight-set version is **immutable**, and publishing is one-way:
   re-weighting drafts a new version. `BR-AUD-8` has the server recompute a sealed audit with the
   weights it was scored against, and that only means something if those weights cannot move
@@ -135,7 +135,44 @@ maximum are both refused with the offending control named, and the API's problem
 the form's field names — so a refusal lands beside the control that caused it without a mapping table
 that could drift ([api-contracts §3](../architecture/13-api-contracts.md)).
 
-### 6.3 Authoring the perfect-store weighting (Week 10)
+### 6.3 Authoring survey forms (Week 10)
+
+`CFG-04` ships as `/api/config/surveys` — a tenant's questionnaires, each with an id, a name, and an
+ordered list of typed questions (`Text`, `Number`, `Boolean`, `SingleChoice`, `MultiChoice`,
+`Photo`). Created, replaced wholesale by id, deleted.
+
+**Named and identified, not keyed by channel.** A visit workflow is keyed by channel because a
+channel has exactly one answer to "how is a visit worked here". A tenant genuinely runs several
+questionnaires at once — a standing compliance form and a quarterly brand survey — so a form has an
+id and a name a person picks from a list.
+
+Consequences worth stating:
+
+- **An answer is filed under a question's `key`, not its id.** Questions are replaced wholesale on
+  every edit and their ids are regenerated with them, so an id would leave `AUD-09`'s reporting
+  holding a dangling pointer after the first re-wording. A key survives reorders, rewordings and
+  re-authoring — the same bargain `BR-CFG-1`'s custom-field key makes. The key is an identifier
+  rather than prose (`^[a-z][a-z0-9_]{0,59}$`) and the authoring screen derives it from the question
+  text, as the custom-field screen already does.
+- **An empty form is refused**, unlike an empty visit workflow. A workflow with no steps is a real
+  thing — a presence call. A form with no questions is a screen that opens and offers nothing to do.
+- **A choice question must offer something to choose from.** A mandatory one that does not would make
+  the audit step impossible to finish (`BR-AUD-7`).
+- **Options are kept only for the choice types** and dropped for everything else, so they cannot
+  survive a type change to become quietly authoritative again.
+- **`mandatory` and `options` may be omitted; key, text and type may not.** A question that is
+  optional by omission costs an unanswered box; one that is mandatory by omission blocks a rep's
+  check-out over a flag nobody typed.
+- **No version numbers**, unlike the weight sets. Those are versioned because `BR-AUD-8` recomputes
+  a sealed audit with the exact numbers it was scored against; a form makes no such arithmetic
+  promise, because an audit stores the answers it was given together with the question as it was
+  asked. Row-versioned for sync, like the visit workflow.
+
+**Nothing points at a form yet.** A `Survey` step in a visit workflow names none; how an audit
+chooses a form is W10 slice 3's decision, taken with the module that has to live with it. `ISurveyForms`
+does ship, one slice ahead of that consumer, exactly as `IVisitWorkflow` shipped ahead of check-in.
+
+### 6.4 Authoring the perfect-store weighting (Week 10)
 
 `CFG-05` ships as `/api/config/score-weights` — a tenant's weighting **by version**, drafted, edited
 while it is a draft, then **published one-way**. The lifecycle is the journey plan's, chosen for a
@@ -175,7 +212,9 @@ so a mid-day re-publish never silently invalidates captured work.
 
 - `IFieldDefinitionCatalog` — definitions + validation (used by Outlets, Products, Order, Visit).
 - `IVisitWorkflow` — step sequence per channel (used by Visit).
-- `ISurveyForms` — survey/question definitions (used by Audit).
+- `ISurveyForms` — survey/question definitions, by id or all (used by Audit). Returns **null** for a
+  form nobody defined, unlike `IVisitWorkflow`'s default: an empty form is refused at authoring
+  precisely because it is a screen that asks nothing, so there is no sensible default to invent.
 - `IScoreWeights` — perfect-store weights per version (used by Audit).
 - `IReferenceChangeFeed` — versioned config bundle delta, for **Sync**.
 - Consumes `ITenantContext` (IAM). Publishes `ConfigurationPublished` → Sync triggers a config delta.
