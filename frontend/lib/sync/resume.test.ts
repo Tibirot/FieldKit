@@ -66,6 +66,8 @@ const QUIET = {
   priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
   promotions: { upserts: [], tombstones: [], cursor: 0 },
   promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
+  surveys: { upserts: [], tombstones: [], cursor: 0 },
+  scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
 };
 
 /**

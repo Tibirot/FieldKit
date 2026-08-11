@@ -84,6 +84,64 @@ export type ReferenceVisitWorkflow = {
 };
 
 /**
+ * One question on a survey form (`AUD-04`, W10 slice 7).
+ *
+ * `type` is a name for the reason a workflow step's is. `key` is what an answer is filed under and
+ * survives the form being re-worded — see `SurveyQuestion.Key` on the server for why an id would not.
+ */
+export type ReferenceSurveyQuestion = {
+  order: number;
+  key: string;
+  text: string;
+  type: string;
+  mandatory: boolean;
+  options: string[];
+};
+
+/**
+ * A tenant's questionnaire (`AUD-04`, `CFG-04`, W10 slice 7).
+ *
+ * The questions live *inside* the form, like a workflow's steps: a device holding four of five would
+ * ask a rep less than the tenant configured, and `BR-AUD-7` would gate the audit step on a mandatory
+ * question it never received.
+ */
+export type ReferenceSurveyForm = {
+  id: string;
+  name: string;
+  questions: ReferenceSurveyQuestion[];
+  rowVersion: number;
+};
+
+/**
+ * One pillar's weight (`AUD-06`, `BR-AUD-4`).
+ *
+ * `percentage` is a **string**, not a number, and that is the single most load-bearing decision on
+ * this type. `BR-AUD-5` has the device's score match the server's exactly; `decimal.js` reads a
+ * string, and a number would already have been through IEEE-754 before the scorer saw it. The same
+ * rule the parity vectors enforce, applied to the data the device stores.
+ */
+export type ReferenceScoreWeight = {
+  pillar: string;
+  percentage: string;
+};
+
+/**
+ * One published perfect-store weighting (`AUD-06`, `BR-AUD-8`).
+ *
+ * **Every published version is held, not just the newest.** An audit records the version it was
+ * scored against, so a device with a queued audit from last week still has to be able to show the
+ * rep what it scored — and a published set is immutable, so each version arrives exactly once and
+ * never changes.
+ */
+export type ReferenceScoreWeightSet = {
+  id: string;
+  version: number;
+  publishedAtUtc: string;
+  weights: ReferenceScoreWeight[];
+  rowVersion: number;
+};
+
+/**
  * One product as the device holds it (`PRD-01`, W8 slice 8c).
  *
  * The whole tenant catalogue reaches every device — a rep standing in a shop has to be able to
@@ -372,6 +430,8 @@ export class FieldKitDatabase extends Dexie {
   priceAssignments!: EntityTable<ReferencePriceAssignment, "id">;
   promotions!: EntityTable<ReferencePromotion, "id">;
   promotionAssignments!: EntityTable<ReferencePromotionAssignment, "id">;
+  surveys!: EntityTable<ReferenceSurveyForm, "id">;
+  scoreWeights!: EntityTable<ReferenceScoreWeightSet, "id">;
   visits!: EntityTable<LocalVisit, "id">;
   outbox!: EntityTable<OutboxEntry, "mutationId">;
   meta!: EntityTable<MetaEntry, "key">;
@@ -545,6 +605,31 @@ export class FieldKitDatabase extends Dexie {
       visits: "id, status, outletId",
     });
 
+    /*
+     * Version 6 — survey forms and the perfect-store weightings (`OFF-03`, W10 slice 7).
+     *
+     * Two reference stores, no `upgrade()`: nothing existed to transform, and every device carries
+     * on with its outbox and its other reference data untouched. A device that opens the app after
+     * this ships gets both tables empty and both watermarks at zero, which is exactly the state a
+     * fresh install is in — so the next pull fills them by the ordinary path rather than a special
+     * one.
+     *
+     * The indexes are the questions actually asked:
+     *
+     * - `name` on a form, because that is what an administrator picks one by and what a rep sees.
+     * - `&version` on a weighting, unique, because an audit names a *version* and that is the only
+     *   way anything will look one up. Declared unique so a bug that stored two for one version
+     *   fails loudly rather than picking one arbitrarily — the same call `ref_visit_workflows`
+     *   makes about `channelId`.
+     *
+     * A form's `questions` and a set's `weights` are not indexed and never will be: they are read
+     * with the row that carries them, which is the whole reason they travel inside it.
+     */
+    this.version(6).stores({
+      ref_surveys: "id, name",
+      ref_score_weights: "id, &version",
+    });
+
     this.outlets = this.table("ref_outlets");
     this.plannedVisits = this.table("ref_planned_visits");
     this.workflows = this.table("ref_visit_workflows");
@@ -556,6 +641,8 @@ export class FieldKitDatabase extends Dexie {
     this.priceAssignments = this.table("ref_price_assignments");
     this.promotions = this.table("ref_promotions");
     this.promotionAssignments = this.table("ref_promotion_assignments");
+    this.surveys = this.table("ref_surveys");
+    this.scoreWeights = this.table("ref_score_weights");
     this.visits = this.table("visits");
     this.outbox = this.table("outbox");
     this.meta = this.table("meta");

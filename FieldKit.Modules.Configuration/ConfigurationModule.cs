@@ -68,6 +68,13 @@ public sealed class ConfigurationModule : IModule
         // the version it was scored under (BR-AUD-8, W10 slice 6). Deferred in slice 1 because it had
         // no caller; this is the caller.
         services.AddScoped<IScoreWeights, ScoreWeightCatalog>();
+
+        // Sync pages both to devices through these rather than reading the config schema (W10
+        // slice 7). Separate from the two catalogs above for the reason IVisitWorkflowFeed is: one
+        // answers "what does this say", the other "what changed since", and only the second needs a
+        // cursor.
+        services.AddScoped<ISurveyFormFeed, SurveyFormFeed>();
+        services.AddScoped<IScoreWeightFeed, ScoreWeightFeed>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

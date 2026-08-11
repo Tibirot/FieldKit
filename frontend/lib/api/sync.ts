@@ -9,6 +9,8 @@ import type {
   ReferencePriceList,
   ReferencePromotion,
   ReferencePromotionAssignment,
+  ReferenceScoreWeightSet,
+  ReferenceSurveyForm,
   ReferencePlannedVisit,
   ReferenceProduct,
   ReferenceVisitWorkflow,
@@ -50,6 +52,8 @@ export type PullCursors = {
   priceAssignments?: number;
   promotions?: number;
   promotionAssignments?: number;
+  surveys?: number;
+  scoreWeights?: number;
 };
 
 export type PullResponse = {
@@ -65,6 +69,8 @@ export type PullResponse = {
     priceAssignments: EntityChanges<ReferencePriceAssignment>;
     promotions: EntityChanges<ReferencePromotion>;
     promotionAssignments: EntityChanges<ReferencePromotionAssignment>;
+    surveys: EntityChanges<ReferenceSurveyForm>;
+    scoreWeights: EntityChanges<ReferenceScoreWeightSet>;
   };
   snapshotVersion: string;
 };

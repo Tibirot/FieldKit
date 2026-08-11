@@ -84,6 +84,8 @@ function emptyPull(cursor = 0) {
       priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
       promotions: { upserts: [], tombstones: [], cursor: 0 },
       promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
+      surveys: { upserts: [], tombstones: [], cursor: 0 },
+      scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
     },
     snapshotVersion: `outlets#${cursor}`,
   };
@@ -337,6 +339,8 @@ describe("one sync run", () => {
         priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
         promotions: { upserts: [], tombstones: [], cursor: 0 },
         promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
+        surveys: { upserts: [], tombstones: [], cursor: 0 },
+        scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -369,6 +373,8 @@ describe("one sync run", () => {
         priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
         promotions: { upserts: [], tombstones: [], cursor: 0 },
         promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
+        surveys: { upserts: [], tombstones: [], cursor: 0 },
+        scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -417,6 +423,8 @@ describe("one sync run", () => {
         priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
         promotions: { upserts: [], tombstones: [], cursor: 0 },
         promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
+        surveys: { upserts: [], tombstones: [], cursor: 0 },
+        scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -460,6 +468,8 @@ describe("one sync run", () => {
         priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
         promotions: { upserts: [], tombstones: [], cursor: 0 },
         promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
+        surveys: { upserts: [], tombstones: [], cursor: 0 },
+        scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -497,6 +507,8 @@ describe("one sync run", () => {
         priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
         promotions: { upserts: [], tombstones: [], cursor: 0 },
         promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
+        surveys: { upserts: [], tombstones: [], cursor: 0 },
+        scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -534,6 +546,8 @@ describe("one sync run", () => {
         priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
         promotions: { upserts: [], tombstones: [], cursor: 0 },
         promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
+        surveys: { upserts: [], tombstones: [], cursor: 0 },
+        scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -558,6 +572,8 @@ describe("one sync run", () => {
         priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
         promotions: { upserts: [], tombstones: [], cursor: 0 },
         promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
+        surveys: { upserts: [], tombstones: [], cursor: 0 },
+        scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -588,6 +604,8 @@ describe("one sync run", () => {
         priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
         promotions: { upserts: [], tombstones: [], cursor: 0 },
         promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
+        surveys: { upserts: [], tombstones: [], cursor: 0 },
+        scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -622,6 +640,8 @@ describe("one sync run", () => {
       priceAssignments: 0,
       promotions: 0,
       promotionAssignments: 0,
+      surveys: 0,
+      scoreWeights: 0,
     }, undefined);
 
     db.close();
@@ -851,6 +871,8 @@ describe("the assortment", () => {
         priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
         promotions: { upserts: [], tombstones: [], cursor: 0 },
         promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
+        surveys: { upserts: [], tombstones: [], cursor: 0 },
+        scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#1",
     };
@@ -1022,6 +1044,8 @@ describe("prices", () => {
         priceAssignments,
         promotions: { upserts: [], tombstones: [], cursor: 0 },
         promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
+        surveys: { upserts: [], tombstones: [], cursor: 0 },
+        scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#1",
     };
@@ -1219,6 +1243,8 @@ describe("promotions", () => {
         priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
         promotions,
         promotionAssignments,
+        surveys: { upserts: [], tombstones: [], cursor: 0 },
+        scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#1",
     };

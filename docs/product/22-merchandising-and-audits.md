@@ -282,6 +282,24 @@ rules should be, and 400 generated ones that give the mirror an oracle across sh
 author. Each case **carries its own weight set**, which no other vector file does: the score's
 arithmetic is configured, and renormalisation only shows up when the weights vary.
 
+### What reaches the device (W10 slice 7)
+
+Survey forms and the perfect-store weightings pull like any other reference data — tenant-wide, no
+scope, their own cursors. Two things about the weightings are unlike every other feed:
+
+- **Every published version travels, not just the newest.** An audit records the version it was
+  scored against (`BR-AUD-8`), so a device holding work captured last week has to be able to show
+  the rep what that audit scored. It is cheap in the way that argument usually is not: a published
+  set is immutable, so each version downloads exactly once, and a tenant re-weights a few times a
+  year.
+- **Only published ones travel.** A device scoring against a draft would produce a number the server
+  cannot reproduce, and would then have that audit refused on push — so the device never sees a
+  version it cannot legitimately name.
+
+A weight's percentage crosses the wire and is stored on the device as a **string**. `BR-AUD-5` has
+the two scores match exactly, `decimal.js` reads a string, and `JSON.parse` would turn a bare
+`33.34` into a float before the device's scorer ever saw it.
+
 ## 7. Offline behavior
 
 Audits run **fully offline** inside a visit. Templates, MSL, and expected prices are synced
