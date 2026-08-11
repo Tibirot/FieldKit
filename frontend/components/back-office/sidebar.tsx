@@ -7,6 +7,7 @@ import {
   Grid2x2,
   Route,
   ShoppingCart,
+  SlidersHorizontal,
   Store,
   Users,
 } from "lucide-react";
@@ -25,6 +26,7 @@ const ICONS: Record<NavKey, React.ComponentType<{ className?: string }>> = {
   outlets: Store,
   products: Boxes,
   territories: Grid2x2,
+  configuration: SlidersHorizontal,
   users: Users,
 };
 
