@@ -58,7 +58,8 @@ public class GeneratedVectorTests
     /// <summary>Every field the format says is a decimal, and must therefore never be a JSON number.</summary>
     private static readonly HashSet<string> DecimalFields =
     [
-        "amount", "amountOff", "getPercentOff", "gross", "net", "percentage", "percentOff", "tax",
+        "amount", "amountOff", "getPercentOff", "gross", "net", "percentage", "percentOff",
+        "score", "tax", "weight",
     ];
 
     [Theory]

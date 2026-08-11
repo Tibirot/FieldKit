@@ -260,6 +260,13 @@ Consequences worth stating:
   supervisor reading `AUD-09` needs, and what makes the parity vectors able to check the intermediate
   values as well as the answer.
 
+**`BR-AUD-5` is checked, not asserted** (W10 slice 5). `frontend/lib/audits/score.ts` is the device
+mirror, on `decimal.js` with the same `ROUND_HALF_UP` clone money uses, and both engines run the same
+files under [`vectors/audits/`](../../vectors/README.md) — 16 hand-written cases that say what the
+rules should be, and 400 generated ones that give the mirror an oracle across shapes nobody would
+author. Each case **carries its own weight set**, which no other vector file does: the score's
+arithmetic is configured, and renormalisation only shows up when the weights vary.
+
 ## 7. Offline behavior
 
 Audits run **fully offline** inside a visit. Templates, MSL, and expected prices are synced

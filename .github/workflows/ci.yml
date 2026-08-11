@@ -226,8 +226,8 @@ jobs:
         #
         # `dotnet test --filter` exits 0 when nothing matches, so a renamed class would turn this
         # step green having run nothing. The floor is what makes it a check: under today's count
-        # (~96 since the geofence vectors joined in W9 slice 3) so ordinary additions do not touch
-        # it, and far above zero.
+        # (~112 since the perfect-store vectors joined in W10 slice 5) so ordinary additions do not
+        # touch it, and far above zero.
         env:
           NO_COLOR: "1"
         run: |
@@ -249,7 +249,7 @@ jobs:
 
       - name: Vectors — TypeScript
         working-directory: frontend
-        # The mirror runs the generated files as well: ~800 cases against C#'s ~79. A vector file
+        # The mirror runs the generated files as well: ~1,230 cases against C#'s ~112. A vector file
         # that failed to load would leave a green suite of whatever remained — the floor is what
         # turns that into a failure rather than a quieter success.
         #
@@ -267,11 +267,11 @@ jobs:
           NO_COLOR: "1"
         run: |
           set -euo pipefail
-          npx vitest run lib/pricing lib/visits lib/sync/push-wire.test.ts 2>&1 | sed -r 's/\x1B\[[0-9;]*[mGKH]//g' | tee parity-ts.log
+          npx vitest run lib/pricing lib/visits lib/audits lib/sync/push-wire.test.ts 2>&1 | sed -r 's/\x1B\[[0-9;]*[mGKH]//g' | tee parity-ts.log
           passed=$(grep -oE 'Tests +[0-9]+ passed' parity-ts.log | grep -oE '[0-9]+' | tail -1)
           echo "TypeScript vector cases: ${passed:-0}"
-          if [ "${passed:-0}" -lt 900 ]; then
-            echo "::error title=Parity suite shrank::Only ${passed:-0} TypeScript vector cases ran (expected >=900). A vector file probably failed to load, or a path dropped out of the vitest invocation above."
+          if [ "${passed:-0}" -lt 1300 ]; then
+            echo "::error title=Parity suite shrank::Only ${passed:-0} TypeScript vector cases ran (expected >=1300). A vector file probably failed to load, or a path dropped out of the vitest invocation above."
             exit 1
           fi
 

@@ -1,7 +1,7 @@
 # Cross-language test vectors
 
 Shared inputs and expected outputs for the rules that must behave **identically in C# and
-TypeScript** — pricing and the check-in geofence today, perfect-store scoring later ([testing strategy
+TypeScript** — pricing, the check-in geofence and the perfect-store score ([testing strategy
 §2](../docs/architecture/17-testing-strategy.md#2-unit-tests-many)).
 
 These files are the contract between the two implementations. The C# engine runs them in
@@ -39,6 +39,22 @@ them, which is why they live here rather than inside either project.
 > record would reproduce exactly the blindness being fixed. C# asserts each binds through the API's
 > own serializer options; TypeScript asserts its client produces those bytes. Replaying both shipped
 > bugs against the file fails it — which is the only evidence that a vector file is worth anything.
+
+> **`audits/perfect-store.*` carries the weight set as an input** (W10 slice 5), which no other file
+> here does. Pricing's vectors describe a rule with fixed arithmetic; the score's arithmetic is
+> *configured* — `BR-AUD-4`'s weights are tenant data, and `BR-AUD-8` has an audit recomputed against
+> the version it was scored under. A vector that hard-coded 50/30/20 would prove the two engines
+> agree about one tenant's weighting and nothing about the rule.
+>
+> So each case names its own weights, and the generated file crosses six weight sets — including one
+> with a zero pillar and one naming a single pillar — with the measurement shapes. Renormalisation
+> (W10 slice 0) is the part that needs it: a **skipped** pillar leaves the denominator and a **zero**
+> one does not, and the difference only appears when the weights vary.
+>
+> The **pillar breakdown is compared as well as the total**, for a reason specific to a weighted
+> mean: two engines can agree on a score while disagreeing about how they reached it — a compensating
+> pair of errors, or a different rounding point that happens to cancel. The breakdown is also what
+> `AUD-09` renders, so it is part of the contract rather than working out.
 
 ## Why a file rather than a shared test suite
 
