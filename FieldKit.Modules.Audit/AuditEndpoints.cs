@@ -23,6 +23,16 @@ public sealed record PriceCheckResponse(
     long? DeltaMinorUnits,
     string Currency);
 
+public sealed record AnswerResponse(int Order, string QuestionKey, string QuestionText, string Value);
+
+/// <summary>One photo reference (<c>AUD-05</c>).</summary>
+/// <param name="ObjectKey">
+/// Where the image is in object storage — <b>or will be</b>. The upload is separate from the JSON
+/// push and usually later (<c>B5</c>), and the path itself is W11, so today every key here points at
+/// nothing. A client should render a gap, never an error.
+/// </param>
+public sealed record PhotoResponse(string Section, string ObjectKey);
+
 /// <summary>An audit, as stored.</summary>
 public sealed record AuditResponse(
     Guid Id,
@@ -34,7 +44,10 @@ public sealed record AuditResponse(
     int? CategoryFacings,
     IReadOnlyList<AvailabilityResponse> Availability,
     IReadOnlyList<FacingsResponse> Facings,
-    IReadOnlyList<PriceCheckResponse> Prices);
+    IReadOnlyList<PriceCheckResponse> Prices,
+    Guid? SurveyFormId,
+    IReadOnlyList<AnswerResponse> Answers,
+    IReadOnlyList<PhotoResponse> Photos);
 
 /// <summary>
 /// Reading audits (<c>AUD-09</c>).
@@ -111,5 +124,10 @@ internal static class AuditEndpoints
             line.ObservedMinorUnits,
             line.ExpectedMinorUnits,
             line.ExpectedMinorUnits is { } expected ? line.ObservedMinorUnits - expected : null,
-            line.Currency))]);
+            line.Currency))],
+        audit.SurveyFormId,
+        [.. audit.Answers.Select(line =>
+            new AnswerResponse(line.Order, line.QuestionKey, line.QuestionText, line.Value))],
+        [.. audit.Photos.Select(line =>
+            new PhotoResponse(line.Section.ToString(), line.ObjectKey))]);
 }

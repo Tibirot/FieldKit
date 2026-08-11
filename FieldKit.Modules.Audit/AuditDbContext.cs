@@ -64,11 +64,27 @@ public sealed class AuditDbContext(DbContextOptions<AuditDbContext> options, ITe
                 .HasPrincipalKey(a => new { a.TenantId, a.Id })
                 .OnDelete(DeleteBehavior.Cascade);
 
+            audit.HasMany(a => a.Answers)
+                .WithOne()
+                .HasForeignKey(entry => new { entry.TenantId, entry.AuditId })
+                .HasPrincipalKey(a => new { a.TenantId, a.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+
+            audit.HasMany(a => a.Photos)
+                .WithOne()
+                .HasForeignKey(entry => new { entry.TenantId, entry.AuditId })
+                .HasPrincipalKey(a => new { a.TenantId, a.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+
             audit.Navigation(a => a.Availability).HasField("_availability")
                 .UsePropertyAccessMode(PropertyAccessMode.Field);
             audit.Navigation(a => a.Facings).HasField("_facings")
                 .UsePropertyAccessMode(PropertyAccessMode.Field);
             audit.Navigation(a => a.Prices).HasField("_prices")
+                .UsePropertyAccessMode(PropertyAccessMode.Field);
+            audit.Navigation(a => a.Answers).HasField("_answers")
+                .UsePropertyAccessMode(PropertyAccessMode.Field);
+            audit.Navigation(a => a.Photos).HasField("_photos")
                 .UsePropertyAccessMode(PropertyAccessMode.Field);
 
             audit.ToTable("audit", table => table.HasCheckConstraint(
@@ -125,6 +141,47 @@ public sealed class AuditDbContext(DbContextOptions<AuditDbContext> options, ITe
                 // storing it would produce a compliance delta with a sign nobody can explain.
                 "ck_audit_price_amounts",
                 @"""ObservedMinorUnits"" >= 0 AND (""ExpectedMinorUnits"" IS NULL OR ""ExpectedMinorUnits"" >= 0)"));
+        });
+
+        modelBuilder.Entity<SurveyAnswerEntry>(entry =>
+        {
+            entry.HasKey(e => e.Id);
+
+            entry.Property(e => e.QuestionKey)
+                .HasMaxLength(SurveyAnswerEntry.MaximumKeyLength).IsRequired();
+            entry.Property(e => e.QuestionText)
+                .HasMaxLength(SurveyAnswerEntry.MaximumTextLength).IsRequired();
+            entry.Property(e => e.Value)
+                .HasMaxLength(SurveyAnswerEntry.MaximumValueLength).IsRequired();
+
+            // One answer per question, and the sequence the rep was asked in. Both unique for the
+            // same reason: the key is what an answer is filed under, and two under one key is two
+            // answers with one name.
+            entry.HasIndex(e => new { e.TenantId, e.AuditId, e.QuestionKey }).IsUnique();
+            entry.HasIndex(e => new { e.TenantId, e.AuditId, e.Order }).IsUnique();
+
+            entry.ToTable("audit_survey_answer", table => table.HasCheckConstraint(
+                "ck_audit_survey_answer_order", @"""Order"" >= 1"));
+        });
+
+        modelBuilder.Entity<PhotoEntry>(entry =>
+        {
+            entry.HasKey(e => e.Id);
+
+            // By name, never as an ordinal — a section inserted in the middle of the enum would
+            // silently re-file every stored photo.
+            entry.Property(e => e.Section).HasConversion<string>().HasMaxLength(20).IsRequired();
+
+            entry.Property(e => e.ObjectKey)
+                .HasMaxLength(PhotoEntry.MaximumObjectKeyLength).IsRequired();
+
+            // One reference per object within an audit. The same image under two sections would be
+            // one photo counted twice, with no way to say which the rep meant. Deliberately scoped to
+            // the audit rather than the tenant: nothing stops two audits referencing one object, and
+            // a tenant-wide constraint would be a rule about object storage this schema cannot keep.
+            entry.HasIndex(e => new { e.TenantId, e.AuditId, e.ObjectKey }).IsUnique();
+
+            entry.ToTable("audit_photo");
         });
     }
 }

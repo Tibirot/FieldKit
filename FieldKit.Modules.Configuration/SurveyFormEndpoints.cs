@@ -152,8 +152,13 @@ internal static class SurveyFormEndpoints
              * The same call the custom-field catalogue makes: the answers live in another module's
              * rows and Configuration may not read them (ADR-0005), so this cannot be refused on their
              * behalf even if it wanted to be. It stops the form being asked; it is not a redaction.
-             * Nothing points at a form yet, which is what makes this safe today — slice 3 decides how
-             * an audit names one, and refusing to delete a form in use is that slice's rule to add.
+             *
+             * This comment used to say "refusing to delete a form in use is slice 3's rule to add".
+             * That was wrong, and the boundary is why: W10 slice 3b now has audits pointing at a form
+             * by id, and Configuration still cannot see them. A synchronous "is this in use" check
+             * would mean reading Audit's schema; the honest alternative is an integration event, and
+             * no requirement asks for one. What an audit does instead is carry each question's text
+             * as it was asked, so its answers stay readable after the form is gone.
              */
             db.SurveyForms.Remove(form);
             await db.SaveChangesAsync(ct);

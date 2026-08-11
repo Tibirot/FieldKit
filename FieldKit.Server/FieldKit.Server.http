@@ -3750,6 +3750,22 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
 GET {{Server_HostAddress}}/api/outlets/{{outlet.response.body.id}}/audits?limit=5
 Authorization: Bearer {{adminToken.response.body.access_token}}
 
+### The response also carries `surveyFormId`, `answers` and `photos` (W10 slice 3b).
+###
+### **Every answer carries the question as it was asked**, not just its key. The form can be
+### re-worded — or the question dropped — between the rep answering and the push arriving, and a key
+### alone would be an answer nobody can read. Which is also why `BR-AUD-7`'s "mandatory questions
+### must be answered" is enforced on the *device*: re-checking it here would refuse an audit for a
+### question that did not exist when the rep worked the shelf.
+###
+### **Every `objectKey` in `photos` points at nothing today.** Photos are downscaled on the device
+### and uploaded to object storage separately, on reconnect, through presigned URLs (`B5`) — and that
+### upload path is W11 (`OFF-08`). Even once it exists the JSON push regularly wins the race, so a
+### client must render a gap rather than an error. This is the request that would otherwise look like
+### a bug to whoever finds it first.
+GET {{Server_HostAddress}}/api/visits/{{visit.response.body.visit.id}}/audit
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
 ###
 
 ### ── Sync · device registry (OFF-12) ───────────────────────────────────────

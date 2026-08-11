@@ -110,6 +110,106 @@ public sealed class PriceEntry : ITenantOwned
     };
 }
 
+/// <summary>One survey answer, with the question as it was asked (<c>AUD-04</c>).</summary>
+public sealed class SurveyAnswerEntry : ITenantOwned
+{
+    /// <summary>The column width for a question key — <c>SurveyQuestion.MaximumKeyLength</c>.</summary>
+    /// <remarks>
+    /// The number rather than a reference to Configuration's constant: this module may not see
+    /// Configuration's implementation (AT-1), and the contracts assembly does not export column
+    /// widths. A widening there is a migration here, which is the honest cost of the boundary.
+    /// </remarks>
+    public const int MaximumKeyLength = 60;
+
+    /// <summary>The column width for the question text, as <c>SurveyQuestion</c> stores it.</summary>
+    public const int MaximumTextLength = 300;
+
+    /// <summary>
+    /// The column width for an answer.
+    /// </summary>
+    /// <remarks>
+    /// Generous, because a multi-choice answer is its options joined and a text question is whatever
+    /// the rep typed standing in a shop. Bounded all the same: an unbounded column is a column
+    /// somebody eventually pastes a document into.
+    /// </remarks>
+    public const int MaximumValueLength = 2000;
+
+    public Guid Id { get; private set; }
+
+    public Guid AuditId { get; private set; }
+
+    /// <summary>Where it sat in the form. Contiguous from 1, assigned rather than accepted.</summary>
+    public int Order { get; private set; }
+
+    /// <summary>What the answer is filed under — see <c>SurveyQuestion.Key</c> for why not an id.</summary>
+    public string QuestionKey { get; private set; } = null!;
+
+    /// <summary>
+    /// The question as it was asked, copied rather than referenced.
+    /// </summary>
+    /// <remarks>
+    /// A form can be re-worded or a question dropped between the rep answering and the push arriving,
+    /// and a key alone would then be an answer nobody can read. The same copy a visit makes of its
+    /// workflow step (<c>BR-VIS-6</c>).
+    /// </remarks>
+    public string QuestionText { get; private set; } = null!;
+
+    /// <summary>What the rep answered, as text whatever the question's type was.</summary>
+    public string Value { get; private set; } = null!;
+
+    public TenantId TenantId { get; set; }
+
+    private SurveyAnswerEntry() { } // EF
+
+    internal static SurveyAnswerEntry Create(
+        Guid auditId, int order, string key, string text, string value) => new()
+    {
+        Id = Guid.CreateVersion7(),
+        AuditId = auditId,
+        Order = order,
+        QuestionKey = key.Trim(),
+        QuestionText = text.Trim(),
+        Value = value.Trim(),
+    };
+}
+
+/// <summary>A photo the rep took, as a reference to an object that may not exist yet (<c>AUD-05</c>).</summary>
+public sealed class PhotoEntry : ITenantOwned
+{
+    /// <summary>The column width for an object key.</summary>
+    public const int MaximumObjectKeyLength = 512;
+
+    public Guid Id { get; private set; }
+
+    public Guid AuditId { get; private set; }
+
+    public AuditSection Section { get; private set; }
+
+    /// <summary>
+    /// Where the image is in object storage — or will be.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nothing is behind this yet.</b> The upload path is W11 (<c>OFF-08</c>), so every reference
+    /// stored today points at an object that does not exist. That is worth saying out loud, because
+    /// a dangling reference looks like a bug to whoever finds it first — and because it will keep
+    /// looking like one afterwards, by design: the JSON push and the image upload are independent and
+    /// the push regularly wins (<c>B5</c>).
+    /// </remarks>
+    public string ObjectKey { get; private set; } = null!;
+
+    public TenantId TenantId { get; set; }
+
+    private PhotoEntry() { } // EF
+
+    internal static PhotoEntry Create(Guid auditId, AuditSection section, string objectKey) => new()
+    {
+        Id = Guid.CreateVersion7(),
+        AuditId = auditId,
+        Section = section,
+        ObjectKey = objectKey.Trim(),
+    };
+}
+
 /// <summary>Why an audit was refused. <see cref="None"/> means it was not.</summary>
 public enum AuditRefusal
 {
@@ -126,6 +226,12 @@ public enum AuditRefusal
 
     /// <summary>Prices in more than one currency, or a code that is not three letters.</summary>
     CurrencyMismatch,
+
+    /// <summary>Two answers under one question key, or answers with no form named (<c>AUD-04</c>).</summary>
+    MalformedAnswers,
+
+    /// <summary>A photo with no object key, or two references to one object (<c>AUD-05</c>).</summary>
+    MalformedPhotos,
 }
 
 /// <summary>
@@ -163,6 +269,8 @@ public sealed class Audit : AggregateRoot, ITenantOwned, IAuditable
     private readonly List<AvailabilityEntry> _availability = [];
     private readonly List<FacingsEntry> _facings = [];
     private readonly List<PriceEntry> _prices = [];
+    private readonly List<SurveyAnswerEntry> _answers = [];
+    private readonly List<PhotoEntry> _photos = [];
 
     /// <summary>Minted on the device, so a replayed push maps to this audit rather than a second one.</summary>
     public Guid Id { get; private set; }
@@ -208,9 +316,22 @@ public sealed class Audit : AggregateRoot, ITenantOwned, IAuditable
     /// </remarks>
     public int? CategoryFacings { get; private set; }
 
+    /// <summary>
+    /// Which questionnaire the rep worked, or null when the audit had no survey step (<c>AUD-04</c>).
+    /// </summary>
+    /// <remarks>
+    /// A bare id — the form lives in Configuration's schema (AT-1) — and the one thing this module
+    /// <i>does</i> ask Configuration about on the way in, because an answer set naming no form is
+    /// uninterpretable. What it does not ask is whether the answers satisfy the form: see
+    /// <c>IAuditIngest</c> on why <c>BR-AUD-7</c> is a device rule.
+    /// </remarks>
+    public Guid? SurveyFormId { get; private set; }
+
     public IReadOnlyList<AvailabilityEntry> Availability => _availability;
     public IReadOnlyList<FacingsEntry> Facings => _facings;
     public IReadOnlyList<PriceEntry> Prices => _prices;
+    public IReadOnlyList<SurveyAnswerEntry> Answers => _answers;
+    public IReadOnlyList<PhotoEntry> Photos => _photos;
 
     public TenantId TenantId { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
@@ -253,6 +374,7 @@ public sealed class Audit : AggregateRoot, ITenantOwned, IAuditable
             CapturedAtUtc = captured.CapturedAtUtc,
             WeightSetVersion = captured.WeightSetVersion,
             CategoryFacings = captured.CategoryFacings,
+            SurveyFormId = captured.SurveyFormId,
         };
 
         audit._availability.AddRange(captured.Availability.Select(
@@ -264,6 +386,21 @@ public sealed class Audit : AggregateRoot, ITenantOwned, IAuditable
         audit._prices.AddRange(captured.Prices.Select(entry => PriceEntry.Create(
             audit.Id, entry.ProductId, entry.ObservedMinorUnits, entry.ExpectedMinorUnits,
             entry.Currency)));
+
+        // Numbered from 1 in the order they arrived, which is the order the rep was asked them — the
+        // same call `SurveyForm` makes about its questions, for the same reason: a caller sending its
+        // own numbers could send a gap or a tie, and every reader would have to decide what that
+        // means.
+        var order = 1;
+
+        foreach (var answer in AnswersOf(captured))
+        {
+            audit._answers.Add(SurveyAnswerEntry.Create(
+                audit.Id, order++, answer.QuestionKey, answer.QuestionText, answer.Value));
+        }
+
+        audit._photos.AddRange(PhotosOf(captured).Select(
+            photo => PhotoEntry.Create(audit.Id, photo.Section, photo.ObjectKey)));
 
         return (audit, AuditRefusal.None);
     }
@@ -279,12 +416,21 @@ public sealed class Audit : AggregateRoot, ITenantOwned, IAuditable
     /// </remarks>
     private static AuditRefusal Check(CapturedAudit captured)
     {
+        /*
+         * An audit step the rep opened and closed without recording anything is a step they did not
+         * do. Storing it would put a scoreless audit into every trend line.
+         *
+         * Answers and photos count. An audit that is only a questionnaire, or only a photograph of a
+         * display, is real work — `AUD-05` calls photo evidence a section of its own, and refusing an
+         * audit for having no *numbers* would throw away the one thing the rep could record in a shop
+         * that would not let them count the shelf.
+         */
         if (captured.Availability.Count == 0
             && captured.Facings.Count == 0
-            && captured.Prices.Count == 0)
+            && captured.Prices.Count == 0
+            && AnswersOf(captured).Count == 0
+            && PhotosOf(captured).Count == 0)
         {
-            // An audit step the rep opened and closed without measuring anything is a step they did
-            // not do. Storing it would put a scoreless audit into every trend line.
             return AuditRefusal.Empty;
         }
 
@@ -321,8 +467,80 @@ public sealed class Audit : AggregateRoot, ITenantOwned, IAuditable
             return AuditRefusal.CurrencyMismatch;
         }
 
-        return AuditRefusal.None;
+        return AnswerProblem(captured) is var answers && answers is not AuditRefusal.None
+            ? answers
+            : PhotoProblem(captured);
     }
+
+    /// <summary>
+    /// What is refused about a set of answers — which is deliberately not much (<c>AUD-04</c>).
+    /// </summary>
+    /// <remarks>
+    /// <b>Nothing here checks the answers against the form.</b> Not that every mandatory question was
+    /// answered (<c>BR-AUD-7</c> is a device rule — see <c>IAuditIngest</c>), and not that each key
+    /// belongs to the questionnaire. Both would test the rep's work against the form as it reads
+    /// <i>today</i>, and a form re-worded after they answered would then refuse an audit for a
+    /// question that no longer exists. The answers carry their own question text precisely so that
+    /// they never need the form to be readable.
+    /// </remarks>
+    private static AuditRefusal AnswerProblem(CapturedAudit captured)
+    {
+        var answers = AnswersOf(captured);
+
+        if (answers.Count == 0) return AuditRefusal.None;
+
+        // Answers with no form named. Not fatal to the *answers* — they carry their own text — but a
+        // reader has no way to tell what was being asked overall, and `AUD-09` would have a set of
+        // responses belonging to no questionnaire. A device that answered a form knows which one.
+        if (captured.SurveyFormId is null) return AuditRefusal.MalformedAnswers;
+
+        if (answers.Any(answer =>
+                string.IsNullOrWhiteSpace(answer.QuestionKey)
+                || string.IsNullOrWhiteSpace(answer.QuestionText)))
+        {
+            return AuditRefusal.MalformedAnswers;
+        }
+
+        // One answer per question. Two under one key is two answers filed under one name, which is
+        // the failure the key exists to prevent — and the reason `SurveyForm` refuses duplicate keys
+        // at the other end.
+        var keys = answers.Select(answer => answer.QuestionKey.Trim()).ToList();
+
+        return keys.Distinct(StringComparer.Ordinal).Count() == keys.Count
+            ? AuditRefusal.None
+            : AuditRefusal.MalformedAnswers;
+    }
+
+    /// <summary>What is refused about a set of photo references (<c>AUD-05</c>).</summary>
+    /// <remarks>
+    /// Only what makes the reference useless: no key to fetch by, or two references to one object.
+    /// Whether the object <i>exists</i> is not checked and cannot be — the upload is separate from
+    /// this push and usually later (<c>B5</c>).
+    /// </remarks>
+    private static AuditRefusal PhotoProblem(CapturedAudit captured)
+    {
+        var photos = PhotosOf(captured);
+
+        if (photos.Any(photo => string.IsNullOrWhiteSpace(photo.ObjectKey)))
+        {
+            return AuditRefusal.MalformedPhotos;
+        }
+
+        var keys = photos.Select(photo => photo.ObjectKey.Trim()).ToList();
+
+        // Two references to one object is one photo counted twice — the same image would appear
+        // under two sections with no way to say which the rep meant.
+        return keys.Distinct(StringComparer.Ordinal).Count() == keys.Count
+            ? AuditRefusal.None
+            : AuditRefusal.MalformedPhotos;
+    }
+
+    /// <summary>The answers, treating null as none — the wire omits the property when there are none.</summary>
+    private static IReadOnlyList<CapturedAnswer> AnswersOf(CapturedAudit captured) =>
+        captured.Answers ?? [];
+
+    private static IReadOnlyList<CapturedPhoto> PhotosOf(CapturedAudit captured) =>
+        captured.Photos ?? [];
 
     private static bool HasDuplicate(IEnumerable<Guid> productIds)
     {
@@ -343,5 +561,11 @@ public sealed class Audit : AggregateRoot, ITenantOwned, IAuditable
         [.. _availability.Select(entry => new AvailabilityLine(entry.ProductId, entry.Status))],
         [.. _facings.Select(entry => new FacingsLine(entry.ProductId, entry.Facings))],
         [.. _prices.Select(entry => new PriceLine(
-            entry.ProductId, entry.ObservedMinorUnits, entry.ExpectedMinorUnits, entry.Currency))]);
+            entry.ProductId, entry.ObservedMinorUnits, entry.ExpectedMinorUnits, entry.Currency))],
+        SurveyFormId,
+        [.. _answers
+            .OrderBy(entry => entry.Order)
+            .Select(entry => new AnswerLine(
+                entry.Order, entry.QuestionKey, entry.QuestionText, entry.Value))],
+        [.. _photos.Select(entry => new PhotoLine(entry.Section, entry.ObjectKey))]);
 }

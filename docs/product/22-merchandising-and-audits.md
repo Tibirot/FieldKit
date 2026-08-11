@@ -195,6 +195,33 @@ product plus the category total, and observed-against-expected prices. Consequen
 - **Reading an audit is `visit:read`**, not a permission of its own. An audit *is* what happened
   during a visit.
 
+Survey answers and photo references land in **W10 slice 3b**, on the same aggregate:
+
+- **An answer carries the question as it was asked**, not just its key. A form can be re-worded — or
+  a question dropped — between the rep answering and the push arriving, and a key alone would then be
+  an answer nobody can read. The same copy a visit makes of its workflow step (`BR-VIS-6`).
+- **`BR-AUD-7` is enforced on the device, not on arrival.** "Mandatory questions must be answered
+  before the audit step completes" is a rule about *completing a step*, which happens with the rep
+  looking at the form. Re-checking it server-side would test the answers against the questionnaire as
+  it reads **today** — refusing an audit for a question that gained its mandatory flag after the rep
+  worked the shelf. The same as-of-capture reasoning that keeps this module from re-resolving the MSL.
+- **The one thing Audit asks Configuration is whether the named form exists.** An answer set naming no
+  questionnaire is uninterpretable — `AUD-09` would hold responses belonging to nothing. What is not
+  asked is whether the answers *satisfy* the form.
+- **An answer's value is a string** whatever the question's type was. The alternative is five nullable
+  columns of which four are always null, and a sixth the day a type is added; the type lives on the
+  question, where a reader that cares can find it. An **empty** value is a real answer — "nothing to
+  add" is a finding — so only the question has to be present.
+- **A photo is a reference and nothing checks the object.** Images are downscaled on-device and
+  uploaded separately on reconnect (`B5`); the JSON push regularly wins that race, and the upload path
+  itself is W11 (`OFF-08`) — so every key stored today points at nothing. A reader shows a gap, never
+  an error. What *is* refused is a reference with no key, or one object referenced twice in an audit.
+- **An audit that is only a questionnaire, or only a photograph, is a real audit.** A shop that will
+  not let a rep count the shelf still lets them answer questions and take a picture.
+- **`AuditSection` is deliberately not `ScorePillar`.** The first three members read alike and then
+  the lists diverge: `Survey` and `General` are things a rep points a camera at and nothing weighs.
+  Sharing one enum would make adding a scored pillar silently change where photos can be filed.
+
 ## 7. Offline behavior
 
 Audits run **fully offline** inside a visit. Templates, MSL, and expected prices are synced
