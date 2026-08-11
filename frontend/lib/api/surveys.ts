@@ -1,4 +1,4 @@
-import { apiGet, apiSend } from "@/lib/api/client";
+import { apiDelete, apiGet, apiSend } from "@/lib/api/client";
 
 /**
  * What kind of answer a survey question takes (`AUD-04`).
@@ -94,6 +94,22 @@ export function setSurvey(
   questions: SurveyQuestionWrite[],
 ): Promise<SurveyForm> {
   return apiSend<SurveyForm>("PUT", `${SURVEYS}/${formId}`, accessToken, { name, questions });
+}
+
+/**
+ * Stops a form being asked. It is **not** a redaction, and it is not a loss either.
+ *
+ * Two things this deliberately does not do, for the same reason: Configuration owns neither of them
+ * (ADR-0005). It cannot refuse the delete because an audit points at the form — that would mean
+ * reading Audit's schema — and it cannot remove the answers already given, which stay in Audit's
+ * rows and stay **readable**, because each one carries its question's text as it was asked.
+ *
+ * That last part is the difference from deleting a custom field, where the values are undescribed
+ * from that moment and vanish the next time their row is saved. Here nothing is lost; the form
+ * simply stops being handed out.
+ */
+export function deleteSurvey(accessToken: string, formId: string): Promise<void> {
+  return apiDelete(`${SURVEYS}/${formId}`, accessToken);
 }
 
 /**

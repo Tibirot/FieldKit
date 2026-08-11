@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
+import { ConfigurationActions } from "@/components/back-office/configuration-actions";
 import { SurveyEditor } from "@/components/back-office/survey-editor";
 import { resolveLocale } from "@/i18n/locale";
 
@@ -28,6 +29,7 @@ export default async function NewSurveyPage({
         <h1 className="text-lg font-semibold tracking-tight">{t("newTitle")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t("intro")}</p>
       </header>
+      <ConfigurationActions />
       <SurveyEditor formId={null} />
     </div>
   );

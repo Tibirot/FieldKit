@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { LANDING, NAVIGATION } from "@/components/back-office/navigation";
+import { coversPath, LANDING, NAVIGATION } from "@/components/back-office/navigation";
 import { routing } from "@/i18n/routing";
 
 /**
@@ -60,5 +60,52 @@ describe("back-office navigation", () => {
 
   it("gives every item a distinct key, since the key is also the icon and the message", () => {
     expect(new Set(items.map((item) => item.key)).size).toBe(items.length);
+  });
+
+  it("stays lit on every screen of a section it points into", () => {
+    /*
+     * The bug `section` exists for, and it was live before this: `Journeys` points at frequencies
+     * and `Configuration` at the weights, because a nav item should go somewhere real — so standing
+     * on the working calendar or on a survey, "does the path start with the href" said no and the
+     * section went dark. A user reading the sidebar to answer "where am I" got no answer.
+     */
+    const journeys = items.find((item) => item.key === "journeys")!;
+    const configuration = items.find((item) => item.key === "configuration")!;
+
+    expect(coversPath(journeys, "/journeys/frequencies")).toBe(true);
+    expect(coversPath(journeys, "/journeys/calendars")).toBe(true);
+    expect(coversPath(journeys, "/journeys")).toBe(true);
+
+    expect(coversPath(configuration, "/configuration/score-weights")).toBe(true);
+    expect(coversPath(configuration, "/configuration/surveys")).toBe(true);
+    expect(coversPath(configuration, "/configuration/surveys/019ff1e1-cdfc-71e6")).toBe(true);
+  });
+
+  it("does not light a section up for a route that merely starts with its name", () => {
+    // Why the match is on a segment boundary rather than a bare prefix. No such route exists today,
+    // which is exactly when this is cheap to get right.
+    const journeys = items.find((item) => item.key === "journeys")!;
+
+    expect(coversPath(journeys, "/journeys-archive")).toBe(false);
+    expect(coversPath(journeys, "/journeysomething/frequencies")).toBe(false);
+  });
+
+  it("leaves an unbuilt item unlit wherever you stand", () => {
+    // A scheduled item has no route, so nothing can be inside it. Without the guard the section
+    // would fall back to an undefined href and throw on the template literal.
+    const scheduled = items.find((item) => item.soon !== undefined)!;
+
+    expect(coversPath(scheduled, "/outlets")).toBe(false);
+    expect(coversPath(scheduled, "/")).toBe(false);
+  });
+
+  it("keeps every section a real prefix of the href that points into it", () => {
+    // Otherwise the item highlights on screens it cannot reach and stays dark on the one it opens —
+    // a `section` typo the type system cannot see, because both are strings.
+    for (const item of items) {
+      if (item.href === undefined || item.section === undefined) continue;
+
+      expect(coversPath(item, item.href), `${item.key}: ${item.section} vs ${item.href}`).toBe(true);
+    }
   });
 });

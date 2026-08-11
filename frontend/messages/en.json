@@ -124,6 +124,31 @@
       "PriceCompliance": "Price compliance"
     }
   },
+  "Configuration": {
+    "weights": "Perfect-store weights",
+    "surveys": "Surveys"
+  },
+  "SurveyList": {
+    "crumb": "Configuration / Surveys",
+    "title": "Surveys",
+    "intro": "The questionnaires a rep can be asked to fill in at a shelf. A visit carries one at a time.",
+    "loading": "Loading…",
+    "failed": "That could not be loaded.",
+    "forbidden": "You do not have permission to see surveys.",
+    "empty": "No surveys yet. Until there is one, an audit has no questions to carry.",
+    "newSurvey": "New survey",
+    "questionCount": "{count, plural, one {# question} other {# questions}}",
+    "mandatoryCount": "{count} must be answered",
+    "edit": "Edit",
+    "view": "View",
+    "openNamed": "Open {name}",
+    "delete": "Delete",
+    "deleteNamed": "Delete {name}",
+    "deleteWarning": "This stops the survey being asked. Answers already given stay where they are and stay readable — each one carries the question as it was worded at the time.",
+    "confirmDelete": "Delete it",
+    "deleteFailed": "That could not be deleted.",
+    "cancel": "Cancel"
+  },
   "Surveys": {
     "crumb": "Configuration / Surveys",
     "newTitle": "New survey",
