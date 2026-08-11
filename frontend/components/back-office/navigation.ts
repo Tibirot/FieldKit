@@ -25,6 +25,7 @@ export type NavKey =
   | "outlets"
   | "products"
   | "territories"
+  | "configuration"
   | "users";
 
 /** Which week ships an unbuilt screen. Keys into `Nav.soon`, so the badge translates. */
@@ -82,7 +83,13 @@ export const NAVIGATION: readonly NavGroup[] = [
   },
   {
     key: "admin",
-    items: [{ key: "users", href: "/users", permissions: ["user:read", "role:read"] }],
+    items: [
+      // Points at the weights rather than a section index, for the reason `journeys` points at
+      // frequencies: a nav item should go somewhere real, and this is the first screen of the
+      // wireframe's "visit-workflow / audit builder" to exist (W10 slice 8).
+      { key: "configuration", href: "/configuration/score-weights", permissions: ["config:read"] },
+      { key: "users", href: "/users", permissions: ["user:read", "role:read"] },
+    ],
   },
 ];
 

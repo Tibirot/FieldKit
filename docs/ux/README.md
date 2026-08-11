@@ -58,7 +58,7 @@ the build, without pretending to be final visual design.
 | Territories | `ORG-03` `ORG-04` `ORG-05` `A4` | Territory list, single active rep, channel mix; drives offline scope |
 | Journey planning | `JRN-01` `JRN-02` `JRN-03` `JRN-04` | Week grid generated from frequency + capacity; frequency compliance. **Built as three screens** (W7 slice 10a/b/c): what a supervisor *sets* — frequency, then the working calendar — before what the system *produces*. The wireframe draws only the third, because that is the one worth drawing; the two inputs have no picture and are most of the decisions. The grid groups by **day present in the window** rather than a fixed Mon–Fri week, so a three-week plan does not invent empty columns and a worked Saturday is not cropped |
 | Users & roles | `IAM-03` `IAM-04` `IAM-05` `IAM-07` | Users, permission-bundle roles, one active device per rep |
-| Visit-workflow / audit builder | `A1` `ADR-0009` `VIS-03` `AUD-04` `AUD-06` `AUD-07` | The config-driven story: per-channel steps, perfect-store weights, survey forms |
+| Visit-workflow / audit builder | `A1` `ADR-0009` `VIS-03` `AUD-04` `AUD-06` `AUD-07` | The config-driven story: per-channel steps, perfect-store weights, survey forms. **The weights half is built** (W10 slice 8) as its own screen under a **Configuration** nav item the drawing does not have — see the note below |
 
 ## Not yet wireframed
 
@@ -120,6 +120,16 @@ Three decisions taken with it:
   `ITerritoryDirectory` — Organization's contract for the fact it owns — which lands with the outlets
   screen as its first consumer. `BR-OUT-1` already says an outlet *has* a primary territory, so this
   completes Outlets' own model rather than borrowing someone else's.
+
+**The nav has one item the wireframes do not draw: Configuration.** The builder screen is drawn with
+`Visits & audits` selected and a `Configuration / Visit workflow` breadcrumb above it — a section
+title with no sidebar entry. That works in a drawing and not in a running app: `Visits & audits` is a
+**W9** destination and renders disabled until then, so the first built piece of the builder
+([perfect-store weights](../product/14-configuration.md#64-perfect-store-weights), W10 slice 8) would
+have sat behind a dead item with no way to reach it. Admin gains a **Configuration** item instead,
+using the breadcrumb's own word, pointing at the weights the way `Journeys` points at frequencies —
+a nav item goes somewhere real. When W9 builds `Visits & audits`, the two live side by side: one is
+where a supervisor reads what happened, the other is where an administrator decides what will.
 
 ## Source
 

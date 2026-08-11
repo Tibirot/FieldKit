@@ -79,6 +79,7 @@
       "outlets": "Puncte de vânzare",
       "products": "Produse și prețuri",
       "territories": "Teritorii",
+      "configuration": "Configurare",
       "users": "Utilizatori și roluri"
     },
     "soon": {
@@ -92,6 +93,36 @@
   },
   "BackOffice": {
     "signOut": "Deconectare"
+  },
+  "ScoreWeights": {
+    "crumb": "Configurare / Magazin perfect",
+    "title": "Ponderile magazinului perfect",
+    "intro": "Cât valorează fiecare pilon. Publicarea unei versiuni o îngheață — auditurile evaluate cu ea rămân legate de aceste numere, deci o reponderare înseamnă o versiune nouă, nu o modificare.",
+    "loading": "Se încarcă…",
+    "failed": "Nu s-a putut încărca.",
+    "forbidden": "Nu aveți permisiunea de a vedea ponderile.",
+    "empty": "Nicio ponderare încă. Până când una este publicată, un audit nu are cu ce să fie evaluat.",
+    "newVersion": "Versiune nouă",
+    "draftingNew": "Versiune nouă",
+    "editing": "Se editează versiunea {version}",
+    "version": "Versiunea {version}",
+    "draft": "Ciornă",
+    "published": "Publicată",
+    "total": "Total {total}%.",
+    "over": "Cu {amount} peste — trebuie să fie exact 100.",
+    "under": "Lipsesc {amount} — trebuie să fie exact 100.",
+    "save": "Salvează",
+    "cancel": "Renunță",
+    "edit": "Editează",
+    "copyToNew": "Pornește o versiune nouă de aici",
+    "publish": "Publică",
+    "publishWarning": "Publicarea nu poate fi anulată.",
+    "publishConfirm": "Publică",
+    "pillars": {
+      "Availability": "Disponibilitate",
+      "ShareOfShelf": "Cotă de raft",
+      "PriceCompliance": "Conformitate preț"
+    }
   },
   "Outlets": {
     "crumb": "Date de bază / Puncte de vânzare",
@@ -821,6 +852,15 @@
     "unsaved": "Modificări nesalvate."
   },
   "Refusals": {
+    "config": {
+      "weights": {
+        "doesNotSumToOneHundred": "Ponderile trebuie să însumeze exact 100%.",
+        "duplicatePillar": "Fiecare pilon poate fi ponderat o singură dată.",
+        "outOfRange": "O pondere este un procent între 0 și 100.",
+        "empty": "Ponderați cel puțin un pilon. Un scor din nimic nu este un scor.",
+        "alreadyPublished": "Acea versiune este publicată. Publicarea este ireversibilă — porniți o versiune nouă pentru a schimba ponderile."
+      }
+    },
     "product": {
       "assortment": {
         "channelMissing": "Acel canal nu există.",

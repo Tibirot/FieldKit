@@ -198,8 +198,28 @@ Consequences worth stating:
 - **Nothing is ever deleted, and versions never restart.** The next version is `Max + 1`, not
   `Count + 1`: sealed audits name a number, and re-using one would re-point them.
 
-`IScoreWeights` is **not** part of this slice. Its first caller is the scorer, and an interface with
-no caller is a guess about a shape — the same rule that kept the Journey contracts waiting for theirs.
+`IScoreWeights` was **not** part of the endpoint slice: its first caller is the scorer, and an
+interface with no caller is a guess about a shape — the same rule that kept the Journey contracts
+waiting for theirs. It landed with that caller and is now in [§8](#8-module-contract-exposed-to-others).
+
+**The screen** (`AUD-07`, W10 slice 8) is `/configuration/score-weights`, and its job is making the
+one-way publish legible rather than merely enforced:
+
+- **A published version has no edit control** — not a disabled one. Beside it is *start a new version
+  from this*, pre-filled with its numbers, because an administrator re-weighting is usually adjusting
+  one pillar and retyping the other two is how a typo enters a published set. The rule is shown as
+  the thing to do next instead of as a warning about the thing that will fail.
+- **Every version stays listed, newest first.** Sealed audits name one forever, so hiding the old
+  ones would hide the only way to read a historical score.
+- **A running total, always shown.** "Exactly 100, no tolerance" is a rule an administrator otherwise
+  learns by being refused. The total is summed in **integer hundredths, each weight rounded before it
+  is added** — the column is `numeric(5,2)`, so the screen totals what will be *stored*: `33.335 × 3`
+  is `100.02` in the row and `100.005` in the boxes. Rounding once at the end would agree with the
+  typing and disagree with the database, and summing in float64 would refuse sets the server accepts
+  (`0.01 + 64.04 + 35.95` is `100.00000000000001` there).
+- **A reader sees no controls at all**, per the [UX note](../ux/README.md#what-week-5-actually-builds)
+  on hidden-versus-disabled. It is reached from an Admin **Configuration** nav item that the
+  wireframes do not draw — the reasoning is in that same note.
 
 ## 7. Offline behavior
 

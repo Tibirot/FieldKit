@@ -79,6 +79,7 @@
       "outlets": "Outlets",
       "products": "Products & pricing",
       "territories": "Territories",
+      "configuration": "Configuration",
       "users": "Users & roles"
     },
     "soon": {
@@ -92,6 +93,36 @@
   },
   "BackOffice": {
     "signOut": "Sign out"
+  },
+  "ScoreWeights": {
+    "crumb": "Configuration / Perfect store",
+    "title": "Perfect-store weights",
+    "intro": "What each pillar is worth. Publishing a version freezes it — audits scored against it keep pointing at these numbers, so re-weighting means a new version rather than an edit.",
+    "loading": "Loading…",
+    "failed": "That could not be loaded.",
+    "forbidden": "You do not have permission to see the weighting.",
+    "empty": "No weighting yet. Until one is published, an audit has nothing to score against.",
+    "newVersion": "New version",
+    "draftingNew": "New version",
+    "editing": "Editing version {version}",
+    "version": "Version {version}",
+    "draft": "Draft",
+    "published": "Published",
+    "total": "Total {total}%.",
+    "over": "That is {amount} over — it has to be exactly 100.",
+    "under": "That is {amount} short — it has to be exactly 100.",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "copyToNew": "Start a new version from this",
+    "publish": "Publish",
+    "publishWarning": "Publishing cannot be undone.",
+    "publishConfirm": "Publish it",
+    "pillars": {
+      "Availability": "Availability",
+      "ShareOfShelf": "Share of shelf",
+      "PriceCompliance": "Price compliance"
+    }
   },
   "Outlets": {
     "crumb": "Master data / Outlets",
@@ -821,6 +852,15 @@
     "unsaved": "Unsaved changes."
   },
   "Refusals": {
+    "config": {
+      "weights": {
+        "doesNotSumToOneHundred": "The weights have to add up to exactly 100%.",
+        "duplicatePillar": "Each pillar can be weighted once.",
+        "outOfRange": "A weight is a percentage between 0 and 100.",
+        "empty": "Weight at least one pillar. A score of nothing is not a score.",
+        "alreadyPublished": "That version is published. Publishing is one-way — start a new version to change the weights."
+      }
+    },
     "product": {
       "assortment": {
         "channelMissing": "That channel does not exist.",
