@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using FieldKit.Modules.Iam;
 using FieldKit.Modules.Journey;
@@ -359,6 +360,53 @@ public class SyncPushJourneyTests(ServerFixture fixture)
         var result = Assert.Single(push.Results);
         Assert.Equal("rejected", result.Status);
         Assert.Equal("sync.push.payloadMissing", result.Reason);
+    }
+
+    [Fact]
+    public async Task A_mutation_carrying_only_its_own_payload_binds()
+    {
+        /*
+         * Posted as **raw JSON** rather than as a serialised `PushedMutation`, and that is the whole
+         * point of the test.
+         *
+         * Every other test here constructs the record, so the serialiser writes `"visit": null`
+         * alongside the payload — and they all passed while the live client got a 400 on every push.
+         * A real device omits the properties it is not using. `Visit` had no default, which makes it
+         * a *required* constructor argument to System.Text.Json, so the batch failed to bind before
+         * any of this file's logic ran.
+         *
+         * Worse than a refusal: a 400 fails the whole batch and the device retries it on every
+         * reconnect. The live outbox row had eleven attempts on it when I found this.
+         */
+        using var rep = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+        using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var (_, planId, calls, _) = await RoundAsync(rep, admin);
+        var device = await BindDeviceAsync(rep);
+
+        var json = $$"""
+        {
+          "deviceId": "{{device}}",
+          "mutations": [
+            {
+              "mutationId": "{{Guid.CreateVersion7()}}",
+              "type": "NotVisitedCall",
+              "notVisited": { "plannedVisitId": "{{calls[0]}}", "reason": "Closed on arrival" }
+            }
+          ]
+        }
+        """;
+
+        var response = await rep.PostAsync(
+            "/api/sync/push", new StringContent(json, Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<PushResponse>();
+        Assert.Equal("accepted", Assert.Single(body!.Results).Status);
+
+        var call = await CallAsync(admin, planId, calls[0]);
+        Assert.Equal("NotVisited", call.GetProperty("status").GetString());
     }
 
     [Fact]

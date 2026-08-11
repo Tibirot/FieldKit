@@ -199,10 +199,18 @@ public sealed record PushRequest(Guid DeviceId, IReadOnlyList<PushedMutation> Mu
 /// blob would buy generality this has no second type to spend yet, and cost the schema now.
 /// </remarks>
 /// <param name="MutationId">Minted on the device. The ledger's key, and the whole basis of the retry story.</param>
+/// <remarks>
+/// <b>Every payload slot has a default, including <see cref="Visit"/>, and that is load-bearing.</b>
+/// A positional parameter without one is a *required* constructor argument to
+/// <c>System.Text.Json</c>, so a mutation that carries only <c>notVisited</c> — which is exactly what
+/// a device sends — fails to bind and the whole batch answers 400. Giving `Visit` a default was the
+/// fix; the tests missed it because they serialise a constructed record, which always writes
+/// <c>"visit": null</c>, while a real client omits the property.
+/// </remarks>
 public sealed record PushedMutation(
     Guid MutationId,
     string Type,
-    CapturedVisit? Visit,
+    CapturedVisit? Visit = null,
     NotVisitedCall? NotVisited = null,
     RescheduledCall? Rescheduled = null,
     UnplannedCall? Unplanned = null);

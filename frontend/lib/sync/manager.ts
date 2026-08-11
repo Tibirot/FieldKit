@@ -172,6 +172,31 @@ export async function syncOnce(
   return result;
 }
 
+/**
+ * The property a mutation's payload travels under, decided by its type (W9 slice 9).
+ *
+ * <b>The wire format is a typed property per kind, not a `payload` blob</b>, so `type` alone is not
+ * enough — the server binds `notVisited` into a `NotVisitedCall` and `visit` into a `CapturedVisit`,
+ * and a payload under the wrong name is a **400**, not a refusal. That is worse than it sounds: a
+ * refusal is recorded and stops, while a 400 fails the whole batch and the device retries it every
+ * time it reconnects, forever.
+ *
+ * Which is exactly what happened. Until this slice the outbox had one mutation type, so the manager
+ * hard-coded `visit: entry.payload` and was right by accident. The unit tests mock the API, so
+ * nothing caught it — the live round trip did.
+ *
+ * `visit` is the fallback rather than a throw: an unknown type is the server's to refuse by name
+ * (`sync.push.typeUnsupported`), and a client that dropped the mutation instead would leave work in
+ * the outbox with nothing ever explaining why.
+ */
+function slotOf(type: string): "visit" | "notVisited" | "rescheduled" | "unplanned" {
+  if (type === "NotVisitedCall") return "notVisited";
+  if (type === "RescheduledCall") return "rescheduled";
+  if (type === "UnplannedCall") return "unplanned";
+
+  return "visit";
+}
+
 /** Sends everything queued, in batches, oldest first. */
 async function drain(
   db: FieldKitDatabase,
@@ -187,7 +212,7 @@ async function drain(
     const mutations: PushedMutation[] = batch.map((entry) => ({
       mutationId: entry.mutationId,
       type: entry.type,
-      visit: entry.payload,
+      [slotOf(entry.type)]: entry.payload,
     }));
 
     await markInflight(
