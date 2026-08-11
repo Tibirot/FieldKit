@@ -1,4 +1,5 @@
 using FieldKit.Modules.Configuration;
+using FieldKit.Modules.Configuration.Contracts;
 using FieldKit.SharedKernel;
 
 namespace FieldKit.Server.Tests;

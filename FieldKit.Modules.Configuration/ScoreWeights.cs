@@ -1,30 +1,13 @@
 using FieldKit.BuildingBlocks;
 using FieldKit.Infrastructure;
+using FieldKit.Modules.Configuration.Contracts;
 using FieldKit.SharedKernel;
 
 namespace FieldKit.Modules.Configuration;
 
-/// <summary>
-/// A pillar of the perfect-store score (<c>AUD-06</c>, <c>BR-AUD-4</c>).
-/// </summary>
-/// <remarks>
-/// <b>A closed set, and deliberately not tenant-defined.</b> A tenant chooses how much each pillar
-/// is worth — including nothing — but not what the pillars *are*: each one is computed from data
-/// captured in a particular way, so a pillar nobody wrote a measurement for would be a weight with
-/// no number behind it. `AUD-09`'s trend views also compare pillars across tenants, which a free-text
-/// vocabulary would make meaningless.
-/// </remarks>
-public enum ScorePillar
-{
-    /// <summary>Availability against the outlet's MSL (<c>AUD-01</c>, <c>BR-AUD-1</c>).</summary>
-    Availability = 0,
-
-    /// <summary>Share of shelf, from facings over the captured category total (<c>AUD-02</c>).</summary>
-    ShareOfShelf = 1,
-
-    /// <summary>Observed shelf price against the expected one (<c>AUD-03</c>, <c>BR-AUD-3</c>).</summary>
-    PriceCompliance = 2,
-}
+// `ScorePillar` moved to this module's Contracts assembly in W10 slice 4, when Audit's scorer became
+// its second consumer — a module may reference only another's Contracts (AT-1). The aggregate that
+// stores the weighting stays here; only the vocabulary moved.
 
 /// <summary>What one pillar is worth, as a percentage of the whole score.</summary>
 public sealed class ScoreWeight : ITenantOwned

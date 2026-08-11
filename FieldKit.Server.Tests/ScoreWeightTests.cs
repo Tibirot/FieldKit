@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using FieldKit.Modules.Configuration;
+using FieldKit.Modules.Configuration.Contracts;
 
 namespace FieldKit.Server.Tests;
 
