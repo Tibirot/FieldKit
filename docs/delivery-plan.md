@@ -861,6 +861,66 @@ always record.
 
 **Done when:** the on-device score equals the server's recomputation; workflow/forms are configuration.
 
+#### Decomposition
+
+**The audit is not the hard part; the score is.** Capturing availability, facings and prices is a
+form over an aggregate, and this codebase has built several. What is new is that **the score is the
+first rule that is both cross-language and tenant-configured** — pricing and the geofence are fixed
+rules over tenant data, and a vector file pins them by naming inputs and an answer. Weights are
+themselves data, so a scoring vector has to carry the weights *as input*, and "both engines agree"
+becomes "both engines agree given the same weight set". Everything below is arranged around that.
+
+**Three decisions cannot be added afterwards, and slice 0 is where they are made.**
+
+**1. A weight set has to be immutable and versioned before the first audit is stored.**
+`BR-AUD-8` says an audit records the weight-set version it was scored against, and that the server
+recomputes with *those* weights. That is only possible if a published weight set can never change —
+otherwise "recompute with version 3" means whatever version 3 says today, and a tenant adjusting
+their weights silently rewrites last quarter's scores. There is no backfill: audits stored before
+versioning exists have nothing to point at, and `Source` on `Visit` (W9 slice 0) is the precedent for
+why that is a slice-0 problem rather than a later one.
+
+**2. What a skipped pillar does to a weighted total.** `BR-AUD-2` is explicit that share-of-shelf is
+*not computed* when the rep captured no category total — the pillar is skipped, not faked. But
+`BR-AUD-4` says weights sum to 100%. So a score with a skipped pillar either renormalises over the
+pillars that remain, or scores the missing one zero, and the two give very different numbers for the
+same shelf. Whichever is chosen is a permanent property of every stored score and of every trend
+built on them.
+
+**3. Whether an audit is its own mutation or travels inside the visit.** `BR-AUD-6` says an audit
+belongs to a visit and is sealed with it, which argues for one payload. The module registry names
+`IAuditIngest` separately, which argues for two. This is now a *wire* decision with a test:
+[`vectors/sync/push.v1.json`](../vectors/sync/push.v1.json) is the file both languages read, and
+whichever way it goes, that file changes in the same slice. W9 slice 12 exists so this decision
+cannot be made twice by accident.
+
+**What W9 already paid for.** `IVisitWorkflow` is already snapshot-versioned reference config with a
+pull feed and a device store — surveys and weights are the same shape, and slices 1–2 are that shape
+a second and third time rather than a new mechanism. The parity harness, the vector reader check and
+the `Money`/`decimal.js` pairing all exist; the score inherits them. And the `Audit` visit step is
+already on the device as a labelled no-op (W9 slice 7), which is exactly the seam W11's screen fills.
+
+| # | Slice | Requirements | ~Size |
+|---|---|---|---|
+| 0 | **The three the score cannot be given later** — immutable versioned weight sets, the skipped-pillar rule, and whether an audit is its own mutation. Decided in the spec and encoded in the C# types, before anything computes | `AUD-06`, `BR-AUD-4/8` | 250 |
+| 1 | **Score weights are configuration** — `IScoreWeights` on Configuration: pillars, weights summing to 100, published immutably and versioned. Refuses a set that does not sum | `AUD-07`, `BR-AUD-4` | 400 |
+| 2 | **Survey definitions are configuration** — `ISurveyForms`: typed questions, mandatory flags, snapshot-versioned exactly as the visit workflow is | `AUD-04`, `BR-AUD-7` | 400 |
+| 3 | **The Audit module** — a new module and schema: the aggregate, availability per MSL SKU, facings and the category total, observed prices, survey answers, photo *references*. Sealed with its visit | `AUD-01`, `AUD-02`, `AUD-03`, `AUD-05`, `BR-AUD-1/6` | 450 |
+| 4 | **The score in C#** — pure, decimal, pillar by pillar, skipped pillars per slice 0. `IPerfectStoreScore` | `AUD-06`, `BR-AUD-4/5` | 400 |
+| 5 | **The score in TypeScript** — the mirror, on `decimal.js`, with **generated vectors carrying the weight set as input** through the existing parity job | `AUD-06`, `BR-AUD-5/12` | 400 |
+| 6 | **`IAuditIngest` and the push path** — Sync applies a pushed audit through Audit, which recomputes the score from the captured entries and the audit's own weight version. The wire vectors grow a case | `OFF-04`, `BR-AUD-8` | 400 |
+| 7 | **Surveys and weights reach the device** — the pull feed for both, and the local stores behind them | `OFF-03` | 300 |
+| 8 | **Authoring weights** (back office) — the screen an administrator uses, and the one that has to make "publishing is one-way" legible | `AUD-07` | 350 |
+| 9 | **Authoring surveys** (back office) — typed questions, order, mandatory flags | `AUD-04`, `AUD-07` | 400 |
+
+**Not in W10:** the **audit capture screen** and the device-side audit store (W11, with order capture
+— the engine lands here, the form there). **Photo binaries** (`OFF-08`, W11): slice 3 stores
+references, and they point at nothing until the upload path exists — worth saying out loud, because
+a reference with no object behind it looks like a bug to anyone who finds it first. **Conditional
+survey logic** (`AUD-08`) is `Could`. **Trends and pillar breakdowns** (`AUD-09`) are W12's
+dashboards, and they are the reason slice 0's weight-version boundary matters: a trend line that
+crossed a re-weighting without saying so would be a chart of two different questions.
+
 ### Week 11 · Order + offline UIs + sync v2 + photos ⚠︎
 **Goal:** close the golden path, offline, with binaries.
 - Order: aggregate, lines, on-device pricing/promos, minimum, submit/lock, **rejected→re-open-editable** (`IOrderIngest`, BR-ORD-9) ([Order spec](product/23-order-capture.md)) — `ORD-01…07, 12`.
