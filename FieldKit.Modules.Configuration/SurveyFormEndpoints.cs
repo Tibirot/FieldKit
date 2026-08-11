@@ -188,8 +188,22 @@ internal static class SurveyFormEndpoints
             form => form.Name == trimmed && (excluding == null || form.Id != excluding), ct);
     }
 
+    /// <summary>
+    /// Refuses a name another form already has, <b>naming it</b>.
+    /// </summary>
+    /// <remarks>
+    /// The name travels as an <c>args</c> entry as well as inside the sentence, and that is the part
+    /// that matters: a translated catalogue cannot dig a value out of the English message, so
+    /// <c>config.survey.nameTaken</c> without this can only ever render as "another survey already
+    /// has that name" — and an entry that named a placeholder the server does not send would throw
+    /// at render (ADR-0012's stated cost). <c>product.priceList.nameTaken</c> is the same refusal
+    /// with the same argument.
+    /// </remarks>
     private static IResult NameTaken(string name) => Problems.Conflict(
-        "name", $"'{name.Trim()}' is already the name of a survey.", "config.survey.nameTaken");
+        "name",
+        $"'{name.Trim()}' is already the name of a survey.",
+        "config.survey.nameTaken",
+        new Dictionary<string, string> { ["name"] = name.Trim() });
 
     /// <summary>
     /// Refuses what the aggregate cannot say precisely enough.

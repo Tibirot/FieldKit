@@ -172,6 +172,26 @@ Consequences worth stating:
 chooses a form is W10 slice 3's decision, taken with the module that has to live with it. `ISurveyForms`
 does ship, one slice ahead of that consumer, exactly as `IVisitWorkflow` shipped ahead of check-in.
 
+**The screen** (`AUD-07`, W10 slice 9a) is `/configuration/surveys/[id]`, and two of its rules are
+its own rather than the API's:
+
+- **A question's key is fixed once the question has been saved.** The API would take a renamed key
+  without complaint — the questions are replaced wholesale, so nothing there can tell a rename from a
+  replacement. The screen refuses it because an answer is filed under the key, and Configuration
+  cannot see whether a rep has answered yet (ADR-0005), so the only safe assumption about a saved
+  question is that somebody has. An admin who wants to ask something else removes the question and
+  adds another, which is the honest description of what they are doing. The key is *disabled* rather
+  than hidden: it is what `AUD-09` groups by, so there is every reason to read it.
+- **Order is edited with buttons, not by dragging.** The wireframe draws a handle. A drag-only
+  reorder cannot be operated from a keyboard and is invisible to a screen reader, and order is the
+  whole meaning of this list — so the move is a pair of buttons and it is announced. A handle can be
+  added on top later without changing the model underneath.
+
+Two things the screen catches before the round trip, because the API's refusal cannot say *which*
+question: a **duplicate key** — which the screen itself causes, since it derives keys from question
+text and two questions worded alike derive one key — and a **choice with no options**. Both
+questions in a collision are marked, not the newcomer: whichever is renamed fixes it.
+
 ### 6.4 Authoring the perfect-store weighting (Week 10)
 
 `CFG-05` ships as `/api/config/score-weights` — a tenant's weighting **by version**, drafted, edited

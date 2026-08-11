@@ -58,7 +58,7 @@ the build, without pretending to be final visual design.
 | Territories | `ORG-03` `ORG-04` `ORG-05` `A4` | Territory list, single active rep, channel mix; drives offline scope |
 | Journey planning | `JRN-01` `JRN-02` `JRN-03` `JRN-04` | Week grid generated from frequency + capacity; frequency compliance. **Built as three screens** (W7 slice 10a/b/c): what a supervisor *sets* — frequency, then the working calendar — before what the system *produces*. The wireframe draws only the third, because that is the one worth drawing; the two inputs have no picture and are most of the decisions. The grid groups by **day present in the window** rather than a fixed Mon–Fri week, so a three-week plan does not invent empty columns and a worked Saturday is not cropped |
 | Users & roles | `IAM-03` `IAM-04` `IAM-05` `IAM-07` | Users, permission-bundle roles, one active device per rep |
-| Visit-workflow / audit builder | `A1` `ADR-0009` `VIS-03` `AUD-04` `AUD-06` `AUD-07` | The config-driven story: per-channel steps, perfect-store weights, survey forms. **The weights half is built** (W10 slice 8) as its own screen under a **Configuration** nav item the drawing does not have — see the note below |
+| Visit-workflow / audit builder | `A1` `ADR-0009` `VIS-03` `AUD-04` `AUD-06` `AUD-07` | The config-driven story: per-channel steps, perfect-store weights, survey forms. **Weights** (W10 slice 8) and **survey forms** (W10 slice 9a) are built as their own screens under a **Configuration** nav item the drawing does not have — see the note below. The survey editor **reorders with buttons rather than the drawn drag handle**, for the reason in [Configuration §6.3](../product/14-configuration.md#63-authoring-survey-forms-week-10) |
 
 ## Not yet wireframed
 
