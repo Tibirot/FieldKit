@@ -159,6 +159,33 @@ reasons, *unplanned* visits, and reschedules are captured locally and pushed via
 ([B7](decisions-and-assumptions.md#b7--conflict-resolution-matrix)). Plan *generation* is a
 server/back-office activity; the rep receives the result.
 
+### How an annotation travels, and what it does not touch (W9 slice 9)
+
+All three arrive through `IJourneyIngest`, so `BR-JRN-2`'s published-plans-only rule and `BR-JRN-4`'s
+cycle rule run whichever door the annotation came through. Three things are worth stating because
+each could reasonably have been done the other way:
+
+- **The device sends a call id and no plan id.** A pulled round is flat calls; the plan is a
+  relationship the pull deliberately flattens away. For an *unplanned* call there is not even a call
+  id — the device sends a shop and a day, and Journey resolves the round: the **most recently
+  published** plan covering that day, because a regenerated round is how a plan is corrected
+  (publishing is one-way), so overlap is ordinary rather than an error.
+- **Every lookup is scoped to the rep in the token, and every miss is the same refusal.** No such
+  call, another rep's call, and a call on a regenerated plan all answer `journey.visit.unknown` —
+  the same rule `IJourneyQuery` follows, so a modified client cannot use the drain as an oracle for
+  somebody else's round.
+- **The local store is never written.** `ref_planned_visits` on the device is a copy of the server's
+  round; writing "not visited" into it would look right until the server *refused* the mutation, and
+  then be wrong forever — a refused annotation changes no row version, so the next pull sends nothing
+  to correct it. The outbox is the record of what the device has said, and the round overlays it
+  until the two agree.
+
+**Idempotency differs by kind, and only one of them needed a guard.** Re-marking a call not-visited
+finds the state it wants and answers success, keeping the first reason — what the rep wrote at the
+shop. A reschedule to the day a call is already on is a no-op. An *unplanned* call creates a row, so
+a retry past a lost ledger entry would double-count coverage; it is declined when that shop already
+has a call on that day, planned or unplanned, and answered as success because the work is done.
+
 ## 8. Module contract (exposed to others)
 
 - `IJourneyQuery` — the planned call a visit may claim: `(planned visit, rep, outlet)` → the call, or

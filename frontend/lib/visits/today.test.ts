@@ -9,6 +9,7 @@ import {
   type ReferenceOutlet,
   type ReferencePlannedVisit,
 } from "@/lib/sync/db";
+import { markNotVisited } from "@/lib/visits/not-visited";
 import { today, todayOn } from "@/lib/visits/today";
 
 /**
@@ -229,5 +230,76 @@ describe("which day it is", () => {
 
   it("pads a single-digit month and day", () => {
     expect(todayOn(new Date(2026, 0, 5, 12))).toBe("2026-01-05");
+  });
+});
+
+describe("a call this device has reported but the server has not heard about", () => {
+  beforeEach(async () => {
+    await db.outlets.add(outlet("outlet-1", "Mega Image", "RO-001"));
+  });
+
+  it("reads as not visited the moment it is queued, not when it is sent", async () => {
+    // The whole of `OFF-01` for an annotation: a rep who marked a shop shut in a car park with no
+    // signal must not see the call sitting as *to do* for the rest of the day.
+    await db.plannedVisits.add(call("call-1", "outlet-1"));
+    await markNotVisited(db, "call-1", "Shutters down at nine");
+
+    const stop = (await today(db, TODAY))[0];
+
+    expect(stop.progress).toBe("notVisited");
+    expect(stop.notVisitedReason).toBe("Shutters down at nine");
+    expect(stop.reportedHere).toBe(true);
+  });
+
+  it("prefers the round's own copy once the server has agreed", async () => {
+    // The two carry the same sentence, and preferring the round keeps one source of truth once the
+    // pull has brought the annotation back.
+    await db.plannedVisits.add(
+      call("call-1", "outlet-1", { status: "NotVisited", notVisitedReason: "Closed for works" }),
+    );
+    await markNotVisited(db, "call-1", "Shutters down at nine");
+
+    expect((await today(db, TODAY))[0].notVisitedReason).toBe("Closed for works");
+  });
+
+  it("flags a report the server refused, because that one needs a person", async () => {
+    await db.plannedVisits.add(call("call-1", "outlet-1"));
+    await markNotVisited(db, "call-1", "Shutters down at nine");
+
+    const entry = (await db.outbox.toArray())[0];
+    await db.outbox.update(entry.mutationId, { status: "failed" });
+
+    const stop = (await today(db, TODAY))[0];
+
+    expect(stop.reportFailed).toBe(true);
+    expect(stop.progress).toBe("notVisited");
+  });
+
+  it("lets a visit worked afterwards outrank the rep's own earlier report", async () => {
+    // The same rule the plan's annotation already loses to: a rep who reported a shop shut and then
+    // got in has done the work, and showing "not visited" over it would ignore them twice.
+    await db.plannedVisits.add(call("call-1", "outlet-1"));
+    await markNotVisited(db, "call-1", "Shutters down at nine");
+    await db.visits.add(visit("visit-1", "outlet-1"));
+
+    expect((await today(db, TODAY))[0].progress).toBe("worked");
+  });
+
+  it("does not read a queued visit as a report", async () => {
+    await db.plannedVisits.add(call("call-1", "outlet-1"));
+    await db.outbox.add({
+      mutationId: crypto.randomUUID(),
+      type: "CapturedVisit",
+      subjectId: "call-1",
+      payload: {},
+      status: "pending",
+      createdAt: Date.now(),
+      attempts: 0,
+    });
+
+    const stop = (await today(db, TODAY))[0];
+
+    expect(stop.reportedHere).toBe(false);
+    expect(stop.progress).toBe("todo");
   });
 });

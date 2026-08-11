@@ -1,4 +1,10 @@
-import type { FieldKitDatabase, LocalVisit, ReferenceOutlet, ReferencePlannedVisit } from "@/lib/sync/db";
+import type {
+  FieldKitDatabase,
+  LocalVisit,
+  OutboxEntry,
+  ReferenceOutlet,
+  ReferencePlannedVisit,
+} from "@/lib/sync/db";
 import { plannedVisits } from "@/lib/sync/reference";
 
 /**
@@ -38,6 +44,17 @@ export type Stop = {
   notVisitedReason: string | null;
   /** The device's visit, when there is one — what a sync badge points at. */
   visit: LocalVisit | undefined;
+  /**
+   * This device has queued "could not make it" for this call and the server has not agreed yet
+   * (`VIS-07`, W9 slice 9).
+   *
+   * Separate from `progress` on purpose: the *status* is the same either way — a rep who reported a
+   * shop shut has dealt with the call — but whether the back office knows is a different question,
+   * and it is the one that decides whether a sync badge belongs on the row.
+   */
+  reportedHere: boolean;
+  /** The queued report was refused and re-sending will not change that (`OFF-09`). */
+  reportFailed: boolean;
 };
 
 /**
@@ -69,8 +86,19 @@ export async function today(db: FieldKitDatabase, date: string): Promise<Stop[]>
   // shops a day, so this is a small query — and doing it per stop would be a query per row.
   const visits = await db.visits.where("outletId").anyOf(outletIds).toArray();
 
+  /*
+   * What this device has *said* about today's calls, which is not the same as what the round says
+   * (W9 slice 9). A not-visited report queued offline lives in the outbox — writing it into
+   * `ref_planned_visits` would be a lie the next pull could not correct, because a refused mutation
+   * changes no row version and therefore sends nothing back.
+   */
+  const reported = await db.outbox
+    .where("subjectId")
+    .anyOf(planned.map((call) => call.id))
+    .toArray();
+
   return planned
-    .map((call) => stop(call, byId.get(call.outletId), visits))
+    .map((call) => stop(call, byId.get(call.outletId), visits, reported))
     .sort(compare);
 }
 
@@ -78,6 +106,7 @@ function stop(
   call: ReferencePlannedVisit,
   outlet: ReferenceOutlet | undefined,
   visits: LocalVisit[],
+  reported: OutboxEntry[],
 ): Stop {
   /*
    * The visit that belongs to this call, preferring the one that names it.
@@ -98,14 +127,31 @@ function stop(
   // and "you are in this shop" is the most actionable thing it can say.
   const visit = open ?? named ?? forCall.at(-1);
 
+  // A row still in the outbox *is* the "still on its way" signal: an accepted mutation is deleted
+  // rather than marked, so there is no sent state to filter out. Once the server has it, the round
+  // carries it back on the next pull and `call.status` says the same thing.
+  const report = reported.find(
+    (entry) => entry.subjectId === call.id && entry.type === "NotVisitedCall",
+  );
+
   return {
     plannedVisitId: call.id,
     outletId: call.outletId,
     outlet,
-    progress: progressOf(call, visit),
-    notVisitedReason: call.notVisitedReason,
+    progress: progressOf(call, visit, report !== undefined),
+    // The server's copy wins once it has one — they carry the same sentence, and preferring the
+    // round keeps a single source once the two agree.
+    notVisitedReason: call.notVisitedReason ?? reasonOf(report),
     visit,
+    reportedHere: report !== undefined,
+    reportFailed: report?.status === "failed",
   };
+}
+
+function reasonOf(entry: OutboxEntry | undefined): string | null {
+  const payload = entry?.payload as { reason?: unknown } | undefined;
+
+  return typeof payload?.reason === "string" ? payload.reason : null;
 }
 
 /**
@@ -116,10 +162,18 @@ function stop(
  * and the visit is the thing that happened. Showing "not visited" over a completed visit would tell
  * a rep their own work had been ignored.
  */
-function progressOf(call: ReferencePlannedVisit, visit: LocalVisit | undefined): StopProgress {
+function progressOf(
+  call: ReferencePlannedVisit,
+  visit: LocalVisit | undefined,
+  reportedHere: boolean,
+): StopProgress {
   if (visit?.status === "inProgress") return "working";
   if (visit?.status === "checkedOut") return "worked";
-  if (call.status === "NotVisited") return "notVisited";
+
+  // The device's own report counts the moment it is written, not when the server hears about it —
+  // which is the whole of `OFF-01`. A rep who marked a shop shut in a car park with no signal must
+  // not see the call sitting as *to do* for the rest of the day.
+  if (call.status === "NotVisited" || reportedHere) return "notVisited";
 
   return "todo";
 }

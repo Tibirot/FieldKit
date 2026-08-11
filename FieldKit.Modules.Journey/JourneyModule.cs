@@ -60,12 +60,16 @@ public sealed class JourneyModule : IModule
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.Converters.Add(new JsonStringEnumConverter<DayOfWeek>()));
 
-        // The module's one public contract (W7 slice 9b). Registered against the interface, so a
-        // consumer takes the promise and never the class behind it.
+        // Registered against the interface, so a consumer takes the promise and never the class
+        // behind it (W7 slice 9b).
         services.AddScoped<IJourneyQuery, JourneyQueries>();
 
         // Sync reads the rep's round through this rather than the journey schema (W8 slice 8a).
         services.AddScoped<IJourneyChangeFeed, JourneyChangeFeed>();
+
+        // …and pushes the rep's annotations back through this one (W9 slice 9). The pair is the
+        // shape the module registry names for every module a device both reads and writes.
+        services.AddScoped<IJourneyIngest, JourneyIngestService>();
 
         // Internal to the module: their only caller is generation, which lives here too.
         services.AddScoped<FrequencyResolver>();

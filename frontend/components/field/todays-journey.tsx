@@ -110,9 +110,14 @@ function StopRow({ stop }: { stop: Stop }) {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          {/* Only when there is a visit: the badge answers "has this reached the back office", and
-              a stop nobody has worked has not asked the question yet. */}
+          {/*
+            The badge answers "has this reached the back office", and a stop nobody has dealt with
+            has not asked the question yet. Two things can ask it, and both are keyed by the subject
+            they were queued under: a visit by its own id, and a not-visited report by the id of the
+            call it annotates (W9 slice 9).
+          */}
           {stop.visit ? <SyncBadge subjectId={stop.visit.id} /> : null}
+          {!stop.visit && stop.reportedHere ? <SyncBadge subjectId={stop.plannedVisitId} /> : null}
           <Badge variant={variantOf(stop.progress)}>{t(`progress.${stop.progress}`)}</Badge>
         </div>
       </div>

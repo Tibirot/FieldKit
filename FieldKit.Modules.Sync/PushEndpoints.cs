@@ -1,4 +1,5 @@
 using FieldKit.BuildingBlocks;
+using FieldKit.Modules.Journey.Contracts;
 using FieldKit.Modules.Visit.Contracts;
 using FieldKit.Web;
 using Microsoft.AspNetCore.Builder;
@@ -32,6 +33,7 @@ public static class PushEndpoints
             SyncDbContext db,
             IMutationLedger ledger,
             IVisitIngest visits,
+            IJourneyIngest journeys,
             ITenantContext tenant,
             CancellationToken ct) =>
         {
@@ -74,7 +76,7 @@ public static class PushEndpoints
                     continue;
                 }
 
-                var outcome = await ApplyAsync(mutation, visits, tenant.UserId, ct);
+                var outcome = await ApplyAsync(mutation, visits, journeys, tenant.UserId, ct);
 
                 ledger.Record(device.Id, mutation.MutationId, outcome);
                 results.Add(MutationResult.From(mutation.MutationId, outcome));
@@ -86,24 +88,36 @@ public static class PushEndpoints
         }).RequireAuthorization();
     }
 
+    /// <summary>
+    /// Sends one mutation to the module that owns it (module boundaries §7).
+    /// </summary>
+    /// <remarks>
+    /// <b><c>Type</c> became a discriminator here (W9 slice 9), having been a field.</b> With one kind
+    /// of mutation it was a guard against nonsense; with four it is the routing, and each arm knows
+    /// only which contract to call — Sync still holds no opinion about what makes a visit valid or a
+    /// round annotatable. Applying through the owning module is what keeps that true.
+    /// </remarks>
     private static async Task<MutationOutcome> ApplyAsync(
-        PushedMutation mutation, IVisitIngest visits, string userId, CancellationToken ct)
-    {
-        if (!string.Equals(mutation.Type, nameof(CapturedVisit), StringComparison.Ordinal))
+        PushedMutation mutation, IVisitIngest visits, IJourneyIngest journeys, string userId,
+        CancellationToken ct) => mutation.Type switch
         {
-            // W8 slice 5 carries visits only. An unknown type is rejected rather than ignored: a
-            // device that keeps retrying something the server silently drops never drains.
-            return new MutationOutcome(
+            nameof(CapturedVisit) => await ApplyVisitAsync(mutation, visits, userId, ct),
+            nameof(NotVisitedCall) => await ApplyNotVisitedAsync(mutation, journeys, userId, ct),
+            nameof(RescheduledCall) => await ApplyRescheduleAsync(mutation, journeys, userId, ct),
+            nameof(UnplannedCall) => await ApplyUnplannedAsync(mutation, journeys, userId, ct),
+
+            // An unknown type is rejected rather than ignored: a device that keeps retrying something
+            // the server silently drops never drains.
+            _ => new MutationOutcome(
                 MutationStatus.Rejected,
                 "sync.push.typeUnsupported",
-                $"'{mutation.Type}' is not a mutation this server accepts yet.");
-        }
+                $"'{mutation.Type}' is not a mutation this server accepts yet."),
+        };
 
-        if (mutation.Visit is null)
-        {
-            return new MutationOutcome(
-                MutationStatus.Rejected, "sync.push.payloadMissing", "The mutation carried no visit.");
-        }
+    private static async Task<MutationOutcome> ApplyVisitAsync(
+        PushedMutation mutation, IVisitIngest visits, string userId, CancellationToken ct)
+    {
+        if (mutation.Visit is null) return Missing("visit");
 
         var result = await visits.IngestAsync(mutation.Visit, userId, ct);
 
@@ -117,6 +131,52 @@ public static class PushEndpoints
             ? new MutationOutcome(MutationStatus.Accepted)
             : new MutationOutcome(MutationStatus.Rejected, RefusalCode(result.Refusal), result.Detail);
     }
+
+    private static async Task<MutationOutcome> ApplyNotVisitedAsync(
+        PushedMutation mutation, IJourneyIngest journeys, string userId, CancellationToken ct)
+    {
+        if (mutation.NotVisited is null) return Missing("not-visited call");
+
+        return Outcome(await journeys.MarkNotVisitedAsync(mutation.NotVisited, userId, ct));
+    }
+
+    private static async Task<MutationOutcome> ApplyRescheduleAsync(
+        PushedMutation mutation, IJourneyIngest journeys, string userId, CancellationToken ct)
+    {
+        if (mutation.Rescheduled is null) return Missing("reschedule");
+
+        return Outcome(await journeys.RescheduleAsync(mutation.Rescheduled, userId, ct));
+    }
+
+    private static async Task<MutationOutcome> ApplyUnplannedAsync(
+        PushedMutation mutation, IJourneyIngest journeys, string userId, CancellationToken ct)
+    {
+        if (mutation.Unplanned is null) return Missing("unplanned call");
+
+        return Outcome(await journeys.AddUnplannedAsync(mutation.Unplanned, userId, ct));
+    }
+
+    private static MutationOutcome Missing(string what) => new(
+        MutationStatus.Rejected, "sync.push.payloadMissing", $"The mutation carried no {what}.");
+
+    private static MutationOutcome Outcome(JourneyIngestResult result) => result.Accepted
+        ? new MutationOutcome(MutationStatus.Accepted)
+        : new MutationOutcome(MutationStatus.Rejected, RefusalCode(result.Refusal), result.Detail);
+
+    /// <summary>Maps Journey's refusal onto an <c>ADR-0012</c> code the device can branch on.</summary>
+    private static string RefusalCode(JourneyIngestRefusal refusal) => refusal switch
+    {
+        JourneyIngestRefusal.CallUnknown => "journey.visit.unknown",
+        JourneyIngestRefusal.NotPublished => "journey.plan.notPublished",
+        JourneyIngestRefusal.AlreadyNotVisited => "journey.visit.alreadyNotVisited",
+        JourneyIngestRefusal.OutsideWindow => "journey.visit.outsideWindow",
+        JourneyIngestRefusal.OutsideCycle => "journey.visit.outsideCycle",
+        JourneyIngestRefusal.ReasonRequired => "journey.visit.reasonRequired",
+        JourneyIngestRefusal.ReasonTooLong => "journey.visit.reasonTooLong",
+        JourneyIngestRefusal.NoPlanForDate => "journey.plan.noneForDate",
+        JourneyIngestRefusal.OutletUnknown => "journey.visit.outletUnknown",
+        _ => "journey.visit.refused",
+    };
 
     /// <summary>Maps a module's refusal onto an <c>ADR-0012</c> code the device can branch on.</summary>
     private static string RefusalCode(VisitIngestRefusal refusal) => refusal switch
@@ -139,7 +199,13 @@ public sealed record PushRequest(Guid DeviceId, IReadOnlyList<PushedMutation> Mu
 /// blob would buy generality this has no second type to spend yet, and cost the schema now.
 /// </remarks>
 /// <param name="MutationId">Minted on the device. The ledger's key, and the whole basis of the retry story.</param>
-public sealed record PushedMutation(Guid MutationId, string Type, CapturedVisit? Visit);
+public sealed record PushedMutation(
+    Guid MutationId,
+    string Type,
+    CapturedVisit? Visit,
+    NotVisitedCall? NotVisited = null,
+    RescheduledCall? Rescheduled = null,
+    UnplannedCall? Unplanned = null);
 
 public sealed record MutationResult(Guid MutationId, string Status, string? Reason, string? Detail)
 {

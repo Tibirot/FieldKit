@@ -1289,6 +1289,23 @@
         "reasonRequired": "Say what happened before finishing.",
         "unexpected": "The visit could not be finished. Try again, and tell your supervisor if it keeps happening."
       }
+    },
+    "notVisited": {
+      "open": "Can't make this call?",
+      "title": "Report this call as not visited",
+      "intro": "The call stays on your round with your reason against it. Nobody can delete it, and your supervisor will see why.",
+      "action": "Report it",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "reported": "You reported this call as not visited.",
+      "failed": "Your report was refused. Tell your supervisor.",
+      "reason": {
+        "label": "What happened?"
+      },
+      "refusal": {
+        "reasonRequired": "Say why the call did not happen. A skipped shop with no reason is a gap nobody can act on.",
+        "alreadyReported": "You have already reported this call."
+      }
     }
   },
   "Guard": {

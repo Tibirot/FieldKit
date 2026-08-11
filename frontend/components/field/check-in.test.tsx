@@ -14,7 +14,7 @@ import {
   type ReferenceOutlet,
   type ReferenceVisitWorkflow,
 } from "@/lib/sync/db";
-import { pending } from "@/lib/sync/outbox";
+import { enqueue, pending } from "@/lib/sync/outbox";
 import { render } from "@/test/render";
 
 /**
@@ -342,5 +342,76 @@ describe("<CheckIn> when it cannot proceed", () => {
     render(<CheckIn outletId="outlet-1" />);
 
     expect(await screen.findByText("You are already in this shop")).toBeTruthy();
+  });
+});
+
+describe("<CheckIn> reporting a call the rep could not make (W9 slice 9)", () => {
+  it("offers it only for a planned call, because there is no round to annotate otherwise", async () => {
+    render(<CheckIn outletId="outlet-1" />);
+
+    await screen.findByText(/You are at this shop/);
+
+    expect(screen.queryByRole("button", { name: "Can't make this call?" })).toBeNull();
+  });
+
+  it("queues the report under the call and sends the rep back to the round", async () => {
+    render(<CheckIn outletId="outlet-1" plannedVisitId="call-1" />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Can't make this call?" }));
+    await userEvent.type(screen.getByRole("textbox"), "Shutters down, nobody there");
+    await userEvent.click(screen.getByRole("button", { name: "Report it" }));
+
+    await waitFor(async () => {
+      const queued = await pending(db);
+
+      expect(queued).toHaveLength(1);
+      expect(queued[0]).toMatchObject({ type: "NotVisitedCall", subjectId: "call-1" });
+    });
+
+    expect(replace).toHaveBeenCalledWith("/field");
+  });
+
+  it("refuses a report with nothing written", async () => {
+    render(<CheckIn outletId="outlet-1" plannedVisitId="call-1" />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Can't make this call?" }));
+    await userEvent.click(screen.getByRole("button", { name: "Report it" }));
+
+    expect(
+      await screen.findByText(
+        "Say why the call did not happen. A skipped shop with no reason is a gap nobody can act on.",
+      ),
+    ).toBeTruthy();
+
+    expect(await pending(db)).toEqual([]);
+  });
+
+  it("shows the rep their own words back rather than offering the form twice", async () => {
+    await enqueue(db, {
+      type: "NotVisitedCall",
+      subjectId: "call-1",
+      payload: { plannedVisitId: "call-1", reason: "Closed for a stock take" },
+    });
+
+    render(<CheckIn outletId="outlet-1" plannedVisitId="call-1" />);
+
+    expect(await screen.findByText("You reported this call as not visited.")).toBeTruthy();
+    expect(screen.getByText("Closed for a stock take")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Can't make this call?" })).toBeNull();
+  });
+
+  it("says so when the server refused the report", async () => {
+    const entry = await enqueue(db, {
+      type: "NotVisitedCall",
+      subjectId: "call-1",
+      payload: { plannedVisitId: "call-1", reason: "Closed for a stock take" },
+    });
+    await db.outbox.update(entry.mutationId, { status: "failed" });
+
+    render(<CheckIn outletId="outlet-1" plannedVisitId="call-1" />);
+
+    expect(
+      await screen.findByText("Your report was refused. Tell your supervisor."),
+    ).toBeTruthy();
   });
 });
