@@ -7,9 +7,10 @@ without dread.** Everything below serves that. Agents must treat these as hard r
 strong defaults. When a rule and reviewer judgement conflict, the reviewer wins — but the agent
 must not *pre-empt* that by ignoring a rule.
 
-> **Prerequisite:** these presuppose the repo is a git repository with a GitHub remote and CI
-> (roadmap [Phase 0](../roadmap.md#phase-0--foundation-in-progress)). Until then this is a written contract, not
-> a runnable workflow.
+> These presupposed a git repository with a GitHub remote and CI, which
+> [Phase 0](../roadmap.md) delivered. Every rule below is enforced in practice now rather than
+> aspirationally: the gates run on each PR, and the stacking and self-review conventions are how
+> every week since has shipped.
 
 ---
 

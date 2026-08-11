@@ -29,7 +29,9 @@ The one unticked box is **row-version stamping**, and it is deferred rather than
 only consumer is the sync engine, so building it now would mean shipping a primitive designed
 against a protocol that does not exist yet. It lands with the W8 sync slices.
 
-- [x] Aspire solution scaffolded (AppHost + Server + Redis)
+- [x] Aspire solution scaffolded (AppHost + Server + Redis — *Redis was removed before deploying: it
+  backed an output cache nothing ever opted into, and would have cost more per month than the
+  database it fronted*)
 - [x] **Documentation & design complete** — product specs, [decisions & assumptions](product/decisions-and-assumptions.md),
   full architecture + 11 ADRs, [wireframes](ux/README.md) (12 screens)
 - [x] **`SharedKernel`** (Money, GeoPoint, `IClock`, Result, TenantId) + **`BuildingBlocks`**
@@ -119,34 +121,53 @@ by `.http` request, and each was invisible in review because nothing in the code
 endpoint to the screen that ought to call it. The habit that found them — asking what an admin would
 press, in a tenant with no test leftovers — is worth carrying into every phase after this one.
 
-## Phase 2 — Field ops online: journeys, visits, and the sync engine
+## Phase 2 — Field ops online: journeys, visits, and the sync engine *(complete)*
 
 The heart of the product. Build the field flow *and* the sync engine together.
 
-- [ ] **Products & Pricing** — catalog, assortments/MSL, price lists, promotions
-- [ ] **Shared pricing engine** — deterministic resolver in C# **and** its TypeScript device
-  mirror, pinned by cross-language parity tests ([BR-PRD-7](product/13-products-and-pricing.md#5-business-rules))
-- [ ] **Journey** — generate a rep's daily journey from frequency + territory
-- [ ] **Visit** — check-in/out, geofence, config-driven guided steps
-- [ ] **Sync engine v1** — row-version delta pull of reference data; idempotent outbox push of
+- [x] **Products & Pricing** — catalog, assortments/MSL, price lists, promotions *(W6)*
+- [x] **Shared pricing engine** — deterministic resolver in C# **and** its TypeScript device
+  mirror, pinned by cross-language parity tests ([BR-PRD-7](product/13-products-and-pricing.md#5-business-rules)) *(W7)*
+- [x] **Journey** — generate a rep's daily journey from frequency + territory *(W7)*
+- [x] **Visit** — check-in/out, geofence, config-driven guided steps *(W7)*
+- [x] **Sync engine v1** — row-version delta pull of reference data; idempotent outbox push of
   visits; device registry ([ADR-0007](architecture/adr/0007-offline-sync-strategy.md),
-  [sync deep dive](architecture/12-offline-sync-engine.md))
-- [ ] **Field PWA** — installable, service worker, IndexedDB local store, sync manager
+  [sync deep dive](architecture/12-offline-sync-engine.md)) *(W8)*
+- [x] **Field PWA** — installable, service worker, IndexedDB local store, sync manager *(W9)*
 
 **Demo:** a rep syncs a journey, goes **offline**, completes visits, reconnects, and the back
-office sees the results.
+office sees the results. Walked online at the end of W8; the **offline half is verifiable only on a
+real device over HTTPS** — geolocation, the install prompt and the service worker all are — which is
+part of why the deployed environment matters and is queued against it.
 
-## Phase 3 — In-store depth: audits and orders
+The engineering lesson of the phase was **writing the same rules twice on purpose**. The pricing
+resolver exists in C# and TypeScript because a rep pricing an order offline must reach the number the
+server would, and no amount of care makes two independent implementations agree by inspection. The
+answer was a shared corpus of vectors — hand-written for the arguable cases, generated for volume —
+that both languages read and CI compares. It has since caught real divergence rather than
+hypothetical: a wrong hand-written expectation, and a serialization bug the first time the wire
+vectors ran.
 
-- [ ] **Audit** — structured shelf capture: MSL availability, **share-of-shelf**, price check,
+## Phase 3 — In-store depth: audits and orders *(in progress)*
+
+- [x] **Audit** — structured shelf capture: MSL availability, **share-of-shelf**, price check,
   photos, and the configurable **weighted perfect-store score**
   ([A2](product/decisions-and-assumptions.md#a2--audit--perfect-store-structured-checks--share-of-shelf--photo)) —
-  *not* coordinate planograms ([`AUD-10 = Won't v1`](product/22-merchandising-and-audits.md#6-requirements))
-- [ ] **Order** — capture against assortment & price, on-device promotion application, lifecycle
+  *not* coordinate planograms ([`AUD-10 = Won't v1`](product/22-merchandising-and-audits.md#6-requirements)) *(W10 — the
+  engine, the score in both languages, and the push path; the **capture screen** is W11)*
+- [ ] **Order** — capture against assortment & price, on-device promotion application, lifecycle *(W11)*
 - [ ] **Config-driven builder** — visit-workflow steps, perfect-store weights, survey forms
-  ([ADR-0009](architecture/adr/0009-config-driven-customization.md))
-- [ ] **Sync engine v2** — conflict rules for transactional data; out-of-band photo upload
-- [ ] **Supervisor dashboards** — coverage & compliance (reporting read-side)
+  ([ADR-0009](architecture/adr/0009-config-driven-customization.md)) — *weights and survey forms
+  shipped in W10; the **visit-workflow step builder** is W12*
+- [ ] **Sync engine v2** — conflict rules for transactional data; out-of-band photo upload *(W11)*
+- [ ] **Supervisor dashboards** — coverage & compliance (reporting read-side) *(W12)*
+
+**W10's shape is worth recording**, because it is the one the plan got wrong twice. The audit
+*engine* and the audit *screen* are different weeks: the score, its weighting, the parity vectors and
+the push path all landed without a single pixel, and the form a rep fills in at a shelf lands with
+order capture in W11 — the two are the same offline-screen problem and sharing a week would have
+meant solving it twice. Both surviving W10 slices split (3a/3b, 9a/9b) split on a rule the *server*
+imposed rather than on size.
 
 **Demo:** the full golden path from the [product overview](product/00-product-overview.md#5-a-day-in-the-life-the-golden-path),
 offline, reconciled on reconnect.
@@ -162,7 +183,12 @@ offline, reconciled on reconnect.
   fixture. It sat under Phase 0 until the pre-Phase-2 audit found it listed in two phases at once;
   every phase through 3 has been demoed on hand-entered data, so it was never the blocker Phase 0
   implied it was.
-- [ ] Deploy to **Azure Container Apps** via `aspire deploy` ([ADR-0011](architecture/adr/0011-deployment-azure-container-apps.md))
+- [x] Deploy to **Azure Container Apps** via `aspire deploy` ([ADR-0011](architecture/adr/0011-deployment-azure-container-apps.md)) —
+  *done early, in the middle of Phase 2, and that was the right call: it turned "publishes cleanly"
+  from a claim into a fact and found three things a manifest review had not (a bind-mounted realm
+  directory naming a Windows path, every OIDC origin hardcoded to `localhost:3000`, and a Keycloak
+  that could not see its own public address). Redeployed with W9+W10 on 2026-08-11 —
+  see the [runbook](engineering/deploying.md)*
 - [ ] Case-study polish: screenshots/GIFs in the README
 
 ## Out of scope

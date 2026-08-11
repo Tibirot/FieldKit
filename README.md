@@ -30,8 +30,9 @@ and to go deep on three things that make SFA genuinely hard and genuinely intere
 - **Offline-first sync** — a purpose-built sync engine: local store, outbox, delta pull,
   idempotent push, documented conflict resolution. Reps work fully offline; the platform
   reconciles on reconnect.
-- **Cloud-native .NET with Aspire** — the API, front end, PostgreSQL, and Redis composed and
-  observed through .NET Aspire, with OpenTelemetry traces/metrics/logs out of the box.
+- **Cloud-native .NET with Aspire** — the API, front end, PostgreSQL and Keycloak composed and
+  observed through .NET Aspire, with OpenTelemetry traces/metrics/logs out of the box, and deployed
+  to Azure Container Apps from the same AppHost.
 
 The domain isn't decoration: field sales is offline, multi-tenant, and rules-heavy, so it
 *earns* this architecture instead of over-engineering a toy.
@@ -51,19 +52,25 @@ flowchart TB
   end
 
   pg[("PostgreSQL<br/>schema-per-module")]
-  redis[("Redis<br/>cache · idempotency")]
+  kc["Keycloak<br/>realm-per-tenant"]
   host["FieldKit.AppHost — .NET Aspire"]
 
   ui <-->|HTTPS/JSON| mods
+  ui <-->|OIDC| kc
   sw <-->|delta pull · outbox push| mods
   mods --> bus --> pg
   mods --> pg
-  mods --> redis
+  mods -->|validates JWT| kc
   host -.->|orchestrates + observes| server
   host -.->|orchestrates| client
   host -.->|provisions| pg
-  host -.->|provisions| redis
+  host -.->|provisions| kc
 ```
+
+> **No cache tier, deliberately.** Redis was here from W1 backing an output cache nothing ever opted
+> into, and it was removed rather than deployed — a container app costing more per month than the
+> database it fronted, serving no reader ([ADR-0011](docs/architecture/adr/0011-deployment-azure-container-apps.md)).
+> Idempotency lives in Postgres, where the mutation ledger it guards already is.
 
 Full write-up: **[docs/architecture/00-architecture-overview.md](docs/architecture/00-architecture-overview.md)**.
 
@@ -73,7 +80,8 @@ Full write-up: **[docs/architecture/00-architecture-overview.md](docs/architectu
 |---|---|
 | Orchestration | .NET Aspire (AppHost) |
 | Backend | ASP.NET Core Minimal APIs · .NET 10 · EF Core · FluentValidation |
-| Data | PostgreSQL (schema-per-module) · Redis |
+| Data | PostgreSQL (schema-per-module) |
+| Identity | Keycloak — OIDC, realm-per-tenant |
 | Messaging | In-process bus + transactional outbox |
 | Frontend | Next.js (App Router) · React 19 · TypeScript · TanStack Query |
 | Offline | Service worker (Workbox) · IndexedDB (Dexie) · PWA |
@@ -103,8 +111,11 @@ FieldKit/
 ├─ FieldKit.SharedKernel/    # value objects (Money, GeoPoint, IClock, Result, TenantId)
 ├─ FieldKit.BuildingBlocks/  # pure abstractions (messaging, tenancy, AggregateRoot)
 ├─ FieldKit.Infrastructure/  # EF base (schema-per-module), interceptors, outbox
-├─ FieldKit.Modules.Products/# the first domain module (W1's `Catalog`, grown into Products & Pricing)
+├─ FieldKit.Modules.*/       # the domain modules — Iam, Org, Outlets, Products, Configuration,
+│                            # Journey, Visit, Audit, Sync (+ Order, W11). Each with a
+│                            # `.Contracts` sibling: the only thing another module may reference
 ├─ frontend/                 # Next.js field app + back office
+├─ vectors/                  # cross-language parity fixtures (C# ↔ TypeScript)
 ├─ docs/                     # functional + technical documentation
 └─ FieldKit.slnx
 ```
@@ -112,25 +123,41 @@ FieldKit/
 ## Running it (dev)
 
 > The system is orchestrated by .NET Aspire — one command brings up the API, front end,
-> PostgreSQL, Redis, and the telemetry dashboard.
+> PostgreSQL, Keycloak, and the telemetry dashboard.
 
 ```bash
 dotnet run --project FieldKit.AppHost
 ```
 
 Then open the **Aspire dashboard** URL printed in the console to see every service, its logs,
-and live traces. *(Prerequisites and the current run state are tracked in the
-[roadmap](docs/roadmap.md) — the app is under active construction from the scaffold.)*
+and live traces. Deploying the same AppHost to Azure Container Apps is one command and its own
+runbook: **[docs/engineering/deploying.md](docs/engineering/deploying.md)**.
 
 ## Status
 
-🚧 **Phase 0 — foundation nearly complete.** The modular monolith **runs**: Aspire boots the Server
-on PostgreSQL, and the first module (`Products`, built in W1 as `Catalog`) answers `POST`/`GET
-/api/products` end-to-end, with
-schema-per-module isolation, a transactional outbox, and architecture tests enforcing the
-boundaries — all verified against real Postgres in CI. Remaining Phase 0: per-module EF migrations,
-and the Vite → Next.js front-end migration. See the [roadmap](docs/roadmap.md) and
-[delivery plan](docs/delivery-plan.md).
+🚧 **Phase 3 — in-store depth.** Phases 0 through 2 are complete and the system is deployed.
+
+**What works today**, end to end:
+
+- **Back office** — identity and permissions (Keycloak, realm-per-tenant), org and territories,
+  outlets with a tenant-defined custom-field catalogue and bulk import, the product catalogue with
+  assortments/MSL, price lists, promotions and tax, journey planning, and the config builders for
+  perfect-store weights and survey forms.
+- **The field app** — an installable PWA that pulls a rep's journey, workflows, catalogue, prices and
+  promotions into IndexedDB, then works **fully offline**: geofenced check-in, config-driven visit
+  steps, check-out, and an outbox that pushes idempotently on reconnect.
+- **A pricing engine written twice** — the resolver for prices, promotions and tax exists in C# for
+  the server and TypeScript for the device, and CI refuses a build where the two disagree on a
+  shared corpus of generated vectors. The perfect-store score is held to the same standard.
+- **Ten modules** with enforced boundaries, a schema each, a transactional outbox, and architecture
+  tests that fail the build on a cross-module reference — all verified against real Postgres in CI.
+
+**In flight (W11):** order capture, the offline audit and order screens, sync v2's conflict rules,
+and out-of-band photo upload.
+
+Progress is tracked week by week in the **[delivery plan](docs/delivery-plan.md)**, which records what
+each slice actually shipped — including where it departed from the plan and why. The
+**[roadmap](docs/roadmap.md)** is the phase-level view.
 
 ## About
 
