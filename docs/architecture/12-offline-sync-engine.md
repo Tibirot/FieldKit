@@ -380,7 +380,15 @@ POST /sync/push
 
 **`type` is a discriminator, and became one in W9 slice 9.** With `CapturedVisit` as the only legal
 value it was a guard against nonsense; the three journey annotations made it the routing, and each
-arm knows only which module contract to call. Sync still holds no opinion about what makes a visit
+arm knows only which module contract to call.
+
+> **An audit is its own kind, not a property of `CapturedVisit`** (decided in W10 slice 0, built in
+> W10 slice 6 — [audits §5](../product/22-merchandising-and-audits.md#the-three-the-score-cannot-be-given-later-w10-slice-0)).
+> `BR-AUD-6` seals an audit with its visit, which reads like one payload; the device honours that by
+> queueing both in one transaction, and the outbox's oldest-first drain lands the visit first. What
+> decides it is refusal: this endpoint answers **per mutation** so a batch of twenty does not fail
+> over one bad outlet id, and a combined payload would let an audit refused on its merits reject a
+> completed visit. Sync still holds no opinion about what makes a visit
 valid or a round annotatable — applying through the owning module is what keeps that true.
 
 **A typed property per kind, not a `payload` blob.** Each mutation type adds its own optional
