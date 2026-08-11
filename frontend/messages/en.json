@@ -1259,6 +1259,35 @@
       "unknown": {
         "title": "That visit is not on this device",
         "body": "It may have been worked on another phone, or this device was registered again since. Open the shop from today's journey to start a new visit."
+      },
+      "outcomeLabel": "Outcome",
+      "reasonLabel": "Why",
+      "timeOnSiteLabel": "Time in the shop",
+      "minutes": "{minutes, plural, one {# minute} other {# minutes}}",
+      "outcomes": {
+        "Productive": "Productive",
+        "NonProductive": "Nothing came of it"
+      }
+    },
+    "checkOut": {
+      "title": "Finish the visit",
+      "outstanding": "{count, plural, one {# step still has to be done} other {# steps still have to be done}} before you can finish:",
+      "outcome": "How did the call go?",
+      "outcomes": {
+        "Productive": "Productive",
+        "NonProductive": "Nothing came of it"
+      },
+      "action": "Check out",
+      "sealing": "Finishing…",
+      "reason": {
+        "label": "What happened?",
+        "help": "Your supervisor sees this. Without it the call is a gap nobody can act on."
+      },
+      "refusal": {
+        "notInProgress": "This visit is already finished.",
+        "mandatoryStepsOpen": "The steps listed above still have to be done.",
+        "reasonRequired": "Say what happened before finishing.",
+        "unexpected": "The visit could not be finished. Try again, and tell your supervisor if it keeps happening."
       }
     }
   },

@@ -1259,6 +1259,35 @@
       "unknown": {
         "title": "Vizita nu se află pe acest dispozitiv",
         "body": "Poate a fost lucrată pe alt telefon sau acest dispozitiv a fost înregistrat din nou între timp. Deschide magazinul din traseul de azi pentru a începe o vizită nouă."
+      },
+      "outcomeLabel": "Rezultat",
+      "reasonLabel": "De ce",
+      "timeOnSiteLabel": "Timp în magazin",
+      "minutes": "{minutes, plural, one {# minut} few {# minute} other {# de minute}}",
+      "outcomes": {
+        "Productive": "Productivă",
+        "NonProductive": "Fără rezultat"
+      }
+    },
+    "checkOut": {
+      "title": "Încheie vizita",
+      "outstanding": "{count, plural, one {# pas trebuie finalizat} few {# pași trebuie finalizați} other {# de pași trebuie finalizați}} înainte de a încheia:",
+      "outcome": "Cum a decurs vizita?",
+      "outcomes": {
+        "Productive": "Productivă",
+        "NonProductive": "Fără rezultat"
+      },
+      "action": "Încheie vizita",
+      "sealing": "Se încheie…",
+      "reason": {
+        "label": "Ce s-a întâmplat?",
+        "help": "Supervizorul tău vede acest text. Fără el, vizita este o lipsă pe care nimeni nu o poate rezolva."
+      },
+      "refusal": {
+        "notInProgress": "Vizita este deja încheiată.",
+        "mandatoryStepsOpen": "Pașii de mai sus trebuie finalizați.",
+        "reasonRequired": "Scrie ce s-a întâmplat înainte de a încheia.",
+        "unexpected": "Vizita nu a putut fi încheiată. Încearcă din nou și anunță-ți supervizorul dacă se repetă."
       }
     }
   },

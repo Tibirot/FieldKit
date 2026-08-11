@@ -188,6 +188,26 @@ A step type the *device* does not recognise is named generically and stays compl
 reason: a device is offline-first and therefore routinely older than the server, and a tenant
 configuring a newer step type must not leave a rep with a blank mandatory row and no way out.
 
+### Leaving, and the two positions that are not the same kind of fact (W9 slice 8)
+
+Check-out is enforced on the device because there is nobody else to enforce it: `BR-VIS-3` refuses to
+seal a visit while a mandatory step is open, and a rep with no signal has to be told *now*.
+
+**What is outstanding is on screen for the whole visit**, listed by name, rather than appearing when
+the rep tries to leave. §F2 already says the outstanding set travels with every response; on the
+device that becomes a permanent list, because being told at the door is the version of this rule that
+sends someone back into a shop they have walked out of. The check-out control stays live anyway — a
+rep who taps it is told which steps, which is more use than a disabled button with no explanation.
+
+**The check-out position is taken at the tap, and this is deliberately the opposite of check-in.**
+Check-in takes one fix when the screen opens and honours the verdict it displayed; nothing about
+check-out's position is shown before it is stored, so the most truthful moment is the last one. It
+waits five seconds and then records `null` — `BR-VIS-3` is the only thing allowed to keep a rep in a
+shop, and a satellite is not. Nothing judges it, per §F3.
+
+**Time on site is derived on the device exactly as it is server-side** — check-out minus check-in,
+never stored (`BR-VIS-5`).
+
 ### Provenance — how the record says where it came from
 
 An offline visit arrives carrying **the device's** timestamps, position and geofence verdict, and the

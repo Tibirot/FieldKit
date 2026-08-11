@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
+import { CheckOut } from "@/components/field/check-out";
 import { useSync } from "@/components/sync/sync-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -67,9 +68,7 @@ export function Visit({ visitId }: { visitId: string }) {
          * a rep who has finished should be reading what they did, not looking at greyed-out controls
          * wondering which one they missed.
          */
-        <p className="text-sm text-muted-foreground" role="status">
-          {t("sealed")}
-        </p>
+        <Sealed visit={visit} />
       ) : null}
 
       {visit.steps.length === 0 ? (
@@ -91,8 +90,62 @@ export function Visit({ visitId }: { visitId: string }) {
           </ol>
         </section>
       )}
+
+      {/* Check-out lives below the steps because that is the order the rep works in, and because
+          what it refuses is about them (`BR-VIS-3`, W9 slice 8). */}
+      {visit.status === "inProgress" ? <CheckOut visit={visit} /> : null}
     </div>
   );
+}
+
+/**
+ * What a finished visit says about itself (`VIS-05`) — W9 slice 8.
+ *
+ * <b>Not the summary screen.</b> `VIS-09`'s recap is the thing a rep reads *before* checking out, and
+ * it is slice 10. This is the three facts check-out itself produced, shown where the visit is.
+ *
+ * <b>Time on site is derived here, exactly as it is server-side.</b> Check-out minus check-in, never
+ * stored — a stored copy is a second answer that can disagree with the first (`BR-VIS-5`).
+ */
+function Sealed({ visit }: { visit: LocalVisit }) {
+  const t = useTranslations("Field.visit");
+
+  return (
+    <div className="flex flex-col gap-1 rounded-xl border border-border p-3" role="status">
+      <p className="text-sm">{t("sealed")}</p>
+
+      <dl className="flex flex-col gap-0.5 text-sm text-muted-foreground">
+        {visit.outcome ? (
+          <div className="flex gap-2">
+            <dt>{t("outcomeLabel")}</dt>
+            <dd>{t(`outcomes.${visit.outcome === "Productive" ? "Productive" : "NonProductive"}`)}</dd>
+          </div>
+        ) : null}
+
+        {visit.outcomeReason ? (
+          <div className="flex gap-2">
+            <dt>{t("reasonLabel")}</dt>
+            <dd>{visit.outcomeReason}</dd>
+          </div>
+        ) : null}
+
+        {visit.checkedOutAtUtc ? (
+          <div className="flex gap-2">
+            <dt>{t("timeOnSiteLabel")}</dt>
+            <dd>{t("minutes", { minutes: minutesOnSite(visit) })}</dd>
+          </div>
+        ) : null}
+      </dl>
+    </div>
+  );
+}
+
+/** Whole minutes, rounded down: a rep reading "18 minutes" does not want 18.4. */
+function minutesOnSite(visit: LocalVisit): number {
+  const from = Date.parse(visit.checkedInAtUtc);
+  const to = Date.parse(visit.checkedOutAtUtc ?? visit.checkedInAtUtc);
+
+  return Math.max(0, Math.floor((to - from) / 60_000));
 }
 
 function StepRow({ visit, step }: { visit: LocalVisit; step: LocalVisitStep }) {
