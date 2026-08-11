@@ -323,12 +323,18 @@ public class SyncPushTests(ServerFixture fixture)
     public async Task A_mutation_type_this_server_does_not_speak_is_rejected_rather_than_dropped()
     {
         // Silently ignoring it would leave the device retrying forever with nothing to act on.
+        //
+        // The name is `CapturedReturn` and it is chosen from the **Won't** list on purpose — see
+        // `SyncPushJourneyTests` for the two silent expirations that argument comes from. This copy
+        // was the one nobody had recorded: W10 slice 6 swept the vector file and the journey test,
+        // and left this one asserting that the server does not carry orders, three slices before it
+        // would.
         using var rep = fixture.CreateAuthenticatedClient(fixture.AccessToken);
 
         var device = await BindDeviceAsync(rep);
 
         var push = await PushAsync(
-            rep, device, new PushedMutation(Guid.CreateVersion7(), "CapturedOrder", null));
+            rep, device, new PushedMutation(Guid.CreateVersion7(), "CapturedReturn", null));
 
         var result = Assert.Single(push.Results);
         Assert.Equal("rejected", result.Status);

@@ -89,6 +89,36 @@ Lifecycle and mechanics per [B4](decisions-and-assumptions.md#b4--order-lifecycl
   BR-ORD-4, and it guarantees rejected work is never stranded ([B4](decisions-and-assumptions.md#b4--order-lifecycle),
   [sync engine §4](../architecture/12-offline-sync-engine.md#4-push-protocol-device-owned-mutations)).
 
+### 5.1 Two things the rules leave to the schema (W11 slice 0)
+
+Both are settled here rather than when the code needs them, because neither can be applied to orders
+that already exist — the same argument `Source` on `Visit` made in W9 slice 0, arriving a second time.
+
+**A disagreement is stored as two numbers, not a boolean.** `BR-ORD-6` says a server re-price that
+differs is *flagged, not silently changed*, which fixes what must **not** happen and leaves open what
+is recorded. A flag alone says something was wrong without saying what, and the question anyone asks
+next — by how much, and on which line — would need a recomputation that no longer has the inputs. So
+the order keeps **the device's totals as the record**, and the server's recomputation is stored
+**beside** them with the snapshot version each was produced under.
+
+That is the opposite of what an audit does, and the contrast is the point. `BR-AUD-8` has the server's
+recomputed score *replace* the device's, because a score is a derived measurement and the server's is
+the more trustworthy one. An order's prices are **what a human being agreed to buy at**. Overwriting
+them would change the commercial fact the rep and the shopkeeper settled on, so here the device wins
+the record and the server wins the annotation.
+
+**An order has one identity and many submissions.** [F4](#f4--rejected-order-remediation) already
+answers the identity question — a rejected order is *re-opened*, retained server-side, and pulls back
+to the rep's device — so it stays one order with one id, and "how many orders did this outlet place"
+counts intent rather than attempts. What that leaves open is the part `BR-ORD-9` depends on: **each
+submission is an append-only child record**, carrying its own mutation id, timestamp and outcome.
+
+Without it, "the original submission's mutation id is terminal" is unverifiable — the aggregate would
+hold only the latest attempt, and a replay of the rejected id would have nothing to be terminal
+*against*. It is also what keeps the re-open honest with [B7](decisions-and-assumptions.md#b7--conflict-resolution-matrix):
+device-owned data is append-only, and moving `Rejected → Draft` looks like an exception to that until
+you notice the *history* is what appends while the aggregate is what re-opens.
+
 ## 6. Requirements
 
 | ID | Requirement | MoSCoW | Phase |
@@ -139,6 +169,9 @@ server **rejects** the order, it re-opens editable on the device for correction 
 ## 10. Open questions
 
 - Is back-office **Accept/Reject** in the demo scope, or just "Submitted"? (Assumed: Submitted
-  is the terminal demo state; Accept/Reject is a *Could*.)
-- Order-level promotions in v1, or line-level only? (Assumed: line-level first; order-level as
-  a fast-follow.)
+  is the terminal demo state; Accept/Reject is a *Could*.) **Partly settled (W11 slice 0):**
+  `ORD-12` is a `Must` and needs something to do the rejecting, so **rejection ships as an API with
+  no screen** — driven in the demo by an `.http` request. The *screen* stays a `Could`.
+- ~~Order-level promotions in v1, or line-level only?~~ **Answered by `BR-ORD-3`**, which already
+  says at most one line-level promotion per line *plus* an optional order-level one. This question
+  outlived the rule that settled it; noticed in W11 slice 0.
