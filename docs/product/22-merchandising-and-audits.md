@@ -78,6 +78,78 @@ weighted score** — see [decision A2](decisions-and-assumptions.md#a2--audit--p
   re-score sealed audits — historical scores stay comparable, and trend views ([AUD-09](#6-requirements))
   note the weight-version boundary rather than silently mixing scales.
 
+### The three the score cannot be given later (W10 slice 0)
+
+The rules above say *what* is true. Three of them have a consequence that has to be settled before
+the first audit is stored, because none can be applied to audits that already exist. This section is
+where those are settled, so that slices 1–6 implement a decision rather than each make one.
+
+#### 1 · A published weight set is immutable, and versioned
+
+`BR-AUD-8` has the server recompute a pushed audit using **the weights the audit was scored
+against**. That sentence is only meaningful if a published weight set can never change: otherwise
+"recompute with version 3" means whatever version 3 says *today*, an administrator adjusting a slider
+silently rewrites last quarter's scores, and the device and server can disagree about a completed
+audit with neither of them wrong.
+
+So a weight set follows the same lifecycle a journey plan already does — **draft, then published,
+and publishing is one-way**. Changing weights means publishing a new version; the old one stays
+readable forever because sealed audits point at it.
+
+> **There is no backfill, which is why this is a slice 0.** An audit stored before versioning exists
+> has no version to record and nothing to point at, and no amount of later work can invent one. This
+> is the same argument `Source` on `Visit` made in W9 slice 0, and it was right there for the same
+> reason: a field that can only be true going forward has to exist before the rows do.
+
+#### 2 · A skipped pillar is renormalised away, not scored zero
+
+`BR-AUD-2` skips share-of-shelf when the rep captured no category total — "the pillar is skipped, not
+faked". `BR-AUD-4` has weights sum to 100%. Both cannot hold unless something gives, and the two
+candidates give materially different numbers for the same shelf:
+
+| | Availability 80 (w 50) | Share-of-shelf **not captured** (w 30) | Price 90 (w 20) | Score |
+|---|---|---|---|---|
+| **Score the gap zero** | 40 | 0 | 18 | **58** |
+| **Renormalise** | 40 | — | 18 | **83** |
+
+**Renormalise**: the score is the weighted mean over the pillars that *were* measured —
+`Σ(pillar × weight) ÷ Σ(weight of measured pillars)`.
+
+Scoring the gap zero treats "unknown" as "bad", which is exactly the faking `BR-AUD-2` refuses. It
+also punishes a rep for a measurement they could not take — a category with no shelf tag to count, a
+kiosk with no comparable section — and makes a store look worse than one whose share-of-shelf is
+genuinely poor. That inverts the meaning of the number.
+
+> **The cost, stated because it is real.** Renormalising creates a gaming vector: a rep who skips the
+> pillar they are weakest at scores higher than one who measures it. Two things make that visible
+> rather than free. The audit records **which pillars were scored**, so a supervisor comparing two
+> stores can see they were scored on different bases; and `AUD-09`'s pillar breakdown shows the
+> skipped pillar as skipped rather than as a low bar. The alternative would hide a *worse* problem —
+> a score that silently means "this rep works a format where the denominator is uncountable".
+>
+> **If no pillar could be scored, the score is `null`, not `0`.** An audit with nothing measurable is
+> not a perfect-store failure; it is an audit that says nothing, and averaging it into a trend as a
+> zero would be the same lie one pillar deeper.
+
+#### 3 · An audit is its own mutation, queued with its visit
+
+`BR-AUD-6` seals an audit with its visit, which argues for one payload carrying both. The module
+registry names `IAuditIngest` separately, which argues for two. It is decided here rather than in
+slice 6 because it is a **wire** decision, and
+[`vectors/sync/push.v1.json`](../../vectors/sync/push.v1.json) is read by both languages — the shape
+gets pinned by a file the moment it is built, and deciding twice is what that file exists to prevent.
+
+**Two mutations.** The device queues the audit in the *same transaction* that seals the visit, so
+"sealed with it" holds where it matters — on the device, where the work is. The outbox drains oldest
+first, so the visit lands before its audit.
+
+The deciding argument is what happens when one of them is refused. `/sync/push` answers per mutation
+precisely so a batch of twenty does not fail over one bad outlet id — one payload would make an audit
+refused on its merits reject a **completed visit**, which is the "lose the nineteen" failure the push
+protocol was designed around. Two mutations means the visit lands, the audit's refusal is a result a
+person can act on (`OFF-09`), and an audit whose visit was itself refused is refused in turn for a
+reason that reads correctly: there is no such visit.
+
 ## 6. Requirements
 
 | ID | Requirement | MoSCoW | Phase |

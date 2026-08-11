@@ -55,6 +55,20 @@ No image recognition — the rep enters facings/flags; the platform computes the
 **Implications:** Audit aggregate with typed measurement lines; a scoring service with
 configurable weights; Products dependency for MSL/expected price.
 
+> **Settled before the first audit is stored (W10 slice 0).** Three consequences of the rules above
+> cannot be applied retroactively, so they are decided in
+> [audits §5](22-merchandising-and-audits.md#the-three-the-score-cannot-be-given-later-w10-slice-0)
+> rather than discovered per slice:
+>
+> - **A published weight set is immutable and versioned.** Re-weighting publishes a new version;
+>   sealed audits keep pointing at the old one. Without this, `BR-AUD-8`'s "recompute with those
+>   weights" means whatever the weights say today.
+> - **A skipped pillar is renormalised away, not scored zero.** Unknown is not bad — scoring the gap
+>   zero is the faking `BR-AUD-2` refuses, and it makes an unmeasurable format look like a failing
+>   one. If nothing could be scored, the score is `null`.
+> - **An audit is its own push mutation**, queued in the same device transaction as its visit. One
+>   payload would let an audit refused on its merits reject a completed visit.
+
 ### A3 · Internationalization: full (multi-currency + multi-language UI)
 
 FieldKit is built international from the start:

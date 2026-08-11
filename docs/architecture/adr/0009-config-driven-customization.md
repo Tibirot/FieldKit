@@ -75,6 +75,13 @@ schema is fixed; only the fields/forms/workflows/theme flex.
 - **Definition version retention.** "As-of-capture" validation/scoring means the module must keep
   **historical definition versions**, not just current state (a storage/lifecycle consequence, not
   just a schema one) — see [Configuration BR-CFG-1](../../product/14-configuration.md#5-business-rules).
+  > **For score weights, retention is not enough — a published version must be immutable** (W10
+  > slice 0). Keeping version 3 around does not help if version 3 can still be edited: `BR-AUD-8`
+  > has the server recompute a sealed audit with the weights it was scored against, and that is a
+  > sentence about a fixed set of numbers. So a weight set publishes one-way, exactly as a journey
+  > plan does, and re-weighting means a new version. The distinction matters for every definition
+  > kind this ADR covers — *retained* and *frozen* are different promises, and only the second one
+  > makes an as-of-capture recomputation reproducible.
 - Dynamic form/workflow rendering adds front-end complexity.
 - Reporting on custom fields is limited to indexed JSONB paths (acceptable for operational needs).
 
