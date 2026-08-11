@@ -1289,6 +1289,23 @@
         "reasonRequired": "Scrie ce s-a întâmplat înainte de a încheia.",
         "unexpected": "Vizita nu a putut fi încheiată. Încearcă din nou și anunță-ți supervizorul dacă se repetă."
       }
+    },
+    "notVisited": {
+      "open": "Nu poți face această vizită?",
+      "title": "Raportează vizita ca nefăcută",
+      "intro": "Vizita rămâne pe traseu, cu motivul tău alături. Nimeni nu o poate șterge, iar supervizorul va vedea de ce.",
+      "action": "Raportează",
+      "saving": "Se salvează…",
+      "cancel": "Renunță",
+      "reported": "Ai raportat această vizită ca nefăcută.",
+      "failed": "Raportul a fost refuzat. Anunță-ți supervizorul.",
+      "reason": {
+        "label": "Ce s-a întâmplat?"
+      },
+      "refusal": {
+        "reasonRequired": "Scrie de ce nu a avut loc vizita. Un magazin sărit fără motiv este o lipsă pe care nimeni nu o poate rezolva.",
+        "alreadyReported": "Ai raportat deja această vizită."
+      }
     }
   },
   "Guard": {

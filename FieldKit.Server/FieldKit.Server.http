@@ -3738,3 +3738,215 @@ Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
 { "deviceId": "{{compromisedDeviceId}}", "mutations": [] }
+
+### ── Sync · push · rep-side annotations (VIS-07, JRN-06 — W9 slice 9) ───────
+# The slice that turned `type` from a field into a discriminator. Sync routes on it and
+# applies each kind *through the owning module* (`IJourneyIngest`), so `BR-JRN-2`'s
+# published-plans-only rule and `BR-JRN-4`'s cycle rule run once, wherever the annotation
+# came from — the HTTP endpoints below and this drain share them.
+#
+# A call the rep could not make. The device knows the call's id from its pulled round and
+# nothing else: no plan id, because a round arrives as flat calls.
+POST {{host}}/api/sync/push
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceId}}",
+  "mutations": [
+    {
+      "mutationId": "0195e7c4-0000-7000-8000-00000000a010",
+      "type": "NotVisitedCall",
+      "notVisited": {
+        "plannedVisitId": "{{plannedVisitId}}",
+        "reason": "Closed for refurbishment — shutters down, no sign of reopening."
+      }
+    }
+  ]
+}
+
+### The same call again under a *different* mutation id, which is what a lost ledger entry
+### looks like. Answers `accepted` rather than `journey.visit.alreadyNotVisited`: the state
+### the device wants is the state the server is in, and refusing would strand the mutation
+### in the outbox for good. The first reason is kept — it is what the rep wrote at the shop.
+POST {{host}}/api/sync/push
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceId}}",
+  "mutations": [
+    {
+      "mutationId": "0195e7c4-0000-7000-8000-00000000a011",
+      "type": "NotVisitedCall",
+      "notVisited": { "plannedVisitId": "{{plannedVisitId}}", "reason": "A later sentence" }
+    }
+  ]
+}
+
+### A skipped shop with nothing said is refused `journey.visit.reasonRequired` (BR-JRN-2).
+POST {{host}}/api/sync/push
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceId}}",
+  "mutations": [
+    {
+      "mutationId": "0195e7c4-0000-7000-8000-00000000a012",
+      "type": "NotVisitedCall",
+      "notVisited": { "plannedVisitId": "{{plannedVisitId}}", "reason": "   " }
+    }
+  ]
+}
+
+### Another rep's call — or one that does not exist — answers the *same*
+### `journey.visit.unknown`. Deliberately indistinguishable: a device must not be able to
+### use the drain as an oracle for what is on somebody else's round.
+POST {{host}}/api/sync/push
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceId}}",
+  "mutations": [
+    {
+      "mutationId": "0195e7c4-0000-7000-8000-00000000a013",
+      "type": "NotVisitedCall",
+      "notVisited": {
+        "plannedVisitId": "0195e7c4-0000-7000-8000-00000000d999",
+        "reason": "Not mine to report on"
+      }
+    }
+  ]
+}
+
+### A call moved to another day inside its cycle. Idempotent by nature — moving a call to
+### the day it is already on is a no-op that reports success.
+POST {{host}}/api/sync/push
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceId}}",
+  "mutations": [
+    {
+      "mutationId": "0195e7c4-0000-7000-8000-00000000a014",
+      "type": "RescheduledCall",
+      "rescheduled": { "plannedVisitId": "{{plannedVisitId}}", "date": "2026-04-08" }
+    }
+  ]
+}
+
+### Outside the plan's window → `journey.visit.outsideWindow`; a different cycle →
+### `journey.visit.outsideCycle` (BR-JRN-4). Both come from the aggregate rather than from
+### date arithmetic in the push path, which is the point of applying through the module.
+POST {{host}}/api/sync/push
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceId}}",
+  "mutations": [
+    {
+      "mutationId": "0195e7c4-0000-7000-8000-00000000a015",
+      "type": "RescheduledCall",
+      "rescheduled": { "plannedVisitId": "{{plannedVisitId}}", "date": "2027-01-04" }
+    }
+  ]
+}
+
+### A call nobody planned. The device sends a shop and a day and *no plan*: which published
+### round covers that day is a question only Journey can answer, and it answers with the
+### most recently published one — a regenerated round is how a plan is corrected, so overlap
+### is ordinary rather than an error.
+POST {{host}}/api/sync/push
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceId}}",
+  "mutations": [
+    {
+      "mutationId": "0195e7c4-0000-7000-8000-00000000a016",
+      "type": "UnplannedCall",
+      "unplanned": { "outletId": "{{outletId}}", "date": "2026-04-12" }
+    }
+  ]
+}
+
+### The same shop and day again. Accepted and *not* added twice — this is the one annotation
+### that creates a row, so it is the one a lost ledger entry could duplicate, and a double
+### call would overstate the coverage `BR-JRN-6` measures. The same guard declines when the
+### day already has a *planned* call for that shop.
+POST {{host}}/api/sync/push
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceId}}",
+  "mutations": [
+    {
+      "mutationId": "0195e7c4-0000-7000-8000-00000000a017",
+      "type": "UnplannedCall",
+      "unplanned": { "outletId": "{{outletId}}", "date": "2026-04-12" }
+    }
+  ]
+}
+
+### A day no published round covers → `journey.plan.noneForDate`.
+POST {{host}}/api/sync/push
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceId}}",
+  "mutations": [
+    {
+      "mutationId": "0195e7c4-0000-7000-8000-00000000a018",
+      "type": "UnplannedCall",
+      "unplanned": { "outletId": "{{outletId}}", "date": "2030-06-01" }
+    }
+  ]
+}
+
+### One batch, three kinds, three modules' rules. This is what "type is a discriminator"
+### means in practice, and it is the case that could not exist before this slice.
+POST {{host}}/api/sync/push
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceId}}",
+  "mutations": [
+    {
+      "mutationId": "0195e7c4-0000-7000-8000-00000000a020",
+      "type": "NotVisitedCall",
+      "notVisited": { "plannedVisitId": "{{plannedVisitId}}", "reason": "Shut for a stock take" }
+    },
+    {
+      "mutationId": "0195e7c4-0000-7000-8000-00000000a021",
+      "type": "RescheduledCall",
+      "rescheduled": { "plannedVisitId": "{{secondPlannedVisitId}}", "date": "2026-04-10" }
+    },
+    {
+      "mutationId": "0195e7c4-0000-7000-8000-00000000a022",
+      "type": "UnplannedCall",
+      "unplanned": { "outletId": "{{outletId}}", "date": "2026-04-12" }
+    }
+  ]
+}
+
+### A payload that does not match its type → `sync.push.payloadMissing`. Refused rather than
+### ignored, for the reason the unsupported-type arm gives: a device that keeps retrying
+### something the server silently drops never drains.
+POST {{host}}/api/sync/push
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceId}}",
+  "mutations": [
+    { "mutationId": "0195e7c4-0000-7000-8000-00000000a023", "type": "NotVisitedCall" }
+  ]
+}

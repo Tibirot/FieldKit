@@ -245,7 +245,7 @@ the document a module author trusts when deciding what to depend on.
 | Outlets | `…Modules.Outlets` (+ `.Contracts`) | `outlets` | **`IOutletCatalog`**, **`IOutletClassification`**, **`IOutletGeofence`**, `IReferenceChangeFeed`, `IOutletProposalIngest` | `OutletChanged`, `OutletClosed` |
 | Products & Pricing | `…Modules.Products` (+ `.Contracts`) | `products` | **`IProductChangeFeed`**, **`IAssortmentChangeFeed`**, **`IPriceChangeFeed`**, **`IPromotionChangeFeed`**, `IProductCatalog`, `IAssortmentService`, `IPricingService` | `PriceListPublished`, `PromotionActivated` |
 | Configuration | `…Modules.Configuration` (+ `.Contracts`) | `config` | **`IFieldDefinitionCatalog`**, **`IVisitWorkflow`**, **`IVisitWorkflowFeed`**, `ISurveyForms`, `IScoreWeights` | `ConfigurationPublished` |
-| Journey | `…Modules.Journey` (+ `.Contracts`) | `journey` | **`IJourneyQuery`**, **`IJourneyChangeFeed`**, `IJourneyIngest` | `JourneyPublished`, `PlannedVisitMarkedNotVisited` |
+| Journey | `…Modules.Journey` (+ `.Contracts`) | `journey` | **`IJourneyQuery`**, **`IJourneyChangeFeed`**, **`IJourneyIngest`** | `JourneyPublished`, `PlannedVisitMarkedNotVisited` |
 | Visit | `…Modules.Visit` (+ `.Contracts`) | `visit` | **`IVisitIngest`**, `IVisitContext`, `IVisitQuery` | `VisitCompleted` |
 | Audit | `…Modules.Audit` | `audit` | `IAuditQuery`, `IPerfectStoreScore`, `IAuditIngest` | `AuditCompleted` |
 | Order | `…Modules.Orders` | `order` | `IOrderQuery`, `IOrderIngest` | `OrderSubmitted` |

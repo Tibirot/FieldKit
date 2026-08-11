@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
+import { NotVisited } from "@/components/field/not-visited";
 import { useSync } from "@/components/sync/sync-provider";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "@/i18n/navigation";
@@ -171,6 +172,11 @@ export function CheckIn({
           {t(`refusal.${refused in REFUSAL_KEYS ? REFUSAL_KEYS[refused as ReachableRefusal] : "unexpected"}`)}
         </p>
       ) : null}
+
+      {/* Beneath check-in, and only for a planned call: reporting that a call could not be made is
+          what a rep does when working the shop has failed, and there is no round to annotate for an
+          unplanned visit (W9 slice 9). */}
+      {plannedVisitId ? <NotVisited plannedVisitId={plannedVisitId} /> : null}
 
       <Button
         onClick={() => void start()}

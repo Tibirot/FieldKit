@@ -369,11 +369,19 @@ POST /sync/push
 {
   "deviceId": "…",
   "mutations": [
-    { "mutationId": "c1a…", "type": "CapturedVisit", "visit": { /* … */ } },
-    { "mutationId": "d4f…", "type": "CapturedOrder", "order": { /* … */ } }
+    { "mutationId": "c1a…", "type": "CapturedVisit",  "visit":       { /* … */ } },
+    { "mutationId": "e7b…", "type": "NotVisitedCall", "notVisited":  { /* … */ } },
+    { "mutationId": "f2c…", "type": "RescheduledCall","rescheduled": { /* … */ } },
+    { "mutationId": "a9d…", "type": "UnplannedCall",  "unplanned":   { /* … */ } },
+    { "mutationId": "d4f…", "type": "CapturedOrder",  "order":       { /* … */ } }
   ]
 }
 ```
+
+**`type` is a discriminator, and became one in W9 slice 9.** With `CapturedVisit` as the only legal
+value it was a guard against nonsense; the three journey annotations made it the routing, and each
+arm knows only which module contract to call. Sync still holds no opinion about what makes a visit
+valid or a round annotatable — applying through the owning module is what keeps that true.
 
 **A typed property per kind, not a `payload` blob.** Each mutation type adds its own optional
 property, which is additive — a device that only knows `visit` keeps working when `order` lands — and
@@ -389,7 +397,7 @@ flowchart TB
   b -- yes --> r1["return prior result (no-op)"]
   b -- no --> c["validate via IngestContract<br/>as-of-capture: scope/permission · as-of-now: hard rules"]
   c -- reject --> r2["result: rejected + reason + line"]
-  c -- ok --> d["apply via owning module ingest contract<br/>(IVisitIngest / IOrderIngest / IAuditIngest)"]
+  c -- ok --> d["apply via owning module ingest contract<br/>(IVisitIngest / IJourneyIngest / IOrderIngest / IAuditIngest)"]
   d --> e["record mutationId + result in ledger<br/>(separate TX — see below)"]
   e --> r3["result: accepted"]
 ```
