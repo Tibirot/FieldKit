@@ -88,9 +88,20 @@ to a file in this directory is silently ignored on the next start.
 
 | User | Realm roles | Exists to prove |
 |---|---|---|
-| `rep` | `product:read`, `product:write` | the permitted path succeeds |
-| `viewer` | `product:read`, `role:read` | a missing permission is **403**, not 401 — and that read and write are genuinely separate capabilities |
-| `admin` | `role:read`, `role:write`, `user:read`, `user:write` | permissions are **independent, not hierarchical** — an admin who can manage roles cannot touch products, and `rep` cannot touch roles |
+| `rep` | `product:*`, `outlet:read`, `channel:read` | the permitted path succeeds |
+| `viewer` | every `…:read` the modules define | a missing permission is **403**, not 401 — and that read and write are genuinely separate capabilities |
+| `admin` | every read and write **except** `product:*` | permissions are **independent, not hierarchical** — an admin who can manage roles cannot touch products, and `rep` cannot touch roles |
+
+Read the file for the exact lists; they grow with each module and a table that repeated them would be
+wrong within a week. What is worth stating is the shape, which has not changed.
+
+**`rep`'s list is short and stays short**, which is easy to misread as an oversight now that the field
+PWA exists. It is not: the field app talks to `/api/sync/devices`, `/api/sync/pull` and
+`/api/sync/push` and to nothing else. Binding needs a token and no permission; pull and push are
+gated on the **device registry** — is this device bound, active, and whose — rather than on realm
+roles, because "may this phone sync" is a question about the phone. A rep working a whole day offline
+therefore needs no module permission at all, and adding some would suggest the wrong thing about how
+the field app is authorized.
 
 A single all-powerful user makes an authorization test vacuous: everything passes whether or not the
 check is wired up. The differences between these three are the assertions.
