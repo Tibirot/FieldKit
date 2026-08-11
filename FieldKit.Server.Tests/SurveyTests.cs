@@ -196,7 +196,7 @@ public class SurveyTests(ServerFixture fixture)
             problem.Field == "questions[1].text" && problem.Code == "config.survey.textRequired");
 
         // …and nothing was said about question 0, which was fine.
-        Assert.DoesNotContain(problems, problem => problem.Field.StartsWith("questions[0]"));
+        Assert.DoesNotContain(problems, problem => problem.Field?.StartsWith("questions[0]") == true);
     }
 
     [Fact]

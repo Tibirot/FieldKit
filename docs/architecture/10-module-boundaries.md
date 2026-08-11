@@ -246,8 +246,8 @@ the document a module author trusts when deciding what to depend on.
 | Products & Pricing | `…Modules.Products` (+ `.Contracts`) | `products` | **`IProductChangeFeed`**, **`IAssortmentChangeFeed`**, **`IPriceChangeFeed`**, **`IPromotionChangeFeed`**, `IProductCatalog`, `IAssortmentService`, `IPricingService` | `PriceListPublished`, `PromotionActivated` |
 | Configuration | `…Modules.Configuration` (+ `.Contracts`) | `config` | **`IFieldDefinitionCatalog`**, **`IVisitWorkflow`**, **`IVisitWorkflowFeed`**, **`ISurveyForms`**, `IScoreWeights` | `ConfigurationPublished` |
 | Journey | `…Modules.Journey` (+ `.Contracts`) | `journey` | **`IJourneyQuery`**, **`IJourneyChangeFeed`**, **`IJourneyIngest`** | `JourneyPublished`, `PlannedVisitMarkedNotVisited` |
-| Visit | `…Modules.Visit` (+ `.Contracts`) | `visit` | **`IVisitIngest`**, `IVisitContext`, `IVisitQuery` | `VisitCompleted` |
-| Audit | `…Modules.Audit` | `audit` | `IAuditQuery`, `IPerfectStoreScore`, `IAuditIngest` | `AuditCompleted` |
+| Visit | `…Modules.Visit` (+ `.Contracts`) | `visit` | **`IVisitIngest`**, **`IVisitContext`**, `IVisitQuery` | `VisitCompleted` |
+| Audit | `…Modules.Audit` (+ `.Contracts`) | `audit` | **`IAuditIngest`**, **`IAuditQuery`**, `IPerfectStoreScore` | `AuditCompleted` |
 | Order | `…Modules.Orders` | `order` | `IOrderQuery`, `IOrderIngest` | `OrderSubmitted` |
 | Sync | `…Modules.Sync` | `sync` | ~~`ISyncEndpoints` (pull/push)~~ — none yet; nothing outside the module calls it | ~~`DeviceRegistered`~~ — no subscriber yet |
 
@@ -396,6 +396,20 @@ Configuration's problem.
 The split is what lets AT-1 be a real reference check rather than a naming convention, and it makes
 AT-3 structural: a contracts assembly that cannot see the implementation cannot name a domain type
 in a signature.
+
+**Audit is the first module born with a consumer already waiting** (W10 slice 3a). Visit deliberately
+shipped without a `.Contracts` assembly and gained one a week later, on the grounds that "an interface
+designed before its consumer is a guess that consumer has to live with". Audit cannot make that
+choice: an audit is worked at a shelf with no signal and reaches the server only through
+`/sync/push`, so `IAuditIngest` **is** the write path. A module nothing can put a row into is not a
+module yet.
+
+It is also the module with the fewest inbound references of any so far — one, `IVisitContext`.
+Notably absent are Products and Configuration: the MSL, the expected price and the weight-set version
+were all resolved on the *device*, at the moment the rep was looking at the shelf, and re-resolving
+them server-side would describe an audit under configuration republished since — inventing checks the
+rep was never asked to make and discarding ones they were. The same call `CapturedVisit` makes about
+the geofence.
 
 ### Two modules may point at each other
 

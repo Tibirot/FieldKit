@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using FieldKit.BuildingBlocks;
 using FieldKit.Infrastructure;
+using FieldKit.Modules.Audit;
 using FieldKit.Modules.Configuration;
 using FieldKit.Modules.Iam;
 using FieldKit.Modules.Journey;
@@ -44,6 +45,11 @@ public class SyncTrackingTests
         typeof(ConfigurationModule).Assembly,
         typeof(JourneyModule).Assembly,
         typeof(VisitModule).Assembly,
+
+        // Audit is the first module here with nothing tracked and nothing to track: audits travel
+        // up, never down, so its context opts *out* — which is the second half of this gate, and the
+        // first module to exercise it deliberately.
+        typeof(AuditModule).Assembly,
         typeof(SyncModule).Assembly,
     ];
 
