@@ -26,9 +26,9 @@ public static class ConfigurationPermissions
 /// The Configuration module: every tenant definition, owned in one place (ADR-0009 §0).
 /// </summary>
 /// <remarks>
-/// Custom fields (<c>CFG-01</c>/<c>CFG-02</c>) are the whole module today. Visit workflows, survey
-/// forms, score weights and the versioned configuration set are Phase 3 and arrive with the features
-/// that interpret them.
+/// Custom fields (<c>CFG-01</c>/<c>CFG-02</c>), visit workflows (<c>CFG-03</c>) and the perfect-store
+/// weighting (<c>CFG-05</c>) are here today. Survey forms and the versioned configuration set arrive
+/// with the features that interpret them.
 /// </remarks>
 public sealed class ConfigurationModule : IModule
 {
@@ -36,8 +36,8 @@ public sealed class ConfigurationModule : IModule
 
     public IReadOnlyList<PermissionDefinition> Permissions =>
     [
-        new(ConfigurationPermissions.Read, "View the tenant's custom-field definitions."),
-        new(ConfigurationPermissions.Write, "Define and edit custom fields."),
+        new(ConfigurationPermissions.Read, "View the tenant's definitions: custom fields, visit workflows, score weights."),
+        new(ConfigurationPermissions.Write, "Define and edit them."),
     ];
 
     public void AddModule(IServiceCollection services, IConfiguration configuration)
@@ -65,5 +65,6 @@ public sealed class ConfigurationModule : IModule
     {
         endpoints.MapFieldDefinitionEndpoints();
         endpoints.MapVisitWorkflowEndpoints();
+        endpoints.MapScoreWeightEndpoints();
     }
 }

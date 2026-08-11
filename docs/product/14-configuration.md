@@ -59,7 +59,12 @@ rather than scattering them.
 - **BR-CFG-3** Custom-field validation runs **server-side authoritatively**; the device pre-validates
   from the same definitions for UX (a mirrored surface — kept simple: the server always re-validates,
   so drift degrades UX, not integrity).
-- **BR-CFG-4** Perfect-store weights must sum to **100%** before a set can be published.
+- **BR-CFG-4** Perfect-store weights must sum to **exactly 100%** — checked on **every write**, not
+  only at publish (`BR-AUD-4`; see [§6.3](#63-authoring-the-perfect-store-weighting-week-10)).
+- **BR-CFG-6** A **published** weight-set version is **immutable**, and publishing is one-way:
+  re-weighting drafts a new version. `BR-AUD-8` has the server recompute a sealed audit with the
+  weights it was scored against, and that only means something if those weights cannot move
+  ([audits §5](22-merchandising-and-audits.md)).
 - **BR-CFG-5** Config is **reference data**: server-authoritative, read-only on device, no conflicts
   ([B7](decisions-and-assumptions.md#b7--conflict-resolution-matrix)).
 
@@ -129,6 +134,35 @@ Everything else stays the server's to decide. A choice with no options and a min
 maximum are both refused with the offending control named, and the API's problem fields are already
 the form's field names — so a refusal lands beside the control that caused it without a mapping table
 that could drift ([api-contracts §3](../architecture/13-api-contracts.md)).
+
+### 6.3 Authoring the perfect-store weighting (Week 10)
+
+`CFG-05` ships as `/api/config/score-weights` — a tenant's weighting **by version**, drafted, edited
+while it is a draft, then **published one-way**. The lifecycle is the journey plan's, chosen for a
+reason that is not symmetry: `BR-AUD-8` has the server recompute a pushed audit with the weights that
+audit was scored against, and that is a sentence about a *fixed set of numbers*. A single editable
+set, or a soft "current version" flag, would make "recompute with version 3" mean whatever version 3
+says today.
+
+Consequences worth stating:
+
+- **Exactly 100, with no tolerance.** A tolerance is the right call for floating point and the wrong
+  one here: these are decimal percentages an administrator typed, and `33.33 × 3` is exactly `99.99`
+  in `decimal` — nothing to forgive. Waving it through would have the score renormalise against a
+  total that is not 100, silently rescaling every audit stored under it.
+- **The sum is checked on every write, not at publish.** Refusing only at publish would let an
+  administrator build an invalid set over an afternoon and be told at the end, and would make the
+  stored shape "sometimes valid" — something every reader then has to re-check.
+- **A pillar may be worth nothing.** That is a tenant switching share-of-shelf off, and is a different
+  thing from `BR-AUD-2`'s *skipped* pillar, which is a measurement the rep could not take.
+- **The pillars are a closed set, not tenant-defined.** Each is computed from data captured in a
+  particular way, so a tenant-named pillar would be a weight with no measurement behind it — and
+  `AUD-09`'s cross-tenant trend views would compare vocabularies rather than numbers.
+- **Nothing is ever deleted, and versions never restart.** The next version is `Max + 1`, not
+  `Count + 1`: sealed audits name a number, and re-using one would re-point them.
+
+`IScoreWeights` is **not** part of this slice. Its first caller is the scorer, and an interface with
+no caller is a guess about a shape — the same rule that kept the Journey contracts waiting for theirs.
 
 ## 7. Offline behavior
 
