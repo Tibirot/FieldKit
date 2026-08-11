@@ -20,6 +20,8 @@ public sealed class ConfigurationDbContext(
 
     public DbSet<VisitWorkflow> VisitWorkflows => Set<VisitWorkflow>();
 
+    public DbSet<ScoreWeightSet> ScoreWeightSets => Set<ScoreWeightSet>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -88,6 +90,58 @@ public sealed class ConfigurationDbContext(
 
             step.ToTable("visit_workflow_step", table => table.HasCheckConstraint(
                 "ck_visit_workflow_step_order", @"""Order"" >= 1"));
+        });
+
+        modelBuilder.Entity<ScoreWeightSet>(set =>
+        {
+            set.HasKey(s => s.Id);
+
+            // One set per version per tenant, and the domain assigns the number. This is what holds
+            // if two administrators draft at the same moment: the second insert loses rather than
+            // producing two "version 4"s, one of which every sealed audit would then ambiguously
+            // point at.
+            set.HasIndex(s => new { s.TenantId, s.Version }).IsUnique();
+
+            // The one hot read: "the tenant's published sets, newest first" — asked by the score and
+            // by the pull feed.
+            set.HasIndex(s => new { s.TenantId, s.PublishedAtUtc });
+
+            set.HasMany(s => s.Weights)
+                .WithOne()
+                .HasForeignKey(weight => new { weight.TenantId, weight.ScoreWeightSetId })
+                .HasPrincipalKey(s => new { s.TenantId, s.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+
+            set.Navigation(s => s.Weights).HasField("_weights").UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            set.ToTable("score_weight_set", table => table.HasCheckConstraint(
+                "ck_score_weight_set_version", @"""Version"" >= 1"));
+        });
+
+        modelBuilder.Entity<ScoreWeight>(weight =>
+        {
+            weight.HasKey(w => w.Id);
+
+            // By name, for the reason every other enum here is: an ordinal is a position in a source
+            // file, and a pillar inserted in the middle would re-interpret every stored weight.
+            weight.Property(w => w.Pillar).HasConversion<string>().HasMaxLength(30).IsRequired();
+
+            /*
+             * `numeric(5,2)`: percentages to two decimal places, which is as fine as an administrator
+             * can express and as fine as the score needs.
+             *
+             * Explicit because the default for `decimal` on Npgsql is unconstrained `numeric`, and an
+             * unconstrained column would happily store a weight with more precision than the UI can
+             * show — so a set that summed to 100 on screen would fail its own check on reload.
+             */
+            weight.Property(w => w.Percentage).HasPrecision(5, 2);
+
+            // One weight per pillar per set. The aggregate refuses a duplicate; this is what holds
+            // if anything else writes the table, and it is the invariant the sum depends on.
+            weight.HasIndex(w => new { w.TenantId, w.ScoreWeightSetId, w.Pillar }).IsUnique();
+
+            weight.ToTable("score_weight", table => table.HasCheckConstraint(
+                "ck_score_weight_percentage", @"""Percentage"" >= 0 AND ""Percentage"" <= 100"));
         });
     }
 }

@@ -3479,6 +3479,114 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
 
 ###
 
+### ── Configuration · perfect-store weights (AUD-06/07, W10 slice 1) ────────
+# What each pillar is worth, versioned — and **published one-way**, which is the whole point.
+# `BR-AUD-8` has the server recompute a sealed audit with the weights it was scored against, and
+# that is a sentence about a fixed set of numbers: if a published set could still be edited,
+# "recompute with version 3" would mean whatever version 3 says today. See the reasoning in
+# docs/product/22-merchandising-and-audits.md §5.
+#
+# Draft a version. The number is assigned by the server — a client that sent its own could send one
+# a sealed audit already points at.
+# @name weights
+POST {{Server_HostAddress}}/api/config/score-weights
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "weights": [
+    { "pillar": "Availability", "percentage": 50 },
+    { "pillar": "ShareOfShelf", "percentage": 30 },
+    { "pillar": "PriceCompliance", "percentage": 20 }
+  ]
+}
+
+### Weights that do not add up are refused — 400 `config.weights.doesNotSumToOneHundred` (BR-AUD-4).
+POST {{Server_HostAddress}}/api/config/score-weights
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "weights": [
+    { "pillar": "Availability", "percentage": 50 },
+    { "pillar": "ShareOfShelf", "percentage": 30 }
+  ]
+}
+
+### Exactly 100, with no tolerance. `33.33 × 3` is exactly 99.99 in decimal — there is no
+### floating-point ambiguity to forgive, and admitting "close enough" would let the score
+### renormalise against a total that is not 100, silently rescaling every audit stored under it.
+POST {{Server_HostAddress}}/api/config/score-weights
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "weights": [
+    { "pillar": "Availability", "percentage": 33.33 },
+    { "pillar": "ShareOfShelf", "percentage": 33.33 },
+    { "pillar": "PriceCompliance", "percentage": 33.33 }
+  ]
+}
+
+### A pillar may be worth nothing — that is a tenant switching it off, and is a different thing
+### from `BR-AUD-2`'s *skipped* pillar, which is a measurement the rep could not take.
+POST {{Server_HostAddress}}/api/config/score-weights
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "weights": [
+    { "pillar": "Availability", "percentage": 70 },
+    { "pillar": "ShareOfShelf", "percentage": 0 },
+    { "pillar": "PriceCompliance", "percentage": 30 }
+  ]
+}
+
+### Re-weighting a draft. Checked on every write, not only at publish: `BR-AUD-4` is a property of a
+### weight set, not of a published one.
+PUT {{Server_HostAddress}}/api/config/score-weights/{{weights.response.body.version}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "weights": [
+    { "pillar": "Availability", "percentage": 60 },
+    { "pillar": "PriceCompliance", "percentage": 40 }
+  ]
+}
+
+### Freeze it. One-way — this is the request `BR-AUD-8` rests on.
+POST {{Server_HostAddress}}/api/config/score-weights/{{weights.response.body.version}}/publish
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Editing it now answers 409 `config.weights.alreadyPublished`. A *conflict* rather than a bad
+### request: the body was fine, the state refused it — the same distinction
+### `journey.plan.alreadyPublished` draws.
+PUT {{Server_HostAddress}}/api/config/score-weights/{{weights.response.body.version}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+{
+  "weights": [
+    { "pillar": "Availability", "percentage": 100 }
+  ]
+}
+
+### Publishing it twice answers the same code rather than succeeding quietly — an administrator who
+### thinks they are publishing an edit needs to be told the edit was never in this version.
+POST {{Server_HostAddress}}/api/config/score-weights/{{weights.response.body.version}}/publish
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Every version, newest first. Nothing is ever deleted: sealed audits point at these forever.
+GET {{Server_HostAddress}}/api/config/score-weights
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### One version, by the number an audit records and a person says out loud.
+GET {{Server_HostAddress}}/api/config/score-weights/{{weights.response.body.version}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+###
+
 ### ── Sync · device registry (OFF-12) ───────────────────────────────────────
 # Binding needs a token but no permission: a rep registers their own phone as part of
 # signing in on it. The device belongs to the subject in the token — note there is no
