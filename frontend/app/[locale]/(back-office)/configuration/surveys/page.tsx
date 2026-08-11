@@ -1,19 +1,15 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { ConfigurationActions } from "@/components/back-office/configuration-actions";
-import { ScoreWeights } from "@/components/back-office/score-weights";
+import { SurveyBrowser } from "@/components/back-office/survey-browser";
 import { resolveLocale } from "@/i18n/locale";
 
 /**
- * The tenant's perfect-store weighting (`AUD-07`, `BR-AUD-4`).
+ * The tenant's survey forms (`AUD-04`, `CFG-04`).
  *
- * The first screen in the Configuration section, and the first half of the wireframe's
- * "visit-workflow / audit builder" to be built. Weights before surveys because the score is what an
- * administrator is asked about first, and because the one-way publish is the decision the whole of
- * W10 was arranged around — a screen that made that legible was worth having before one that adds
- * questions to a form.
+ * The way into the editor slice 9a built, which until now was reachable only by typing its address.
  */
-export default async function ScoreWeightsPage({
+export default async function SurveysPage({
   params,
 }: {
   params: Promise<{ locale: string }>;
@@ -21,7 +17,7 @@ export default async function ScoreWeightsPage({
   const locale = resolveLocale((await params).locale);
   setRequestLocale(locale);
 
-  const t = await getTranslations({ locale, namespace: "ScoreWeights" });
+  const t = await getTranslations({ locale, namespace: "SurveyList" });
 
   return (
     <div className="flex max-w-4xl flex-col gap-4">
@@ -31,7 +27,7 @@ export default async function ScoreWeightsPage({
         <p className="mt-1 text-sm text-muted-foreground">{t("intro")}</p>
       </header>
       <ConfigurationActions />
-      <ScoreWeights />
+      <SurveyBrowser />
     </div>
   );
 }

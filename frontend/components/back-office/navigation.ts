@@ -44,6 +44,18 @@ export type NavItem =
       readonly href: string;
       readonly soon?: never;
       /**
+       * The route prefix this item owns, when that is not its `href`.
+       *
+       * Two sections point at a screen *inside* themselves rather than at an index — `Journeys` at
+       * frequencies, `Configuration` at the weights — because a nav item should go somewhere real.
+       * The cost is that the obvious active test, "does the path start with the href", says no on
+       * every other screen in the section: standing on the working calendar, Journeys went unlit.
+       *
+       * So highlighting asks a different question from navigating. Matched on a segment boundary
+       * rather than a bare prefix, so a future `/journeys-archive` would not light this up.
+       */
+      readonly section?: string;
+      /**
        * Any one of these is enough to show the item.
        *
        * Any-of rather than all-of because a page can hold sections with different permissions:
@@ -52,7 +64,28 @@ export type NavItem =
        */
       readonly permissions: readonly string[];
     }
-  | { readonly key: NavKey; readonly href?: never; readonly soon: NavSoon; readonly permissions?: never };
+  | {
+      readonly key: NavKey;
+      readonly href?: never;
+      readonly section?: never;
+      readonly soon: NavSoon;
+      readonly permissions?: never;
+    };
+
+/**
+ * Whether a path is inside an item's section.
+ *
+ * Exported for its own tests and for the sidebar. The segment boundary is the whole of it: a bare
+ * `startsWith` would light `Journeys` up on `/journeys-archive`, and equality alone would leave it
+ * dark on every screen but one.
+ */
+export function coversPath(item: NavItem, pathname: string): boolean {
+  if (item.href === undefined) return false;
+
+  const section = item.section ?? item.href;
+
+  return pathname === section || pathname.startsWith(`${section}/`);
+}
 
 export type NavGroup = {
   /** Keys into `Nav.groups`, or null for the ungrouped items at the top. */
@@ -68,7 +101,12 @@ export const NAVIGATION: readonly NavGroup[] = [
       // Points at frequencies rather than at a section index: it is the first journey screen that
       // exists, and the same reasoning that lands sign-in on Outlets applies — a nav item should go
       // somewhere real. It moves to the plan when the plan exists (W7 slice 10c).
-      { key: "journeys", href: "/journeys/frequencies", permissions: ["journey:read"] },
+      {
+        key: "journeys",
+        href: "/journeys/frequencies",
+        section: "/journeys",
+        permissions: ["journey:read"],
+      },
       { key: "visits", soon: "week9" },
       { key: "orders", soon: "week11" },
     ],
@@ -86,8 +124,14 @@ export const NAVIGATION: readonly NavGroup[] = [
     items: [
       // Points at the weights rather than a section index, for the reason `journeys` points at
       // frequencies: a nav item should go somewhere real, and this is the first screen of the
-      // wireframe's "visit-workflow / audit builder" to exist (W10 slice 8).
-      { key: "configuration", href: "/configuration/score-weights", permissions: ["config:read"] },
+      // wireframe's "visit-workflow / audit builder" to exist (W10 slice 8). Surveys joined it in
+      // slice 9b, which is what made `section` necessary.
+      {
+        key: "configuration",
+        href: "/configuration/score-weights",
+        section: "/configuration",
+        permissions: ["config:read"],
+      },
       { key: "users", href: "/users", permissions: ["user:read", "role:read"] },
     ],
   },

@@ -58,7 +58,7 @@ the build, without pretending to be final visual design.
 | Territories | `ORG-03` `ORG-04` `ORG-05` `A4` | Territory list, single active rep, channel mix; drives offline scope |
 | Journey planning | `JRN-01` `JRN-02` `JRN-03` `JRN-04` | Week grid generated from frequency + capacity; frequency compliance. **Built as three screens** (W7 slice 10a/b/c): what a supervisor *sets* — frequency, then the working calendar — before what the system *produces*. The wireframe draws only the third, because that is the one worth drawing; the two inputs have no picture and are most of the decisions. The grid groups by **day present in the window** rather than a fixed Mon–Fri week, so a three-week plan does not invent empty columns and a worked Saturday is not cropped |
 | Users & roles | `IAM-03` `IAM-04` `IAM-05` `IAM-07` | Users, permission-bundle roles, one active device per rep |
-| Visit-workflow / audit builder | `A1` `ADR-0009` `VIS-03` `AUD-04` `AUD-06` `AUD-07` | The config-driven story: per-channel steps, perfect-store weights, survey forms. **Weights** (W10 slice 8) and **survey forms** (W10 slice 9a) are built as their own screens under a **Configuration** nav item the drawing does not have — see the note below. The survey editor **reorders with buttons rather than the drawn drag handle**, for the reason in [Configuration §6.3](../product/14-configuration.md#63-authoring-survey-forms-week-10) |
+| Visit-workflow / audit builder | `A1` `ADR-0009` `VIS-03` `AUD-04` `AUD-06` `AUD-07` | The config-driven story: per-channel steps, perfect-store weights, survey forms. **Weights** (W10 slice 8) and **survey forms** (W10 slices 9a/9b) are built as their own screens under a **Configuration** nav item the drawing does not have — see the note below. The survey editor **reorders with buttons rather than the drawn drag handle**, for the reason in [Configuration §6.3](../product/14-configuration.md#63-authoring-survey-forms-week-10) |
 
 ## Not yet wireframed
 
@@ -130,6 +130,13 @@ have sat behind a dead item with no way to reach it. Admin gains a **Configurati
 using the breadcrumb's own word, pointing at the weights the way `Journeys` points at frequencies —
 a nav item goes somewhere real. When W9 builds `Visits & audits`, the two live side by side: one is
 where a supervisor reads what happened, the other is where an administrator decides what will.
+
+Once the section had a second screen (slice 9b), both pages grew a **link row** between them — the
+shape `Outlets` and `Products` already use for their sub-screens, rather than a second sidebar level
+built for one section with two pages. That is also when a live bug surfaced: the sidebar decided
+which item to highlight with `pathname.startsWith(href)`, and both `Journeys` and `Configuration`
+point at a screen *inside* themselves, so standing on the working calendar or on a survey left the
+section unlit. An item can now name the route prefix it owns separately from the one it opens.
 
 ## Source
 

@@ -124,6 +124,31 @@
       "PriceCompliance": "Conformitate preț"
     }
   },
+  "Configuration": {
+    "weights": "Ponderile magazinului perfect",
+    "surveys": "Chestionare"
+  },
+  "SurveyList": {
+    "crumb": "Configurare / Chestionare",
+    "title": "Chestionare",
+    "intro": "Chestionarele pe care un agent le poate completa la raft. O vizită poartă câte unul.",
+    "loading": "Se încarcă…",
+    "failed": "Nu s-a putut încărca.",
+    "forbidden": "Nu aveți permisiunea de a vedea chestionarele.",
+    "empty": "Niciun chestionar încă. Până când există unul, un audit nu are ce întrebări să poarte.",
+    "newSurvey": "Chestionar nou",
+    "questionCount": "{count, plural, one {# întrebare} few {# întrebări} other {# de întrebări}}",
+    "mandatoryCount": "{count} cu răspuns obligatoriu",
+    "edit": "Editează",
+    "view": "Vezi",
+    "openNamed": "Deschide {name}",
+    "delete": "Șterge",
+    "deleteNamed": "Șterge {name}",
+    "deleteWarning": "Chestionarul nu va mai fi pus. Răspunsurile deja date rămân unde sunt și rămân lizibile — fiecare poartă întrebarea așa cum era formulată atunci.",
+    "confirmDelete": "Șterge-l",
+    "deleteFailed": "Nu s-a putut șterge.",
+    "cancel": "Renunță"
+  },
   "Surveys": {
     "crumb": "Configurare / Chestionare",
     "newTitle": "Chestionar nou",

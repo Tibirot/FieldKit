@@ -192,6 +192,17 @@ question: a **duplicate key** — which the screen itself causes, since it deriv
 text and two questions worded alike derive one key — and a **choice with no options**. Both
 questions in a collision are marked, not the newcomer: whichever is renamed fixes it.
 
+**The list** (`/configuration/surveys`, W10 slice 9b) shows each form with what it asks — the number
+of questions, and how many of them a rep cannot skip, because that second number is what decides
+whether an audit step can be finished at all (`BR-AUD-7`). Sorted by the server, not re-sorted here.
+
+Its **delete confirmation says what does not happen**, which is the opposite of the custom-field
+catalogue's warning and the more surprising fact. Deleting a field leaves values undescribed, and
+they vanish the next time their row is saved. Deleting a form loses nothing: the answers already
+given stay in Audit's rows and stay **readable**, because each carries its question's text as it was
+worded. Configuration can neither remove them nor refuse the delete on their behalf (ADR-0005), and
+does not need to.
+
 ### 6.4 Authoring the perfect-store weighting (Week 10)
 
 `CFG-05` ships as `/api/config/score-weights` — a tenant's weighting **by version**, drafted, edited

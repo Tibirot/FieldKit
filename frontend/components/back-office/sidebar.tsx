@@ -13,7 +13,12 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { NAVIGATION, type NavItem, type NavKey } from "@/components/back-office/navigation";
+import {
+  coversPath,
+  NAVIGATION,
+  type NavItem,
+  type NavKey,
+} from "@/components/back-office/navigation";
 import { Link, usePathname } from "@/i18n/navigation";
 import { usePermissions } from "@/lib/auth/use-permissions";
 import { cn } from "@/lib/utils";
@@ -130,7 +135,7 @@ export function Sidebar({ workspace }: { workspace: string | null }) {
               <NavLink
                 key={item.key}
                 item={item}
-                active={item.href !== undefined && pathname.startsWith(item.href)}
+                active={coversPath(item, pathname)}
               />
             ))}
           </div>

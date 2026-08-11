@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
+import { ConfigurationActions } from "@/components/back-office/configuration-actions";
 import { SurveyEditor } from "@/components/back-office/survey-editor";
 import { resolveLocale } from "@/i18n/locale";
 
@@ -28,6 +29,9 @@ export default async function SurveyPage({
         <h1 className="text-lg font-semibold tracking-tight">{t("editTitle")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t("intro")}</p>
       </header>
+      {/* Also the way back: the nav's Configuration entry lands on the weights, so without this the
+          only route out of an editor is the browser's back button. */}
+      <ConfigurationActions />
       <SurveyEditor formId={id} />
     </div>
   );
