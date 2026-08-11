@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Order module's *only* public surface. Other modules reference this assembly and never
+    FieldKit.Modules.Order (AT-1), which is what keeps the boundary enforceable by assembly
+    reference rather than by convention.
+
+    No EF Core, no ASP.NET, no Infrastructure — a contracts assembly that could see a DbContext
+    would let an entity leak through a signature (AT-3).
+
+    It arrives with the module for the reason Audit's did: an order is captured at a counter, offline,
+    and reaches this server only through `/sync/push`. There is no other way one is ever created, so a
+    module without this contract has no write path at all.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FieldKit.SharedKernel\FieldKit.SharedKernel.csproj" />
+    <ProjectReference Include="..\FieldKit.BuildingBlocks\FieldKit.BuildingBlocks.csproj" />
+  </ItemGroup>
+
+</Project>

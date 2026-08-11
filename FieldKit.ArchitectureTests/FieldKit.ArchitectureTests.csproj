@@ -34,6 +34,8 @@
     <ProjectReference Include="..\FieldKit.Modules.Visit\FieldKit.Modules.Visit.csproj" />
     <ProjectReference Include="..\FieldKit.Modules.Audit\FieldKit.Modules.Audit.csproj" />
     <ProjectReference Include="..\FieldKit.Modules.Audit.Contracts\FieldKit.Modules.Audit.Contracts.csproj" />
+    <ProjectReference Include="..\FieldKit.Modules.Order\FieldKit.Modules.Order.csproj" />
+    <ProjectReference Include="..\FieldKit.Modules.Order.Contracts\FieldKit.Modules.Order.Contracts.csproj" />
     <ProjectReference Include="..\FieldKit.Modules.Sync\FieldKit.Modules.Sync.csproj" />
   </ItemGroup>
 

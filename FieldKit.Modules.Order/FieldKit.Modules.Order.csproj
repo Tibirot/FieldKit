@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\FieldKit.SharedKernel\FieldKit.SharedKernel.csproj" />
+    <ProjectReference Include="..\FieldKit.BuildingBlocks\FieldKit.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\FieldKit.Infrastructure\FieldKit.Infrastructure.csproj" />
+    <ProjectReference Include="..\FieldKit.Web\FieldKit.Web.csproj" />
+
+    <!--
+      Contracts only, never the implementation (AT-1).
+
+      Visit says whether the visit an order claims to belong to exists, is this rep's, and is still
+      open — the three facts an order cannot be filed without.
+    -->
+    <ProjectReference Include="..\FieldKit.Modules.Visit.Contracts\FieldKit.Modules.Visit.Contracts.csproj" />
+
+    <!--
+      Notably absent, and each for a reason rather than an oversight:
+
+      **Products.** BR-ORD-1's assortment gate and BR-ORD-2's re-pricing both live there, and neither
+      contract exists yet — `IAssortmentService` and `IPricingService` are named in the order spec §8
+      as things this module *consumes*, and this codebase's standing rule is that an interface waits
+      for its caller. Their callers are slices 2 and 4.
+
+      **Configuration.** Custom fields on an order are ORD-13, a `Should`, deferred out of W11 —
+      it would be the field-definition catalogue a fourth time and carries no new decision.
+    -->
+
+    <!-- Its own public surface, which ships with the module because Sync is already waiting. -->
+    <ProjectReference Include="..\FieldKit.Modules.Order.Contracts\FieldKit.Modules.Order.Contracts.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

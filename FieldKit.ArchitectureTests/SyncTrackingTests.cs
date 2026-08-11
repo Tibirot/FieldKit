@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using FieldKit.BuildingBlocks;
 using FieldKit.Infrastructure;
 using FieldKit.Modules.Audit;
+using FieldKit.Modules.Order;
 using FieldKit.Modules.Configuration;
 using FieldKit.Modules.Iam;
 using FieldKit.Modules.Journey;
@@ -50,6 +51,13 @@ public class SyncTrackingTests
         // up, never down, so its context opts *out* — which is the second half of this gate, and the
         // first module to exercise it deliberately.
         typeof(AuditModule).Assembly,
+
+        // Order opts out too, and unlike Audit it will not stay opted out: a rejected order is the
+        // one transactional record that flows back *down* to the device (order spec F4), which is
+        // exactly the question a change sequence answers. W11 slice 4 is where it gains one, with
+        // the pull feed that reads it — a counter no feed reads is the same waste as a store with no
+        // writer (W8 slice 6).
+        typeof(OrderModule).Assembly,
         typeof(SyncModule).Assembly,
     ];
 

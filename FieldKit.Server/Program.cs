@@ -3,6 +3,7 @@ using FieldKit.Modules.Audit;
 using FieldKit.Modules.Configuration;
 using FieldKit.Modules.Iam;
 using FieldKit.Modules.Journey;
+using FieldKit.Modules.Order;
 using FieldKit.Modules.Org;
 using FieldKit.Modules.Outlets;
 using FieldKit.Modules.Products;
@@ -79,6 +80,11 @@ IReadOnlyList<IModule> modules =
 
     // Audit after Visit, because it reads Visit's contracts and nothing reads its own.
     new AuditModule(),
+
+    // Order beside Audit, for the same reason and with the same shape: both read Visit's contracts,
+    // both are written only through `/sync/push`, and nothing reads either of them yet. Sync will,
+    // in W11 slice 5.
+    new OrderModule(),
 
     // Sync last. It is the module that will eventually read every other one's change feed, so it is
     // the one whose dependencies point at the rest rather than the other way round.

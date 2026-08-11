@@ -6,6 +6,8 @@ using FieldKit.Modules.Iam;
 using FieldKit.Modules.Iam.Contracts;
 using FieldKit.Modules.Journey;
 using FieldKit.Modules.Journey.Contracts;
+using FieldKit.Modules.Order;
+using FieldKit.Modules.Order.Contracts;
 using FieldKit.Modules.Sync;
 using FieldKit.Modules.Visit;
 using FieldKit.Modules.Visit.Contracts;
@@ -46,11 +48,13 @@ public class ModuleBoundaryTests
     private static readonly Assembly JourneyModuleAssembly = typeof(JourneyModule).Assembly;
     private static readonly Assembly VisitModuleAssembly = typeof(VisitModule).Assembly;
     private static readonly Assembly AuditModuleAssembly = typeof(AuditModule).Assembly;
+    private static readonly Assembly OrderModuleAssembly = typeof(OrderModule).Assembly;
     private static readonly Assembly SyncModuleAssembly = typeof(SyncModule).Assembly;
     private static readonly Assembly ConfigurationContracts = typeof(IFieldDefinitionCatalog).Assembly;
     private static readonly Assembly JourneyContracts = typeof(IJourneyQuery).Assembly;
     private static readonly Assembly VisitContracts = typeof(IVisitIngest).Assembly;
     private static readonly Assembly AuditContracts = typeof(IAuditIngest).Assembly;
+    private static readonly Assembly OrderContracts = typeof(IOrderIngest).Assembly;
     private static readonly Assembly ProductsContracts = typeof(IProductChangeFeed).Assembly;
 
     /// <summary>
@@ -85,6 +89,7 @@ public class ModuleBoundaryTests
         JourneyModuleAssembly,
         VisitModuleAssembly,
         AuditModuleAssembly,
+        OrderModuleAssembly,
         SyncModuleAssembly,
     ];
 
@@ -103,7 +108,7 @@ public class ModuleBoundaryTests
     private static readonly Assembly[] ContractsAssemblies =
     [
         IamContracts, OrgContracts, OutletsContracts, ConfigurationContracts, JourneyContracts,
-        VisitContracts, AuditContracts, ProductsContracts,
+        VisitContracts, AuditContracts, OrderContracts, ProductsContracts,
     ];
 
     [Fact] // AT-1 — the core boundary.
