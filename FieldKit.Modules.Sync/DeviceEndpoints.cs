@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace FieldKit.Modules.Sync;
 
@@ -52,7 +53,35 @@ public static class DeviceEndpoints
 
             var bound = Device.Bind(tenant.UserId, name, clock.UtcNow);
             db.Devices.Add(bound);
-            await db.SaveChangesAsync(ct);
+
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException failure) when (IsOneActivePerUserViolation(failure))
+            {
+                /*
+                 * Two binds for one rep, at once — and the index is the only thing that can catch it.
+                 *
+                 * The read above and the insert below are separate statements, so two requests can
+                 * both find no active device and both insert one. A pre-check cannot close that; the
+                 * unique index can, and this is where its verdict becomes an answer rather than a 500.
+                 *
+                 * <b>Refused rather than resolved.</b> Returning the winner's id would be tidier and
+                 * wrong: the caller would be handed a device id belonging to a *different phone*,
+                 * and every push it made would be attributed there. A rep who really is setting up
+                 * two devices has done something the model says is one at a time, and the honest
+                 * answer is to say so and let them read `/mine`.
+                 *
+                 * Found in the browser during W9 slice 1: React's development double-invocation made
+                 * one component bind twice, and the second attempt was a 500. The client now
+                 * de-duplicates in flight, which fixed the symptom; this is the server half.
+                 */
+                return Problems.Conflict(
+                    null,
+                    "Another device was registered for you at the same moment. Check your devices and try again.",
+                    "device.bind.raced");
+            }
 
             return Results.Created($"/api/sync/devices/{bound.Id}", Describe(bound));
         }).RequireAuthorization();
@@ -112,6 +141,26 @@ public static class DeviceEndpoints
             return Results.Ok(Describe(device));
         }).RequirePermission(SyncPermissions.DeviceRevoke);
     }
+
+    /// <summary>
+    /// Whether a failed save was <c>UX_device_one_active_per_user</c> and nothing else.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Named, not merely "a unique violation".</b> A <c>catch</c> that turned every 23505 in this
+    /// statement into <c>device.bind.raced</c> would one day answer that for a constraint added later
+    /// and unrelated, and the refusal would be a confident lie. Matching the index by name means a
+    /// different violation still surfaces as a 500 — which is the right answer for a bug nobody has
+    /// designed a response to yet.
+    /// </para>
+    /// <para>
+    /// The SQLSTATE and the index name both come from Postgres, which ADR-0005 already commits to;
+    /// this is not a portability seam.
+    /// </para>
+    /// </remarks>
+    private static bool IsOneActivePerUserViolation(DbUpdateException failure) =>
+        failure.InnerException is PostgresException { SqlState: "23505" } violation
+        && violation.ConstraintName == "UX_device_one_active_per_user";
 
     private static DeviceResponse Describe(Device device) => new(
         device.Id,

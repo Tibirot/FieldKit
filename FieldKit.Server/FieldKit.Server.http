@@ -3498,6 +3498,19 @@ Content-Type: application/json
 
 { "name": "Maria's replacement" }
 
+### Two binds arriving together answer `409 device.bind.raced` for the loser — not a 500.
+### Send this one *while* another bind is in flight (two tabs, or fire both without waiting).
+###
+### The read-then-insert cannot be made atomic in the endpoint, so the unique index is what
+### catches it; this is where its verdict becomes an answer. Refused rather than resolved:
+### handing the caller the winner's id would give this phone a device id belonging to a
+### different one, and every push it made would be attributed there.
+POST {{host}}/api/sync/devices
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{ "name": "Maria's second tab" }
+
 ### The rep's own devices, active first. No permission — seeing which of your own phones
 ### is bound is not oversight of anybody.
 GET {{host}}/api/sync/devices/mine

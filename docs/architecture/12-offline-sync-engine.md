@@ -521,6 +521,16 @@ that sentence:**
 - **Bind:** first login on a device registers it (device registry); one active device per rep —
   registering a new device **deactivates the prior one**. Bind triggers a **full territory
   snapshot** (all watermarks from zero).
+  > **Two binds at once answer `409 device.bind.raced`, and the index is what catches it.** The
+  > endpoint reads the rep's active devices and then inserts, which are separate statements: two
+  > concurrent requests both find none and both insert. No pre-check closes that —
+  > `UX_device_one_active_per_user` does, and the endpoint translates its violation into a refusal
+  > rather than letting it surface as a 500, which is what it did until W9.
+  >
+  > **Refused, not resolved.** Answering with the winner's id would hand the caller a device id
+  > belonging to a *different phone*, and every push it made would be attributed there. Only that
+  > one index is translated: a different unique violation still fails loudly, because a refusal
+  > nobody designed is a confident lie.
 - **Reset/rebind:** a deactivated device is blocked from **pull/bind** with `DEVICE_INACTIVE` and
   prompts re-bind (and re-snapshots). Only pull/bind is exclusive to the active device.
 - **Final drain-push (resolves finding S2):** a deactivated device may still complete **one final
