@@ -38,6 +38,8 @@ public static class PullEndpoints
             IReferenceChangeFeed outlets,
             IJourneyChangeFeed journeys,
             IVisitWorkflowFeed workflows,
+            ISurveyFormFeed surveys,
+            IScoreWeightFeed weightings,
             IProductChangeFeed products,
             IAssortmentChangeFeed assortment,
             IPriceChangeFeed prices,
@@ -187,6 +189,24 @@ public static class PullEndpoints
             foreach (var snapshot in promotionBaseline)
                 promotionCursorAfter = Math.Max(promotionCursorAfter, snapshot.RowVersion);
 
+            /*
+             * Survey forms and the perfect-store weightings (W10 slice 7). Both tenant-wide, like the
+             * visit workflows they sit beside: a questionnaire and a weighting are a tenant's own
+             * administrators' text and numbers, and there is nothing here one rep may see and another
+             * may not.
+             *
+             * The weightings differ from every other feed in one way worth knowing: they carry
+             * **every published version**, not just the newest. An audit records the version it was
+             * scored against (`BR-AUD-8`), so a device holding work captured last week still has to
+             * be able to show the rep what that audit scored — and a published set is immutable, so
+             * each version downloads exactly once.
+             */
+            var surveyPage = await surveys.GetChangesAsync(
+                request.Cursors?.Surveys ?? 0, PageLimit, ct);
+
+            var weightPage = await weightings.GetChangesAsync(
+                request.Cursors?.ScoreWeights ?? 0, PageLimit, ct);
+
             await RecordScopeAsync(
                 db, device.Id, tenant.TenantId, territory.Entering, territory.Leaving, ct);
 
@@ -218,7 +238,11 @@ public static class PullEndpoints
                     new EntityChanges<PromotionAssignmentSnapshot>(
                         [.. promotionBaseline, .. promotionAssignments.Upserts],
                         promotionAssignments.Tombstones,
-                        promotionCursorAfter)),
+                        promotionCursorAfter),
+                    new EntityChanges<SurveyFormSnapshot>(
+                        surveyPage.Upserts, surveyPage.Tombstones, surveyPage.Cursor),
+                    new EntityChanges<ScoreWeightSetSnapshot>(
+                        weightPage.Upserts, weightPage.Tombstones, weightPage.Cursor)),
                 // A patchwork, not a point in time: watermarks advance per entity type, and the
                 // device tolerates the skew because captured work records its own inputs
                 // (sync engine §3). The string names the outlet cursor only — it is a label for
@@ -390,7 +414,9 @@ public sealed record PullCursors(
     long? PriceLines = null,
     long? PriceAssignments = null,
     long? Promotions = null,
-    long? PromotionAssignments = null);
+    long? PromotionAssignments = null,
+    long? Surveys = null,
+    long? ScoreWeights = null);
 
 public sealed record EntityChanges<T>(
     IReadOnlyList<T> Upserts, IReadOnlyList<ReferenceTombstone> Tombstones, long Cursor);
@@ -406,6 +432,8 @@ public sealed record PullChanges(
     EntityChanges<PriceLineSnapshot> PriceLines,
     EntityChanges<PriceAssignmentSnapshot> PriceAssignments,
     EntityChanges<PromotionSnapshot> Promotions,
-    EntityChanges<PromotionAssignmentSnapshot> PromotionAssignments);
+    EntityChanges<PromotionAssignmentSnapshot> PromotionAssignments,
+    EntityChanges<SurveyFormSnapshot> Surveys,
+    EntityChanges<ScoreWeightSetSnapshot> ScoreWeights);
 
 public sealed record PullResponse(PullChanges Changes, string SnapshotVersion);

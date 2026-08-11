@@ -3923,12 +3923,26 @@ Content-Type: application/json
 # `/sync/push` stores that verdict unmodified. A constant in the TypeScript would agree with
 # this server exactly until `OUT-08` ships and then disagree silently, on the one input the
 # parity vectors cannot see.
+#
+# `surveys` and `scoreWeights` join in W10 slice 7. Both tenant-wide, like `configuration`.
+#
+# Two things about `scoreWeights` that no other section here does. It carries **every published
+# version**, not just the newest — an audit records the version it was scored against
+# (`BR-AUD-8`), so a device with a queued audit from last week still has to be able to show the
+# rep what it scored, and a published set is immutable so each version arrives exactly once. And
+# it carries **only published** ones: a device scoring against a draft would produce a number the
+# server cannot reproduce, and would have that audit refused on push.
+#
+# Read `weights[].percentage` — a **string**, not a JSON number. `BR-AUD-5` has the device's score
+# match this server's exactly, `decimal.js` reads a string, and `JSON.parse` would turn a bare
+# `33.34` into a float before the device's scorer ever saw it. The same rule
+# `vectors/README.md` enforces, on the wire it was written about.
 
 POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
-{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 0, "journeys": 0, "configuration": 0, "products": 0, "assortment": 0, "outletAssortment": 0, "priceLists": 0, "priceLines": 0, "priceAssignments": 0, "promotions": 0, "promotionAssignments": 0 } }
+{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 0, "journeys": 0, "configuration": 0, "products": 0, "assortment": 0, "outletAssortment": 0, "priceLists": 0, "priceLines": 0, "priceAssignments": 0, "promotions": 0, "promotionAssignments": 0, "surveys": 0, "scoreWeights": 0 } }
 
 ### A second pull at the cursor the first returned. Carries only what changed since —
 ### an unchanged tenant answers with an empty page and the same cursor.
@@ -3936,7 +3950,7 @@ POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
-{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 42, "journeys": 17, "configuration": 3, "products": 812, "assortment": 840, "outletAssortment": 851, "priceLists": 860, "priceLines": 1204, "priceAssignments": 871, "promotions": 903, "promotionAssignments": 910 } }
+{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 42, "journeys": 17, "configuration": 3, "products": 812, "assortment": 840, "outletAssortment": 851, "priceLists": 860, "priceLines": 1204, "priceAssignments": 871, "promotions": 903, "promotionAssignments": 910, "surveys": 918, "scoreWeights": 925 } }
 
 ### A device that was replaced answers 409 `sync.pull.deviceInactive` — the client's job is
 ### to bind again, which re-snapshots from zero.
@@ -3944,7 +3958,7 @@ POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
-{ "deviceId": "{{revokedDeviceId}}", "cursors": { "outlets": 0, "journeys": 0, "configuration": 0, "products": 0, "assortment": 0, "outletAssortment": 0, "priceLists": 0, "priceLines": 0, "priceAssignments": 0, "promotions": 0, "promotionAssignments": 0 } }
+{ "deviceId": "{{revokedDeviceId}}", "cursors": { "outlets": 0, "journeys": 0, "configuration": 0, "products": 0, "assortment": 0, "outletAssortment": 0, "priceLists": 0, "priceLines": 0, "priceAssignments": 0, "promotions": 0, "promotionAssignments": 0, "surveys": 0, "scoreWeights": 0 } }
 
 ### ── Sync · push (OFF-04) ──────────────────────────────────────────────────
 # The drain. Every mutation carries an id minted on the device, and the ledger answers a

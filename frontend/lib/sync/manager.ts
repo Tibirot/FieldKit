@@ -20,6 +20,8 @@ import {
   applyPriceListChanges,
   applyProductChanges,
   applyPromotionAssignmentChanges,
+  applyScoreWeightChanges,
+  applySurveyChanges,
   applyPromotionChanges,
   ASSORTMENT,
   CONFIGURATION,
@@ -31,6 +33,8 @@ import {
   PRICE_LISTS,
   PRODUCTS,
   PROMOTION_ASSIGNMENTS,
+  SCORE_WEIGHTS,
+  SURVEYS,
   PROMOTIONS,
   pruneOutletAssortment,
   pruneOutletPriceAssignments,
@@ -285,6 +289,8 @@ async function refresh(
     priceAssignments: await watermark(db, PRICE_ASSIGNMENTS),
     promotions: await watermark(db, PROMOTIONS),
     promotionAssignments: await watermark(db, PROMOTION_ASSIGNMENTS),
+    surveys: await watermark(db, SURVEYS),
+    scoreWeights: await watermark(db, SCORE_WEIGHTS),
   };
 
   let response;
@@ -306,6 +312,8 @@ async function refresh(
     priceAssignments,
     promotions,
     promotionAssignments,
+    surveys,
+    scoreWeights,
   } = response.changes;
 
   // Two transactions, not one. Failing to store the round must not undo outlets that already
@@ -321,6 +329,8 @@ async function refresh(
   await applyPriceAssignmentChanges(db, priceAssignments);
   await applyPromotionChanges(db, promotions);
   await applyPromotionAssignmentChanges(db, promotionAssignments);
+  await applySurveyChanges(db, surveys);
+  await applyScoreWeightChanges(db, scoreWeights);
 
   // After the outlets have landed, because it reads what the device now holds. An outlet that left
   // the rep's territory takes its overrides with it, and the server sends no tombstone for them —
@@ -350,6 +360,8 @@ async function refresh(
     priceAssignments,
     promotions,
     promotionAssignments,
+    surveys,
+    scoreWeights,
   ];
 
   result.pulled += pages.reduce((total, page) => total + page.upserts.length, 0);

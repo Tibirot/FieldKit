@@ -5,7 +5,15 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { closeDatabase, FieldKitDatabase } from "./db";
 import { enqueue, markRejected, pending, pendingCount, statusOf } from "./outbox";
-import { applyOutletChanges, OUTLETS, outlets, PRODUCTS, watermark } from "./reference";
+import {
+  applyOutletChanges,
+  OUTLETS,
+  outlets,
+  PRODUCTS,
+  SCORE_WEIGHTS,
+  SURVEYS,
+  watermark,
+} from "./reference";
 
 /**
  * An app update must not strand a pending outbox (`OFF-13`, W8 slice 11).
@@ -116,6 +124,29 @@ async function openVersionFour(name: string): Promise<Dexie> {
   return fourth;
 }
 
+/**
+ * The schema as W9 slice 4 shipped it — the last version before the audit's reference stores.
+ *
+ * Built by replaying the earlier versions for the reason `openVersionFour` gives: a helper that
+ * shortcut them would open a database that never existed on a real device.
+ */
+async function openVersionFive(name: string): Promise<Dexie> {
+  const legacy = await openVersionFour(name);
+  legacy.close();
+
+  const fifth = new Dexie(name);
+  fifth.version(1).stores(VERSION_1_STORES);
+  fifth.version(2).stores({
+    outbox: "mutationId, status, createdAt, subjectId, [status+createdAt]",
+  });
+  fifth.version(3).stores({}).upgrade((tx) => tx.table("watermarks").delete("outlets"));
+  fifth.version(4).stores({}).upgrade((tx) => tx.table("watermarks").delete("outlets"));
+  fifth.version(5).stores({ visits: "id, status, outletId" });
+  await fifth.open();
+
+  return fifth;
+}
+
 function outletRow(id: string, rowVersion: number) {
   return {
     id,
@@ -182,7 +213,7 @@ describe("upgrading a device that has unsent work", () => {
     // rows. Without this the whole file could be passing against databases that never existed at
     // v1. The number moves with every schema version, which is the point — a device that skipped
     // one still has to arrive at the latest.
-    expect(upgraded.verno).toBe(5);
+    expect(upgraded.verno).toBe(6);
     expect(await upgraded.outbox.count()).toBe(3);
 
     // Still in capture order, which is what the drain depends on — and now read through the new
@@ -463,7 +494,7 @@ describe("upgrading a device whose outlets predate the geofence radius", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(5);
+    expect(upgraded.verno).toBe(6);
     expect(await watermark(upgraded, OUTLETS)).toBe(0);
     expect(await watermark(upgraded, PRODUCTS)).toBe(41);
 
@@ -498,12 +529,81 @@ describe("upgrading a device that predates the visits store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(5);
+    expect(upgraded.verno).toBe(6);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
 
     // The new store exists and is empty, which is the only correct starting state: there were no
     // visits before this version, so there is nothing to migrate and no `upgrade()` to write.
     expect(await upgraded.visits.count()).toBe(0);
+
+    upgraded.close();
+  });
+});
+
+describe("upgrading a device that predates the audit's reference stores", () => {
+  it("adds both stores without touching the work already queued", async () => {
+    // Version 6 (W10 slice 7). Two reference tables and no `upgrade()`: nothing existed to
+    // transform, and the outbox — the one store nothing can rebuild — must come across untouched.
+    const name = `migration:${crypto.randomUUID()}`;
+
+    const legacy = await openVersionFive(name);
+    await legacy.table("outbox").add({
+      mutationId: "m-1",
+      type: "CapturedAudit",
+      subjectId: "audit-1",
+      payload: { auditId: "audit-1" },
+      status: "pending",
+      createdAt: 1_000,
+      attempts: 0,
+    });
+
+    // A visit captured before the upgrade, so the store added in v5 is checked to survive v6 too —
+    // the version *before* the newest is the one an upgrade is most likely to disturb.
+    await legacy.table("visits").add({ id: "visit-1", status: "inProgress", outletId: "o-1" });
+    legacy.close();
+
+    const upgraded = new FieldKitDatabase(name);
+    await upgraded.open();
+
+    expect(upgraded.verno).toBe(6);
+    expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
+    expect(await upgraded.visits.count()).toBe(1);
+
+    // Both new stores exist and are empty — the same state a fresh install is in, so the next pull
+    // fills them by the ordinary path rather than a special one.
+    expect(await upgraded.surveys.count()).toBe(0);
+    expect(await upgraded.scoreWeights.count()).toBe(0);
+
+    // …and their watermarks are at zero, which is what makes the ordinary path work: the server
+    // reads a missing cursor as "I have nothing".
+    expect(await watermark(upgraded, SURVEYS)).toBe(0);
+    expect(await watermark(upgraded, SCORE_WEIGHTS)).toBe(0);
+
+    upgraded.close();
+  });
+
+  it("leaves the other watermarks exactly where they were", async () => {
+    /*
+     * The failure this version could plausibly have caused. Versions 3 and 4 both *delete* the
+     * outlets watermark on purpose, to force a re-baseline; a copy-paste of that shape into v6
+     * would silently make every device re-download its whole territory on update.
+     *
+     * So this asserts the negative: adding two stores touches nothing that was already there.
+     */
+    const name = `migration:${crypto.randomUUID()}`;
+
+    const legacy = await openVersionFive(name);
+    await legacy.table("watermarks").bulkPut([
+      { entity: "outlets", cursor: 4_100 },
+      { entity: "products", cursor: 900 },
+    ]);
+    legacy.close();
+
+    const upgraded = new FieldKitDatabase(name);
+    await upgraded.open();
+
+    expect(await watermark(upgraded, OUTLETS)).toBe(4_100);
+    expect(await watermark(upgraded, PRODUCTS)).toBe(900);
 
     upgraded.close();
   });
@@ -519,7 +619,7 @@ describe("the schema itself", () => {
 
     await db.open();
 
-    expect(db.verno).toBe(5);
+    expect(db.verno).toBe(6);
 
     // The outbox is still keyed by the mutation id, which is the property the server's ledger
     // depends on: a re-send has to arrive under the id it was captured with.

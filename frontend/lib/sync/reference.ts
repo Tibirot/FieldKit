@@ -12,6 +12,8 @@ import type {
   ReferencePromotionAssignment,
   ReferencePlannedVisit,
   ReferenceProduct,
+  ReferenceScoreWeightSet,
+  ReferenceSurveyForm,
   ReferenceVisitWorkflow,
 } from "./db";
 
@@ -44,6 +46,8 @@ export const PRICE_LINES = "priceLines";
 export const PRICE_ASSIGNMENTS = "priceAssignments";
 export const PROMOTIONS = "promotions";
 export const PROMOTION_ASSIGNMENTS = "promotionAssignments";
+export const SURVEYS = "surveys";
+export const SCORE_WEIGHTS = "scoreWeights";
 
 /**
  * Applies one page of a pull (`OFF-02`, `OFF-03`, sync engine §3).
@@ -444,4 +448,68 @@ export async function promotionsFor(
     .filter((promotion): promotion is ReferencePromotion => promotion !== undefined)
     .filter((promotion) => promotion.validFrom <= on && (promotion.validTo === null || on <= promotion.validTo))
     .sort((left, right) => right.priority - left.priority);
+}
+
+/**
+ * The tenant's survey forms (`AUD-04`, W10 slice 7).
+ *
+ * Its own transaction, like every other entity: a device that got one page of a pull keeps it
+ * whatever happened to the rest.
+ */
+export function applySurveyChanges(
+  db: FieldKitDatabase,
+  page: EntityChanges<ReferenceSurveyForm>,
+): Promise<void> {
+  return apply(db, "ref_surveys", SURVEYS, page);
+}
+
+/** One questionnaire, by the id an audit names. */
+export function surveyForm(
+  db: FieldKitDatabase,
+  id: string,
+): Promise<ReferenceSurveyForm | undefined> {
+  return db.surveys.get(id);
+}
+
+/** Every questionnaire this tenant has, by name — what an audit screen offers. */
+export function surveyForms(db: FieldKitDatabase): Promise<ReferenceSurveyForm[]> {
+  return db.surveys.orderBy("name").toArray();
+}
+
+/** The published perfect-store weightings (`AUD-06`, `BR-AUD-8`). */
+export function applyScoreWeightChanges(
+  db: FieldKitDatabase,
+  page: EntityChanges<ReferenceScoreWeightSet>,
+): Promise<void> {
+  return apply(db, "ref_score_weights", SCORE_WEIGHTS, page);
+}
+
+/**
+ * The weighting an audit names (`BR-AUD-8`).
+ *
+ * <b>By version, never "the newest".</b> An audit records the version it was scored against, and a
+ * device showing a queued audit's breakdown has to use *that* one — otherwise a re-weighting that
+ * synced overnight would silently restate what the rep saw yesterday, and the number on the screen
+ * would stop matching the number the server will store.
+ */
+export function scoreWeightSet(
+  db: FieldKitDatabase,
+  version: number,
+): Promise<ReferenceScoreWeightSet | undefined> {
+  return db.scoreWeights.where("version").equals(version).first();
+}
+
+/**
+ * The newest published weighting — what a *new* audit is scored against.
+ *
+ * The one place "the latest" is the right question, and it is asked at capture time only: the
+ * version it returns is then written onto the audit, and every later read goes through
+ * `scoreWeightSet` instead. Undefined when the tenant has published none, which is a real state — a
+ * device can hold a rep's whole round before an administrator has ever opened the weights screen —
+ * and the caller decides what an audit means without one.
+ */
+export function currentScoreWeightSet(
+  db: FieldKitDatabase,
+): Promise<ReferenceScoreWeightSet | undefined> {
+  return db.scoreWeights.orderBy("version").last();
 }
