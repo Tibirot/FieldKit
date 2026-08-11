@@ -1,4 +1,5 @@
 using FieldKit.Modules.Audit.Contracts;
+using FieldKit.Modules.Configuration.Contracts;
 using FieldKit.Modules.Visit.Contracts;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,7 +23,8 @@ namespace FieldKit.Modules.Audit;
 /// exist — the same call <c>JourneyIngestService</c> makes.
 /// </para>
 /// </remarks>
-internal sealed class AuditIngestService(AuditDbContext db, IVisitContext visits) : IAuditIngest
+internal sealed class AuditIngestService(
+    AuditDbContext db, IVisitContext visits, ISurveyForms surveys) : IAuditIngest
 {
     public async Task<AuditIngestResult> IngestAsync(
         CapturedAudit captured, string userId, CancellationToken cancellationToken = default)
@@ -73,6 +75,26 @@ internal sealed class AuditIngestService(AuditDbContext db, IVisitContext visits
                 AuditIngestRefusal.AlreadyAudited, "That visit already has an audit.");
         }
 
+        /*
+         * The one thing this module asks Configuration, and the only one worth asking.
+         *
+         * An answer set naming a questionnaire this tenant does not have is uninterpretable: `AUD-09`
+         * would hold a set of responses belonging to no form, and nobody could say what was asked
+         * overall. That is worse than a refusal the device can retry after a sync.
+         *
+         * What is deliberately *not* asked is whether the answers satisfy the form. `BR-AUD-7` is a
+         * device rule (see IAuditIngest), and checking each key against today's questions would
+         * refuse an audit because the form was re-worded after the rep answered it. The answers carry
+         * their own question text precisely so they never need the form to be readable.
+         */
+        if (captured.SurveyFormId is { } formId
+            && await surveys.ByIdAsync(formId, cancellationToken) is null)
+        {
+            return new AuditIngestResult(
+                AuditIngestRefusal.UnknownSurveyForm,
+                "That questionnaire is not one this tenant has.");
+        }
+
         var (audit, refusal) = Audit.Record(captured, visit.OutletId, userId);
         if (refusal is not AuditRefusal.None) return Refuse(refusal);
 
@@ -96,6 +118,13 @@ internal sealed class AuditIngestService(AuditDbContext db, IVisitContext visits
 
         AuditRefusal.CurrencyMismatch => new AuditIngestResult(
             AuditIngestRefusal.CurrencyMismatch, "The price checks are not all in one currency."),
+
+        AuditRefusal.MalformedAnswers => new AuditIngestResult(
+            AuditIngestRefusal.MalformedAnswers,
+            "Those survey answers name no questionnaire, or answer one question twice."),
+
+        AuditRefusal.MalformedPhotos => new AuditIngestResult(
+            AuditIngestRefusal.MalformedPhotos, "A photo has no object key, or one is referenced twice."),
 
         _ => new AuditIngestResult(AuditIngestRefusal.Empty, "That audit was refused."),
     };

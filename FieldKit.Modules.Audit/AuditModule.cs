@@ -24,9 +24,10 @@ namespace FieldKit.Modules.Audit;
 /// recomputation that rule promises.
 /// </para>
 /// <para>
-/// Survey answers (<c>AUD-04</c>) and photo references (<c>AUD-05</c>) are W10 slice 3b — the other
-/// two kinds of thing an audit holds, and the ones that need <c>ISurveyForms</c> and a decision about
-/// how an audit names its form.
+/// Survey answers (<c>AUD-04</c>) and photo references (<c>AUD-05</c>) arrived in W10 slice 3b, on
+/// the same aggregate. An audit names its questionnaire by id and this module confirms the tenant has
+/// it — the only question it asks Configuration. It deliberately does not ask whether the answers
+/// <i>satisfy</i> the form: <c>BR-AUD-7</c> is enforced on the device, where the rep is looking at it.
 /// </para>
 /// </remarks>
 public sealed class AuditModule : IModule

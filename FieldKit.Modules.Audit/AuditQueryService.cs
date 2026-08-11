@@ -47,9 +47,12 @@ internal sealed class AuditQueryService(AuditDbContext db) : IAuditQuery
         .Include(audit => audit.Availability)
         .Include(audit => audit.Facings)
         .Include(audit => audit.Prices)
+        .Include(audit => audit.Answers)
+        .Include(audit => audit.Photos)
 
-        // Three collection includes on one query would otherwise multiply into a cartesian product
-        // of the three sections — thirty availability lines and twenty prices returning six hundred
-        // rows. Split queries cost round trips and save that.
+        // Five collection includes on one query would otherwise multiply into a cartesian product of
+        // the five sections — thirty availability lines, twenty prices and a dozen answers returning
+        // thousands of rows for a few hundred facts. Split queries cost round trips and save that,
+        // and the case for them got stronger with every section this slice added.
         .AsSplitQuery();
 }

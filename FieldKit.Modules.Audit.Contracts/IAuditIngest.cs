@@ -65,8 +65,81 @@ public sealed record CapturedPrice(
     Guid ProductId, long ObservedMinorUnits, long? ExpectedMinorUnits, string Currency);
 
 /// <summary>
+/// Which part of the audit a photo belongs to (<c>AUD-05</c>).
+/// </summary>
+/// <remarks>
+/// Deliberately <b>not</b> <c>ScorePillar</c>, although the first three read like it. A pillar is a
+/// thing the score weighs; a section is a thing a rep points a camera at, and the two lists stop
+/// agreeing at <see cref="Survey"/> and <see cref="General"/> — neither of which is ever weighted.
+/// Sharing one enum would make adding a scored pillar silently change where photos can be filed.
+/// </remarks>
+public enum AuditSection
+{
+    /// <summary>Evidence for the availability check (<c>AUD-01</c>).</summary>
+    Availability = 0,
+
+    /// <summary>The shelf, for the facings count (<c>AUD-02</c>).</summary>
+    ShareOfShelf = 1,
+
+    /// <summary>A shelf edge or a price tag (<c>AUD-03</c>).</summary>
+    PriceCompliance = 2,
+
+    /// <summary>Evidence a survey question asked for (<c>AUD-04</c>).</summary>
+    Survey = 3,
+
+    /// <summary>The store, the display, the thing the rep thought worth recording.</summary>
+    General = 4,
+}
+
+/// <summary>
+/// A photo the rep took, as a <b>reference</b> (<c>AUD-05</c>, <c>B5</c>).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The binary is not here and never travels this way.</b> Photos are downscaled on the device and
+/// uploaded to object storage separately, on reconnect, through presigned URLs — retried
+/// independently of the JSON push (<c>B5</c>). This record is the audit's pointer at the object.
+/// </para>
+/// <para>
+/// <b>Which means the object may not exist yet, and may never.</b> The JSON push regularly wins the
+/// race — an audit lands with three photo references and the images arrive minutes later, or not at
+/// all if the phone is wiped first. That is deliberate: refusing the audit until its photos land
+/// would hold a rep's whole day hostage to a slow upload, and <c>AUD-05</c>'s acceptance criterion
+/// says as much ("photos appear against the audit after reconnect, even if the JSON push succeeds
+/// before the images finish uploading"). A reader that cannot fetch an object should show a gap, not
+/// an error — the upload path itself is W11 (<c>OFF-08</c>).
+/// </para>
+/// </remarks>
+/// <param name="ObjectKey">
+/// Where the image will be in object storage. Minted on the device, so the reference and the upload
+/// agree without a round trip — the same reason <c>AuditId</c> is the device's.
+/// </param>
+public sealed record CapturedPhoto(AuditSection Section, string ObjectKey);
+
+/// <summary>
+/// One survey answer, as the rep gave it (<c>AUD-04</c>).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>It carries the question, not just the key.</b> A key alone would need the form re-read to mean
+/// anything, and the form may have been re-worded — or the question dropped — between the rep
+/// answering and the push arriving. Carrying the text as it was asked makes the answer readable
+/// forever without consulting anything, which is the same call every other part of
+/// <see cref="CapturedAudit"/> makes.
+/// </para>
+/// <para>
+/// <b>The value is a string, whatever the question's type was.</b> A number question's answer is
+/// <c>"12"</c> and a multi-choice question's is its chosen options joined. That is a real loss of
+/// typing and it is deliberate: the alternative is five nullable columns, one per
+/// <c>SurveyQuestionType</c>, of which four are always null — and a sixth the day a type is added.
+/// The type lives on the question, which is where a reader that cares can find it.
+/// </para>
+/// </remarks>
+public sealed record CapturedAnswer(string QuestionKey, string QuestionText, string Value);
+
+/// <summary>
 /// An audit that already happened, arriving from a device that was offline while it did
-/// (<c>AUD-01</c>, <c>AUD-02</c>, <c>AUD-03</c>, <c>OFF-04</c>).
+/// (<c>AUD-01</c>, <c>AUD-02</c>, <c>AUD-03</c>, <c>AUD-04</c>, <c>AUD-05</c>, <c>OFF-04</c>).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -96,6 +169,11 @@ public sealed record CapturedPrice(
 /// here, at capture, because it is the one fact that cannot be recovered later: a re-weighting
 /// between the audit and its push would leave the server unable to say which numbers the rep saw.
 /// </param>
+/// <param name="SurveyFormId">
+/// Which questionnaire the rep worked, or null when the audit had no survey step. Confirmed to exist
+/// in this tenant on the way in — an answer set that names no form is uninterpretable, which is worse
+/// than one that is refused.
+/// </param>
 public sealed record CapturedAudit(
     Guid AuditId,
     Guid VisitId,
@@ -104,7 +182,10 @@ public sealed record CapturedAudit(
     int? CategoryFacings,
     IReadOnlyList<CapturedAvailability> Availability,
     IReadOnlyList<CapturedFacings> Facings,
-    IReadOnlyList<CapturedPrice> Prices);
+    IReadOnlyList<CapturedPrice> Prices,
+    Guid? SurveyFormId = null,
+    IReadOnlyList<CapturedAnswer>? Answers = null,
+    IReadOnlyList<CapturedPhoto>? Photos = null);
 
 /// <summary>Why a pushed audit was not applied. <see cref="None"/> means it was.</summary>
 public enum AuditIngestRefusal
@@ -131,6 +212,15 @@ public enum AuditIngestRefusal
 
     /// <summary>Nothing was measured at all.</summary>
     Empty,
+
+    /// <summary>Answers naming a questionnaire this tenant does not have (<c>AUD-04</c>).</summary>
+    UnknownSurveyForm,
+
+    /// <summary>Two answers under one question key, or answers with no form named.</summary>
+    MalformedAnswers,
+
+    /// <summary>A photo with no object key, or two references to one object (<c>AUD-05</c>).</summary>
+    MalformedPhotos,
 }
 
 /// <summary>What became of a pushed audit.</summary>
@@ -165,6 +255,16 @@ public sealed record AuditIngestResult(AuditIngestRefusal Refusal, string? Reaso
 /// its own store; nothing stops a modified client sending a different one. Scoping to the rep makes a
 /// fabricated id indistinguishable from a missing one, so this cannot be used to discover whose
 /// visits exist.
+/// </para>
+/// <para>
+/// <b><c>BR-AUD-7</c> is not enforced here, and that is the decision rather than an omission.</b>
+/// "Mandatory survey questions must be answered before the audit step completes" is a rule about
+/// <i>completing a step</i>, which happens on the device with the rep looking at the form. Re-checking
+/// it on arrival would test the answers against the questionnaire as it reads <b>today</b> — so a form
+/// that gained a mandatory question after the rep answered would refuse an audit for a question that
+/// did not exist when they worked the shelf, and one that dropped a question would refuse an audit for
+/// an answer that was mandatory at the time. The same as-of-capture reasoning that keeps this module
+/// from re-resolving the MSL or the expected price.
 /// </para>
 /// </remarks>
 public interface IAuditIngest

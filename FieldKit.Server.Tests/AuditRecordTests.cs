@@ -25,14 +25,22 @@ public class AuditRecordTests
     private static readonly Guid Outlet = Guid.CreateVersion7();
     private static readonly DateTimeOffset Captured = new(2026, 4, 6, 9, 30, 0, TimeSpan.Zero);
 
+    private static readonly Guid Form = Guid.CreateVersion7();
+
     private static CapturedAudit Audit(
         IReadOnlyList<CapturedAvailability>? availability = null,
         IReadOnlyList<CapturedFacings>? facings = null,
         IReadOnlyList<CapturedPrice>? prices = null,
         int? categoryFacings = 40,
-        int weightSetVersion = 3) =>
+        int weightSetVersion = 3,
+        Guid? surveyFormId = null,
+        IReadOnlyList<CapturedAnswer>? answers = null,
+        IReadOnlyList<CapturedPhoto>? photos = null) =>
         new(Guid.CreateVersion7(), Visit, Captured, weightSetVersion, categoryFacings,
-            availability ?? [], facings ?? [], prices ?? []);
+            availability ?? [], facings ?? [], prices ?? [], surveyFormId, answers, photos);
+
+    private static CapturedAnswer Answer(string key, string value = "Yes") =>
+        new(key, $"Question {key}?", value);
 
     private static (Modules.Audit.Audit? Audit, AuditRefusal Refusal) Record(CapturedAudit captured) =>
         Modules.Audit.Audit.Record(captured, Outlet, "rep-1");
@@ -275,6 +283,178 @@ public class AuditRecordTests
     }
 
     [Fact]
+    public void Survey_answers_are_numbered_in_the_order_they_arrived_and_keep_the_question()
+    {
+        /*
+         * The text is carried, not looked up. A form can be re-worded — or the question dropped —
+         * between the rep answering and the push arriving, and a key alone would then be an answer
+         * nobody can read. The same copy a visit makes of its workflow step (BR-VIS-6).
+         */
+        var (audit, refusal) = Record(Audit(
+            surveyFormId: Form,
+            answers: [Answer("chiller_lit"), Answer("facings_ok", "No"), Answer("notes", "Shelf was wet")]));
+
+        Assert.Equal(AuditRefusal.None, refusal);
+        Assert.Equal(Form, audit!.SurveyFormId);
+        Assert.Equal([1, 2, 3], audit.Answers.OrderBy(a => a.Order).Select(a => a.Order));
+        Assert.Equal(
+            ["chiller_lit", "facings_ok", "notes"],
+            audit.Answers.OrderBy(a => a.Order).Select(a => a.QuestionKey));
+        Assert.Equal("Question notes?", audit.Answers.Single(a => a.QuestionKey == "notes").QuestionText);
+        Assert.Equal("Shelf was wet", audit.Answers.Single(a => a.QuestionKey == "notes").Value);
+    }
+
+    [Fact]
+    public void An_audit_that_is_only_a_questionnaire_is_a_real_audit()
+    {
+        // A shop that would not let the rep count the shelf still lets them answer questions. An
+        // emptiness rule that ignored answers would throw that away.
+        var (audit, refusal) = Record(Audit(surveyFormId: Form, answers: [Answer("chiller_lit")]));
+
+        Assert.Equal(AuditRefusal.None, refusal);
+        Assert.NotNull(audit);
+    }
+
+    [Fact]
+    public void An_audit_that_is_only_a_photograph_is_a_real_audit()
+    {
+        // AUD-05 calls photo evidence a section of its own. A display worth photographing is worth
+        // recording even when nothing was counted.
+        var (audit, refusal) = Record(Audit(
+            photos: [new CapturedPhoto(AuditSection.General, "tenant-a/audits/x/1.jpg")]));
+
+        Assert.Equal(AuditRefusal.None, refusal);
+        Assert.NotNull(audit);
+    }
+
+    [Fact]
+    public void Two_answers_under_one_question_key_are_refused()
+    {
+        // The failure the key exists to prevent, from the answering end — SurveyForm refuses
+        // duplicate keys at the authoring end for the same reason.
+        var (_, refusal) = Record(Audit(
+            surveyFormId: Form, answers: [Answer("chiller_lit"), Answer("chiller_lit", "No")]));
+
+        Assert.Equal(AuditRefusal.MalformedAnswers, refusal);
+    }
+
+    [Fact]
+    public void Answers_that_name_no_questionnaire_are_refused()
+    {
+        /*
+         * The answers would still be readable — they carry their own text — but a reader could not
+         * say what was being asked overall, and AUD-09 would hold a set of responses belonging to no
+         * form. A device that answered a form knows which one.
+         */
+        var (_, refusal) = Record(Audit(answers: [Answer("chiller_lit")]));
+
+        Assert.Equal(AuditRefusal.MalformedAnswers, refusal);
+    }
+
+    [Fact]
+    public void An_answer_with_no_question_behind_it_is_refused()
+    {
+        var (_, blankKey) = Record(Audit(
+            surveyFormId: Form, answers: [new CapturedAnswer("  ", "Is the chiller lit?", "Yes")]));
+
+        var (_, blankText) = Record(Audit(
+            surveyFormId: Form, answers: [new CapturedAnswer("chiller_lit", " ", "Yes")]));
+
+        Assert.Equal(AuditRefusal.MalformedAnswers, blankKey);
+        Assert.Equal(AuditRefusal.MalformedAnswers, blankText);
+    }
+
+    [Fact]
+    public void An_empty_answer_is_a_real_answer()
+    {
+        /*
+         * The other half of the rule above, and the one worth stating. A rep who left an optional
+         * text question blank has answered it — "nothing to add" is a finding. Only the *question*
+         * has to be present; the value need not be.
+         *
+         * BR-AUD-7's "mandatory questions must be answered" is enforced on the device, where the rep
+         * is looking at the form. See IAuditIngest for why re-checking it here would refuse audits
+         * for questions that did not exist when they were worked.
+         */
+        var (audit, refusal) = Record(Audit(
+            surveyFormId: Form, answers: [new CapturedAnswer("notes", "Anything to add?", "")]));
+
+        Assert.Equal(AuditRefusal.None, refusal);
+        Assert.Equal(string.Empty, audit!.Answers.Single().Value);
+    }
+
+    [Fact]
+    public void A_form_named_with_no_answers_is_fine()
+    {
+        // A rep opened the questionnaire and answered nothing optional. Refusing that would be the
+        // server insisting the rep must have had something to say.
+        var (_, refusal) = Record(Audit(
+            facings: [new CapturedFacings(Guid.CreateVersion7(), 3)], surveyFormId: Form));
+
+        Assert.Equal(AuditRefusal.None, refusal);
+    }
+
+    [Fact]
+    public void A_photo_is_stored_as_a_reference_and_nothing_checks_the_object()
+    {
+        /*
+         * B5: photos are uploaded separately, on reconnect, and the JSON push regularly wins the
+         * race. Refusing an audit until its images landed would hold a rep's whole day hostage to a
+         * slow upload — and the upload path itself does not exist until W11, so *every* key stored
+         * today points at nothing.
+         */
+        var (audit, refusal) = Record(Audit(photos: [
+            new CapturedPhoto(AuditSection.ShareOfShelf, "tenant-a/audits/x/shelf.jpg"),
+            new CapturedPhoto(AuditSection.PriceCompliance, "tenant-a/audits/x/tag.jpg"),
+        ]));
+
+        Assert.Equal(AuditRefusal.None, refusal);
+        Assert.Equal(2, audit!.Photos.Count);
+        Assert.Equal(
+            AuditSection.ShareOfShelf,
+            audit.Photos.Single(p => p.ObjectKey.EndsWith("shelf.jpg")).Section);
+    }
+
+    [Fact]
+    public void A_photo_with_no_object_key_is_refused()
+    {
+        // A reference with nothing to fetch by is not a reference. Unlike a missing *object*, which
+        // is the ordinary case, this cannot become valid later.
+        var (_, refusal) = Record(Audit(photos: [new CapturedPhoto(AuditSection.General, "   ")]));
+
+        Assert.Equal(AuditRefusal.MalformedPhotos, refusal);
+    }
+
+    [Fact]
+    public void One_object_cannot_be_referenced_twice_in_an_audit()
+    {
+        // The same image under two sections is one photo counted twice, with no way to say which the
+        // rep meant.
+        var (_, refusal) = Record(Audit(photos: [
+            new CapturedPhoto(AuditSection.ShareOfShelf, "tenant-a/audits/x/1.jpg"),
+            new CapturedPhoto(AuditSection.General, "tenant-a/audits/x/1.jpg"),
+        ]));
+
+        Assert.Equal(AuditRefusal.MalformedPhotos, refusal);
+    }
+
+    [Fact]
+    public void The_sections_a_photo_can_belong_to_are_not_the_scored_pillars()
+    {
+        /*
+         * `AuditSection` reads like `ScorePillar` for its first three members and then stops:
+         * Survey and General are things a rep points a camera at and nothing weighs. Sharing one
+         * enum would make adding a scored pillar silently change where photos can be filed.
+         *
+         * Asserted rather than commented, because the two lists agreeing today is exactly what would
+         * tempt somebody to merge them.
+         */
+        Assert.Contains(AuditSection.Survey, Enum.GetValues<AuditSection>());
+        Assert.Contains(AuditSection.General, Enum.GetValues<AuditSection>());
+        Assert.Equal(5, Enum.GetValues<AuditSection>().Length);
+    }
+
+    [Fact]
     public void Describing_an_audit_carries_every_section()
     {
         // What a reader actually gets. Written out because the descriptor is the whole read surface
@@ -284,7 +464,10 @@ public class AuditRecordTests
         var (audit, _) = Record(Audit(
             availability: [new CapturedAvailability(product, AvailabilityStatus.Absent)],
             facings: [new CapturedFacings(product, 2)],
-            prices: [new CapturedPrice(product, 1099, 999, "RON")]));
+            prices: [new CapturedPrice(product, 1099, 999, "RON")],
+            surveyFormId: Form,
+            answers: [Answer("chiller_lit")],
+            photos: [new CapturedPhoto(AuditSection.General, "tenant-a/audits/x/1.jpg")]));
 
         var described = audit!.Describe();
 
@@ -295,5 +478,8 @@ public class AuditRecordTests
         Assert.Equal(AvailabilityStatus.Absent, described.Availability.Single().Status);
         Assert.Equal(2, described.Facings.Single().Facings);
         Assert.Equal(999, described.Prices.Single().ExpectedMinorUnits);
+        Assert.Equal(Form, described.SurveyFormId);
+        Assert.Equal("Question chiller_lit?", described.Answers.Single().QuestionText);
+        Assert.Equal(AuditSection.General, described.Photos.Single().Section);
     }
 }

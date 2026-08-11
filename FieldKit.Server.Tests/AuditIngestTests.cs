@@ -4,6 +4,8 @@ using System.Security.Claims;
 using System.Text.Json;
 using FieldKit.Modules.Audit;
 using FieldKit.Modules.Audit.Contracts;
+using FieldKit.Modules.Configuration;
+using FieldKit.Modules.Configuration.Contracts;
 using FieldKit.Modules.Outlets;
 using FieldKit.Modules.Visit;
 using Microsoft.AspNetCore.Http;
@@ -338,6 +340,171 @@ public class AuditIngestTests(ServerFixture fixture)
         var mine = audits!.Where(audit => audit.VisitId == older || audit.VisitId == newer).ToList();
 
         Assert.Equal([newer, older], mine.Select(audit => audit.VisitId));
+    }
+
+    /// <summary>Creates a questionnaire and returns its id.</summary>
+    private static async Task<Guid> SurveyAsync(HttpClient client)
+    {
+        var created = await client.PostAsJsonAsync("/api/config/surveys", new SurveyFormRequest(
+            $"Audit survey {Guid.CreateVersion7()}",
+            [new SurveyQuestionRequest("chiller_lit", "Is the chiller lit?", SurveyQuestionType.Boolean, true)]));
+
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+
+        return (await created.Content.ReadFromJsonAsync<SurveyFormResponse>())!.Id;
+    }
+
+    [Fact]
+    public async Task An_audit_carries_its_survey_answers_and_photo_references()
+    {
+        using var client = Admin();
+
+        var (visitId, _) = await VisitAsync(client);
+        var formId = await SurveyAsync(client);
+
+        var captured = Audit(visitId) with
+        {
+            SurveyFormId = formId,
+            Answers = [new CapturedAnswer("chiller_lit", "Is the chiller lit?", "Yes")],
+            Photos = [new CapturedPhoto(AuditSection.ShareOfShelf, $"tenant-a/{visitId}/shelf.jpg")],
+        };
+
+        Assert.True((await IngestAsync(captured)).Applied);
+
+        var stored = await client.GetFromJsonAsync<AuditResponse>($"/api/visits/{visitId}/audit");
+
+        Assert.Equal(formId, stored!.SurveyFormId);
+
+        var answer = Assert.Single(stored.Answers);
+        Assert.Equal(1, answer.Order);
+        Assert.Equal("chiller_lit", answer.QuestionKey);
+
+        // The question as it was asked, carried rather than looked up — the form may be re-worded
+        // before anybody reads this back.
+        Assert.Equal("Is the chiller lit?", answer.QuestionText);
+        Assert.Equal("Yes", answer.Value);
+
+        Assert.Equal(nameof(AuditSection.ShareOfShelf), Assert.Single(stored.Photos).Section);
+    }
+
+    [Fact]
+    public async Task Answers_naming_a_questionnaire_this_tenant_does_not_have_are_refused()
+    {
+        /*
+         * The one question this module asks Configuration. An answer set naming no form is
+         * uninterpretable — `AUD-09` would hold responses belonging to nothing, and nobody could say
+         * what was asked overall.
+         *
+         * What is deliberately *not* asked is whether the answers satisfy the form: BR-AUD-7 is
+         * enforced on the device, and re-checking it here would refuse an audit because the form was
+         * re-worded after the rep answered it.
+         */
+        using var client = Admin();
+
+        var (visitId, _) = await VisitAsync(client);
+
+        var captured = Audit(visitId) with
+        {
+            SurveyFormId = Guid.CreateVersion7(),
+            Answers = [new CapturedAnswer("chiller_lit", "Is the chiller lit?", "Yes")],
+        };
+
+        Assert.Equal(AuditIngestRefusal.UnknownSurveyForm, (await IngestAsync(captured)).Refusal);
+    }
+
+    [Fact]
+    public async Task Another_tenants_questionnaire_is_not_this_tenants()
+    {
+        // The isolation gate on the new dependency. `ISurveyForms` runs through Configuration's own
+        // tenant filter, so tenant B's form is simply not found here.
+        using var client = Admin();
+        using var other = fixture.CreateAuthenticatedClient(fixture.TenantBAccessToken);
+
+        var (visitId, _) = await VisitAsync(client);
+        var theirForm = await SurveyAsync(other);
+
+        var captured = Audit(visitId) with
+        {
+            SurveyFormId = theirForm,
+            Answers = [new CapturedAnswer("chiller_lit", "Is the chiller lit?", "Yes")],
+        };
+
+        Assert.Equal(AuditIngestRefusal.UnknownSurveyForm, (await IngestAsync(captured)).Refusal);
+    }
+
+    [Fact]
+    public async Task An_audit_answered_against_a_form_that_was_re_worded_afterwards_still_lands()
+    {
+        /*
+         * The case the tempting server-side check gets wrong.
+         *
+         * The rep answers `chiller_lit`, and the form is re-authored before the phone drains — the
+         * question is now worded differently and a new mandatory one has appeared. Validating the
+         * answers against the form as it reads *now* would refuse this audit for a question that did
+         * not exist when the rep worked the shelf. It lands, with the question as it was asked.
+         */
+        using var client = Admin();
+
+        var (visitId, _) = await VisitAsync(client);
+        var formId = await SurveyAsync(client);
+
+        var captured = Audit(visitId) with
+        {
+            SurveyFormId = formId,
+            Answers = [new CapturedAnswer("chiller_lit", "Is the chiller lit?", "Yes")],
+        };
+
+        var reworded = await client.PutAsJsonAsync($"/api/config/surveys/{formId}", new SurveyFormRequest(
+            $"Audit survey {Guid.CreateVersion7()}",
+            [
+                new SurveyQuestionRequest("chiller_lit", "Was the chiller illuminated?", SurveyQuestionType.Boolean, true),
+                new SurveyQuestionRequest("shelf_clean", "Was the shelf clean?", SurveyQuestionType.Boolean, true),
+            ]));
+
+        Assert.Equal(HttpStatusCode.OK, reworded.StatusCode);
+
+        Assert.True((await IngestAsync(captured)).Applied);
+
+        var stored = await client.GetFromJsonAsync<AuditResponse>($"/api/visits/{visitId}/audit");
+
+        // The wording the rep actually saw, not the one the form carries now.
+        Assert.Equal("Is the chiller lit?", Assert.Single(stored!.Answers).QuestionText);
+    }
+
+    [Fact]
+    public async Task A_malformed_answer_or_photo_reaches_the_device_by_name()
+    {
+        using var client = Admin();
+
+        var (visitId, _) = await VisitAsync(client);
+        var formId = await SurveyAsync(client);
+
+        var twiceAnswered = Audit(visitId) with
+        {
+            SurveyFormId = formId,
+            Answers =
+            [
+                new CapturedAnswer("chiller_lit", "Is the chiller lit?", "Yes"),
+                new CapturedAnswer("chiller_lit", "Is the chiller lit?", "No"),
+            ],
+        };
+
+        var twiceReferenced = Audit(visitId) with
+        {
+            Photos =
+            [
+                new CapturedPhoto(AuditSection.General, "tenant-a/one.jpg"),
+                new CapturedPhoto(AuditSection.Survey, "tenant-a/one.jpg"),
+            ],
+        };
+
+        Assert.Equal(AuditIngestRefusal.MalformedAnswers, (await IngestAsync(twiceAnswered)).Refusal);
+        Assert.Equal(AuditIngestRefusal.MalformedPhotos, (await IngestAsync(twiceReferenced)).Refusal);
+
+        // …and nothing was stored by either attempt.
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/visits/{visitId}/audit")).StatusCode);
     }
 
     [Fact]

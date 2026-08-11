@@ -9,13 +9,20 @@
     <!--
       Contracts only, never the implementation (AT-1).
 
-      Visit is the only other module this one reads, and it reads one thing: whether the visit an
-      audit claims to belong to exists, is this rep's, and is still open — every input BR-AUD-6
-      needs. Notably absent are Products and Configuration: the MSL, the expected price and the
-      weight version were all resolved on the device when the rep was at the shelf, and re-resolving
-      them here would describe the audit under configuration republished since.
+      Visit says whether the visit an audit claims to belong to exists, is this rep's, and is still
+      open — every input BR-AUD-6 needs.
+
+      Configuration answers exactly one question, added in W10 slice 3b: does this tenant have the
+      questionnaire these answers name? An answer set naming no form is uninterpretable. It is
+      deliberately *not* asked whether the answers satisfy the form — BR-AUD-7 is a device rule, and
+      checking it here would test the rep's work against a form re-worded since.
+
+      Notably absent is Products: the MSL and the expected price were resolved on the device when the
+      rep was at the shelf, and re-resolving them here would describe the audit under configuration
+      republished since.
     -->
     <ProjectReference Include="..\FieldKit.Modules.Visit.Contracts\FieldKit.Modules.Visit.Contracts.csproj" />
+    <ProjectReference Include="..\FieldKit.Modules.Configuration.Contracts\FieldKit.Modules.Configuration.Contracts.csproj" />
 
     <!-- Its own public surface, which ships with the module because Sync is already waiting. -->
     <ProjectReference Include="..\FieldKit.Modules.Audit.Contracts\FieldKit.Modules.Audit.Contracts.csproj" />

@@ -10,6 +10,17 @@ public sealed record FacingsLine(Guid ProductId, int Facings);
 public sealed record PriceLine(
     Guid ProductId, long ObservedMinorUnits, long? ExpectedMinorUnits, string Currency);
 
+/// <summary>One survey answer, as stored, with the question as it was asked (<c>AUD-04</c>).</summary>
+public sealed record AnswerLine(int Order, string QuestionKey, string QuestionText, string Value);
+
+/// <summary>One photo reference, as stored (<c>AUD-05</c>).</summary>
+/// <param name="ObjectKey">
+/// Where the image is in object storage — or will be. The upload is separate from this record and
+/// may not have finished, or happened at all (<c>B5</c>); a reader should show a gap rather than an
+/// error.
+/// </param>
+public sealed record PhotoLine(AuditSection Section, string ObjectKey);
+
 /// <summary>
 /// An audit as a reader sees it (<c>AUD-09</c>).
 /// </summary>
@@ -33,7 +44,10 @@ public sealed record AuditRecord(
     int? CategoryFacings,
     IReadOnlyList<AvailabilityLine> Availability,
     IReadOnlyList<FacingsLine> Facings,
-    IReadOnlyList<PriceLine> Prices);
+    IReadOnlyList<PriceLine> Prices,
+    Guid? SurveyFormId,
+    IReadOnlyList<AnswerLine> Answers,
+    IReadOnlyList<PhotoLine> Photos);
 
 /// <summary>
 /// Audits for an outlet or a visit (<c>AUD-09</c>).
