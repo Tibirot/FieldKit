@@ -4,8 +4,8 @@ The live demo runs on **Azure Container Apps**, published from the Aspire AppHos
 ([ADR-0011](../architecture/adr/0011-deployment-azure-container-apps.md)). This page is the runbook:
 what has to be true first, what the command does, and what to check afterwards.
 
-> **Deployed, 2026-08-09**, at commit **`fb31f75`**. Resource group `FieldKit`, **Sweden Central**,
-> running at
+> **Deployed, 2026-08-11**, at commit **`cbbb890`** (W9 + W10). Previously 2026-08-09 at `fb31f75`.
+> Resource group `FieldKit`, **Sweden Central**, running at
 > [webfrontend.jollysmoke-c6d79515.swedencentral.azurecontainerapps.io](https://webfrontend.jollysmoke-c6d79515.swedencentral.azurecontainerapps.io).
 > Everything below has now been executed rather than reasoned about, and the corrections that took
 > are marked where they belong.
@@ -110,7 +110,12 @@ It will ask for a subscription, a location and a resource group on first run, an
 which is worth knowing before that machine is shared or backed up.
 
 **Timings, measured:** the full first provisioning ran about **8 minutes**; a redeploy that only
-rebuilds images and updates the container apps takes **1–2 minutes** (`37/37 steps · 1m 14s`).
+rebuilds images and updates the container apps takes **1–2 minutes** (`37/37 steps · 1m 14s`, twice —
+2026-08-09 and again on 2026-08-11, the second carrying 17 migrations and a new schema).
+
+**Non-interactive** is worth knowing if you are scripting or running this through a tool: once the
+first run has cached a subscription, location and resource group, `aspire deploy --non-interactive
+--nologo` needs no input at all.
 
 ### Choosing a location
 
@@ -179,9 +184,17 @@ carries **two** kinds of change automatically:
 - **Code**, in the images.
 - **Database schema.** Each module applies its own EF migrations on startup
   (`ModuleMigrator<TContext>`, ADR-0005), so a redeploy migrates the live database as a side effect
-  of the server booting. Read the new migrations before you deploy them, and watch the server's
-  startup log afterwards — a migration that throws leaves the app up and the module unusable, which
-  looks like a bug in a feature rather than a failed deploy.
+  of the server booting. Read the new migrations before you deploy them.
+
+  **A migration that throws takes the whole server down**, and that is the good news: `ModuleMigrator`
+  is an `IHostedService`, an exception in `StartAsync` propagates out of host startup, and the
+  container app crash-loops with an unhealthy revision. There is no partial state where the app
+  serves and one module quietly 500s. So **"the server is healthy" is itself the migration check** —
+  `az containerapp revision list --name server -g <rg>` answers it in one line, and does not depend
+  on catching the startup log before it rolls.
+
+  *(Recorded 2026-08-11: this bullet previously claimed the opposite — that a failed migration left
+  the app up and one module unusable. It does not, and the true behaviour is easier to act on.)*
 
 ### A realm change is not deployed by deploying
 
