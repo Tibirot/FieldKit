@@ -26,6 +26,24 @@ ties together the offline notes in every field module.
   (`navigator.storage.persist()`) because browsers, iOS especially, can evict storage; a large or
   aged unsynced outbox is treated as at-risk and prompts a sync ([sync engine §2](../architecture/12-offline-sync-engine.md#2-client-storage-model-indexeddb--dexie)).
 
+  > **How this is surfaced (`OFF-10`, `OFF-11` — W9 slice 11).** The request has been made on every
+  > registration since W5; what was missing is that **nobody read the answer**. The device screen now
+  > shows quota usage and warns on the two states a rep can act on:
+  >
+  > - **Nearly out of quota** — sync, then clear space. A full device cannot take the next round.
+  > - **Not persistent *and* holding unsent work** — the eviction case. Unsent work is what turns the
+  >   fact into a warning: the same device with an empty outbox stands to lose cached images.
+  >
+  > A browser that implements neither API is **not** warned about. `persisted === null` means "no such
+  > API", not "no", and a warning a rep cannot act on is one they learn to scroll past — and then
+  > miss the one that mattered.
+  >
+  > **Installing is offered where the browser allows it.** `beforeinstallprompt` is Chromium's;
+  > WebKit has no equivalent and installing there is Safari's own Share ▸ Add to Home Screen, which a
+  > page can neither trigger nor detect. Nothing is shown on iOS rather than a button that does
+  > nothing — which leaves the platform with the harshest eviction policy (seven days for a tab) as
+  > the one FieldKit can least help, and that is worth revisiting if field trials say it bites.
+
 ## 3. What is available offline
 
 | Area | Offline capability |

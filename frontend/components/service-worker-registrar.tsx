@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import { requestPersistentStorage } from "@/lib/sync/db";
+
 /**
  * Registers the app-shell service worker and asks for durable storage (OFF-10, OFF-02).
  *
@@ -22,6 +24,15 @@ export function ServiceWorkerRegistrar() {
     const register = async () => {
       try {
         await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+
+        /*
+         * The shared one from `lib/sync/db`, not a private copy (W9 slice 11).
+         *
+         * There were two implementations of this — one here returning nothing and untested, one
+         * there returning whether the browser agreed and covered by three tests. They answered the
+         * same question and only one of them said what the answer was, which is precisely the
+         * information `OFF-11` needed to surface and could not reach.
+         */
         await requestPersistentStorage();
       } catch (error) {
         // A failed registration degrades the app to online-only; it must never break the page.
@@ -35,19 +46,3 @@ export function ServiceWorkerRegistrar() {
   return null;
 }
 
-/**
- * Captured work has to survive eviction, and browsers — iOS especially — will clear storage under
- * pressure unless the origin is marked persistent (offline-behavior §2). This is best-effort by
- * design: the browser may grant it silently, prompt, or refuse, and refusing is not an error.
- *
- * Asking only when not already persisted keeps repeat visits from re-prompting.
- */
-async function requestPersistentStorage(): Promise<void> {
-  if (!navigator.storage?.persist || !navigator.storage.persisted) {
-    return;
-  }
-
-  if (!(await navigator.storage.persisted())) {
-    await navigator.storage.persist();
-  }
-}
