@@ -36,13 +36,17 @@ Respect [module boundaries](docs/architecture/10-module-boundaries.md): a module
 another module's `Contracts` (never its internals); communicate via public contracts (sync) or
 integration events through the outbox (async). Architecture tests enforce this — keep them green.
 
-## Build / test (once Phase 0 lands)
+## Build / test
 
 The system is orchestrated by Aspire: `dotnet run --project FieldKit.AppHost`. Tests:
 `dotnet test` (unit + architecture + Testcontainers integration); frontend `npm run lint && npm test`
-(from `frontend/`).
-Until [Phase 0](docs/roadmap.md#phase-0--foundation-in-progress) the repo is a scaffold — see the
-[delivery plan](docs/delivery-plan.md) for what exists.
+(from `frontend/`). Cross-language parity vectors run in their own CI job — a change to pricing,
+tax or the perfect-store score has to pass in **both** languages.
+
+**Phases 0–2 are complete and the system is deployed** ([runbook](docs/engineering/deploying.md)).
+Phase 3 is in flight. The [delivery plan](docs/delivery-plan.md) is the authority on what each week
+actually shipped — including where it departed from the plan — and is more current than any summary,
+including this one.
 
 ## Working conventions
 
