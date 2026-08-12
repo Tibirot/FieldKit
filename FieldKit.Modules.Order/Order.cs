@@ -78,9 +78,9 @@ public sealed class OrderLine : ITenantOwned
 /// <i>history</i> is what appends while the <i>aggregate</i> is what re-opens.
 /// </para>
 /// <para>
-/// <b>There is no outcome column yet.</b> Slice 0 named one, and nothing can write it until rejection
-/// exists in slice 4 — a column with no writer is the same waste as W8 slice 6's storeless blob table.
-/// It lands with the thing that sets it.
+/// <b>The outcome arrived in slice 4a</b>, with the rejection that gives it a second value. Slice 0
+/// named the column and slice 3 left it out on the grounds that a column with one possible value is a
+/// schema version spent on nothing; this is the change that makes it mean something.
 /// </para>
 /// </remarks>
 public sealed class OrderSubmission : ITenantOwned
@@ -102,7 +102,45 @@ public sealed class OrderSubmission : ITenantOwned
     /// <summary>When this server accepted it — its own clock, unlike the order's capture time.</summary>
     public DateTimeOffset SubmittedAtUtc { get; private set; }
 
+    /// <summary>
+    /// What became of this attempt. <see cref="SubmissionOutcome.Accepted"/> until something rejects it.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is set on the submission, not only on the order</b>, and that is what makes
+    /// <c>BR-ORD-9</c>'s "the original submission's id is terminal" a checkable statement rather than a
+    /// sentence. The order carries one status; the rejection belongs to the <i>attempt</i> that earned
+    /// it, so a rep who fixes a line and resubmits leaves the rejected attempt legible behind them.
+    /// </remarks>
+    public SubmissionOutcome Outcome { get; private set; }
+
+    /// <summary>Why it was rejected, or null while it stands accepted.</summary>
+    public OrderRejectionReason? RejectionReason { get; private set; }
+
+    /// <summary>
+    /// The line the rejection is about, or null when the rejection is about the whole order.
+    /// </summary>
+    /// <remarks>
+    /// <c>F4</c> asks for "a reason + the offending line", and the nullable is the honest reading of
+    /// its own examples: an off-assortment SKU points at a line the rep can fix, while a closed outlet
+    /// points at nothing they can edit. Both are whole-order rejections — the order is refused, not the
+    /// line — and the product id says where to look, when there is anywhere.
+    /// </remarks>
+    public Guid? OffendingProductId { get; private set; }
+
+    /// <summary>
+    /// What the operator wrote, when the code alone does not say enough. Null otherwise.
+    /// </summary>
+    /// <remarks>
+    /// It exists because <see cref="OrderRejectionReason.Other"/> would be useless without it — a rep
+    /// told only "Other" has nothing to act on. It is deliberately <i>not</i> the rejection's meaning:
+    /// the device branches on the code, and this is prose a human reads afterwards.
+    /// </remarks>
+    public string? Note { get; private set; }
+
     public TenantId TenantId { get; set; }
+
+    /// <summary>The longest note this column takes. Beyond it the operator is writing an email.</summary>
+    public const int MaximumNoteLength = 500;
 
     private OrderSubmission() { } // EF
 
@@ -112,7 +150,56 @@ public sealed class OrderSubmission : ITenantOwned
         OrderId = orderId,
         MutationId = mutationId,
         SubmittedAtUtc = at,
+        Outcome = SubmissionOutcome.Accepted,
     };
+
+    internal void Reject(OrderRejectionReason reason, Guid? offendingProductId, string? note)
+    {
+        Outcome = SubmissionOutcome.Rejected;
+        RejectionReason = reason;
+        OffendingProductId = offendingProductId;
+        Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+    }
+}
+
+/// <summary>What became of one attempt to submit an order.</summary>
+/// <remarks>
+/// Two values and no <c>Pending</c>: an attempt that reached this server was applied or refused before
+/// the response went back, so there is no moment at which a stored submission is undecided. A refusal
+/// that never became a submission is not here at all — it is an <see cref="OrderIngestRefusal"/>, and
+/// the difference is whether an order exists to have a history.
+/// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<SubmissionOutcome>))]
+public enum SubmissionOutcome
+{
+    /// <summary>Taken. Every submission starts here.</summary>
+    Accepted = 0,
+
+    /// <summary>Refused whole-order, and terminal — see <see cref="OrderRejectionReason"/>.</summary>
+    Rejected = 1,
+}
+
+/// <summary>
+/// Why a <i>rejection</i> would not be recorded. <see cref="None"/> means it was.
+/// </summary>
+/// <remarks>
+/// Separate from <see cref="OrderRefusal"/> because the two answer opposite questions. That one is
+/// "this order cannot be stored"; this one is "this attempt to reject a stored order is itself
+/// wrong" — an operator's mistake, not a rep's.
+/// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<OrderRejectionRefusal>))]
+public enum OrderRejectionRefusal
+{
+    None,
+
+    /// <summary>Only a <c>Submitted</c> order can be rejected — see <c>Order.Reject</c>.</summary>
+    NotSubmitted,
+
+    /// <summary>The named product is not on this order, so it cannot be the line at fault.</summary>
+    UnknownLine,
+
+    /// <summary>Longer than <see cref="OrderSubmission.MaximumNoteLength"/>.</summary>
+    NoteTooLong,
 }
 
 /// <summary>Why an order was refused. <see cref="None"/> means it was not.</summary>
@@ -307,6 +394,123 @@ public sealed class Order : AggregateRoot, ITenantOwned, IAuditable
         return (order, OrderRefusal.None);
     }
 
+    /// <summary>
+    /// Refuses this order whole, naming why and — when there is one — which line (<c>ORD-12</c>,
+    /// <c>F4</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Whole-order, never per line.</b> <c>F4</c> is explicit, and the reason is commercial rather
+    /// than technical: an order is a thing a shopkeeper agreed to as a whole, and quietly dropping one
+    /// line of it would deliver something nobody ordered at a total nobody was quoted. The offending
+    /// product says where to look; the refusal is still of the order.
+    /// </para>
+    /// <para>
+    /// <b>The latest submission is what carries it</b>, and it becomes terminal by doing so: that
+    /// mutation id can never move this order again, which is exactly what <c>BR-ORD-9</c> needs to
+    /// keep the push idempotent while the rep tries again under a new one.
+    /// </para>
+    /// <para>
+    /// <b>No <c>OrderRejected</c> integration event.</b> <c>OrderSubmitted</c> exists because the
+    /// [order spec §8](../docs/product/23-order-capture.md) names it as this module's published fact;
+    /// nothing names a rejection, and nothing subscribes. The rep learns through the pull feed — a
+    /// rejected order flows back down to their device (<c>F4</c>) — which is a different mechanism
+    /// from the reporting boundary and the one <c>ORD-12</c> actually asks for.
+    /// </para>
+    /// </remarks>
+    public OrderRejectionRefusal Reject(
+        OrderRejectionReason reason, Guid? offendingProductId, string? note, IClock clock)
+    {
+        /*
+         * Only a submitted order can be rejected, and each of the other states is a different mistake.
+         *
+         * `Rejected` twice is the interesting one: it is refused rather than treated as idempotent,
+         * because the second rejection would carry its own reason and silently overwrite the one the
+         * rep is already acting on — a rep looking at "off assortment" and a server holding "outlet
+         * closed" is worse than an error nobody sees.
+         */
+        if (Status is not OrderStatus.Submitted) return OrderRejectionRefusal.NotSubmitted;
+
+        if (note is { Length: > OrderSubmission.MaximumNoteLength })
+        {
+            return OrderRejectionRefusal.NoteTooLong;
+        }
+
+        // A line that is not on this order cannot be the one at fault. Storing it would send the rep
+        // hunting for a product they never ordered.
+        if (offendingProductId is { } productId && _lines.All(line => line.ProductId != productId))
+        {
+            return OrderRejectionRefusal.UnknownLine;
+        }
+
+        Latest().Reject(reason, offendingProductId, note);
+
+        Status = OrderStatus.Rejected;
+        ModifiedAtUtc = clock.UtcNow;
+
+        return OrderRejectionRefusal.None;
+    }
+
+    /// <summary>
+    /// Takes a corrected resubmission of a rejected order — <c>BR-ORD-9</c>'s exception to
+    /// <c>BR-ORD-4</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The order keeps its identity and gains a submission.</b> <c>F4</c> settles that a rejected
+    /// order re-opens rather than being replaced, so "how many orders did this outlet place" counts
+    /// intent rather than attempts — and the history is what appends, which is how a re-open stays
+    /// honest with <c>B7</c>'s append-only rule for device-owned data.
+    /// </para>
+    /// <para>
+    /// <b>The lines are replaced, because that is what the rep fixed.</b> The rejected line is the
+    /// whole reason there is a second submission; keeping the old ones would store an order the rep
+    /// has already corrected, and merging them would invent a third order nobody entered.
+    /// </para>
+    /// </remarks>
+    public OrderRefusal Resubmit(CapturedOrder captured, Guid mutationId, IClock clock)
+    {
+        if (Check(captured) is var refusal && refusal is not OrderRefusal.None) return refusal;
+
+        _lines.Clear();
+
+        var position = 1;
+
+        foreach (var line in captured.Lines)
+        {
+            _lines.Add(OrderLine.Create(Id, position++, line));
+        }
+
+        CurrencyCode = captured.CurrencyCode.Trim().ToUpperInvariant();
+        Total = captured.Total;
+        CapturedAtUtc = captured.CapturedAtUtc;
+
+        Status = OrderStatus.Submitted;
+        ModifiedAtUtc = clock.UtcNow;
+
+        _submissions.Add(OrderSubmission.Of(Id, mutationId, clock.UtcNow));
+
+        // Announced again, and it is not a duplicate: a resubmitted order is a different set of lines
+        // at a different total, and a reader that saw only the first would hold what the rep corrected.
+        Raise(new OrderSubmitted(
+            Guid.CreateVersion7(),
+            clock.UtcNow,
+            Id,
+            VisitId,
+            OutletId,
+            UserId,
+            CurrencyCode,
+            Total,
+            _lines.Count,
+            CapturedAtUtc));
+
+        return OrderRefusal.None;
+    }
+
+    /// <summary>The most recent attempt. An order always has one — <see cref="Record"/> makes it.</summary>
+    public OrderSubmission Latest() =>
+        _submissions.OrderByDescending(submission => submission.SubmittedAtUtc).First();
+
     private static OrderRefusal Check(CapturedOrder captured)
     {
         if (captured.Lines.Count == 0) return OrderRefusal.Empty;
@@ -366,7 +570,11 @@ public sealed class Order : AggregateRoot, ITenantOwned, IAuditable
                 line.UnitOfMeasure,
                 line.PackSize,
                 line.UnitPrice,
-                line.LineTotal))]);
+                line.LineTotal))],
+        Latest() is { Outcome: SubmissionOutcome.Rejected } rejected
+            ? new OrderRejectionDescriptor(
+                rejected.RejectionReason!.Value, rejected.OffendingProductId, rejected.Note)
+            : null);
 }
 
 /// <summary>
@@ -397,3 +605,5 @@ public sealed record OrderSubmitted(
     decimal Total,
     int LineCount,
     DateTimeOffset CapturedAtUtc) : IIntegrationEvent;
+
+

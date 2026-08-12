@@ -16,6 +16,7 @@ internal sealed class OrderQueryService(OrderDbContext db) : IOrderQuery
         var order = await db.Orders
             .AsNoTracking()
             .Include(row => row.Lines)
+            .Include(row => row.Submissions)
             .SingleOrDefaultAsync(row => row.VisitId == visitId, cancellationToken);
 
         return order?.Describe();
@@ -27,6 +28,7 @@ internal sealed class OrderQueryService(OrderDbContext db) : IOrderQuery
         var orders = await db.Orders
             .AsNoTracking()
             .Include(row => row.Lines)
+            .Include(row => row.Submissions)
             // Newest first, by when the rep *captured* it rather than when this server heard —
             // an order taken on Tuesday and pushed on Thursday belongs on Tuesday.
             .Where(row => row.OutletId == outletId)
@@ -36,3 +38,4 @@ internal sealed class OrderQueryService(OrderDbContext db) : IOrderQuery
         return [.. orders.Select(order => order.Describe())];
     }
 }
+

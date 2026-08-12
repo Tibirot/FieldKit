@@ -4338,6 +4338,7 @@ Content-Type: application/json
 
 ### The order taken during a visit, or 404. At most one per visit — a rep at one counter on one call
 ### places one order, and two would be a double-tap far more often than an intention.
+# @name order
 GET {{host}}/api/orders/by-visit/{{visit.response.body.visit.id}}
 Authorization: Bearer {{adminToken.response.body.access_token}}
 
@@ -4354,3 +4355,75 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
 ### reader arrives — today `viewer` holds `visit:read` and sees these.
 GET {{host}}/api/orders/by-outlet/{{outlet.response.body.id}}
 Authorization: Bearer {{viewerToken.response.body.access_token}}
+
+### ── Order · rejection, and the correction that follows (ORD-12/BR-ORD-9, W11 slice 4a) ─────────
+# **The API with no screen.** `ORD-09` — a back-office accept/reject UI — is `Could`/Phase 4, but
+# `ORD-12` is a `Must` and needs *something* to do the rejecting. So rejection ships as an endpoint
+# driven from this file, and the demo drives it from here too. Worth saying out loud, because an
+# endpoint with no caller is exactly what the Phase 1 review found five of; this one's caller is here.
+#
+# Gated on `order:reject`, minted for it in W11 slice 4a. It names the **act, not the table**: a
+# holder can refuse an order back to the rep and can never alter one, which is what `order:write`
+# would have implied and what `BR-ORD-4` denies to everybody. The cost is a new realm role — and
+# **a realm change is not applied by deploying** (docs/engineering/deploying.md), so an existing
+# environment answers `403` here until somebody adds the role by hand.
+
+### Refuse the order, naming why and which line. Whole-order, always: an order is what a shopkeeper
+### agreed to as a whole, and quietly dropping one line of it would deliver something nobody ordered
+### at a total nobody was quoted. The product id says where to look, not what was refused.
+POST {{host}}/api/orders/{{order.response.body.id}}/rejection
+Authorization: Bearer {{adminToken.response.body.access_token}}
+Content-Type: application/json
+
+{
+  "reason": "OffAssortment",
+  "offendingProductId": "{{order.response.body.lines[0].productId}}",
+  "note": "Delisted for this channel last week."
+}
+
+### Rejecting a second time is a **409**, not an idempotent success — the second reason would replace
+### the one the rep is already acting on. Run this straight after the one above to see it.
+POST {{host}}/api/orders/{{order.response.body.id}}/rejection
+Authorization: Bearer {{adminToken.response.body.access_token}}
+Content-Type: application/json
+
+{
+  "reason": "OutletOnHold",
+  "note": "ORD-15 wants this checked automatically; no order-hold flag exists on the outlet yet."
+}
+
+### A rejection with nowhere to point, which half of F4's own examples are: an outlet that shut during
+### the offline window is not a line the rep can edit, so they cancel rather than correct.
+POST {{host}}/api/orders/{{order.response.body.id}}/rejection
+Authorization: Bearer {{adminToken.response.body.access_token}}
+Content-Type: application/json
+
+{
+  "reason": "OutletClosed"
+}
+
+### A line that is not on this order is a **400** — storing it would send the rep hunting for a
+### product they never ordered.
+POST {{host}}/api/orders/{{order.response.body.id}}/rejection
+Authorization: Bearer {{adminToken.response.body.access_token}}
+Content-Type: application/json
+
+{
+  "reason": "OffAssortment",
+  "offendingProductId": "00000000-0000-0000-0000-000000000001"
+}
+
+### A reader's token cannot reject — **403**. `viewer` holds `visit:read` and sees the orders above;
+### refusing one is a different act, which is the whole argument for a permission of its own.
+POST {{host}}/api/orders/{{order.response.body.id}}/rejection
+Authorization: Bearer {{viewerToken.response.body.access_token}}
+Content-Type: application/json
+
+{
+  "reason": "OffAssortment"
+}
+
+### **The correction has no request here, deliberately.** A rep resubmits through `/sync/push` under
+### a *new* mutation id (BR-ORD-9), and that arm lands in W11 slice 5 — there is no live REST path
+### into an order, which is the same call §7 of the order spec makes about capture. The rejected
+### submission's id stays terminal: replaying it succeeds and changes nothing.

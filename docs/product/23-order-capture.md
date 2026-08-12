@@ -159,7 +159,7 @@ server **rejects** the order, it re-opens editable on the device for correction 
 
 ## 8. Module contract (exposed to others)
 
-- `IOrderQuery` — orders for an outlet/visit/rep (reporting).
+- `IOrderQuery` — orders for an outlet/visit/rep (reporting), including the current rejection.
 - `IOrderIngest` — apply a pushed order (create/resubmit) through this module, used by **Sync** so
   domain rules run server-side ([module boundaries §7](../architecture/10-module-boundaries.md#7-module-registry)).
 - Consumes `IAssortmentService`, `IPricingService`, `IVisitContext`, and `IFieldDefinitionCatalog`

@@ -1,4 +1,72 @@
+using System.Text.Json.Serialization;
+
 namespace FieldKit.Modules.Order.Contracts;
+
+/// <summary>
+/// Why a submitted order was rejected (<c>ORD-12</c>, <c>F4</c>).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>A closed set rather than free text</b>, because the device has to act on it: <c>F4</c> splits
+/// rejections into the kind a rep fixes and resubmits and the kind they can only cancel, and a
+/// sentence typed by an operator cannot be branched on. The rep-facing wording is the client's, from
+/// the code, the way every ADR-0012 refusal already works.
+/// </para>
+/// <para>
+/// <b>Which of the two a reason is, is not modelled yet</b>, and naming that is cheaper than
+/// discovering it. Cancellation (<c>Rejected → Cancelled</c>) is a device-owned mutation that arrives
+/// over <c>/sync/push</c>, so the flag that would drive it has no reader until the push arm exists.
+/// </para>
+/// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<OrderRejectionReason>))]
+public enum OrderRejectionReason
+{
+    /// <summary>
+    /// A line names a product this outlet may not order (<c>BR-ORD-1</c>).
+    /// </summary>
+    /// <remarks>
+    /// The one reason this server will eventually raise on its own — the assortment gate slice 1
+    /// deferred, which lands next. Today it is a reason an operator selects, which is why the enum can
+    /// carry it before the gate exists.
+    /// </remarks>
+    OffAssortment = 0,
+
+    /// <summary>The outlet shut between the rep capturing the order and the push arriving.</summary>
+    OutletClosed = 1,
+
+    /// <summary>
+    /// The outlet may not be sold to right now — credit hold or similar (<c>ORD-15</c>).
+    /// </summary>
+    /// <remarks>
+    /// <c>ORD-15</c> wants this checked automatically and <b>cannot be</b>: it needs an order-hold flag
+    /// on the outlet, which does not exist and is Outlets' to add. An operator who knows the shop is on
+    /// hold can say so, which is the whole reason this ships as an API before it ships as a rule.
+    /// </remarks>
+    OutletOnHold = 2,
+
+    /// <summary>Something the codes above do not cover. The detail is in the rejection's note.</summary>
+    Other = 3,
+}
+
+/// <summary>
+/// Why an order stands rejected, and where to look (<c>ORD-12</c>, <c>F4</c>).
+/// </summary>
+/// <remarks>
+/// <para>
+/// The <i>current</i> rejection, taken from the latest attempt — not the history. A rep needs to know
+/// what to fix now; which of three earlier attempts said what is a question the submissions answer,
+/// and no caller has asked it.
+/// </para>
+/// <para>
+/// <b>No timestamp of its own.</b> The order is <c>IAuditable</c> and a rejection is the only thing
+/// that modifies one, so <c>ModifiedAtUtc</c> already says when — a second column would be the same
+/// fact stored twice and free to disagree.
+/// </para>
+/// </remarks>
+public sealed record OrderRejectionDescriptor(
+    OrderRejectionReason Reason,
+    Guid? OffendingProductId,
+    string? Note);
 
 /// <summary>One line of a stored order, as another module reads it.</summary>
 public sealed record OrderLineDescriptor(
@@ -31,7 +99,8 @@ public sealed record OrderDescriptor(
     string CurrencyCode,
     decimal Total,
     DateTimeOffset CapturedAtUtc,
-    IReadOnlyList<OrderLineDescriptor> Lines);
+    IReadOnlyList<OrderLineDescriptor> Lines,
+    OrderRejectionDescriptor? Rejection = null);
 
 /// <summary>Reading what was ordered (<c>ORD-01</c>, reporting read-side).</summary>
 public interface IOrderQuery
@@ -43,3 +112,4 @@ public interface IOrderQuery
     Task<IReadOnlyList<OrderDescriptor>> ForOutletAsync(
         Guid outletId, CancellationToken cancellationToken = default);
 }
+

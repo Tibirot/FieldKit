@@ -107,6 +107,10 @@
       {
         "name": "device:revoke",
         "description": "Deactivate a device the rep no longer holds."
+      },
+      {
+        "name": "order:reject",
+        "description": "Refuse a submitted order back to the rep for correction (Order module)."
       }
     ]
   },
@@ -258,7 +262,8 @@
         "config:read",
         "config:write",
         "device:read",
-        "device:revoke"
+        "device:revoke",
+        "order:reject"
       ]
     }
   ]

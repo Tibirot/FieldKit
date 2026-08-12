@@ -46,26 +46,56 @@ internal sealed class OrderIngestService(OrderDbContext db, IVisitContext visits
          * carrying different lines, which is an edit after submit and exactly what `BR-ORD-4`
          * forbids. The lock was written down in slice 1 and enforced by nothing.
          */
-        var submissions = await db.Set<OrderSubmission>()
-            .Where(submission => submission.OrderId == captured.OrderId)
-            .Select(submission => submission.MutationId)
-            .ToListAsync(cancellationToken);
+        var existing = await db.Orders
+            .Include(order => order.Lines)
+            .Include(order => order.Submissions)
+            .SingleOrDefaultAsync(order => order.Id == captured.OrderId, cancellationToken);
 
-        if (submissions.Contains(mutationId)) return OrderIngestResult.Ok();
-
-        if (submissions.Count > 0)
+        if (existing is not null)
         {
             /*
-             * A second, different submission against an order that is already sealed.
+             * A replay: this exact push already ran. Its outcome stands, whatever that outcome was.
              *
-             * `BR-ORD-9` makes a *rejected* order the one exception — it re-opens so the rep can fix
-             * the offending line and resubmit under a new mutation id. Nothing can reject one until
-             * slice 4, so every case reaching here today is the lock doing its job; slice 4 is where
-             * this grows its `Rejected` branch rather than where the refusal is loosened.
+             * Including a rejection — `BR-ORD-9` calls the rejected submission's id **terminal**, and
+             * this is where that word is enforced. Re-applying it would either re-reject an order the
+             * rep has since corrected or, worse, take a superseded set of lines as current.
              */
-            return new OrderIngestResult(
-                OrderIngestRefusal.AlreadySubmitted,
-                "That order was already submitted. A submitted order cannot be changed.");
+            if (existing.Submissions.Any(submission => submission.MutationId == mutationId))
+            {
+                return OrderIngestResult.Ok();
+            }
+
+            /*
+             * A different push naming an order that already exists. Rejected is the one state where
+             * that is legitimate (`BR-ORD-9`) — the rep fixed the flagged line and is trying again
+             * under a new mutation id, which is the whole mechanism that keeps their work from being
+             * stranded. Every other state is `BR-ORD-4`'s lock doing its job.
+             */
+            if (existing.Status is not OrderStatus.Rejected)
+            {
+                return new OrderIngestResult(
+                    OrderIngestRefusal.AlreadySubmitted,
+                    "That order was already submitted. A submitted order cannot be changed.");
+            }
+
+            /*
+             * The visit is deliberately *not* re-checked here, and it is the same call the replay
+             * above makes. A rejection can take days to come back and be corrected, by which time the
+             * rep has long since checked out — refusing the fix because the visit is sealed would
+             * strand exactly the work `BR-ORD-9` exists to protect.
+             */
+            if (existing.Resubmit(captured, mutationId, clock) is var invalid
+                && invalid is not OrderRefusal.None)
+            {
+                return new OrderIngestResult(OrderIngestRefusal.Invalid, Explain(invalid));
+            }
+
+            // The replaced lines and the new submission need no announcing: they hang off a tracked
+            // parent with client-set keys, which is precisely what `ClientGeneratedKeyConvention`
+            // ended in slice 0b-i. Dropping the old lines is orphan removal, which EF always handled.
+            await db.SaveChangesAsync(cancellationToken);
+
+            return OrderIngestResult.Ok();
         }
 
         if (await visits.FindAsync(captured.VisitId, cancellationToken) is not { } visit
@@ -120,3 +150,5 @@ internal sealed class OrderIngestService(OrderDbContext db, IVisitContext visits
         _ => "That order was refused.",
     };
 }
+
+

@@ -1,5 +1,7 @@
 using FieldKit.Modules.Order.Contracts;
+using FieldKit.SharedKernel;
 using FieldKit.Web;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -15,6 +17,29 @@ public sealed record OrderLineResponse(
     int? PackSize,
     decimal UnitPrice,
     decimal LineTotal);
+
+/// <summary>
+/// Refusing an order back to the rep (<c>ORD-12</c>).
+/// </summary>
+/// <param name="Reason">
+/// A code, not prose — the device branches on it to decide whether the rep can fix the order or can
+/// only cancel it (<c>F4</c>).
+/// </param>
+/// <param name="OffendingProductId">
+/// The line to look at, when there is one. Optional because half of <c>F4</c>'s own examples point at
+/// nothing a rep can edit: an outlet that closed is not a line.
+/// </param>
+/// <param name="Note">
+/// Free text for a human, and the only thing that makes <see cref="OrderRejectionReason.Other"/>
+/// actionable. Never the rejection's meaning.
+/// </param>
+public sealed record OrderRejectionRequest(
+    OrderRejectionReason Reason,
+    Guid? OffendingProductId = null,
+    string? Note = null);
+
+/// <summary>Why an order stands rejected, beside the order it is about.</summary>
+public sealed record OrderRejectionResponse(string Reason, Guid? OffendingProductId, string? Note);
 
 /// <summary>An order, as a reader sees it.</summary>
 /// <param name="Status">
@@ -38,7 +63,8 @@ public sealed record OrderResponse(
     string CurrencyCode,
     decimal Total,
     DateTimeOffset CapturedAtUtc,
-    IReadOnlyList<OrderLineResponse> Lines);
+    IReadOnlyList<OrderLineResponse> Lines,
+    OrderRejectionResponse? Rejection);
 
 /// <summary>
 /// Reading orders (<c>ORD-01</c>).
@@ -93,7 +119,58 @@ internal static class OrderEndpoints
 
             return all.Select(Respond).ToList();
         }).RequirePermission(VisitRead);
+
+        orders.MapPost("/{orderId:guid}/rejection", async (
+            Guid orderId,
+            OrderRejectionRequest request,
+            OrderDbContext db,
+            IClock clock,
+            CancellationToken ct) =>
+        {
+            var order = await db.Orders
+                .Include(candidate => candidate.Lines)
+                .Include(candidate => candidate.Submissions)
+                .SingleOrDefaultAsync(candidate => candidate.Id == orderId, ct);
+
+            if (order is null) return Results.NotFound();
+
+            var refusal = order.Reject(
+                request.Reason, request.OffendingProductId, request.Note, clock);
+
+            if (refusal is not OrderRejectionRefusal.None) return Refuse(refusal, order.Status);
+
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(Respond(order.Describe()));
+        }).RequirePermission(OrderPermissions.Reject);
     }
+
+    /// <summary>
+    /// Why a rejection was itself refused, as ADR-0012 codes.
+    /// </summary>
+    /// <remarks>
+    /// <c>409</c> rather than <c>400</c> for the state clash: the request is well-formed and the order
+    /// is simply not in a state that can be rejected, which is a conflict rather than a malformed body
+    /// — the same call <c>ScoreWeightEndpoints</c> makes about publishing twice.
+    /// </remarks>
+    private static IResult Refuse(OrderRejectionRefusal refusal, OrderStatus status) => refusal switch
+    {
+        OrderRejectionRefusal.NotSubmitted => Problems.Conflict(
+            null,
+            $"Only a submitted order can be rejected; this one is {status}.",
+            "order.rejection.notSubmitted",
+            new Dictionary<string, string> { ["status"] = status.ToString() }),
+
+        OrderRejectionRefusal.UnknownLine => Problems.BadRequest(
+            "offendingProductId",
+            "That product is not on this order.",
+            "order.rejection.unknownLine"),
+
+        _ => Problems.BadRequest(
+            "note",
+            $"A note is at most {OrderSubmission.MaximumNoteLength} characters.",
+            "order.rejection.noteTooLong"),
+    };
 
     private static OrderResponse Respond(OrderDescriptor order) => new(
         order.Id,
@@ -110,5 +187,9 @@ internal static class OrderEndpoints
             line.UnitOfMeasure,
             line.PackSize,
             line.UnitPrice,
-            line.LineTotal))]);
+            line.LineTotal))],
+        order.Rejection is { } rejection
+            ? new OrderRejectionResponse(
+                rejection.Reason.ToString(), rejection.OffendingProductId, rejection.Note)
+            : null);
 }
