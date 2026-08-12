@@ -119,7 +119,7 @@ let db: FieldKitDatabase;
 beforeEach(async () => {
   replace.mockClear();
   db = new FieldKitDatabase(`checkout:${crypto.randomUUID()}`);
-  sync.current = { db, pending: 0, running: false, outcome: null, syncNow: vi.fn() };
+  sync.current = { db, pending: 0, failed: 0, running: false, outcome: null, syncNow: vi.fn() };
 
   await db.outlets.add(SHOP);
   locate({ latitude: 44.4639, longitude: 26.0947 });

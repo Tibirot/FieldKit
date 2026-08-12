@@ -166,6 +166,44 @@ describe("the indicator", () => {
 
     expect(button.disabled).toBe(false);
   });
+
+  it("says refused work needs attention instead of calling it synced", async () => {
+    /*
+     * The bug W11 slice 8c fixes, from the screen. `pendingCount` counts only `pending`, so a
+     * mutation the server refused was invisible to this chip — and a rep who had just lost an order
+     * was told **"Everything synced"**. Found in a browser, because every test that could have
+     * caught it mocked the refusal away.
+     */
+    const db = openDatabase(TENANT, SUBJECT);
+    const entry = await enqueue(db, { type: "CapturedOrder", subjectId: "order-1", payload: {} });
+
+    show(<SyncIndicator />);
+    await screen.findByText("1 item waiting to sync");
+
+    await markRejected(db, entry.mutationId, "order.ingest.visitUnknown");
+
+    expect(
+      await screen.findByText("1 item needs attention — it was refused and will not retry"),
+    ).not.toBeNull();
+
+    expect(screen.queryByText("Everything synced")).toBeNull();
+  });
+
+  it("ranks refused work above being offline", async () => {
+    // Offline outranks a pending count because the count is not the rep's fault and clears itself.
+    // A refusal is neither: it needs a person, and no amount of signal will change it (`OFF-09`).
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+
+    const db = openDatabase(TENANT, SUBJECT);
+    const entry = await enqueue(db, { type: "CapturedOrder", subjectId: "order-1", payload: {} });
+    await markRejected(db, entry.mutationId, "order.ingest.visitUnknown");
+
+    show(<SyncIndicator />);
+
+    expect(
+      await screen.findByText("1 item needs attention — it was refused and will not retry"),
+    ).not.toBeNull();
+  });
 });
 
 describe("a per-item badge", () => {

@@ -6,13 +6,21 @@ import { useAuth } from "@/components/auth-provider";
 import { openDatabase, type FieldKitDatabase } from "@/lib/sync/db";
 import { useLive } from "@/lib/sync/live";
 import { startSync, type SyncManager, type SyncResult } from "@/lib/sync/manager";
-import { pendingCount } from "@/lib/sync/outbox";
+import { failedCount, pendingCount } from "@/lib/sync/outbox";
 
 export type SyncContextValue = {
   /** The device's local store, for screens that read reference data or capture work. */
   db: FieldKitDatabase;
   /** How many mutations the server has not answered for. Live: it moves on capture *and* on drain. */
   pending: number;
+  /**
+   * How much work the server **refused**, which nothing will retry (`OFF-09`) — W11 slice 8c.
+   *
+   * Separate from {@link pending} because it is a different question: pending waits for a
+   * connection, this waits for a person. The indicator counted only pending, and therefore called a
+   * refused order "Everything synced".
+   */
+  failed: number;
   /** Whether a run is in flight, so the button can say so rather than looking ignored. */
   running: boolean;
   /** How the last run ended. `undefined` means it finished, `null` means none has run yet. */
@@ -107,6 +115,7 @@ export function SyncProvider({
   }, [db, deviceId]);
 
   const pending = useLive(() => pendingCount(db), 0, [db]);
+  const failed = useLive(() => failedCount(db), 0, [db]);
 
   const syncNow = useCallback(async () => {
     if (!manager) return;
@@ -127,8 +136,8 @@ export function SyncProvider({
   }, [manager]);
 
   const value = useMemo<SyncContextValue>(
-    () => ({ db, pending, running, outcome, syncNow }),
-    [db, pending, running, outcome, syncNow],
+    () => ({ db, pending, failed, running, outcome, syncNow }),
+    [db, pending, failed, running, outcome, syncNow],
   );
 
   return <SyncContext value={value}>{children}</SyncContext>;
