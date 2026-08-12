@@ -6,6 +6,7 @@ using FieldKit.Infrastructure.Outbox;
 using FieldKit.Modules.Order;
 using FieldKit.Modules.Order.Contracts;
 using FieldKit.Modules.Outlets;
+using FieldKit.Modules.Products;
 using FieldKit.Modules.Visit;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -57,16 +58,26 @@ public class OrderIngestTests(ServerFixture fixture)
         DateTimeOffset.Parse("2026-08-11T09:30:00Z"),
         lines.Length == 0 ? [Line()] : lines);
 
-    private static CapturedOrderLine Line(decimal quantity = 6m, decimal lineTotal = 27.00m) =>
-        new(Guid.CreateVersion7(), quantity, "case", 12, 4.50m, lineTotal);
+    /// <summary>
+    /// A line. <paramref name="productId"/> defaults to a product no shop stocks.
+    /// </summary>
+    /// <remarks>
+    /// That default is load-bearing since W11 slice 4b: an unnamed product is <b>not assorted</b>, so
+    /// an order carrying one is stored and immediately rejected (<c>BR-ORD-1</c>). Tests that expect
+    /// an order to stand pass a product the fixture stocked; tests that expect a refusal before the
+    /// gate — a duplicate line, an unknown visit — do not have to care.
+    /// </remarks>
+    private static CapturedOrderLine Line(
+        Guid? productId = null, decimal quantity = 6m, decimal lineTotal = 27.00m) =>
+        new(productId ?? Guid.CreateVersion7(), quantity, "case", 12, 4.50m, lineTotal);
 
     [Fact]
     public async Task An_order_is_stored_against_the_visits_outlet_and_read_back()
     {
         using var admin = Admin();
 
-        var (visitId, outletId) = await VisitAsync(admin);
-        var captured = Captured(visitId, Line());
+        var (visitId, outletId, assorted) = await VisitAsync(admin);
+        var captured = Captured(visitId, Line(assorted[0]));
 
         var result = await IngestAsync(captured);
         Assert.Equal(OrderIngestRefusal.None, result.Refusal);
@@ -92,7 +103,7 @@ public class OrderIngestTests(ServerFixture fixture)
         // yours" would make this a way to discover whose visits exist — the same call Audit makes.
         using var admin = Admin();
 
-        var (visitId, _) = await VisitAsync(admin);
+        var (visitId, _, assorted) = await VisitAsync(admin);
 
         var stranger = await IngestAsync(Captured(visitId, Line()), userId: "someone-else");
         var missing = await IngestAsync(Captured(Guid.CreateVersion7(), Line()));
@@ -113,8 +124,8 @@ public class OrderIngestTests(ServerFixture fixture)
          */
         using var admin = Admin();
 
-        var (visitId, _) = await VisitAsync(admin);
-        var captured = Captured(visitId, Line());
+        var (visitId, _, assorted) = await VisitAsync(admin);
+        var captured = Captured(visitId, Line(assorted[0]));
 
         // The *same* mutation id both times — that is what makes this a replay rather than a second
         // submission, and from W11 slice 3 the difference is what the lock turns on.
@@ -145,8 +156,8 @@ public class OrderIngestTests(ServerFixture fixture)
          */
         using var admin = Admin();
 
-        var (visitId, _) = await VisitAsync(admin);
-        var captured = Captured(visitId, Line());
+        var (visitId, _, assorted) = await VisitAsync(admin);
+        var captured = Captured(visitId, Line(assorted[0]));
 
         Assert.Equal(OrderIngestRefusal.None, (await IngestAsync(captured)).Refusal);
 
@@ -177,8 +188,8 @@ public class OrderIngestTests(ServerFixture fixture)
          */
         using var admin = Admin();
 
-        var (visitId, outletId) = await VisitAsync(admin);
-        var captured = Captured(visitId, Line());
+        var (visitId, outletId, assorted) = await VisitAsync(admin);
+        var captured = Captured(visitId, Line(assorted[0]));
 
         Assert.Equal(OrderIngestRefusal.None, (await IngestAsync(captured)).Refusal);
 
@@ -218,7 +229,7 @@ public class OrderIngestTests(ServerFixture fixture)
         // record already counted. Only the replay is allowed through.
         using var admin = Admin();
 
-        var (visitId, _) = await VisitAsync(admin);
+        var (visitId, _, assorted) = await VisitAsync(admin);
 
         var checkedOut = await admin.PostAsJsonAsync(
             $"/api/visits/{visitId}/check-out", new CheckOutRequest(VisitOutcome.Productive));
@@ -234,7 +245,7 @@ public class OrderIngestTests(ServerFixture fixture)
     {
         using var admin = Admin();
 
-        var (visitId, _) = await VisitAsync(admin);
+        var (visitId, _, assorted) = await VisitAsync(admin);
         var duplicate = Line();
 
         var result = await IngestAsync(
@@ -256,18 +267,18 @@ public class OrderIngestTests(ServerFixture fixture)
          */
         using var admin = Admin();
 
-        var (firstVisit, outletId) = await VisitAsync(admin);
+        var (firstVisit, outletId, assorted) = await VisitAsync(admin);
 
-        var later = Captured(firstVisit, Line()) with
+        var later = Captured(firstVisit, Line(assorted[0])) with
         {
             CapturedAtUtc = DateTimeOffset.Parse("2026-08-11T16:00:00Z"),
         };
 
         Assert.Equal(OrderIngestRefusal.None, (await IngestAsync(later)).Refusal);
 
-        var (secondVisit, _) = await VisitAsync(admin, outletId);
+        var (secondVisit, _, _) = await VisitAsync(admin, outletId, assorted);
 
-        var earlier = Captured(secondVisit, Line()) with
+        var earlier = Captured(secondVisit, Line(assorted[1])) with
         {
             CapturedAtUtc = DateTimeOffset.Parse("2026-08-11T08:00:00Z"),
         };
@@ -287,7 +298,7 @@ public class OrderIngestTests(ServerFixture fixture)
         // one the aggregate refuses to store in the first place.
         using var admin = Admin();
 
-        var (visitId, _) = await VisitAsync(admin);
+        var (visitId, _, assorted) = await VisitAsync(admin);
 
         var response = await admin.GetAsync($"/api/orders/by-visit/{visitId}");
 
@@ -304,10 +315,24 @@ public class OrderIngestTests(ServerFixture fixture)
                 mutationId ?? Guid.CreateVersion7(),
                 userId ?? SubjectOf(fixture.AdminAccessToken)));
 
-    private async Task<(Guid VisitId, Guid OutletId)> VisitAsync(
-        HttpClient client, Guid? existingOutlet = null)
+    /// <summary>
+    /// A visit at a shop that is allowed to buy <see cref="Assorted"/>.
+    /// </summary>
+    /// <remarks>
+    /// <b>The assorted products arrived with W11 slice 4b</b>, and their absence is what made these
+    /// tests pass before it. Every order here used to name a freshly minted <c>Guid</c>, which is by
+    /// definition not in any outlet's assortment — so once <c>BR-ORD-1</c> was enforced, every one of
+    /// them came back <c>Rejected</c>. The fixture now stocks the shop, which is what a rep ordering
+    /// from their own catalogue actually looks like.
+    /// </remarks>
+    private sealed record Shopfront(Guid VisitId, Guid OutletId, IReadOnlyList<Guid> Assorted);
+
+    private async Task<Shopfront> VisitAsync(
+        HttpClient client, Guid? existingOutlet = null, IReadOnlyList<Guid>? existingAssorted = null)
     {
-        var outletId = existingOutlet ?? await OutletAsync(client);
+        var (outletId, assorted) = existingOutlet is { } known
+            ? (known, existingAssorted!)
+            : await OutletAsync(client);
 
         var response = await client.PostAsJsonAsync(
             "/api/visits/check-in", new CheckInRequest(outletId, Shop.Latitude, Shop.Longitude));
@@ -316,10 +341,10 @@ public class OrderIngestTests(ServerFixture fixture)
 
         var visit = (await response.Content.ReadFromJsonAsync<VisitDetailResponse>())!.Visit;
 
-        return (visit.Id, outletId);
+        return new Shopfront(visit.Id, outletId, assorted);
     }
 
-    private static async Task<Guid> OutletAsync(HttpClient client)
+    private async Task<(Guid OutletId, IReadOnlyList<Guid> Assorted)> OutletAsync(HttpClient client)
     {
         var channel = await client.PostAsJsonAsync(
             "/api/outlets/channels", new ChannelRequest(Unique("Channel")));
@@ -332,7 +357,31 @@ public class OrderIngestTests(ServerFixture fixture)
 
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
 
-        return (await created.Content.ReadFromJsonAsync<OutletResponse>())!.Id;
+        var outletId = (await created.Content.ReadFromJsonAsync<OutletResponse>())!.Id;
+
+        // A separate client, because the realm deliberately gives `admin` no `product:*` — writing
+        // the catalogue is a different job from administering the tenant.
+        using var writer = fixture.CreateAuthenticatedClient();
+
+        var products = new List<Guid>();
+
+        for (var i = 0; i < 3; i++)
+        {
+            var product = await writer.PostAsJsonAsync(
+                "/api/products", new CreateProductRequest(Unique("SKU"), "Veridian Still"));
+
+            Assert.Equal(HttpStatusCode.Created, product.StatusCode);
+
+            products.Add((await product.Content.ReadFromJsonAsync<ProductResponse>())!.Id);
+        }
+
+        var assorted = await writer.PutAsJsonAsync(
+            $"/api/products/assortments/channels/{channelId}",
+            new SetAssortmentRequest([.. products.Select(id => new AssortmentLineRequest(id))]));
+
+        Assert.Equal(HttpStatusCode.OK, assorted.StatusCode);
+
+        return (outletId, products);
     }
 
     /// <summary>Runs <paramref name="work"/> in a scope whose tenant context matches a real token.</summary>
@@ -384,3 +433,5 @@ public class OrderIngestTests(ServerFixture fixture)
         decimal Total,
         IReadOnlyList<OrderLineReadback> Lines);
 }
+
+

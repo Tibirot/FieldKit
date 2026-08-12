@@ -5,6 +5,7 @@ using System.Text.Json;
 using FieldKit.Modules.Order;
 using FieldKit.Modules.Order.Contracts;
 using FieldKit.Modules.Outlets;
+using FieldKit.Modules.Products;
 using FieldKit.Modules.Visit;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -55,9 +56,9 @@ public class OrderRejectionTests(ServerFixture fixture)
     {
         using var admin = Admin();
 
-        var (visitId, _) = await VisitAsync(admin);
-        var offending = Guid.CreateVersion7();
-        var captured = Captured(visitId, Line(offending), Line());
+        var (visitId, _, assorted) = await VisitAsync(admin);
+        var offending = assorted[0];
+        var captured = Captured(visitId, Line(offending), Line(assorted[1]));
 
         Assert.Equal(OrderIngestRefusal.None, (await IngestAsync(captured)).Refusal);
 
@@ -83,8 +84,8 @@ public class OrderRejectionTests(ServerFixture fixture)
         // the rep can edit. The rejection is still whole-order — there is simply nowhere to point.
         using var admin = Admin();
 
-        var (visitId, _) = await VisitAsync(admin);
-        var captured = Captured(visitId, Line());
+        var (visitId, _, assorted) = await VisitAsync(admin);
+        var captured = Captured(visitId, Line(assorted[0]));
 
         Assert.Equal(OrderIngestRefusal.None, (await IngestAsync(captured)).Refusal);
 
@@ -105,8 +106,8 @@ public class OrderRejectionTests(ServerFixture fixture)
         // Storing it would send the rep hunting for a product they never ordered.
         using var admin = Admin();
 
-        var (visitId, _) = await VisitAsync(admin);
-        var captured = Captured(visitId, Line());
+        var (visitId, _, assorted) = await VisitAsync(admin);
+        var captured = Captured(visitId, Line(assorted[0]));
 
         Assert.Equal(OrderIngestRefusal.None, (await IngestAsync(captured)).Refusal);
 
@@ -128,8 +129,8 @@ public class OrderRejectionTests(ServerFixture fixture)
          */
         using var admin = Admin();
 
-        var (visitId, _) = await VisitAsync(admin);
-        var captured = Captured(visitId, Line());
+        var (visitId, _, assorted) = await VisitAsync(admin);
+        var captured = Captured(visitId, Line(assorted[0]));
 
         Assert.Equal(OrderIngestRefusal.None, (await IngestAsync(captured)).Refusal);
 
@@ -160,8 +161,8 @@ public class OrderRejectionTests(ServerFixture fixture)
          */
         using var admin = Admin();
 
-        var (visitId, _) = await VisitAsync(admin);
-        var offending = Guid.CreateVersion7();
+        var (visitId, _, assorted) = await VisitAsync(admin);
+        var offending = assorted[0];
         var captured = Captured(visitId, Line(offending));
 
         Assert.Equal(OrderIngestRefusal.None, (await IngestAsync(captured)).Refusal);
@@ -171,7 +172,7 @@ public class OrderRejectionTests(ServerFixture fixture)
             captured.OrderId,
             new OrderRejectionRequest(OrderRejectionReason.OffAssortment, offending));
 
-        var corrected = captured with { Lines = [Line(quantity: 3m)], Total = 27.00m };
+        var corrected = captured with { Lines = [Line(assorted[1], quantity: 3m)], Total = 27.00m };
 
         Assert.Equal(OrderIngestRefusal.None, (await IngestAsync(corrected)).Refusal);
 
@@ -198,8 +199,8 @@ public class OrderRejectionTests(ServerFixture fixture)
          */
         using var admin = Admin();
 
-        var (visitId, _) = await VisitAsync(admin);
-        var captured = Captured(visitId, Line(quantity: 6m));
+        var (visitId, _, assorted) = await VisitAsync(admin);
+        var captured = Captured(visitId, Line(assorted[0], quantity: 6m));
         var rejectedMutation = Guid.CreateVersion7();
 
         Assert.Equal(
@@ -209,7 +210,7 @@ public class OrderRejectionTests(ServerFixture fixture)
         await RejectAsync(
             admin, captured.OrderId, new OrderRejectionRequest(OrderRejectionReason.OffAssortment));
 
-        var corrected = captured with { Lines = [Line(quantity: 3m)], Total = 27.00m };
+        var corrected = captured with { Lines = [Line(assorted[1], quantity: 3m)], Total = 27.00m };
         Assert.Equal(OrderIngestRefusal.None, (await IngestAsync(corrected)).Refusal);
 
         // The retry of the terminal id: accepted as a replay, and it changes nothing.
@@ -230,12 +231,12 @@ public class OrderRejectionTests(ServerFixture fixture)
         // against a *submitted* order is an edit after submit, which is what slice 3 closed.
         using var admin = Admin();
 
-        var (visitId, _) = await VisitAsync(admin);
-        var captured = Captured(visitId, Line());
+        var (visitId, _, assorted) = await VisitAsync(admin);
+        var captured = Captured(visitId, Line(assorted[0]));
 
         Assert.Equal(OrderIngestRefusal.None, (await IngestAsync(captured)).Refusal);
 
-        var edited = captured with { Lines = [Line(quantity: 99m)] };
+        var edited = captured with { Lines = [Line(assorted[1], quantity: 99m)] };
 
         Assert.Equal(OrderIngestRefusal.AlreadySubmitted, (await IngestAsync(edited)).Refusal);
     }
@@ -248,8 +249,8 @@ public class OrderRejectionTests(ServerFixture fixture)
         using var rep = fixture.CreateAuthenticatedClient();
         using var admin = Admin();
 
-        var (visitId, _) = await VisitAsync(admin);
-        var captured = Captured(visitId, Line());
+        var (visitId, _, assorted) = await VisitAsync(admin);
+        var captured = Captured(visitId, Line(assorted[0]));
 
         Assert.Equal(OrderIngestRefusal.None, (await IngestAsync(captured)).Refusal);
 
@@ -257,6 +258,93 @@ public class OrderRejectionTests(ServerFixture fixture)
             rep, captured.OrderId, new OrderRejectionRequest(OrderRejectionReason.OffAssortment));
 
         Assert.Equal(HttpStatusCode.Forbidden, attempted.StatusCode);
+    }
+
+    [Fact]
+    public async Task An_off_assortment_line_is_rejected_rather_than_refused()
+    {
+        /*
+         * `BR-ORD-1` through `ORD-12`'s answer, which is the whole reason the gate waited for the
+         * re-open path: a refusal would tell the device "no" and leave the rep's sealed order with
+         * nowhere to go. So the push **succeeds** — the server did record the order — and the order
+         * itself comes back `Rejected`, naming the line the rep has to fix.
+         */
+        using var admin = Admin();
+
+        var (visitId, _, assorted) = await VisitAsync(admin);
+        var notStocked = Guid.CreateVersion7();
+        var captured = Captured(visitId, Line(assorted[0]), Line(notStocked));
+
+        Assert.Equal(OrderIngestRefusal.None, (await IngestAsync(captured)).Refusal);
+
+        var stored = await admin.GetFromJsonAsync<OrderReadback>($"/api/orders/by-visit/{visitId}");
+
+        Assert.Equal("Rejected", stored!.Status);
+        Assert.Equal("OffAssortment", stored.Rejection!.Reason);
+        Assert.Equal(notStocked, stored.Rejection.OffendingProductId);
+
+        // Stored whole, not trimmed: the rep sees the order they sealed, with a flag on one line.
+        Assert.Equal(2, stored.Lines.Count);
+    }
+
+    [Fact]
+    public async Task A_shop_that_stocks_everything_ordered_is_not_rejected()
+    {
+        // The other half, and the one that would pass against a gate that rejected everything.
+        using var admin = Admin();
+
+        var (visitId, _, assorted) = await VisitAsync(admin);
+        var captured = Captured(visitId, Line(assorted[0]), Line(assorted[1]), Line(assorted[2]));
+
+        Assert.Equal(OrderIngestRefusal.None, (await IngestAsync(captured)).Refusal);
+
+        var stored = await admin.GetFromJsonAsync<OrderReadback>($"/api/orders/by-visit/{visitId}");
+
+        Assert.Equal("Submitted", stored!.Status);
+        Assert.Null(stored.Rejection);
+    }
+
+    [Fact]
+    public async Task The_first_off_assortment_line_is_the_one_named()
+    {
+        // An order can name several. F4's rejection is whole-order with *an* offending line, and
+        // taking the first by position rather than whichever the set yields makes the same order
+        // reject the same way twice.
+        using var admin = Admin();
+
+        var (visitId, _, assorted) = await VisitAsync(admin);
+        var first = Guid.CreateVersion7();
+        var second = Guid.CreateVersion7();
+
+        var captured = Captured(visitId, Line(assorted[0]), Line(first), Line(second));
+
+        Assert.Equal(OrderIngestRefusal.None, (await IngestAsync(captured)).Refusal);
+
+        var stored = await admin.GetFromJsonAsync<OrderReadback>($"/api/orders/by-visit/{visitId}");
+
+        Assert.Equal(first, stored!.Rejection!.OffendingProductId);
+    }
+
+    [Fact]
+    public async Task A_correction_that_names_another_unstocked_product_is_rejected_again()
+    {
+        // A correction is a submission, not an exemption. Without the gate on the resubmission path,
+        // one rejection would buy a rep permission to order anything.
+        using var admin = Admin();
+
+        var (visitId, _, assorted) = await VisitAsync(admin);
+        var captured = Captured(visitId, Line(Guid.CreateVersion7()));
+
+        Assert.Equal(OrderIngestRefusal.None, (await IngestAsync(captured)).Refusal);
+
+        var stillWrong = captured with { Lines = [Line(Guid.CreateVersion7())] };
+
+        Assert.Equal(OrderIngestRefusal.None, (await IngestAsync(stillWrong)).Refusal);
+
+        var stored = await admin.GetFromJsonAsync<OrderReadback>($"/api/orders/by-visit/{visitId}");
+
+        Assert.Equal("Rejected", stored!.Status);
+        Assert.Equal(stillWrong.Lines[0].ProductId, stored.Rejection!.OffendingProductId);
     }
 
     private static Task<HttpResponseMessage> RejectAsync(
@@ -272,7 +360,16 @@ public class OrderRejectionTests(ServerFixture fixture)
                 mutationId ?? Guid.CreateVersion7(),
                 userId ?? SubjectOf(fixture.AdminAccessToken)));
 
-    private async Task<(Guid VisitId, Guid OutletId)> VisitAsync(HttpClient client)
+    /// <summary>
+    /// A visit at a shop that stocks the returned products.
+    /// </summary>
+    /// <remarks>
+    /// The assortment matters from W11 slice 4b onward: an order naming a product the shop does not
+    /// stock is now stored and rejected on arrival (<c>BR-ORD-1</c>), so a test that wants to reject
+    /// an order <i>by hand</i> has to order something legitimate first.
+    /// </remarks>
+    private async Task<(Guid VisitId, Guid OutletId, IReadOnlyList<Guid> Assorted)> VisitAsync(
+        HttpClient client)
     {
         var channel = await client.PostAsJsonAsync(
             "/api/outlets/channels", new ChannelRequest(Unique("Channel")));
@@ -285,6 +382,27 @@ public class OrderRejectionTests(ServerFixture fixture)
 
         var outletId = (await created.Content.ReadFromJsonAsync<OutletResponse>())!.Id;
 
+        // The realm gives `admin` no `product:*` — writing the catalogue is a different job.
+        using var writer = fixture.CreateAuthenticatedClient();
+
+        var products = new List<Guid>();
+
+        for (var i = 0; i < 3; i++)
+        {
+            var product = await writer.PostAsJsonAsync(
+                "/api/products", new CreateProductRequest(Unique("SKU"), "Veridian Still"));
+
+            Assert.Equal(HttpStatusCode.Created, product.StatusCode);
+
+            products.Add((await product.Content.ReadFromJsonAsync<ProductResponse>())!.Id);
+        }
+
+        var assorted = await writer.PutAsJsonAsync(
+            $"/api/products/assortments/channels/{channelId}",
+            new SetAssortmentRequest([.. products.Select(id => new AssortmentLineRequest(id))]));
+
+        Assert.Equal(HttpStatusCode.OK, assorted.StatusCode);
+
         var response = await client.PostAsJsonAsync(
             "/api/visits/check-in", new CheckInRequest(outletId, Shop.Latitude, Shop.Longitude));
 
@@ -292,7 +410,7 @@ public class OrderRejectionTests(ServerFixture fixture)
 
         var visit = (await response.Content.ReadFromJsonAsync<VisitDetailResponse>())!.Visit;
 
-        return (visit.Id, outletId);
+        return (visit.Id, outletId, products);
     }
 
     /// <summary>
@@ -355,4 +473,5 @@ public class OrderRejectionTests(ServerFixture fixture)
         IReadOnlyList<OrderLineReadback> Lines,
         RejectionReadback? Rejection);
 }
+
 

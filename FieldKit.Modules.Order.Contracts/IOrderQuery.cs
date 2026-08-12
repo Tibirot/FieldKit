@@ -25,9 +25,10 @@ public enum OrderRejectionReason
     /// A line names a product this outlet may not order (<c>BR-ORD-1</c>).
     /// </summary>
     /// <remarks>
-    /// The one reason this server will eventually raise on its own — the assortment gate slice 1
-    /// deferred, which lands next. Today it is a reason an operator selects, which is why the enum can
-    /// carry it before the gate exists.
+    /// <b>The one reason this server raises on its own</b>, since W11 slice 4b: an order naming a
+    /// product the outlet does not stock is stored and rejected on arrival rather than refused, so the
+    /// rep gets it back with the line flagged instead of losing it. An operator can still select it by
+    /// hand — a delisting the catalogue has not caught up with is a real thing to say.
     /// </remarks>
     OffAssortment = 0,
 
