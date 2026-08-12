@@ -350,49 +350,26 @@ export async function pruneOutletPriceAssignments(db: FieldKitDatabase): Promise
   return orphans.length;
 }
 
-/**
- * The price list in effect at one outlet on one date (`PRD-04`, `BR-PRD-2`).
+/*
+ * `priceListFor` and `priceOf` were here until W11 slice 7d, and their removal is the point rather
+ * than a tidy-up.
  *
- * <b>Outlet beats channel, and effective window decides the rest.</b> Both halves are the server's
- * rule, re-expressed here because the device has to price an order it takes with no connection. The
- * parity suite is what keeps the two from drifting — this returns the list, and `lib/pricing` does
- * the arithmetic in decimal.
+ * `priceListFor` answered `BR-PRD-2` — outlet beats channel, then the effective window — by taking
+ * the first assignment the index handed back, which was right by *ordering* because outlet
+ * assignments were queried first. The shared `resolvePrice` answers the same rule by scope rank,
+ * then the later `effectiveFrom`, then the id. The two agree until two lists tie, at which point the
+ * device picks whatever IndexedDB returned and the server picks deterministically — and neither
+ * looks wrong.
  *
- * `on` is an ISO date the caller supplies rather than a clock this module reads: which day an order
- * is priced for is the order's question, not this module's.
+ * Neither had a caller: they shipped in W8 slice 8e as store queries ahead of the screen that would
+ * use one, and the screen's pricing now goes through `lib/orders/pricing.ts`, which gathers
+ * candidates and hands them to the resolver the vectors check. Keeping a second answer to a priced
+ * question is what slice 4b refused server-side for the assortment, for the same reason: one path
+ * calling a line 8.00 while the other calls it 10.00 is not a thing to leave lying around.
+ *
+ * Their two real cases — outlet over channel, and the day the order is for — moved to
+ * `lib/orders/pricing.test.ts` rather than being deleted with them.
  */
-export async function priceListFor(
-  db: FieldKitDatabase,
-  outletId: string,
-  channelId: string,
-  on: string,
-): Promise<ReferencePriceList | undefined> {
-  const candidates = [
-    ...(await db.priceAssignments.where("outletId").equals(outletId).toArray()),
-    ...(await db.priceAssignments.where("channelId").equals(channelId).toArray()),
-  ];
-
-  for (const assignment of candidates) {
-    const list = await db.priceLists.get(assignment.priceListId);
-
-    // In effect on the day, not on the day of the sync. A device that has been offline for a week
-    // may be pricing an order the day a new list takes over.
-    if (list && list.effectiveFrom <= on && (list.effectiveTo === null || on <= list.effectiveTo)) {
-      return list;
-    }
-  }
-
-  return undefined;
-}
-
-/** What one list charges for one product, or undefined if it does not price it. */
-export async function priceOf(
-  db: FieldKitDatabase,
-  priceListId: string,
-  productId: string,
-): Promise<ReferencePriceLine | undefined> {
-  return db.priceLines.where("[priceListId+productId]").equals([priceListId, productId]).first();
-}
 
 /** The tenant's promotions, each whole. */
 export function applyPromotionChanges(
