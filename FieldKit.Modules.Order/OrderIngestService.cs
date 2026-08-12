@@ -98,14 +98,11 @@ internal sealed class OrderIngestService(OrderDbContext db, IVisitContext visits
             return new OrderIngestResult(OrderIngestRefusal.Invalid, Explain(refusal));
         }
 
+        // The lines and the submission ride along: `Add` on a *new* root paints the whole graph
+        // `Added` whatever the keys hold. This was never the defect the other five sites had — those
+        // hung new children on an already-tracked parent — and the comment that used to sit here
+        // claiming otherwise was a copy of a workaround into a place that never needed one.
         db.Orders.Add(order!);
-
-        // Announced to the context: the lines carry client-generated (v7) keys, so EF reaches them
-        // through the navigation, sees a non-default key, settles on `Modified` and issues UPDATEs
-        // that match no row. Fifth occurrence — workflow steps, the unplanned call, score weights,
-        // survey questions, now order lines. W11 slice 0b is where this stops being a comment.
-        db.Set<OrderLine>().AddRange(order!.Lines);
-        db.Set<OrderSubmission>().AddRange(order.Submissions);
 
         await db.SaveChangesAsync(cancellationToken);
 

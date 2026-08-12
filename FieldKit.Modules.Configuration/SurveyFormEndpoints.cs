@@ -127,12 +127,6 @@ internal static class SurveyFormEndpoints
             var refusal = form.Set(request.Name, Questions(request), clock);
             if (refusal is not SurveyFormRefusal.None) return Refuse(refusal);
 
-            // Announced to the context: the replacements carry client-generated (v7) keys, so EF
-            // reaches them through a navigation, sees a non-default key, settles on `Modified` and
-            // issues UPDATEs that match no row. Fourth occurrence — workflow steps, the Journey
-            // module's unplanned call, score weights, now this.
-            db.Set<SurveyQuestion>().AddRange(form.Questions);
-
             await db.SaveChangesAsync(ct);
 
             return Results.Ok(Respond(form.Describe()));

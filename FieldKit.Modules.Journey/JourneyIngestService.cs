@@ -138,12 +138,6 @@ internal sealed class JourneyIngestService(
         var refusal = plan.TryAddUnplanned(call.OutletId, call.Date, clock, out var added);
         if (refusal is not JourneyPlan.AnnotationRefusal.None) return Refuse(refusal);
 
-        // Added through the context as well as through the aggregate, the same way the HTTP path
-        // has to. The id is client-generated, so EF sees a non-default key on an entity reached
-        // through a navigation, settles on `Modified`, and issues an UPDATE that matches no row.
-        // The push path found this as a 500 rather than a refusal, which is exactly how it presents.
-        db.Set<PlannedVisit>().Add(added!);
-
         await db.SaveChangesAsync(cancellationToken);
 
         return JourneyIngestResult.Ok();
