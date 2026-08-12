@@ -68,6 +68,7 @@ const QUIET = {
   promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
   surveys: { upserts: [], tombstones: [], cursor: 0 },
   scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
+  taxRates: { upserts: [], tombstones: [], cursor: 0 },
 };
 
 /**

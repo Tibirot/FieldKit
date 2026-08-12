@@ -14,6 +14,7 @@ import type {
   ReferenceProduct,
   ReferenceScoreWeightSet,
   ReferenceSurveyForm,
+  ReferenceTaxRate,
   ReferenceVisitWorkflow,
 } from "./db";
 
@@ -48,6 +49,9 @@ export const PROMOTIONS = "promotions";
 export const PROMOTION_ASSIGNMENTS = "promotionAssignments";
 export const SURVEYS = "surveys";
 export const SCORE_WEIGHTS = "scoreWeights";
+
+/** The watermark key for tax rates (`PRD-07`, W11 slice 7b). */
+export const TAX_RATES = "taxRates";
 
 /**
  * Applies one page of a pull (`OFF-02`, `OFF-03`, sync engine §3).
@@ -482,6 +486,38 @@ export function applyScoreWeightChanges(
   page: EntityChanges<ReferenceScoreWeightSet>,
 ): Promise<void> {
   return apply(db, "ref_score_weights", SCORE_WEIGHTS, page);
+}
+
+/** One page of tax rates (`PRD-07`, W11 slice 7b). */
+export function applyTaxRateChanges(
+  db: FieldKitDatabase,
+  page: EntityChanges<ReferenceTaxRate>,
+): Promise<void> {
+  return apply(db, "ref_tax_rates", TAX_RATES, page);
+}
+
+/**
+ * Every rate this country charges this class, for `resolveTaxRate` to pick from (`PRD-07`).
+ *
+ * <b>Every rate, not the one in force today.</b> `BR-PRD-6` resolves against the *order's* date, and
+ * a device may be pricing one captured before a VAT change — so the window cannot be filtered here
+ * and cannot be an index. The compound `[countryCode+taxClassId]` narrows it to the handful that
+ * could possibly apply, and the resolver decides which of them does.
+ *
+ * <b>An empty answer is "unknown", not "zero".</b> `priceLine` treats a null rate as unknown and
+ * charges nothing, which is the same total a genuine 0% rate produces — and the caller keeps the
+ * distinction, because a tenant that has authored no rate for a country is misconfigured while one
+ * that has authored 0% is describing zero-rated goods.
+ */
+export function taxRatesFor(
+  db: FieldKitDatabase,
+  countryCode: string,
+  taxClassId: string,
+): Promise<ReferenceTaxRate[]> {
+  return db.taxRates
+    .where("[countryCode+taxClassId]")
+    .equals([countryCode.toUpperCase(), taxClassId])
+    .toArray();
 }
 
 /**

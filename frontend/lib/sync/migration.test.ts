@@ -8,6 +8,7 @@ import { closeDatabase, FieldKitDatabase } from "./db";
 import { enqueue, markRejected, pending, pendingCount, statusOf } from "./outbox";
 import {
   applyOutletChanges,
+  applyTaxRateChanges,
   OUTLETS,
   outlets,
   PRICE_LINES,
@@ -15,6 +16,7 @@ import {
   PROMOTIONS,
   SCORE_WEIGHTS,
   SURVEYS,
+  taxRatesFor,
   watermark,
 } from "./reference";
 
@@ -216,7 +218,7 @@ describe("upgrading a device that has unsent work", () => {
     // rows. Without this the whole file could be passing against databases that never existed at
     // v1. The number moves with every schema version, which is the point — a device that skipped
     // one still has to arrive at the latest.
-    expect(upgraded.verno).toBe(8);
+    expect(upgraded.verno).toBe(9);
     expect(await upgraded.outbox.count()).toBe(3);
 
     // Still in capture order, which is what the drain depends on — and now read through the new
@@ -497,7 +499,7 @@ describe("upgrading a device whose outlets predate the geofence radius", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(8);
+    expect(upgraded.verno).toBe(9);
     expect(await watermark(upgraded, OUTLETS)).toBe(0);
     expect(await watermark(upgraded, PRODUCTS)).toBe(41);
 
@@ -532,7 +534,7 @@ describe("upgrading a device that predates the visits store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(8);
+    expect(upgraded.verno).toBe(9);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
 
     // The new store exists and is empty, which is the only correct starting state: there were no
@@ -568,7 +570,7 @@ describe("upgrading a device that predates the audit's reference stores", () => 
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(8);
+    expect(upgraded.verno).toBe(9);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
     expect(await upgraded.visits.count()).toBe(1);
 
@@ -639,7 +641,7 @@ describe("upgrading a device to the order store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(8);
+    expect(upgraded.verno).toBe(9);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // The store arrives empty on an upgraded device, which is the state a fresh install is in — so
@@ -688,7 +690,7 @@ describe("upgrading a device whose prices are floats", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(8);
+    expect(upgraded.verno).toBe(9);
 
     // The two that carried money go back to zero, so the next pull resends every row.
     expect(await watermark(upgraded, PRICE_LINES)).toBe(0);
@@ -697,6 +699,62 @@ describe("upgrading a device whose prices are floats", () => {
     // …and nothing else is reset. Re-downloading a tenant's whole catalogue over a connection the
     // rep may not have is the cost this deliberately does not pay twice.
     expect(await watermark(upgraded, PRODUCTS)).toBe(500);
+
+    upgraded.close();
+  });
+});
+
+describe("upgrading a device that has never held a tax rate", () => {
+  it("adds the store, and its compound index works on a replayed database", async () => {
+    /*
+     * `OFF-13` for version 9 (W11 slice 7b), and the half a fresh install cannot catch.
+     *
+     * `taxRatesFor` reads through `[countryCode+taxClassId]`. A compound index declared in a version
+     * an existing device *replays* is the way this quietly fails: the table appears, `.get()` works,
+     * and only the indexed query throws — which on the device is the query that decides what tax a
+     * rep charges. So the read here goes through the index rather than by key.
+     */
+    const name = `migration:${crypto.randomUUID()}`;
+
+    const legacy = await openVersionFive(name);
+    await legacy.table("outbox").add({
+      mutationId: "m-tax-1",
+      type: "CapturedVisit",
+      subjectId: "visit-1",
+      payload: { visitId: "visit-1" },
+      status: "pending",
+      createdAt: 1_000,
+      attempts: 0,
+    });
+    legacy.close();
+
+    const upgraded = new FieldKitDatabase(name);
+    await upgraded.open();
+
+    expect(upgraded.verno).toBe(9);
+    expect(await upgraded.outbox.count()).toBe(1);
+
+    // Empty on arrival, like every other new reference store: the next pull fills it, because the
+    // watermark it starts from is zero and the server sends everything above zero.
+    expect(await upgraded.taxRates.count()).toBe(0);
+
+    await applyTaxRateChanges(upgraded, {
+      upserts: [
+        {
+          id: "r1",
+          taxClassId: "standard",
+          countryCode: "RO",
+          percentage: "19.00",
+          effectiveFrom: "2026-01-01",
+          effectiveTo: null,
+          rowVersion: 3,
+        },
+      ],
+      tombstones: [],
+      cursor: 3,
+    });
+
+    expect((await taxRatesFor(upgraded, "RO", "standard")).map((each) => each.id)).toEqual(["r1"]);
 
     upgraded.close();
   });
@@ -712,7 +770,7 @@ describe("the schema itself", () => {
 
     await db.open();
 
-    expect(db.verno).toBe(8);
+    expect(db.verno).toBe(9);
 
     // The outbox is still keyed by the mutation id, which is the property the server's ledger
     // depends on: a re-send has to arrive under the id it was captured with.

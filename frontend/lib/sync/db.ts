@@ -242,6 +242,29 @@ export type ReferencePriceAssignment = {
   rowVersion: number;
 };
 
+/**
+ * What one country charges one tax class, as the device holds it (`PRD-07`) — W11 slice 7b.
+ *
+ * **The last input the device was missing.** Prices, promotions and the assortment all arrived in
+ * W8; rates did not, and `TaxRate` was not even sync-tracked — so `priceLine` was handed a null rate,
+ * which it reads as *unknown* and charges nothing for. A rep saw a correct-looking net total that the
+ * server's recomputation would exceed by exactly the tax, on every order.
+ *
+ * `percentage` is a decimal **string**, per the rule slice 7a established for this whole protocol.
+ * The window travels as ISO dates and is half-open `[effectiveFrom, effectiveTo)`, because a device
+ * pricing an order dated before a VAT change needs the rate that was in force then.
+ */
+export type ReferenceTaxRate = {
+  id: string;
+  taxClassId: string;
+  /** ISO-3166-1 alpha-2, upper-cased — matched against the outlet's own country. */
+  countryCode: string;
+  percentage: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  rowVersion: number;
+};
+
 /** What a promotion applies to. Exactly one id is set; an empty list means "everything". */
 export type ReferencePromotionTarget = { productId: string | null; categoryId: string | null };
 
@@ -529,6 +552,7 @@ export class FieldKitDatabase extends Dexie {
   promotionAssignments!: EntityTable<ReferencePromotionAssignment, "id">;
   surveys!: EntityTable<ReferenceSurveyForm, "id">;
   scoreWeights!: EntityTable<ReferenceScoreWeightSet, "id">;
+  taxRates!: EntityTable<ReferenceTaxRate, "id">;
   visits!: EntityTable<LocalVisit, "id">;
   orders!: EntityTable<LocalOrder, "id">;
   outbox!: EntityTable<OutboxEntry, "mutationId">;
@@ -777,6 +801,28 @@ export class FieldKitDatabase extends Dexie {
         await tx.table("watermarks").delete("promotions");
       });
 
+    /*
+     * Version 9 — tax rates reach the device (`PRD-07`, `OFF-03`, W11 slice 7b).
+     *
+     * The last pricing input that never travelled. `TaxRate` was not sync-tracked at all, so there
+     * was no delta to send and no store to hold it — and `priceLine` reads a missing rate as
+     * *unknown* rather than zero, which is honest and still leaves the rep's total short of the
+     * server's by exactly the tax on every order.
+     *
+     * The index is `[countryCode+taxClassId]`, compound, because that is the whole question: a rate
+     * is looked up by the shop's country and the product's class, never by one alone. Every rate for
+     * that pair is then read and `resolveTaxRate` picks by date — the window cannot be an index,
+     * since `BR-PRD-6` resolves against the *order's* day rather than today's.
+     *
+     * No `upgrade()`: nothing existed to transform. A device that opens the app after this finds the
+     * table empty and its watermark at zero, which is what a fresh install is — so the next pull
+     * fills it by the ordinary path. The server's migration backfills every existing rate's row
+     * version so that first pull is not empty.
+     */
+    this.version(9).stores({
+      ref_tax_rates: "id, [countryCode+taxClassId]",
+    });
+
     this.outlets = this.table("ref_outlets");
     this.plannedVisits = this.table("ref_planned_visits");
     this.workflows = this.table("ref_visit_workflows");
@@ -790,6 +836,7 @@ export class FieldKitDatabase extends Dexie {
     this.promotionAssignments = this.table("ref_promotion_assignments");
     this.surveys = this.table("ref_surveys");
     this.scoreWeights = this.table("ref_score_weights");
+    this.taxRates = this.table("ref_tax_rates");
     this.visits = this.table("visits");
     this.orders = this.table("orders");
     this.outbox = this.table("outbox");

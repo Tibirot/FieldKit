@@ -3941,12 +3941,27 @@ Content-Type: application/json
 # match this server's exactly, `decimal.js` reads a string, and `JSON.parse` would turn a bare
 # `33.34` into a float before the device's scorer ever saw it. The same rule
 # `vectors/README.md` enforces, on the wire it was written about.
+#
+# `taxRates` joins in W11 slice 7b — the last pricing input that never travelled. The engine has
+# been on the device since W7 slice 14 and the rates on this server since W6 slice 13; nothing
+# carried one to the other, so `priceLine` was handed a null rate, read it as *unknown*, and
+# charged nothing. A rep saw a plausible net total that this server's recomputation would exceed
+# by exactly the tax, on every order.
+#
+# `percentage` is a **string** here too, for the reason above, and the window travels with it:
+# `effectiveFrom` / `effectiveTo` are half-open, and `effectiveTo` is `null` while a rate is still
+# in force. Expired rates are sent rather than filtered — `BR-PRD-6` resolves against the *order's*
+# date, and a device syncing a week's work needs the rate that applied on the day of each order.
+#
+# Note what is **not** here: the device still cannot pick a rate on its own, because
+# `outlets[].countryCode` does not exist yet — a rate is matched to a jurisdiction, and the shop's
+# is the half that is missing. That is W11 slice 7c.
 
 POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
-{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 0, "journeys": 0, "configuration": 0, "products": 0, "assortment": 0, "outletAssortment": 0, "priceLists": 0, "priceLines": 0, "priceAssignments": 0, "promotions": 0, "promotionAssignments": 0, "surveys": 0, "scoreWeights": 0 } }
+{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 0, "journeys": 0, "configuration": 0, "products": 0, "assortment": 0, "outletAssortment": 0, "priceLists": 0, "priceLines": 0, "priceAssignments": 0, "promotions": 0, "promotionAssignments": 0, "surveys": 0, "scoreWeights": 0, "taxRates": 0 } }
 
 ### A second pull at the cursor the first returned. Carries only what changed since —
 ### an unchanged tenant answers with an empty page and the same cursor.
@@ -3954,7 +3969,7 @@ POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
-{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 42, "journeys": 17, "configuration": 3, "products": 812, "assortment": 840, "outletAssortment": 851, "priceLists": 860, "priceLines": 1204, "priceAssignments": 871, "promotions": 903, "promotionAssignments": 910, "surveys": 918, "scoreWeights": 925 } }
+{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 42, "journeys": 17, "configuration": 3, "products": 812, "assortment": 840, "outletAssortment": 851, "priceLists": 860, "priceLines": 1204, "priceAssignments": 871, "promotions": 903, "promotionAssignments": 910, "surveys": 918, "scoreWeights": 925, "taxRates": 931 } }
 
 ### A device that was replaced answers 409 `sync.pull.deviceInactive` — the client's job is
 ### to bind again, which re-snapshots from zero.
@@ -3962,7 +3977,7 @@ POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
-{ "deviceId": "{{revokedDeviceId}}", "cursors": { "outlets": 0, "journeys": 0, "configuration": 0, "products": 0, "assortment": 0, "outletAssortment": 0, "priceLists": 0, "priceLines": 0, "priceAssignments": 0, "promotions": 0, "promotionAssignments": 0, "surveys": 0, "scoreWeights": 0 } }
+{ "deviceId": "{{revokedDeviceId}}", "cursors": { "outlets": 0, "journeys": 0, "configuration": 0, "products": 0, "assortment": 0, "outletAssortment": 0, "priceLists": 0, "priceLines": 0, "priceAssignments": 0, "promotions": 0, "promotionAssignments": 0, "surveys": 0, "scoreWeights": 0, "taxRates": 0 } }
 
 ### ── Sync · push (OFF-04) ──────────────────────────────────────────────────
 # The drain. Every mutation carries an id minted on the device, and the ledger answers a

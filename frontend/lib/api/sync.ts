@@ -10,6 +10,7 @@ import type {
   ReferencePromotion,
   ReferencePromotionAssignment,
   ReferenceScoreWeightSet,
+  ReferenceTaxRate,
   ReferenceSurveyForm,
   ReferencePlannedVisit,
   ReferenceProduct,
@@ -54,6 +55,7 @@ export type PullCursors = {
   promotionAssignments?: number;
   surveys?: number;
   scoreWeights?: number;
+  taxRates?: number;
 };
 
 export type PullResponse = {
@@ -71,6 +73,7 @@ export type PullResponse = {
     promotionAssignments: EntityChanges<ReferencePromotionAssignment>;
     surveys: EntityChanges<ReferenceSurveyForm>;
     scoreWeights: EntityChanges<ReferenceScoreWeightSet>;
+  taxRates: EntityChanges<ReferenceTaxRate>;
   };
   snapshotVersion: string;
 };
