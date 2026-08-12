@@ -28,6 +28,25 @@ namespace FieldKit.Modules.Outlets.Contracts;
 /// the parity vectors cannot see. Sending it makes <c>OUT-08</c> a change to <c>OutletGeofences</c>
 /// and to nothing else.
 /// </para>
+/// <para>
+/// <b><see cref="CountryCode"/> is here for tax, and for nothing else</b> (<c>PRD-07</c>, W11 slice
+/// 7c). A tax rate is a fact about a jurisdiction and a class; W11 slice 7b put the rates on the
+/// device and left them unusable, because the device had no way to say which country the shop it is
+/// standing in belongs to. It is the *shop's* half of that match — not the rep's, not the tenant's:
+/// a tenant selling across a border has reps who cross it.
+/// </para>
+/// <para>
+/// <b>Nullable, and the null is load-bearing.</b> An address is optional (<c>OUT-01</c> — a
+/// half-known outlet must still be recordable), so a shop entered without one has no country. That
+/// means <i>unknown tax</i>, which is what <c>TaxEngine.Resolve</c> and <c>priceLine</c> already
+/// agree it means — not untaxed, and not a default worth guessing. Sending an empty string or a
+/// tenant default would turn a missing setup step into a confident wrong number on an invoice.
+/// </para>
+/// <para>
+/// Upper-cased at the source (<c>Outlet.Normalise</c>), because it is compared to
+/// <c>TaxRate.CountryCode</c>, which is also upper-cased. The device upper-cases again on lookup —
+/// belt and braces on a comparison whose failure mode is silence.
+/// </para>
 /// </remarks>
 public sealed record OutletSnapshot(
     Guid Id,
@@ -36,6 +55,7 @@ public sealed record OutletSnapshot(
     Guid ChannelId,
     string? Segment,
     string Status,
+    string? CountryCode,
     double? Latitude,
     double? Longitude,
     int RadiusMetres,

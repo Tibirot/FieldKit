@@ -2,11 +2,26 @@ import "fake-indexeddb/auto";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { priceLine } from "@/lib/pricing/line";
 import { Decimal, Money } from "@/lib/pricing/money";
 import { applyTax, resolveTaxRate, type TaxRateCandidate } from "@/lib/pricing/tax";
 
-import { closeDatabase, FieldKitDatabase, type ReferenceTaxRate } from "./db";
-import { applyTaxRateChanges, TAX_RATES, taxRatesFor, watermark } from "./reference";
+import {
+  closeDatabase,
+  FieldKitDatabase,
+  type ReferenceOutlet,
+  type ReferenceProduct,
+  type ReferenceTaxRate,
+} from "./db";
+import {
+  applyOutletChanges,
+  applyProductChanges,
+  applyTaxRateChanges,
+  TAX_RATES,
+  taxPercentageFor,
+  taxRatesFor,
+  watermark,
+} from "./reference";
 
 /**
  * Tax rates on the device (`OFF-03`, `PRD-07`) — W11 slice 7b.
@@ -174,5 +189,148 @@ describe("tax rates on the device", () => {
 
     expect(held.map((each) => each.id)).toEqual(["r2"]);
     expect(resolveTaxRate(candidates(held), "2026-08-12")?.percentage).toBe("21.00");
+  });
+});
+
+describe("the rate the device charges at a shop", () => {
+  function shop(id: string, countryCode: string | null): ReferenceOutlet {
+    return {
+      id,
+      code: id.toUpperCase(),
+      name: "Corner Shop",
+      channelId: "channel-1",
+      segment: null,
+      status: "Active",
+      countryCode,
+      latitude: null,
+      longitude: null,
+      radiusMetres: 150,
+      rowVersion: 1,
+    };
+  }
+
+  function item(id: string, taxClassId: string | null): ReferenceProduct {
+    return {
+      id,
+      sku: id.toUpperCase(),
+      name: "Cola 500ml",
+      brandId: null,
+      categoryId: null,
+      taxClassId,
+      unitOfMeasure: "EA",
+      packSize: 24,
+      status: "Active",
+      rowVersion: 1,
+    };
+  }
+
+  /** A device that has synced everything: one shop, one product, one rate. */
+  async function stocked(db: FieldKitDatabase, countryCode: string | null = "RO") {
+    await applyOutletChanges(db, page([shop("outlet-1", countryCode)], 1));
+    await applyProductChanges(db, page([item("product-1", "standard")], 1));
+    await applyTaxRateChanges(db, page([rate("r1", { percentage: "19.00" })], 1));
+  }
+
+  it("finds the rate for the shop the rep is standing in", async () => {
+    /*
+     * **The join slice 7b could not make.** The rates were on the device and unusable: nothing here
+     * could say which country the shop belonged to, so `taxRatesFor` had no first argument to give.
+     */
+    const db = freshDatabase();
+    await stocked(db);
+
+    expect(await taxPercentageFor(db, "outlet-1", "product-1", "2026-08-12")).toBe("19.00");
+  });
+
+  it("charges the neighbouring country's rate at the shop across the border", async () => {
+    /*
+     * Why the country is the *shop's* and not the tenant's. A tenant selling in two countries has
+     * reps who cross the border, and a device that read one country from configuration would charge
+     * Romanian VAT in Sofia — a wrong number that looks completely ordinary on the screen.
+     */
+    const db = freshDatabase();
+    await stocked(db);
+
+    await applyOutletChanges(db, page([shop("outlet-2", "BG")], 2));
+    await applyTaxRateChanges(
+      db,
+      page([rate("r2", { countryCode: "BG", percentage: "20.00", rowVersion: 2 })], 2),
+    );
+
+    expect(await taxPercentageFor(db, "outlet-1", "product-1", "2026-08-12")).toBe("19.00");
+    expect(await taxPercentageFor(db, "outlet-2", "product-1", "2026-08-12")).toBe("20.00");
+  });
+
+  it("answers for the order's date, not for today", async () => {
+    // `BR-PRD-6`. A device syncs a week of work at a time, so the order dated before a VAT change
+    // has to be taxed at the rate that was in force when the rep took it.
+    const db = freshDatabase();
+    await stocked(db);
+
+    await applyTaxRateChanges(
+      db,
+      page(
+        [
+          rate("old", { percentage: "19.00", effectiveFrom: "2026-01-01", effectiveTo: "2026-07-01" }),
+          rate("new", { percentage: "21.00", effectiveFrom: "2026-07-01", rowVersion: 3 }),
+        ],
+        3,
+      ),
+    );
+
+    expect(await taxPercentageFor(db, "outlet-1", "product-1", "2026-06-30")).toBe("19.00");
+    expect(await taxPercentageFor(db, "outlet-1", "product-1", "2026-07-01")).toBe("21.00");
+  });
+
+  it.each([
+    ["the shop has no country", "outlet-none", "product-1"],
+    ["the product has no tax class", "outlet-1", "product-none"],
+    ["nobody authored a rate", "outlet-1", "product-untaxed"],
+  ])("answers null — unknown, not zero — when %s", async (_why, outletId, productId) => {
+    /*
+     * Three ways to not know, and they are deliberately the same answer. `priceLine` charges
+     * nothing for a null, which is the same total a genuine `"0.00"` rate produces — that collapse
+     * is safe only because the *caller* keeps the distinction: 0% is a tenant describing zero-rated
+     * goods, null is a tenant who has not finished setting up.
+     */
+    const db = freshDatabase();
+    await stocked(db);
+
+    await applyOutletChanges(db, page([shop("outlet-none", null)], 2));
+    await applyProductChanges(
+      db,
+      page([item("product-none", null), item("product-untaxed", "luxury")], 2),
+    );
+
+    expect(await taxPercentageFor(db, outletId, productId, "2026-08-12")).toBeNull();
+  });
+
+  it("answers null for a shop or a product the device has never synced", async () => {
+    // A rep can open an order for a shop that entered their territory since the last pull. The
+    // honest answer is "I do not know what this is taxed at", not a crash and not zero.
+    const db = freshDatabase();
+    await stocked(db);
+
+    expect(await taxPercentageFor(db, "outlet-unknown", "product-1", "2026-08-12")).toBeNull();
+    expect(await taxPercentageFor(db, "outlet-1", "product-unknown", "2026-08-12")).toBeNull();
+  });
+
+  it("feeds priceLine, which is the only reason any of this exists", async () => {
+    /*
+     * End to end on the device: shop → country → rate → the number the rep reads out.
+     *
+     * Before this slice `taxPercentageFor` could not exist, so the capture screen would have passed
+     * `null` and charged nothing — a plausible net total the server's recomputation would exceed by
+     * exactly the tax, on every order (`BR-ORD-2`).
+     */
+    const db = freshDatabase();
+    await stocked(db);
+
+    const percentage = await taxPercentageFor(db, "outlet-1", "product-1", "2026-08-12");
+    const priced = priceLine(Money.of("4.50", "RON"), "12", null, percentage);
+
+    expect(priced.net.toString()).toBe("54.00 RON");
+    expect(priced.tax.toString()).toBe("10.26 RON");
+    expect(priced.total.toString()).toBe("64.26 RON");
   });
 });

@@ -66,6 +66,7 @@ function outletRow(id: string, rowVersion: number, name = "Corner Shop") {
     status: "Active",
     latitude: null,
     longitude: null,
+    countryCode: null,
     radiusMetres: 150,
     rowVersion,
   };

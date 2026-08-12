@@ -16,6 +16,7 @@ import {
   PROMOTIONS,
   SCORE_WEIGHTS,
   SURVEYS,
+  TAX_RATES,
   taxRatesFor,
   watermark,
 } from "./reference";
@@ -162,6 +163,7 @@ function outletRow(id: string, rowVersion: number) {
     status: "Active",
     latitude: null,
     longitude: null,
+    countryCode: null,
     radiusMetres: 150,
     rowVersion,
   };
@@ -218,7 +220,7 @@ describe("upgrading a device that has unsent work", () => {
     // rows. Without this the whole file could be passing against databases that never existed at
     // v1. The number moves with every schema version, which is the point — a device that skipped
     // one still has to arrive at the latest.
-    expect(upgraded.verno).toBe(9);
+    expect(upgraded.verno).toBe(10);
     expect(await upgraded.outbox.count()).toBe(3);
 
     // Still in capture order, which is what the drain depends on — and now read through the new
@@ -499,7 +501,7 @@ describe("upgrading a device whose outlets predate the geofence radius", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(9);
+    expect(upgraded.verno).toBe(10);
     expect(await watermark(upgraded, OUTLETS)).toBe(0);
     expect(await watermark(upgraded, PRODUCTS)).toBe(41);
 
@@ -534,7 +536,7 @@ describe("upgrading a device that predates the visits store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(9);
+    expect(upgraded.verno).toBe(10);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
 
     // The new store exists and is empty, which is the only correct starting state: there were no
@@ -570,7 +572,7 @@ describe("upgrading a device that predates the audit's reference stores", () => 
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(9);
+    expect(upgraded.verno).toBe(10);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
     expect(await upgraded.visits.count()).toBe(1);
 
@@ -594,6 +596,12 @@ describe("upgrading a device that predates the audit's reference stores", () => 
      * would silently make every device re-download its whole territory on update.
      *
      * So this asserts the negative: adding two stores touches nothing that was already there.
+     *
+     * <b>The outlets watermark left this test in W11 slice 7c</b>, and honestly rather than by
+     * weakening the assertion. Opening the database runs *every* version, and v10 resets that one
+     * deliberately — `countryCode` was added to the outlet, and a delta would only fill it in for
+     * shops somebody happened to edit afterwards. Products is the surviving witness: it is the
+     * watermark no version since has had a reason to touch, so a stray reset still fails here.
      */
     const name = `migration:${crypto.randomUUID()}`;
 
@@ -607,7 +615,6 @@ describe("upgrading a device that predates the audit's reference stores", () => 
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(await watermark(upgraded, OUTLETS)).toBe(4_100);
     expect(await watermark(upgraded, PRODUCTS)).toBe(900);
 
     upgraded.close();
@@ -641,7 +648,7 @@ describe("upgrading a device to the order store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(9);
+    expect(upgraded.verno).toBe(10);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // The store arrives empty on an upgraded device, which is the state a fresh install is in — so
@@ -690,7 +697,7 @@ describe("upgrading a device whose prices are floats", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(9);
+    expect(upgraded.verno).toBe(10);
 
     // The two that carried money go back to zero, so the next pull resends every row.
     expect(await watermark(upgraded, PRICE_LINES)).toBe(0);
@@ -731,7 +738,7 @@ describe("upgrading a device that has never held a tax rate", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(9);
+    expect(upgraded.verno).toBe(10);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // Empty on arrival, like every other new reference store: the next pull fills it, because the
@@ -760,6 +767,46 @@ describe("upgrading a device that has never held a tax rate", () => {
   });
 });
 
+describe("upgrading a device whose outlets have no country", () => {
+  it("drops the outlets watermark so every shop is re-pulled", async () => {
+    /*
+     * W11 slice 7c, and the same shape as versions 3 and 4 rather than version 8's.
+     *
+     * Those re-baselined because a *field was added*; version 8 re-baselined because the rows were
+     * the wrong **type**. This is the first kind: the outlets on the device are fine except that
+     * they have no `countryCode`, which nothing could have used an hour ago.
+     *
+     * A delta pull alone would not fix it — it sends the rows that changed *after* the cursor, so a
+     * shop nobody edits again would price untaxed for the life of the install, and the rep would
+     * see a plausible total every day without anything looking wrong.
+     *
+     * And nothing else is reset: re-downloading a tenant's whole catalogue over a connection the
+     * rep may not have is the cost this deliberately does not pay twice.
+     */
+    const name = `migration:${crypto.randomUUID()}`;
+
+    const legacy = await openVersionFive(name);
+    await legacy.table("watermarks").bulkPut([
+      { entity: "outlets", cursor: 4_100 },
+      { entity: "products", cursor: 900 },
+      { entity: "taxRates", cursor: 31 },
+    ]);
+    legacy.close();
+
+    const upgraded = new FieldKitDatabase(name);
+    await upgraded.open();
+
+    expect(upgraded.verno).toBe(10);
+
+    expect(await watermark(upgraded, OUTLETS)).toBe(0);
+
+    expect(await watermark(upgraded, PRODUCTS)).toBe(900);
+    expect(await watermark(upgraded, TAX_RATES)).toBe(31);
+
+    upgraded.close();
+  });
+});
+
 describe("the schema itself", () => {
   it("declares every version, so a device that skipped one still arrives", async () => {
     // Dexie replays versions in order to bring an existing database forward. Deleting version 1
@@ -770,7 +817,7 @@ describe("the schema itself", () => {
 
     await db.open();
 
-    expect(db.verno).toBe(9);
+    expect(db.verno).toBe(10);
 
     // The outbox is still keyed by the mutation id, which is the property the server's ledger
     // depends on: a re-send has to arrive under the id it was captured with.

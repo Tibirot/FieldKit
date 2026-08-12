@@ -22,6 +22,19 @@ export type ReferenceOutlet = {
   channelId: string;
   segment: string | null;
   status: string;
+  /**
+   * Which jurisdiction taxes this shop (`PRD-07`, W11 slice 7c) — ISO-3166-1 alpha-2, upper-cased.
+   *
+   * The shop's half of a tax match. Slice 7b put the rates on the device and left them unusable
+   * without it: a rate is a fact about a country and a class, and nothing here could say which
+   * country. Not the rep's and not the tenant's — a tenant selling across a border has reps who
+   * cross it.
+   *
+   * **Null is *unknown*, not untaxed.** An address is optional server-side, so a shop entered
+   * without one has no country — and `priceLine` reads a null rate as unknown and charges nothing,
+   * which is the same total a genuine 0% rate produces. The caller keeps the distinction.
+   */
+  countryCode: string | null;
   latitude: number | null;
   longitude: number | null;
   /**
@@ -822,6 +835,31 @@ export class FieldKitDatabase extends Dexie {
     this.version(9).stores({
       ref_tax_rates: "id, [countryCode+taxClassId]",
     });
+
+    /*
+     * Version 10 — the outlet says which country taxes it (`PRD-07`, W11 slice 7c).
+     *
+     * `OutletSnapshot` gained `countryCode`, which is the half version 9 was missing: the rates were
+     * on the device and could not be matched to the shop the rep was standing in.
+     *
+     * <b>The outlets watermark is dropped so every row is re-pulled</b>, for the reason versions 3
+     * and 4 did it: a *field was added*, so the rows already here are the right type and the wrong
+     * shape — they simply have no `countryCode` — and a delta pull would only fill it in for the
+     * shops somebody happened to edit afterwards. A shop nobody touches again would price untaxed
+     * for the life of the install.
+     *
+     * No store declaration: `countryCode` is not indexed. The lookup goes outlet → country → the
+     * rates index, so the country is read off a row already in hand rather than searched for.
+     *
+     * Rows are left in place, as version 8 left the prices: a device that goes offline between the
+     * upgrade and its next sync still shows the rep their round, and the field that is missing is
+     * one nothing could use an hour ago either.
+     */
+    this.version(10)
+      .stores({})
+      .upgrade(async (tx) => {
+        await tx.table("watermarks").delete("outlets");
+      });
 
     this.outlets = this.table("ref_outlets");
     this.plannedVisits = this.table("ref_planned_visits");

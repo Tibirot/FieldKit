@@ -228,6 +228,117 @@ public class SyncPullTests(ServerFixture fixture)
     }
 
     [Fact]
+    public async Task An_outlet_reaches_the_device_with_the_country_that_taxes_it()
+    {
+        /*
+         * W11 slice 7c, and the half slice 7b was missing.
+         *
+         * Rates reached the device a slice ago and sat unusable: a rate is a fact about a country
+         * and a class, and nothing on the device could say which country the shop belonged to. This
+         * is the shop's half of that match — not the rep's and not the tenant's, because a tenant
+         * selling across a border has reps who cross it.
+         *
+         * Two shops in two countries, because one shop passes against a feed that sends a constant.
+         *
+         * Lower-case on the way in on purpose: `Outlet.Normalise` upper-cases, and the comparison
+         * against `TaxRate.CountryCode` — which is also upper-cased — fails *silently* if either
+         * side skips it. A device that finds no rate reads it as "unknown tax" and charges nothing,
+         * which looks exactly like a tenant who has not authored one.
+         */
+        using var rep = fixture.CreateAuthenticatedClient(fixture.AccessToken);
+        using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var channelId = await ChannelAsync(admin);
+
+        var here = await OutletAsync(admin, channelId, Unique("RO"), "Corner Shop", new Address(
+            City: "Bucharest", CountryCode: "ro"));
+
+        var abroad = await OutletAsync(admin, channelId, Unique("BG"), "Corner Shop", new Address(
+            City: "Sofia", CountryCode: "BG"));
+
+        await GiveRepTheTerritoryAsync(admin, rep, here, abroad);
+
+        var device = await BindDeviceAsync(rep);
+        var pull = await PullAsync(rep, device);
+
+        Assert.Equal(
+            "RO",
+            Assert.Single(pull.Changes.Outlets.Upserts, outlet => outlet.Id == here).CountryCode);
+
+        Assert.Equal(
+            "BG",
+            Assert.Single(pull.Changes.Outlets.Upserts, outlet => outlet.Id == abroad).CountryCode);
+    }
+
+    [Fact]
+    public async Task An_address_added_after_a_pull_carries_the_country_down_on_the_next_one()
+    {
+        /*
+         * The **delta** arm, and it needs a test of its own because the feed has two.
+         *
+         * The test above only exercises the baseline: an outlet entering a device's scope arrives
+         * whatever its row version, so a first pull never touches the delta query. Sabotaging the
+         * two arms separately is what showed it — nulling the country in `GetChangesAsync` alone
+         * left every test green.
+         *
+         * This is also the ordinary way a country appears. Onboarding data is half-known
+         * (`OUT-01`), so a shop is routinely created without an address and completed later, and
+         * that completion has to reach a device that already holds the shop.
+         */
+        using var rep = fixture.CreateAuthenticatedClient(fixture.AccessToken);
+        using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var channelId = await ChannelAsync(admin);
+        var outletId = await OutletAsync(admin, channelId, Unique("OUT"), "Corner Shop");
+
+        await GiveRepTheTerritoryAsync(admin, rep, outletId);
+
+        var device = await BindDeviceAsync(rep);
+        var first = await PullAsync(rep, device);
+
+        Assert.Null(Assert.Single(first.Changes.Outlets.Upserts, o => o.Id == outletId).CountryCode);
+
+        var updated = await admin.PutAsJsonAsync(
+            $"/api/outlets/{outletId}",
+            new UpdateOutletRequest(
+                "Corner Shop",
+                channelId,
+                "Europe/Bucharest",
+                Address: new Address(City: "Bucharest", CountryCode: "RO")));
+
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+
+        var again = await PullAsync(rep, device, first.Changes.Outlets.Cursor);
+
+        Assert.Equal(
+            "RO",
+            Assert.Single(again.Changes.Outlets.Upserts, o => o.Id == outletId).CountryCode);
+    }
+
+    [Fact]
+    public async Task An_outlet_with_no_address_reaches_the_device_with_no_country()
+    {
+        /*
+         * The null is load-bearing, which is why it has a test of its own.
+         *
+         * An address is optional (`OUT-01` — a half-known outlet must still be recordable), so a
+         * shop entered without one has no country, and that means *unknown tax*. Sending an empty
+         * string or a tenant default would turn a missing setup step into a confident wrong number
+         * on an invoice — the exact failure `TaxEngine.Resolve` refuses to make server-side.
+         */
+        using var rep = fixture.CreateAuthenticatedClient(fixture.AccessToken);
+        using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var outletId = await OutletAsync(admin);
+        await GiveRepTheTerritoryAsync(admin, rep, outletId);
+
+        var device = await BindDeviceAsync(rep);
+        var pull = await PullAsync(rep, device);
+
+        Assert.Null(Assert.Single(pull.Changes.Outlets.Upserts, o => o.Id == outletId).CountryCode);
+    }
+
+    [Fact]
     public async Task A_second_pull_at_the_cursor_carries_only_what_changed_since()
     {
         using var rep = fixture.CreateAuthenticatedClient(fixture.AccessToken);
@@ -377,11 +488,12 @@ public class SyncPullTests(ServerFixture fixture)
     /// An outlet whose code and name the caller chose — for the one test where the difference
     /// between the two is the thing under test.
     /// </summary>
-    private static async Task<Guid> OutletAsync(HttpClient client, Guid channelId, string code, string name)
+    private static async Task<Guid> OutletAsync(
+        HttpClient client, Guid channelId, string code, string name, Address? address = null)
     {
         var response = await client.PostAsJsonAsync(
             "/api/outlets",
-            new CreateOutletRequest(code, name, channelId, "Europe/Bucharest", null));
+            new CreateOutletRequest(code, name, channelId, "Europe/Bucharest", null, Address: address));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<OutletResponse>())!.Id;

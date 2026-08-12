@@ -49,6 +49,7 @@ function outletRow(id: string, rowVersion: number): ReferenceOutlet {
     status: "Active",
     latitude: null,
     longitude: null,
+    countryCode: null,
     radiusMetres: 150,
     rowVersion,
   };

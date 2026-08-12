@@ -3953,9 +3953,15 @@ Content-Type: application/json
 # in force. Expired rates are sent rather than filtered — `BR-PRD-6` resolves against the *order's*
 # date, and a device syncing a week's work needs the rate that applied on the day of each order.
 #
-# Note what is **not** here: the device still cannot pick a rate on its own, because
-# `outlets[].countryCode` does not exist yet — a rate is matched to a jurisdiction, and the shop's
-# is the half that is missing. That is W11 slice 7c.
+# `outlets[].countryCode` joins in W11 slice 7c, and it is what makes the rates above usable — a
+# rate is matched to a jurisdiction, and this is the shop's half of that match. The *shop's*, not
+# the rep's and not the tenant's: a tenant selling across a border has reps who cross it, and a
+# device reading one country from configuration would charge Romanian VAT in Sofia.
+#
+# It is **null** for a shop whose address was never completed (`OUT-01` — a half-known outlet must
+# still be recordable), and that null means *unknown tax*, not untaxed. Same reading as
+# `GET /api/products/outlets/{id}/tax` gives below, which is the point: `BR-ORD-2` has the rep's
+# total and this server's recomputation agree to the cent.
 
 POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
