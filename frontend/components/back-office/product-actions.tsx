@@ -1,6 +1,6 @@
 "use client";
 
-import { BadgePercent, Boxes, Tag, Tags } from "lucide-react";
+import { BadgePercent, Boxes, Coins, Tag, Tags } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { LinkButton } from "@/components/ui/link-button";
@@ -47,6 +47,15 @@ export function ProductActions() {
         <BadgePercent className="size-4" />
         {t("managePromotions")}
       </LinkButton>
+
+      {/* Order minimums need `channel:read` for the same reason assortments do: the screen is a list
+          of channels, and a reader without it would get an empty one and no way to tell why. */}
+      {has("channel:read") ? (
+        <LinkButton href="/products/order-minimums" size="sm" variant="outline">
+          <Coins className="size-4" />
+          {t("manageOrderMinimums")}
+        </LinkButton>
+      ) : null}
 
       <LinkButton href="/products/classification" size="sm" variant="outline">
         <Tags className="size-4" />
