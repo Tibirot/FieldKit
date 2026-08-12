@@ -604,7 +604,8 @@
     "manageClassification": "Manage classification",
     "manageAssortments": "Manage assortments",
     "managePriceLists": "Manage price lists",
-    "managePromotions": "Manage promotions"
+    "managePromotions": "Manage promotions",
+    "manageOrderMinimums": "Order minimums"
   },
   "Classification": {
     "crumb": "Master data / Products / Classification",
@@ -1053,6 +1054,15 @@
         "tooSmall": "“{key}” must be at least {min}.",
         "tooLarge": "“{key}” must be at most {max}.",
         "invalid": "“{key}” is not valid."
+      },
+      "orderMinimum": {
+        "oneScope": "A minimum applies to a channel or to one shop, not both and not neither.",
+        "currencyInvalid": "A currency is a three-letter ISO-4217 code, e.g. RON.",
+        "amountNotANumber": "“{amount}” is not a decimal amount.",
+        "amountNotPositive": "A minimum is above zero. Clear the amount instead of setting it to nothing.",
+        "scopeDuplicated": "{count} scope(s) appear more than once.",
+        "unknownOutlet": "That outlet does not exist.",
+        "unknownChannel": "That channel does not exist."
       }
     },
     "journey": {
@@ -1518,5 +1528,36 @@
       "signIn": "Sign in again",
       "signingIn": "Signing in…"
     }
+  },
+  "OrderMinimums": {
+    "crumb": "Master data / Products / Order minimums",
+    "title": "Order minimums",
+    "intro": "The smallest order a shop may place. A rep is told the threshold at the counter and refused below it, offline — so a minimum set here reaches devices on their next sync, and one removed stops applying on theirs.",
+    "channels": "Channels",
+    "channelsHint": "The ordinary case: every outlet trading in a channel is held to its minimum. Leave an amount blank for no minimum.",
+    "outlets": "Individual outlets",
+    "outletsHint": "The exception: a shop held to something other than its channel. Its own minimum wins over the channel’s.",
+    "noChannels": "No channels yet. Create one under Outlets first.",
+    "noOutlets": "No individual outlets. Minimums apply through channels only.",
+    "noMinimum": "None",
+    "amountFor": "Minimum for {scope}",
+    "currencyFor": "Currency for {scope}",
+    "searchOutlets": "Search outlets",
+    "searchPlaceholder": "Search by code or name — at least two characters…",
+    "noMatches": "No outlet matches “{search}”.",
+    "add": "Add",
+    "added": "Added",
+    "addNamed": "Add {name} ({code})",
+    "removeNamed": "Remove {name} ({code})",
+    "unknownOutlet": "Outlet could not be loaded",
+    "count": "{count, plural, one {# minimum set} other {# minimums set}}.",
+    "noneSet": "No minimum anywhere. Every order can be submitted at any value.",
+    "loading": "Loading…",
+    "failed": "This could not be loaded.",
+    "forbidden": "You do not have permission to view order minimums.",
+    "save": "Save minimums",
+    "saving": "Saving…",
+    "saveFailed": "These minimums could not be saved.",
+    "unsaved": "Unsaved changes."
   }
 }

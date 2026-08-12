@@ -604,7 +604,8 @@
     "manageClassification": "Gestionează clasificarea",
     "manageAssortments": "Gestionează sortimentele",
     "managePriceLists": "Gestionează listele de prețuri",
-    "managePromotions": "Gestionează promoțiile"
+    "managePromotions": "Gestionează promoțiile",
+    "manageOrderMinimums": "Comenzi minime"
   },
   "Classification": {
     "crumb": "Date de bază / Produse / Clasificare",
@@ -1053,6 +1054,15 @@
         "tooSmall": "„{key}” este cel puțin {min}.",
         "tooLarge": "„{key}” este cel mult {max}.",
         "invalid": "„{key}” nu este valid."
+      },
+      "orderMinimum": {
+        "oneScope": "Un minim se aplică unui canal sau unui magazin, nu ambelor și nu niciunuia.",
+        "currencyInvalid": "O monedă este un cod ISO-4217 din trei litere, de exemplu RON.",
+        "amountNotANumber": "“{amount}” nu este o valoare zecimală.",
+        "amountNotPositive": "Un minim este peste zero. Șterge suma în loc să o setezi la nimic.",
+        "scopeDuplicated": "{count} domeniu/domenii apar de mai multe ori.",
+        "unknownOutlet": "Magazinul nu există.",
+        "unknownChannel": "Canalul nu există."
       }
     },
     "journey": {
@@ -1518,5 +1528,36 @@
       "signIn": "Autentifică-te din nou",
       "signingIn": "Se autentifică…"
     }
+  },
+  "OrderMinimums": {
+    "crumb": "Date de bază / Produse / Comenzi minime",
+    "title": "Comenzi minime",
+    "intro": "Cea mai mică comandă pe care o poate plasa un magazin. Reprezentantul vede pragul la raft și este refuzat sub el, offline — așa că un minim setat aici ajunge pe dispozitive la următoarea sincronizare, iar unul șters încetează să se aplice la a lor.",
+    "channels": "Canale",
+    "channelsHint": "Cazul obișnuit: fiecare magazin dintr-un canal este ținut la minimul acestuia. Lasă suma goală pentru niciun minim.",
+    "outlets": "Magazine individuale",
+    "outletsHint": "Excepția: un magazin ținut la altceva decât canalul său. Minimul propriu are prioritate față de cel al canalului.",
+    "noChannels": "Niciun canal încă. Creează unul la Magazine mai întâi.",
+    "noOutlets": "Niciun magazin individual. Minimele se aplică doar prin canale.",
+    "noMinimum": "Niciunul",
+    "amountFor": "Minim pentru {scope}",
+    "currencyFor": "Monedă pentru {scope}",
+    "searchOutlets": "Caută magazine",
+    "searchPlaceholder": "Caută după cod sau nume — cel puțin două caractere…",
+    "noMatches": "Niciun magazin nu corespunde “{search}”.",
+    "add": "Adaugă",
+    "added": "Adăugat",
+    "addNamed": "Adaugă {name} ({code})",
+    "removeNamed": "Elimină {name} ({code})",
+    "unknownOutlet": "Magazinul nu a putut fi încărcat",
+    "count": "{count, plural, one {# minim setat} few {# minime setate} other {# de minime setate}}.",
+    "noneSet": "Niciun minim nicăieri. Orice comandă poate fi trimisă la orice valoare.",
+    "loading": "Se încarcă…",
+    "failed": "Nu s-a putut încărca.",
+    "forbidden": "Nu ai permisiunea de a vedea comenzile minime.",
+    "save": "Salvează minimele",
+    "saving": "Se salvează…",
+    "saveFailed": "Minimele nu au putut fi salvate.",
+    "unsaved": "Modificări nesalvate."
   }
 }

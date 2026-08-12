@@ -149,8 +149,13 @@ export const pricesKey = (subject: string, id: string) =>
  * price. Checking it here means the message appears under the field instead of arriving as a refusal
  * about a list; the server checks it again regardless.
  *
- * Not `Number.isFinite(Number(value))`: that accepts `"1e3"`, `" 12 "` and `"Infinity"`, and turns
- * the string into a float to find out.
+ * Not `Number.isFinite(Number(value))`: that accepts `"1e3"` and `"Infinity"`, and turns the string
+ * into a float to find out.
+ *
+ * <b>Surrounding space is accepted, not refused</b> — the `.trim()` above is deliberate, and this
+ * comment used to list `" 12 "` among the things a naive `Number()` would wrongly accept. It does
+ * not: both read it as twelve. Corrected in W11 slice 8b-iii by a test that asserted the sentence
+ * and found it false. Callers send the trimmed value.
  */
 export function looksLikeAnAmount(value: string): boolean {
   return /^-?\d+(\.\d+)?$/.test(value.trim());
