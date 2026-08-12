@@ -7,6 +7,7 @@ import { CheckOut } from "@/components/field/check-out";
 import { useSync } from "@/components/sync/sync-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/link-button";
 import type { LocalVisit, LocalVisitStep } from "@/lib/sync/db";
 import { useLive } from "@/lib/sync/live";
 import { outlet as heldOutlet } from "@/lib/sync/reference";
@@ -211,6 +212,19 @@ function StepRow({ visit, step }: { visit: LocalVisit; step: LocalVisitStep }) {
         <p className="text-sm text-destructive" role="alert">
           {t(`refusal.${refused in REFUSAL_KEYS ? REFUSAL_KEYS[refused as ReachableRefusal] : "unexpected"}`)}
         </p>
+      ) : null}
+
+      {/*
+        The first step type to grow a screen of its own (W11 slice 7), and it sits *beside* "Mark
+        done" rather than replacing it. Taking the order and ticking the step are two acts: a rep may
+        open the counter, be told to come back after the delivery, and still have done the step. The
+        alternative — completing the step on submit — would make an order the only way to finish it,
+        and `BR-VIS-3` would then keep a rep in a shop that had nothing to order.
+      */}
+      {open && step.type === "Order" ? (
+        <LinkButton variant="outline" size="sm" className="self-start" href={`/field/visits/${visit.id}/order`}>
+          {t("openOrder")}
+        </LinkButton>
       ) : null}
 
       {open ? (

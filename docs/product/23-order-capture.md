@@ -89,6 +89,17 @@ Lifecycle and mechanics per [B4](decisions-and-assumptions.md#b4--order-lifecycl
   BR-ORD-4, and it guarantees rejected work is never stranded ([B4](decisions-and-assumptions.md#b4--order-lifecycle),
   [sync engine §4](../architecture/12-offline-sync-engine.md#4-push-protocol-device-owned-mutations)).
 
+> **The captured order has nowhere to put tax** (found building the capture screen, W11 slice 7).
+> `CapturedOrderLine` carries `unitPrice` and `lineTotal` and nothing else; `OrderLine.LineTotal` is
+> *"what the device made of the line after any promotion it applied"* — the **net** — and the order's
+> `Total` is a sum of those. So a device that prices tax under `ORD-02` shows the rep a gross the wire
+> cannot carry, and the back office receives an order net of VAT.
+>
+> Storing the gross in `lineTotal` instead is worse, not better: the server sums that column into a
+> total with no tax in it, so the two sides would then disagree by exactly the VAT on every order —
+> the failure `ORD-07`'s sync work spent three slices removing. The fix is a field, and it belongs
+> with `BR-ORD-6`'s re-price comparison rather than inside a screen slice.
+
 ### 5.1 Two things the rules leave to the schema (W11 slice 0)
 
 Both are settled here rather than when the code needs them, because neither can be applied to orders

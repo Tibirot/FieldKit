@@ -50,6 +50,7 @@ const SHOP: ReferenceOutlet = {
   status: "Active",
   latitude: 44.4638,
   longitude: 26.0946,
+  countryCode: "RO",
   radiusMetres: 150,
   rowVersion: 4,
 };

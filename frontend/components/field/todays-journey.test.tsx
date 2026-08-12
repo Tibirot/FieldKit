@@ -44,6 +44,7 @@ function outlet(id: string, name: string, code: string): ReferenceOutlet {
     status: "Active",
     latitude: 44.4638,
     longitude: 26.0946,
+    countryCode: "RO",
     radiusMetres: 150,
     rowVersion: 4,
   };

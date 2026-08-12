@@ -1398,7 +1398,8 @@
         "Productive": "Productivă",
         "NonProductive": "Fără rezultat"
       },
-      "stepsLabel": "Pașii vizitei"
+      "stepsLabel": "Pașii vizitei",
+      "openOrder": "Ia comanda"
     },
     "checkOut": {
       "title": "Încheie vizita",
@@ -1457,6 +1458,39 @@
       "why": "Instalată, se deschide de pe ecranul principal, iar browserul nu îi mai șterge datele — asta ține în siguranță o zi de lucru offline.",
       "action": "Instalează",
       "dismiss": "Mai târziu"
+    },
+    "order": {
+      "opening": "Se deschide comanda…",
+      "title": "Comandă",
+      "empty": "Nimic pe această comandă încă. Alege un produs mai jos și scrie ce cantitate.",
+      "linesLabel": "Pe această comandă",
+      "catalogueLabel": "Ce se poate vinde în acest magazin",
+      "noAssortment": "Acest magazin nu are produse configurate pentru comandă. Anunță-ți supervizorul.",
+      "quantity": "{quantity} {unit}",
+      "quantityLabel": "Ce cantitate de {product}",
+      "add": "Adaugă",
+      "remove": "Elimină",
+      "promoted": "Promoție aplicată",
+      "unpriced": "Fără preț",
+      "unpricedLines": "{count, plural, one {# linie nu are preț în acest magazin și nu intră în total} few {# linii nu au preț în acest magazin și nu intră în total} other {# de linii nu au preț în acest magazin și nu intră în total}}",
+      "unknownProduct": "Un produs pe care dispozitivul nu îl are",
+      "subtotal": "Subtotal",
+      "discount": "Reducere",
+      "tax": "TVA",
+      "total": "Total",
+      "refusal": {
+        "quantity": "Scrie cantitatea, ca număr mai mare decât zero.",
+        "unpriced": "Acest magazin nu are astăzi un preț pentru acel produs, așa că nu poate fi comandat."
+      },
+      "unknownVisit": {
+        "title": "Vizita nu se află pe acest dispozitiv",
+        "body": "O comandă aparține unei vizite. Deschide magazinul din ruta de azi ca să începi una."
+      },
+      "sealed": {
+        "title": "Vizita este încheiată",
+        "body": "O comandă se poate lua doar cât timp vizita este deschisă. Nimic de aici nu mai poate fi modificat."
+      },
+      "totalsLabel": "Total comandă"
     }
   },
   "Guard": {
