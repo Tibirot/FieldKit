@@ -47,6 +47,18 @@ public abstract class ModuleDbContext : DbContext
     {
         // Strongly-typed ids are stored as their underlying primitive across every module.
         configurationBuilder.Properties<TenantId>().HaveConversion<TenantIdValueConverter>();
+
+        /*
+         * Every module, not each one opting in — the defect it ends had five occurrences across
+         * three modules and would have had a sixth in the next.
+         *
+         * A *finalizing* convention rather than a sweep in `OnModelCreating`, because that method
+         * runs base-first: a derived context's `modelBuilder.Entity<T>(…)` calls happen *after*
+         * anything here, and an entity reached only through a navigation would be missed depending
+         * on when EF happened to discover it. Finalizing runs once, over the finished model.
+         */
+        configurationBuilder.Conventions.Add(_ => new ClientGeneratedKeyConvention());
+
         base.ConfigureConventions(configurationBuilder);
     }
 

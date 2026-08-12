@@ -118,12 +118,6 @@ internal static class ScoreWeightEndpoints
             var refusal = set.Set(Weights(request), clock);
             if (refusal is not WeightSetRefusal.None) return Refuse(refusal);
 
-            // Announced to the context for the reason the workflow's steps are: the ids are
-            // client-generated, so EF reaches them through a navigation with a non-default key,
-            // settles on `Modified`, and issues UPDATEs that match no row. Third time this shape has
-            // appeared — the Journey module's unplanned call was the second.
-            db.Set<ScoreWeight>().AddRange(set.Weights);
-
             await db.SaveChangesAsync(ct);
 
             return Results.Ok(Respond(set));

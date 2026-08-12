@@ -19,6 +19,7 @@ public static class PersistenceExtensions
         services.AddScoped<EntityStampingInterceptor>();
         services.AddScoped<RowVersionStampingInterceptor>();
         services.AddSingleton<ConvertIntegrationEventsToOutboxInterceptor>();
+        services.AddSingleton<ClientGeneratedKeyGuard>();
         services.AddSingleton<OutboxProcessor>();
 
         services.AddDbContext<TContext>((serviceProvider, options) =>
@@ -29,7 +30,8 @@ public static class PersistenceExtensions
                 .AddInterceptors(
                     serviceProvider.GetRequiredService<EntityStampingInterceptor>(),
                     serviceProvider.GetRequiredService<RowVersionStampingInterceptor>(),
-                    serviceProvider.GetRequiredService<ConvertIntegrationEventsToOutboxInterceptor>()));
+                    serviceProvider.GetRequiredService<ConvertIntegrationEventsToOutboxInterceptor>(),
+                    serviceProvider.GetRequiredService<ClientGeneratedKeyGuard>()));
 
         return services;
     }

@@ -124,15 +124,11 @@ internal static class VisitWorkflowEndpoints
             }
             else
             {
+                // The replacements need no announcing to the context, and until `ModuleDbContext`
+                // gained `ClientGeneratedKeyConvention` they did: EF read their client-set keys as
+                // proof the rows existed and issued UPDATEs that matched none. Dropping the old rows
+                // is orphan removal, which EF has always handled on its own.
                 existing.Set(request.PresenceExpected, steps, clock);
-
-                // The replacements are announced to the context, and it is not redundant: their ids
-                // are client-generated (`Guid.CreateVersion7`), so EF sees a non-default key on an
-                // entity reached through a navigation and settles on `Modified` — issuing UPDATEs
-                // that match no row and failing as a concurrency exception. The same shape a rep's
-                // unplanned call hit in the Journey module. Dropping the old rows is orphan removal
-                // and EF does handle that on its own.
-                db.Set<VisitWorkflowStep>().AddRange(existing.Steps);
             }
 
             await db.SaveChangesAsync(ct);

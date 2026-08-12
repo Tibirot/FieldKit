@@ -251,13 +251,6 @@ internal static class PlanEndpoints
             var refusal = plan.TryAddUnplanned(request.OutletId, request.Date, clock, out var added);
             if (refusal is not JourneyPlan.AnnotationRefusal.None) return Refuse(refusal);
 
-            // Added through the context as well as through the aggregate, and it is not redundant:
-            // the id is client-generated (`Guid.CreateVersion7`), so EF sees a non-default key on an
-            // entity reached through a navigation and settles on `Modified` — issuing an UPDATE that
-            // matches no row and failing as a concurrency exception. Saying `Added` outright is the
-            // fix; the collection still holds it, which is what keeps the response honest.
-            db.Set<PlannedVisit>().Add(added!);
-
             await db.SaveChangesAsync(ct);
 
             return Results.Created($"/api/journey/plans/{plan.Id}", Respond(added!));

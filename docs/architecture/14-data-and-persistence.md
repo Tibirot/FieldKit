@@ -73,6 +73,22 @@ Per [ADR-0009](adr/0009-config-driven-customization.md):
 | Geo | `geography(Point)` (PostGIS) for outlet location / geofence |
 | Soft delete / tombstones | Reference data uses tombstones for sync; transactional data is append-only |
 
+> **A `Guid` key is `ValueGeneratedNever`, in every module.** Applied once by
+> `ClientGeneratedKeyConvention` in `ModuleDbContext`, and it is a correctness rule rather than
+> tidiness. EF's default is `ValueGenerated.OnAdd` — it offers to invent the key — and from that it
+> follows that a key which already holds a value must have come from the store. So when a new child
+> appears on an **already-tracked** parent, EF marks it `Modified` and issues an `UPDATE` that matches
+> no row: silent data loss on the HTTP paths, a 500 on `/sync/push`. Here the premise is simply false
+> — every aggregate names its own children with `Guid.CreateVersion7()` before EF sees them — and the
+> convention withdraws it. This cost five separate local workarounds across three modules before it
+> was fixed once.
+>
+> Two corollaries. A **brand-new detached root** was never affected: `db.Set<T>().Add(root)` paints the
+> whole graph `Added` whatever the keys hold. And because EF no longer invents a key,
+> `ClientGeneratedKeyGuard` refuses to save a row whose `Guid` key is still `Guid.Empty` — otherwise
+> the first such row stores all zeros and only the *second* trips the primary key, in a different
+> request and blaming the wrong row.
+
 ## 5. Auditing
 
 - A save interceptor stamps **created/modified at + actor** on auditable entities (actor from
