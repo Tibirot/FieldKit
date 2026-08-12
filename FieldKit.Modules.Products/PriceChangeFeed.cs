@@ -30,13 +30,36 @@ internal sealed class PriceChangeFeed(ProductsDbContext db) : IPriceChangeFeed
     public async Task<PriceChangePage<PriceLineSnapshot>> GetLineChangesAsync(
         long cursor, int limit, CancellationToken cancellationToken = default)
     {
-        var upserts = await db.PriceListLines
+        /*
+         * Materialised before the snapshot is built, which the amount's string form forces.
+         *
+         * `WireDecimal.From` is invariant-culture .NET formatting and has no SQL translation, so
+         * projecting into the snapshot inside the query would fail at runtime rather than at build.
+         * Reading the four columns first and shaping them in memory costs nothing here — the page is
+         * already bounded by `limit`.
+         */
+        var rows = await db.PriceListLines
             .Where(line => line.RowVersion > cursor)
             .OrderBy(line => line.RowVersion)
             .Take(limit)
-            .Select(line => new PriceLineSnapshot(
-                line.Id, line.PriceListId, line.ProductId, line.Amount, line.RowVersion))
+            .Select(line => new
+            {
+                line.Id,
+                line.PriceListId,
+                line.ProductId,
+                line.Amount,
+                line.RowVersion,
+            })
             .ToListAsync(cancellationToken);
+
+        var upserts = rows
+            .Select(row => new PriceLineSnapshot(
+                row.Id,
+                row.PriceListId,
+                row.ProductId,
+                WireDecimal.From(row.Amount),
+                row.RowVersion))
+            .ToList();
 
         /*
          * Lines are the largest thing this protocol carries — a list times a catalogue — and the one

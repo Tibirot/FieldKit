@@ -79,7 +79,19 @@ public class SyncPullPriceTests(ServerFixture fixture)
         var line = Assert.Single(Upserts(Page(first, "priceLines")), row =>
             row.GetProperty("priceListId").GetGuid() == listId);
 
-        Assert.Equal(12.5m, line.GetProperty("amount").GetDecimal());
+        /*
+         * A **string**, and the assertion says so rather than reading a decimal out of it (W11
+         * slice 7a).
+         *
+         * This used to be `GetDecimal()`, which passes against a JSON number and a JSON string alike
+         * — so it could not see the thing that was wrong: `JSON.parse` in the device turns a bare
+         * `12.5` into an IEEE-754 float before `decimal.js` is ever handed it, which defeats the
+         * whole of the pricing engine's exactness. `GetString()` is what pins the wire form.
+         *
+         * "12.50" rather than "12.5": the shape `ScoreWeightSnapshot` uses, and what a price list
+         * showing 12.5 would read as to anyone who works with prices.
+         */
+        Assert.Equal("12.50", line.GetProperty("amount").GetString());
 
         var second = await PullAsync(
             rep,

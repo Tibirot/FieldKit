@@ -6,9 +6,16 @@ namespace FieldKit.Modules.Products.Contracts;
 /// <remarks>Exactly one id is set. An empty target list means the promotion applies to everything.</remarks>
 public sealed record PromotionTargetSnapshot(Guid? ProductId, Guid? CategoryId);
 
-/// <summary>One threshold of a volume promotion. Ordered by <see cref="MinQuantity"/>.</summary>
+/// <summary>
+/// One threshold of a volume promotion. Ordered by <see cref="MinQuantity"/>.
+/// </summary>
+/// <remarks>
+/// The two decimals travel as <c>string</c>s (W11 slice 7a) — see <see cref="PromotionSnapshot"/>.
+/// <see cref="MinQuantity"/> stays an <c>int</c> because it genuinely is one: a tier reads "buy 6 or
+/// more", and whole units is what the rule means.
+/// </remarks>
 public sealed record PromotionTierSnapshot(
-    int MinQuantity, decimal? PercentOff, decimal? AmountOff, string? Currency);
+    int MinQuantity, string? PercentOff, string? AmountOff, string? Currency);
 
 /// <summary>
 /// One promotion as the device holds it (<c>PRD-05</c>, sync engine §3).
@@ -25,17 +32,25 @@ public sealed record PromotionTierSnapshot(
 /// the day a value is inserted into that enum — a percentage becoming a fixed amount, on a device
 /// that is offline and cannot be told.
 /// </para>
+/// <para>
+/// <b>Every decimal travels as a <c>string</c></b> (W11 slice 7a), the same rule
+/// <c>ScoreWeightSnapshot.Percentage</c> already followed and this feed did not. A bare <c>12.5</c>
+/// is a JSON number, and <c>JSON.parse</c> hands the device an IEEE-754 float — which is what the
+/// whole of W7's <c>decimal.js</c> engine exists to keep out. A discount is the worst place to lose
+/// it: the error compounds with quantity, and the rep and the shopkeeper have already shaken hands
+/// on the number.
+/// </para>
 /// </remarks>
 public sealed record PromotionSnapshot(
     Guid Id,
     string Name,
     string Type,
-    decimal? PercentOff,
-    decimal? AmountOff,
+    string? PercentOff,
+    string? AmountOff,
     string? Currency,
     int? BuyQuantity,
     int? GetQuantity,
-    decimal? GetPercentOff,
+    string? GetPercentOff,
     Guid? GetProductId,
     DateOnly ValidFrom,
     DateOnly? ValidTo,

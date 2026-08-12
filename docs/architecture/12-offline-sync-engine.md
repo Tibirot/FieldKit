@@ -191,6 +191,23 @@ POST /sync/pull
 territory scope** ([A4](../product/decisions-and-assumptions.md#a4--offline-data-scope-territory-scoped)),
 plus the new high-water mark and any **tombstones** (deletes/out-of-scope):
 
+> **Every decimal on this protocol is a `string`.** A price, a discount percentage, a fixed amount
+> off, a perfect-store weight — none of them cross as JSON numbers, because `JSON.parse` turns a bare
+> `4.50` into an IEEE-754 float *before* the device's `decimal.js` engine is handed it. That defeats
+> the exactness `BR-PRD-8` and `BR-ORD-2` are about: the rep's total and the server's recomputation
+> are supposed to agree to the cent, and a price that arrived as a float has already lost the
+> argument.
+>
+> **Prices and promotions shipped as numbers and nobody noticed for five weeks** (W6 → W11 slice 7a).
+> The parity vectors could not catch it — they feed the engine strings from a file and never touch a
+> pull feed — and the write side was already correct, so the inconsistency lived inside one module.
+> `ScoreWeightSnapshot.Percentage` had the rule right from the start; it simply was not applied to
+> the two feeds that carry money.
+>
+> Format is invariant-culture `0.00##`: at least two places because money has them, up to four
+> because a unit price legitimately carries them and rounding happens at the line.
+> **Counts stay numbers** — a tier's `minQuantity` is genuinely an integer.
+
 ```jsonc
 {
   "changes": {

@@ -213,15 +213,23 @@ export type ReferencePriceList = {
 /**
  * One product's price on one list.
  *
- * `amount` arrives as a number because that is what JSON has. Every calculation the device does with
- * it goes through `lib/pricing`'s Money, which is decimal.js — the parity suite exists because
- * float arithmetic on money is the one thing the two languages must never disagree about.
+ * `amount` is a decimal **string**, and this comment used to say the opposite.
+ *
+ * It read: "`amount` arrives as a number because that is what JSON has. Every calculation goes
+ * through Money, which is decimal.js — the parity suite exists because float arithmetic on money is
+ * the one thing the two languages must never disagree about." Every clause of that is true and the
+ * conclusion was backwards: `JSON.parse` had already made it an IEEE-754 float *before* `Money` could
+ * read it, so the engine was decimal-exact over a value that was not. The parity suite could not see
+ * it because it feeds the engine strings from a file and never touches a pull feed.
+ *
+ * Fixed at the source in W11 slice 7a — `PriceLineSnapshot.Amount` is a string on the wire — and
+ * version 8 re-baselines the price watermarks so a device already holding numbers re-pulls.
  */
 export type ReferencePriceLine = {
   id: string;
   priceListId: string;
   productId: string;
-  amount: number;
+  amount: string;
   rowVersion: number;
 };
 
@@ -237,11 +245,17 @@ export type ReferencePriceAssignment = {
 /** What a promotion applies to. Exactly one id is set; an empty list means "everything". */
 export type ReferencePromotionTarget = { productId: string | null; categoryId: string | null };
 
-/** One threshold of a volume promotion, ordered by `minQuantity`. */
+/**
+ * One threshold of a volume promotion, ordered by `minQuantity`.
+ *
+ * The two decimals are **strings** for the reason `ReferencePriceLine.amount` is. `minQuantity`
+ * stays a number because it genuinely is one — a tier reads "buy 6 or more", and whole units is what
+ * the rule means.
+ */
 export type ReferencePromotionTier = {
   minQuantity: number;
-  percentOff: number | null;
-  amountOff: number | null;
+  percentOff: string | null;
+  amountOff: string | null;
   currency: string | null;
 };
 
@@ -251,17 +265,21 @@ export type ReferencePromotionTier = {
  * Targets and tiers live *inside* it, and the reason is sharper than the workflow's: a device
  * holding four of five tiers does not fail, it computes a **different discount** — and neither the
  * rep nor the shop has any way to notice.
+ *
+ * Every decimal is a **string** (W11 slice 7a) — see `ReferencePriceLine.amount`. A discount is the
+ * worst place to lose exactness: the error compounds with quantity, and the rep and the shopkeeper
+ * have already shaken hands on the number. The quantities stay numbers because they are counts.
  */
 export type ReferencePromotion = {
   id: string;
   name: string;
   type: string;
-  percentOff: number | null;
-  amountOff: number | null;
+  percentOff: string | null;
+  amountOff: string | null;
   currency: string | null;
   buyQuantity: number | null;
   getQuantity: number | null;
-  getPercentOff: number | null;
+  getPercentOff: string | null;
   getProductId: string | null;
   validFrom: string;
   validTo: string | null;
@@ -734,6 +752,30 @@ export class FieldKitDatabase extends Dexie {
     this.version(7).stores({
       orders: "id, visitId, status",
     });
+
+    /*
+     * Version 8 — money on the pull feeds stops being a float (`BR-PRD-8`, W11 slice 7a).
+     *
+     * `PriceLineSnapshot.Amount` and every decimal on a promotion now cross the wire as strings, so
+     * `ReferencePriceLine.amount` and the promotion's four decimals are `string` rather than
+     * `number`. A device that synced before this holds the old shape: numbers that have already been
+     * through `JSON.parse`, which is exactly the IEEE-754 the pricing engine exists to avoid.
+     *
+     * <b>So the two watermarks are dropped and the rows re-pulled.</b> Unlike versions 3 and 4 —
+     * which re-baselined because a *field was added* — this one re-baselines because the rows on the
+     * device are the wrong **type**, and a delta pull would only correct the ones that happened to
+     * change afterwards. A price nobody edits would keep its float forever.
+     *
+     * The rows are left in place rather than cleared: a device that goes offline between the upgrade
+     * and the next sync can still show a rep the catalogue and its prices, which is a better failure
+     * than an empty shop — and the value is wrong only in the last decimal place it was ever wrong in.
+     */
+    this.version(8)
+      .stores({})
+      .upgrade(async (tx) => {
+        await tx.table("watermarks").delete("priceLines");
+        await tx.table("watermarks").delete("promotions");
+      });
 
     this.outlets = this.table("ref_outlets");
     this.plannedVisits = this.table("ref_planned_visits");

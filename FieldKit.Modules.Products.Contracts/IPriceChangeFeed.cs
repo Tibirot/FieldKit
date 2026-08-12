@@ -16,12 +16,30 @@ public sealed record PriceListSnapshot(
     DateOnly? EffectiveTo,
     long RowVersion);
 
-/// <summary>One product's price on one list.</summary>
+/// <summary>
+/// One product's price on one list.
+/// </summary>
+/// <remarks>
+/// <b><see cref="Amount"/> travels as a <c>string</c></b> (W11 slice 7a), for the reason
+/// <c>ScoreWeightSnapshot.Percentage</c> already does: a bare <c>4.50</c> is a JSON number, and
+/// <c>JSON.parse</c> makes it an IEEE-754 float before the device's pricing engine ever sees it.
+/// <para>
+/// That defeats the entire point of W7 slices 11–15. The device engine reads decimal strings into
+/// <c>decimal.js</c> precisely so `BR-ORD-2` can promise the rep's total and the server's
+/// recomputation agree to the cent — and a price that arrived as a float has already lost that
+/// argument. The parity vectors never caught it because they feed the engine strings from a file and
+/// never touch this feed.
+/// </para>
+/// <para>
+/// It is <b>not</b> <c>Money</c>, so <c>MoneyJsonConverter</c> does not apply: the currency lives on
+/// the list rather than the line, and a per-line currency would let one list hold two.
+/// </para>
+/// </remarks>
 public sealed record PriceLineSnapshot(
     Guid Id,
     Guid PriceListId,
     Guid ProductId,
-    decimal Amount,
+    string Amount,
     long RowVersion);
 
 /// <summary>
