@@ -348,6 +348,85 @@ export type LocalVisit = {
  */
 export type LocalVisitStatus = "inProgress" | "checkedOut";
 
+/**
+ * One line of an order as the device holds it (`ORD-01`, `ORD-05`) — W11 slice 6.
+ *
+ * <b>Every number here is a decimal *string*, and that is the whole point.</b> A quantity can be a
+ * weight and a price is money; `0.1 + 0.2` is exactly the arithmetic `Money` and `decimal.js` exist
+ * to keep out of this app (`BR-PRD-8`). The screen computes with `Money`, stores the result as a
+ * string, and only the projection onto the wire turns it into a JSON number — see `captured` in
+ * `local-order.ts` for why that last step is where the conversion belongs.
+ */
+export type LocalOrderLine = {
+  productId: string;
+  /** How many, in `unitOfMeasure`. A decimal string — a quantity can be a weight. */
+  quantity: string;
+  /** The unit as it was when the rep picked it, copied and never reached for later. */
+  unitOfMeasure: string;
+  /** Units per pack at capture; null when sold loose. */
+  packSize: number | null;
+  /** What the device charged per unit. The record, not a suggestion (`BR-ORD-6`). */
+  unitPrice: string;
+  /** What the device made of the line after any promotion it applied. */
+  lineTotal: string;
+};
+
+/**
+ * An order as the device holds it (`ORD-01`, `ORD-05`, `OFF-01b`) — W11 slice 6.
+ *
+ * <b>The second thing in this database the device authors</b>, after `LocalVisit`, and it is the one
+ * `B4` puts a whole lifecycle state on: `Draft` exists **here and nowhere else**. The server's first
+ * status is `Submitted`, so a draft that is lost is work that never existed anywhere — which is what
+ * makes this store, rather than the outbox, the thing `ORD-05` is really about.
+ *
+ * <b>The shape is the server's `CapturedOrder`</b>, so sealing it is a projection rather than a
+ * translation, and a field this type is missing is a field the push cannot send. What it adds is the
+ * device's own bookkeeping: the status, the outlet (which the wire omits because the server takes it
+ * from the visit), and when it was last touched.
+ */
+export type LocalOrder = {
+  /**
+   * Minted here, and it is the order's identity on both sides.
+   *
+   * A rejected order re-opens under the *same* id and is resubmitted under a new mutation id
+   * (`BR-ORD-9`), which is why the identity has to be the device's and stable across attempts.
+   */
+  id: string;
+  visitId: string;
+  /**
+   * The shop, for this device's own screens only.
+   *
+   * <b>Not sent.</b> `CapturedOrder` has no outlet: the server takes it from the visit, because a
+   * device that could name one could name a different shop from the one the rep stood in.
+   */
+  outletId: string;
+  status: LocalOrderStatus;
+  /** ISO-4217, from the price list the device resolved. Every line is in it (`BR-ORD-7`). */
+  currencyCode: string;
+  /** The order's total as a decimal string — the sum of the rounded lines, never re-derived. */
+  total: string;
+  lines: LocalOrderLine[];
+  /**
+   * When the rep sealed it. Null while it is a draft.
+   *
+   * The server stores this unmodified and it is *not* when the push arrived: an order taken in a
+   * basement on Tuesday and pushed from a car park on Thursday happened on Tuesday.
+   */
+  capturedAtUtc: string | null;
+  /** Device-only, so a list can show the most recently touched draft first. */
+  updatedAtUtc: string;
+};
+
+/**
+ * Where an order has got to on the device.
+ *
+ * <b>`draft` is `B4`'s `Draft`, and `submitted` covers everything after.</b> There is deliberately no
+ * `accepted` or `rejected` here yet: what the back office made of an order arrives on the *pull*
+ * feed, which does not carry orders until the Order module opts back into sync tracking. A status
+ * this store could not keep true would be worse than one it does not have.
+ */
+export type LocalOrderStatus = "draft" | "submitted";
+
 export type OutboxStatus =
   /** Captured and durable. Waiting for a connection. */
   | "pending"
@@ -433,6 +512,7 @@ export class FieldKitDatabase extends Dexie {
   surveys!: EntityTable<ReferenceSurveyForm, "id">;
   scoreWeights!: EntityTable<ReferenceScoreWeightSet, "id">;
   visits!: EntityTable<LocalVisit, "id">;
+  orders!: EntityTable<LocalOrder, "id">;
   outbox!: EntityTable<OutboxEntry, "mutationId">;
   meta!: EntityTable<MetaEntry, "key">;
   watermarks!: EntityTable<Watermark, "entity">;
@@ -630,6 +710,31 @@ export class FieldKitDatabase extends Dexie {
       ref_score_weights: "id, &version",
     });
 
+    /*
+     * Version 7 — the device's own orders (`ORD-05`, `OFF-01b`, W11 slice 6).
+     *
+     * The second store this device *authors*, after `visits`, and the first one holding a state the
+     * server never sees: `B4` puts `Draft` on the device, so an order lost before submit is work that
+     * existed nowhere else. That is what makes this a store rather than an outbox payload — the
+     * outbox holds things already sealed, and a draft is precisely the thing that is not.
+     *
+     * The indexes are the two questions a screen asks:
+     *
+     * - `visitId`, because a rep at a counter wants *this* visit's order, and B4 allows at most one.
+     * - `status`, because "have I got an unsent draft anywhere" is what the shell asks on launch.
+     *
+     * `lines` is not indexed and never will be: it is read with the row that carries it, the same
+     * call `visits.steps` and a survey's `questions` already make.
+     *
+     * <b>No `upgrade()`.</b> Nothing existed to transform — a device that opens the app after this
+     * ships finds the table empty, which is the state a fresh install is in. What `OFF-13` needs from
+     * this version is that a **pending outbox survives it**, and that is `migration.test.ts`'s to
+     * assert rather than this block's to claim.
+     */
+    this.version(7).stores({
+      orders: "id, visitId, status",
+    });
+
     this.outlets = this.table("ref_outlets");
     this.plannedVisits = this.table("ref_planned_visits");
     this.workflows = this.table("ref_visit_workflows");
@@ -644,6 +749,7 @@ export class FieldKitDatabase extends Dexie {
     this.surveys = this.table("ref_surveys");
     this.scoreWeights = this.table("ref_score_weights");
     this.visits = this.table("visits");
+    this.orders = this.table("orders");
     this.outbox = this.table("outbox");
     this.meta = this.table("meta");
     this.watermarks = this.table("watermarks");
@@ -709,3 +815,5 @@ export async function requestPersistentStorage(): Promise<boolean> {
 
   return navigator.storage.persist();
 }
+
+

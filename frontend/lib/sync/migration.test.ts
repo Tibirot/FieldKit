@@ -3,6 +3,7 @@ import "fake-indexeddb/auto";
 import Dexie from "dexie";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { draftFor } from "@/lib/orders/local-order";
 import { closeDatabase, FieldKitDatabase } from "./db";
 import { enqueue, markRejected, pending, pendingCount, statusOf } from "./outbox";
 import {
@@ -213,7 +214,7 @@ describe("upgrading a device that has unsent work", () => {
     // rows. Without this the whole file could be passing against databases that never existed at
     // v1. The number moves with every schema version, which is the point — a device that skipped
     // one still has to arrive at the latest.
-    expect(upgraded.verno).toBe(6);
+    expect(upgraded.verno).toBe(7);
     expect(await upgraded.outbox.count()).toBe(3);
 
     // Still in capture order, which is what the drain depends on — and now read through the new
@@ -494,7 +495,7 @@ describe("upgrading a device whose outlets predate the geofence radius", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(6);
+    expect(upgraded.verno).toBe(7);
     expect(await watermark(upgraded, OUTLETS)).toBe(0);
     expect(await watermark(upgraded, PRODUCTS)).toBe(41);
 
@@ -529,7 +530,7 @@ describe("upgrading a device that predates the visits store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(6);
+    expect(upgraded.verno).toBe(7);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
 
     // The new store exists and is empty, which is the only correct starting state: there were no
@@ -565,7 +566,7 @@ describe("upgrading a device that predates the audit's reference stores", () => 
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(6);
+    expect(upgraded.verno).toBe(7);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
     expect(await upgraded.visits.count()).toBe(1);
 
@@ -609,6 +610,55 @@ describe("upgrading a device that predates the audit's reference stores", () => 
   });
 });
 
+describe("upgrading a device to the order store", () => {
+  it("keeps unsent work and can hold a draft afterwards", async () => {
+    /*
+     * `OFF-13` for version 7, stated as the two halves that could each break on their own.
+     *
+     * The first is the standing promise: an app update must not strand an outbox. The second is
+     * specific to a *new store* — a table declared in a version an existing device replays has to
+     * end up usable, not merely present, and a mis-declared index is the way that fails. A fresh
+     * install would not catch it, because a fresh install never replays anything.
+     */
+    const name = `migration:${crypto.randomUUID()}`;
+
+    const legacy = await openVersionFive(name);
+    await legacy.table("outbox").add({
+      mutationId: "m-order-1",
+      type: "CapturedVisit",
+      subjectId: "visit-1",
+      payload: { visitId: "visit-1" },
+      status: "pending",
+      createdAt: 1_000,
+      attempts: 0,
+    });
+    legacy.close();
+
+    const upgraded = new FieldKitDatabase(name);
+    await upgraded.open();
+
+    expect(upgraded.verno).toBe(7);
+    expect(await upgraded.outbox.count()).toBe(1);
+
+    // The store arrives empty on an upgraded device, which is the state a fresh install is in — so
+    // the rep's next order takes the ordinary path rather than a special one.
+    expect(await upgraded.orders.count()).toBe(0);
+
+    const draft = await draftFor(upgraded, {
+      visitId: "visit-1",
+      outletId: "outlet-1",
+      currencyCode: "RON",
+      now: new Date("2026-08-12T09:45:00.000Z"),
+    });
+
+    // Read back through the `visitId` index rather than by key: the index is the part version 7
+    // declares, and a `.get()` would pass against a table that had none.
+    expect((await upgraded.orders.where("visitId").equals("visit-1").first())?.id).toBe(draft.id);
+
+    upgraded.close();
+  });
+});
+
 describe("the schema itself", () => {
   it("declares every version, so a device that skipped one still arrives", async () => {
     // Dexie replays versions in order to bring an existing database forward. Deleting version 1
@@ -619,7 +669,7 @@ describe("the schema itself", () => {
 
     await db.open();
 
-    expect(db.verno).toBe(6);
+    expect(db.verno).toBe(7);
 
     // The outbox is still keyed by the mutation id, which is the property the server's ledger
     // depends on: a re-send has to arrive under the id it was captured with.
@@ -628,3 +678,5 @@ describe("the schema itself", () => {
     db.close();
   });
 });
+
+
