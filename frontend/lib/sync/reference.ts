@@ -1,5 +1,7 @@
 import type { Table } from "dexie";
 
+import { resolveTaxRate } from "@/lib/pricing/tax";
+
 import type {
   FieldKitDatabase,
   ReferenceAssortmentLine,
@@ -518,6 +520,57 @@ export function taxRatesFor(
     .where("[countryCode+taxClassId]")
     .equals([countryCode.toUpperCase(), taxClassId])
     .toArray();
+}
+
+/**
+ * What tax this product carries at this shop on this day, or **null for unknown** (`PRD-07`,
+ * `BR-PRD-5/6`) — W11 slice 7c.
+ *
+ * <b>The join slice 7b could not make.</b> Rates reached the device a slice ago and sat unusable:
+ * a rate is a fact about a country and a class, and nothing on the device could say which country
+ * the shop belonged to. `OutletSnapshot.countryCode` is the missing half, and this is the only
+ * function that reads it.
+ *
+ * <b>Three ways to answer null, and they are deliberately the same answer.</b> The shop has no
+ * country (its address was never completed), the product has no tax class (nobody said what kind of
+ * thing it is), or nobody has authored a rate for that pair. All three mean *the device does not
+ * know what this is taxed at* — and `priceLine` charges nothing for a null, which is the same total
+ * a genuine `"0.00"` rate produces. That collapse is safe **only** because the caller keeps the
+ * distinction: a 0% rate is a tenant describing zero-rated goods, a null is a tenant who has not
+ * finished setting up, and the server draws the same line (`TaxEndpoints`).
+ *
+ * The mirror of the server's `/api/products/outlets/{id}/tax`, and it has to stay one: `BR-ORD-2`
+ * has the rep's total and the server's recomputation agree to the cent, and tax is the last
+ * multiplication on a line.
+ *
+ * @param on The **order's** date as `YYYY-MM-DD`, not today's. A device syncs a week of work.
+ */
+export async function taxPercentageFor(
+  db: FieldKitDatabase,
+  outletId: string,
+  productId: string,
+  on: string,
+): Promise<string | null> {
+  const shop = await db.outlets.get(outletId);
+  if (!shop?.countryCode) return null;
+
+  const item = await db.products.get(productId);
+  if (!item?.taxClassId) return null;
+
+  const rates = await taxRatesFor(db, shop.countryCode, item.taxClassId);
+
+  // The window is decided here rather than in the query, by the shared resolver both languages run.
+  const resolved = resolveTaxRate(
+    rates.map((rate) => ({
+      taxRateId: rate.id,
+      percentage: rate.percentage,
+      effectiveFrom: rate.effectiveFrom,
+      effectiveTo: rate.effectiveTo,
+    })),
+    on,
+  );
+
+  return resolved?.percentage ?? null;
 }
 
 /**

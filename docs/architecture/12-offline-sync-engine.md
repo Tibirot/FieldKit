@@ -162,6 +162,22 @@ since v1. There is nothing to transform, because there were no visits before it;
 table and an existing device carries on with its outbox and its reference data untouched, which is
 `OFF-13`'s promise for a rep who updates the app mid-day with work still queued.
 
+**Versions 6, 7 and 9 add stores and nothing else** — surveys and score weights (W10 slice 7), the
+device's own `orders` (W11 slice 6), and `ref_tax_rates` (W11 slice 7b). Same argument as version 5:
+there is nothing to transform, and an empty `upgrade()` is a hook somebody later fills in by accident.
+
+**Version 8 re-baselines for a different reason than 3 and 4 did** (W11 slice 7a): those dropped a
+watermark because a field was *added*, this one because the rows were the wrong **type** — prices and
+promotion decimals had been crossing as JSON numbers, so every amount on the device had already been
+through IEEE-754 before `decimal.js` saw it. A delta would have corrected only the ones somebody
+edited afterwards.
+
+**Version 10 is version 3 for the third time** (W11 slice 7c), for `countryCode` on the outlet — and
+by now the shape argues for itself. A snapshot grew a field, so the rows already on a device are thin
+rather than wrong; the delta cannot repair them, because it carries only outlets whose row version
+moved; one watermark is dropped and the rows are left in place. The three bullets above are still the
+whole of it.
+
 **The blob store is not built yet**, deliberately — photo upload is `OFF-08`/W11, and a store with
 no writer is a schema version spent on nothing.
 
@@ -295,10 +311,20 @@ saw a plausible net total that the server's recomputation exceeds by exactly the
 Expired rates are held for the same reason expired promotions are — `BR-PRD-6` resolves against the
 *order's* date, and VAT changes on announced dates.
 
-> **The device still cannot use them, and that is the next slice.** A rate is matched to a
-> jurisdiction, and `OutletSnapshot` carries no `countryCode` — so the shop's half of the match is
-> missing. Until W11 slice 7c adds it, `ref_tax_rates` is a table the device holds and cannot query
-> for the outlet it is standing in.
+**The outlet says which country taxes it** (W11 slice 7c), which is what made the rates usable. A
+rate is matched to a jurisdiction, and until this the device held `ref_tax_rates` and had no way to
+name the country of the shop the rep was standing in. It is the *shop's* country, not the rep's and
+not the tenant's: a tenant selling across a border has reps who cross it, and a device reading one
+country from configuration would charge Romanian VAT in Sofia — a wrong number that looks completely
+ordinary on the screen. `taxPercentageFor` is the only reader, and the join is
+outlet → country → `[countryCode+taxClassId]` → `resolveTaxRate`.
+
+> **Null means *unknown*, in three places, deliberately alike.** The shop has no country (its address
+> was never completed — an address is optional under `OUT-01`), the product has no tax class, or
+> nobody authored a rate for the pair. `priceLine` charges nothing for a null, which is the same total
+> a genuine `"0.00"` rate produces — and that collapse is safe only because the caller keeps the
+> distinction: 0% is a tenant describing zero-rated goods, null is a tenant who has not finished
+> setting up. The server draws the same line in `TaxEndpoints`.
 
 **Prices are the one place a device holds data outside its territory, and it is recorded as a
 limitation rather than defended.** Lists and lines go to every device, so a rep’s phone holds price

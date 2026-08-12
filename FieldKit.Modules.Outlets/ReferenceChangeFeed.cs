@@ -45,6 +45,9 @@ internal sealed class ReferenceChangeFeed(OutletsDbContext db) : IReferenceChang
                 outlet.ChannelId,
                 outlet.Segment,
                 outlet.Status.ToString(),
+                // Null when the shop has no address at all, and null when it has one with no
+                // country — the same *unknown* either way, which is what tax needs it to be.
+                outlet.Address == null ? null : outlet.Address.CountryCode,
                 outlet.Latitude,
                 outlet.Longitude,
                 IOutletGeofence.DefaultRadiusMetres,
@@ -99,6 +102,9 @@ internal sealed class ReferenceChangeFeed(OutletsDbContext db) : IReferenceChang
                 outlet.ChannelId,
                 outlet.Segment,
                 outlet.Status.ToString(),
+                // Null when the shop has no address at all, and null when it has one with no
+                // country — the same *unknown* either way, which is what tax needs it to be.
+                outlet.Address == null ? null : outlet.Address.CountryCode,
                 outlet.Latitude,
                 outlet.Longitude,
                 IOutletGeofence.DefaultRadiusMetres,
@@ -106,3 +112,6 @@ internal sealed class ReferenceChangeFeed(OutletsDbContext db) : IReferenceChang
             .ToListAsync(cancellationToken);
     }
 }
+
+
+
