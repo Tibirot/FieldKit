@@ -13,9 +13,10 @@ namespace FieldKit.Modules.Configuration;
 /// <summary>One question, as an admin sets it. No order — position in the list is the order.</summary>
 /// <remarks>
 /// <para>
-/// The type travels as its name, and the converter is opt-in per property because nothing registers
-/// a global one. Without it this API would accept only the ordinal — which is exactly what the visit
-/// workflow's step type did until somebody posted <c>"Audit"</c> and got a 400.
+/// The type travels as its name, declared on <see cref="SurveyQuestionType"/> rather than repeated
+/// here (W11 slice 0b). While it was per-property, an API that had not repeated it accepted only the
+/// ordinal — which is exactly what the visit workflow's step type did until somebody posted
+/// <c>"Audit"</c> and got a 400.
 /// </para>
 /// <para>
 /// <b><see cref="Mandatory"/> and <see cref="Options"/> carry defaults, and the rest deliberately do
@@ -34,7 +35,7 @@ namespace FieldKit.Modules.Configuration;
 public sealed record SurveyQuestionRequest(
     string Key,
     string Text,
-    [property: JsonConverter(typeof(JsonStringEnumConverter<SurveyQuestionType>))] SurveyQuestionType Type,
+    SurveyQuestionType Type,
     bool Mandatory = false,
     IReadOnlyList<string>? Options = null);
 

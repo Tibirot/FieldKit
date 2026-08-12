@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace FieldKit.Modules.Configuration.Contracts;
 
 /// <summary>
@@ -9,6 +11,7 @@ namespace FieldKit.Modules.Configuration.Contracts;
 /// system — a string would leave "which entities exist" as a question the catalogue could not answer
 /// and a typo could extend.
 /// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<CustomFieldEntity>))]
 public enum CustomFieldEntity
 {
     Outlet = 0,
@@ -25,6 +28,7 @@ public enum CustomFieldEntity
 /// stated in one sentence. Richer kinds — multi-choice, file, formula — wait for something that
 /// needs them: a type nobody uses still has to be validated, synced, rendered and migrated.
 /// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<CustomFieldType>))]
 public enum CustomFieldType
 {
     Text = 0,

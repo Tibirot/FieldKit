@@ -12,6 +12,7 @@ namespace FieldKit.Modules.Audit.Contracts;
 /// the availability pillar unable to tell a distribution problem from a replenishment one, which is
 /// most of what the pillar is for.
 /// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<AvailabilityStatus>))]
 public enum AvailabilityStatus
 {
     /// <summary>On the shelf.</summary>
@@ -31,16 +32,18 @@ public enum AvailabilityStatus
 /// afterwards.
 /// </param>
 /// <remarks>
-/// <see cref="Status"/> travels as its <b>name</b>, and the converter is what makes that true. It is
-/// opt-in per property because nothing registers a global one — without it this record accepts only
-/// the ordinal, which is the bug the visit workflow's step type shipped with and the survey
-/// question's type shipped with. <b>Third occurrence</b>: the wire vectors caught this one on their
-/// first run, which is what they are for, but three is the point at which the global converter is
-/// worth arguing for.
+/// <see cref="Status"/> travels as its <b>name</b>, and nothing here has to say so — the attribute
+/// sits on <see cref="AvailabilityStatus"/> itself, so the rule holds wherever the enum is
+/// serialised rather than wherever someone remembered to repeat it (W11 slice 0b).
+/// <para>
+/// It used to be spelled out per property, and the wire vectors caught this record's omission on
+/// their first run — the third time the same mistake shipped, after the visit workflow's step type
+/// and the survey question's type. That is what a rule enforced by memory looks like.
+/// </para>
 /// </remarks>
 public sealed record CapturedAvailability(
     Guid ProductId,
-    [property: JsonConverter(typeof(JsonStringEnumConverter<AvailabilityStatus>))] AvailabilityStatus Status);
+    AvailabilityStatus Status);
 
 /// <summary>
 /// Facings counted for one product (<c>AUD-02</c>).
@@ -85,6 +88,7 @@ public sealed record CapturedPrice(
 /// agreeing at <see cref="Survey"/> and <see cref="General"/> — neither of which is ever weighted.
 /// Sharing one enum would make adding a scored pillar silently change where photos can be filed.
 /// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<AuditSection>))]
 public enum AuditSection
 {
     /// <summary>Evidence for the availability check (<c>AUD-01</c>).</summary>
@@ -127,7 +131,7 @@ public enum AuditSection
 /// agree without a round trip — the same reason <c>AuditId</c> is the device's.
 /// </param>
 public sealed record CapturedPhoto(
-    [property: JsonConverter(typeof(JsonStringEnumConverter<AuditSection>))] AuditSection Section,
+    AuditSection Section,
     string ObjectKey);
 
 /// <summary>
@@ -202,6 +206,7 @@ public sealed record CapturedAudit(
     IReadOnlyList<CapturedPhoto>? Photos = null);
 
 /// <summary>Why a pushed audit was not applied. <see cref="None"/> means it was.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<AuditIngestRefusal>))]
 public enum AuditIngestRefusal
 {
     None,

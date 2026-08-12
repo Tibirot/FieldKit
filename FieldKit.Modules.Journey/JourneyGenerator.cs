@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace FieldKit.Modules.Journey;
 
 /// <summary>One outlet as generation sees it — everything it needs, and nothing to look up.</summary>
@@ -16,6 +18,7 @@ namespace FieldKit.Modules.Journey;
 public sealed record PlannableOutlet(Guid OutletId, string Code, bool IsOpen, CallFrequency? Frequency);
 
 /// <summary>Why an outlet is not in the plan at all.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<ExclusionReason>))]
 public enum ExclusionReason
 {
     /// <summary>Closed or inactive — <c>BR-JRN-5</c>, which defers to <c>BR-OUT-4</c>.</summary>

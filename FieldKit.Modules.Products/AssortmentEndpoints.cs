@@ -21,7 +21,6 @@ public sealed record SetAssortmentRequest(IReadOnlyList<AssortmentLineRequest> I
 /// <summary>One outlet's departure from its channel's assortment.</summary>
 public sealed record OverrideLineRequest(
     Guid ProductId,
-    [property: JsonConverter(typeof(JsonStringEnumConverter<AssortmentOverrideKind>))]
     AssortmentOverrideKind Kind,
     bool MustStock = false);
 
@@ -33,7 +32,6 @@ public sealed record OverrideResponse(
     Guid ProductId,
     string Sku,
     string Name,
-    [property: JsonConverter(typeof(JsonStringEnumConverter<AssortmentOverrideKind>))]
     AssortmentOverrideKind Kind,
     bool MustStock);
 

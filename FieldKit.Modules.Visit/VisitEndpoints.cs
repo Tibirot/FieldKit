@@ -96,7 +96,7 @@ public sealed record CompleteStepRequest(string? Notes = null);
 /// <see cref="Visit.TryCheckOut"/> for why there is no geofence rule at this end.
 /// </param>
 public sealed record CheckOutRequest(
-    [property: JsonConverter(typeof(JsonStringEnumConverter<VisitOutcome>))] VisitOutcome Outcome,
+    VisitOutcome Outcome,
     string? Reason = null,
     double? Latitude = null,
     double? Longitude = null);

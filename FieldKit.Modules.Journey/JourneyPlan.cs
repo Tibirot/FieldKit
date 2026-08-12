@@ -1,9 +1,11 @@
+using System.Text.Json.Serialization;
 using FieldKit.BuildingBlocks;
 using FieldKit.SharedKernel;
 
 namespace FieldKit.Modules.Journey;
 
 /// <summary>Whether a plan is still being looked at, or is the rep's actual work.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<JourneyPlanStatus>))]
 public enum JourneyPlanStatus
 {
     /// <summary>Generated and reviewable. Nothing outside this module can see it.</summary>
@@ -14,6 +16,7 @@ public enum JourneyPlanStatus
 }
 
 /// <summary>How a call came to be on the plan.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<VisitSource>))]
 public enum VisitSource
 {
     /// <summary>Generation put it there (<c>JRN-03</c>).</summary>
@@ -24,6 +27,7 @@ public enum VisitSource
 }
 
 /// <summary>Where a call has got to.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<PlannedVisitStatus>))]
 public enum PlannedVisitStatus
 {
     /// <summary>Still to do.</summary>

@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using FieldKit.BuildingBlocks;
 using FieldKit.Modules.Audit.Contracts;
 using FieldKit.Modules.Configuration.Contracts;
@@ -256,6 +257,7 @@ public sealed class ScoredPillar : ITenantOwned
 }
 
 /// <summary>Why an audit was refused. <see cref="None"/> means it was not.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<AuditRefusal>))]
 public enum AuditRefusal
 {
     None,

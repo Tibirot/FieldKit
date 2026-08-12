@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using FieldKit.BuildingBlocks;
 using FieldKit.Infrastructure;
 using FieldKit.Modules.Order.Contracts;
@@ -115,6 +116,7 @@ public sealed class OrderSubmission : ITenantOwned
 }
 
 /// <summary>Why an order was refused. <see cref="None"/> means it was not.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<OrderRefusal>))]
 public enum OrderRefusal
 {
     None,

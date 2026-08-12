@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using FieldKit.BuildingBlocks;
 using FieldKit.Infrastructure;
 using FieldKit.Modules.Configuration.Contracts;
@@ -44,6 +45,7 @@ public sealed class ScoreWeight : ITenantOwned
 }
 
 /// <summary>Why a weight set was refused. <see cref="None"/> means it was not.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<WeightSetRefusal>))]
 public enum WeightSetRefusal
 {
     None,

@@ -30,7 +30,7 @@ public sealed record ResolvedPriceResponse(
     // By name, not by ordinal — matching OutletResponse.Status and ProductResponse.Status. On the
     // property rather than in global options so the mapping is symmetric: a .NET client
     // deserializing this record gets it without configuring anything.
-    [property: JsonConverter(typeof(JsonStringEnumConverter<PriceScope>))] PriceScope Scope);
+    PriceScope Scope);
 
 /// <summary>
 /// Resolving prices for an outlet (<c>PRD-04</c>, <c>BR-PRD-2</c>).

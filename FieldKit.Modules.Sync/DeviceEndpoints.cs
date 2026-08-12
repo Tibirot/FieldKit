@@ -187,7 +187,6 @@ public sealed record BindDeviceRequest(string? Name);
 /// </para>
 /// </param>
 public sealed record RevokeDeviceRequest(
-    [property: JsonConverter(typeof(JsonStringEnumConverter<DeactivationReason>))]
     DeactivationReason Reason);
 
 public sealed record DeviceResponse(

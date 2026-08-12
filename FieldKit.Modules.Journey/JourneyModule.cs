@@ -45,21 +45,6 @@ public sealed class JourneyModule : IModule
         services.AddModuleDbContext<JourneyDbContext>(connectionString, JourneyDbContext.SchemaName);
         services.AddHostedService<ModuleMigrator<JourneyDbContext>>();
 
-        /*
-         * Days of the week travel as their names — ["Monday","Wednesday"] — never as ordinals.
-         *
-         * The same rule every other enum on this API follows, and it matters more here than usual:
-         * `DayOfWeek`'s ordinals start the week on *Sunday*, so a plan built from numbers would be
-         * off by one in a way nobody reading the JSON would question.
-         *
-         * A converter rather than a `[JsonConverter]` attribute on the property, because the
-         * property is a *collection* of enums and the attribute form cannot describe that — it
-         * throws at first use, which is how this was found. Registered by the module rather than in
-         * the host so the rule travels with the code that needs it.
-         */
-        services.ConfigureHttpJsonOptions(options =>
-            options.SerializerOptions.Converters.Add(new JsonStringEnumConverter<DayOfWeek>()));
-
         // Registered against the interface, so a consumer takes the promise and never the class
         // behind it (W7 slice 9b).
         services.AddScoped<IJourneyQuery, JourneyQueries>();

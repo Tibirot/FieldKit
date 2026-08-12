@@ -23,7 +23,7 @@ namespace FieldKit.Modules.Products;
 /// </remarks>
 public sealed record ResolvedPromotionResponse(
     Guid PromotionId,
-    [property: JsonConverter(typeof(JsonStringEnumConverter<PromotionType>))] PromotionType Type,
+    PromotionType Type,
     int Priority,
     string? PercentOff,
     string? AmountOff,

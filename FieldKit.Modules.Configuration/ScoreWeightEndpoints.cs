@@ -11,12 +11,13 @@ namespace FieldKit.Modules.Configuration;
 
 /// <summary>What one pillar is worth, as an administrator sets it.</summary>
 /// <remarks>
-/// The pillar travels as its name, like every other enum on this API, and the converter is opt-in
-/// per property because nothing registers a global one — the workflow's step type shipped as a 400
-/// for every name until this was added, which is the whole reason it is written out here.
+/// The pillar travels as its name, like every other enum on this API — declared once on
+/// <see cref="ScorePillar"/> rather than restated here (W11 slice 0b). It was written out per
+/// property until then, and the workflow's step type shipped as a 400 for every name because
+/// somebody did not.
 /// </remarks>
 public sealed record ScoreWeightRequest(
-    [property: JsonConverter(typeof(JsonStringEnumConverter<ScorePillar>))] ScorePillar Pillar,
+    ScorePillar Pillar,
     decimal Percentage);
 
 /// <summary>A draft weighting, as an administrator sets it.</summary>

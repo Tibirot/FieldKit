@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using System.Text.Json;
 using FieldKit.BuildingBlocks;
 using FieldKit.Infrastructure;
@@ -160,6 +161,7 @@ public sealed class Product : AggregateRoot, ITenantOwned, IAuditable, ISyncTrac
 /// Making this terminal would mean re-creating the SKU to sell it again — a new id that every
 /// historical order line fails to point at, to model something that is genuinely reversible.
 /// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<ProductStatus>))]
 public enum ProductStatus
 {
     Active = 0,

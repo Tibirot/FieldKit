@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using FieldKit.BuildingBlocks;
 using FieldKit.SharedKernel;
 using Microsoft.EntityFrameworkCore;
@@ -5,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace FieldKit.Modules.Sync;
 
 /// <summary>What happened to a mutation the first time it was seen.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<MutationStatus>))]
 public enum MutationStatus
 {
     Accepted = 1,

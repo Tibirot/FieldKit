@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using FieldKit.BuildingBlocks;
 using FieldKit.Infrastructure;
 using FieldKit.SharedKernel;
@@ -30,6 +31,7 @@ namespace FieldKit.Modules.Products;
 /// inside the application, the ordinal is cheaper and fine.
 /// </para>
 /// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<PromotionType>))]
 public enum PromotionType
 {
     /// <summary>A percentage off the line's net price. Carries <c>PercentOff</c>.</summary>

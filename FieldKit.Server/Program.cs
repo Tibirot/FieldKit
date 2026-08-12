@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using FieldKit.BuildingBlocks;
 using FieldKit.Modules.Audit;
 using FieldKit.Modules.Configuration;
@@ -38,6 +39,22 @@ builder.AddKeycloakAuthentication();
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.Converters.Add(new MoneyJsonConverter());
+
+    /*
+     * Every enum crosses this API as its **name**, and the argument is the one directly above.
+     *
+     * It was already the intended rule — `api-contracts §1` states it, and twenty-two properties
+     * across eight modules said so one `[JsonConverter]` at a time. An attribute per property is a
+     * rule enforced by whoever remembers it, and the failure when someone does not is silent in
+     * exactly the wrong way: `"status": 0` is valid JSON that a client will happily parse, so the
+     * mistake surfaces as a screen rendering the wrong word rather than as an error. The visit
+     * workflow's step type shipped that way until somebody posted `"Audit"` and got a 400.
+     *
+     * The generic form cannot describe a *collection* of enums, which is why Journey had to register
+     * a whole converter for `DayOfWeek` — an attribute there throws at first use. This subsumes that
+     * registration and every attribute alongside it.
+     */
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
 
     // A non-nullable property that the caller simply left out is a *bad request*, not a null.
     //

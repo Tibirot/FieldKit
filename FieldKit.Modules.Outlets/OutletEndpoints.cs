@@ -27,7 +27,7 @@ public sealed record OutletResponse(
     string ChannelName,
     string? Segment,
     string? Banner,
-    [property: JsonConverter(typeof(JsonStringEnumConverter<OutletStatus>))] OutletStatus Status,
+    OutletStatus Status,
     string TimeZoneId,
     Address? Address,
     // The DTO, not the domain value: `GeoPoint` is a struct with read-only properties, so a .NET
@@ -75,7 +75,7 @@ public sealed record UpdateOutletRequest(
 /// <summary>Move an outlet through its lifecycle (<c>OUT-04</c>). Accepts the status by name.</summary>
 /// <param name="Reason">Required when closing — see the endpoint for why only then.</param>
 public sealed record OutletStatusRequest(
-    [property: JsonConverter(typeof(JsonStringEnumConverter<OutletStatus>))] OutletStatus Status,
+    OutletStatus Status,
     string? Reason = null);
 
 /// <summary>One transition in an outlet's life, as recorded (<c>OUT-04</c>).</summary>
@@ -89,8 +89,8 @@ public sealed record OutletStatusRequest(
 /// predates the user record all land here, and the entry still has to render.
 /// </param>
 public sealed record OutletStatusChangeResponse(
-    [property: JsonConverter(typeof(JsonStringEnumConverter<OutletStatus>))] OutletStatus? From,
-    [property: JsonConverter(typeof(JsonStringEnumConverter<OutletStatus>))] OutletStatus To,
+    OutletStatus? From,
+    OutletStatus To,
     string? Reason,
     DateTimeOffset ChangedAtUtc,
     string? ChangedBy,
@@ -109,6 +109,7 @@ public sealed record OutletStatusChangeResponse(
 /// fifty rows that were already chosen, which orders the page and not the list. Honest to refuse
 /// than to appear to work.
 /// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<OutletSort>))]
 public enum OutletSort
 {
     Code = 0,

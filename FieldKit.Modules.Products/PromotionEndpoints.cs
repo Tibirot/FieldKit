@@ -21,7 +21,7 @@ namespace FieldKit.Modules.Products;
 public sealed record PromotionResponse(
     Guid Id,
     string Name,
-    [property: JsonConverter(typeof(JsonStringEnumConverter<PromotionType>))] PromotionType Type,
+    PromotionType Type,
     string? Value,
     string? Currency,
     DateOnly ValidFrom,
@@ -57,7 +57,7 @@ public sealed record BundleRequest(
 /// </remarks>
 public sealed record CreatePromotionRequest(
     string Name,
-    [property: JsonConverter(typeof(JsonStringEnumConverter<PromotionType>))] PromotionType Type,
+    PromotionType Type,
     DateOnly ValidFrom,
     string? Value = null,
     DateOnly? ValidTo = null,

@@ -1,9 +1,11 @@
+using System.Text.Json.Serialization;
 using FieldKit.Modules.Outlets.Contracts;
 using Microsoft.EntityFrameworkCore;
 
 namespace FieldKit.Modules.Journey;
 
 /// <summary>Where an outlet's frequency came from — the rung of the ladder that answered.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<FrequencySource>))]
 public enum FrequencySource
 {
     /// <summary>A rule naming this outlet.</summary>
