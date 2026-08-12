@@ -279,6 +279,31 @@ export type ReferenceTaxRate = {
 };
 
 /**
+ * The smallest order one channel or one shop may place (`ORD-06`, `BR-ORD-5`) — W11 slice 8b-ii.
+ *
+ * **Exactly one of the two scope ids is set**, and that is how the device ranks them: an outlet's own
+ * minimum beats its channel's, the same precedence a price list has. A row with both would be a rule
+ * with two scopes; the server's check constraint refuses one.
+ *
+ * `amount` is a decimal **string**, per the rule slice 7a established for this whole protocol — and
+ * more sharply here than anywhere else on it, because a hundredth decides whether a rep may send
+ * their order at all rather than what it costs.
+ *
+ * **`currencyCode` travels with it**, which no other reference row needs. An order's currency comes
+ * from the list that priced it (`BR-ORD-7`), and nothing makes that agree with what somebody typed
+ * into a minimum. Comparing 50 EUR against 200 RON by their numbers alone would refuse orders
+ * comfortably over the threshold, so the device has to be able to see that they disagree.
+ */
+export type ReferenceOrderMinimum = {
+  id: string;
+  channelId: string | null;
+  outletId: string | null;
+  amount: string;
+  currencyCode: string;
+  rowVersion: number;
+};
+
+/**
  * What a promotion applies to. Exactly one id is set.
  *
  * **An empty list reaches nothing**, and this comment used to say the opposite. The server is
@@ -579,6 +604,7 @@ export class FieldKitDatabase extends Dexie {
   surveys!: EntityTable<ReferenceSurveyForm, "id">;
   scoreWeights!: EntityTable<ReferenceScoreWeightSet, "id">;
   taxRates!: EntityTable<ReferenceTaxRate, "id">;
+  orderMinimums!: EntityTable<ReferenceOrderMinimum, "id">;
   visits!: EntityTable<LocalVisit, "id">;
   orders!: EntityTable<LocalOrder, "id">;
   outbox!: EntityTable<OutboxEntry, "mutationId">;
@@ -874,6 +900,30 @@ export class FieldKitDatabase extends Dexie {
         await tx.table("watermarks").delete("outlets");
       });
 
+    /*
+     * Version 11 — order minimums reach the device (`ORD-06`, `OFF-03`, W11 slice 8b-ii).
+     *
+     * `BR-ORD-5` is enforced here rather than on the server, because "must be met to submit" is a
+     * question asked at a counter with no signal. Slice 8b-i gave the server a minimum to read;
+     * without this table there was nothing on the device to read it *with*.
+     *
+     * Two indexes rather than one compound, because the two scopes are asked about separately: the
+     * device looks up the outlet's own minimum, then its channel's, and takes the first. A compound
+     * `[channelId+outletId]` would index a pair that is never whole — exactly one of them is set on
+     * any row.
+     *
+     * No `upgrade()`: nothing existed to transform, as with version 9. The table opens empty with its
+     * watermark at zero and the next pull fills it by the ordinary path — and no server backfill is
+     * needed either, because `OrderMinimum` was born sync-tracked one slice ago and the table is new.
+     *
+     * <b>An empty table means every order passes</b>, which is the right reading of "if configured"
+     * and the only safe one while the first pull is in flight: a device that refused everything until
+     * it had synced would block a rep whose tenant has never set a minimum at all.
+     */
+    this.version(11).stores({
+      ref_order_minimums: "id, channelId, outletId",
+    });
+
     this.outlets = this.table("ref_outlets");
     this.plannedVisits = this.table("ref_planned_visits");
     this.workflows = this.table("ref_visit_workflows");
@@ -888,6 +938,7 @@ export class FieldKitDatabase extends Dexie {
     this.surveys = this.table("ref_surveys");
     this.scoreWeights = this.table("ref_score_weights");
     this.taxRates = this.table("ref_tax_rates");
+    this.orderMinimums = this.table("ref_order_minimums");
     this.visits = this.table("visits");
     this.orders = this.table("orders");
     this.outbox = this.table("outbox");

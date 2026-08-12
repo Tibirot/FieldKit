@@ -16,9 +16,10 @@ import {
 } from "@/lib/orders/local-order";
 import { priceOrder, type PricedOrder } from "@/lib/orders/pricing";
 import { Decimal } from "@/lib/pricing/money";
+import { checkOrderMinimum, type ResolvedOrderMinimum } from "@/lib/pricing/order-minimum";
 import type { FieldKitDatabase, LocalOrder, ReferenceProduct } from "@/lib/sync/db";
 import { useLive } from "@/lib/sync/live";
-import { assortmentFor, outlet as heldOutlet } from "@/lib/sync/reference";
+import { assortmentFor, orderMinimumFor, outlet as heldOutlet } from "@/lib/sync/reference";
 import { visit as heldVisit } from "@/lib/visits/local-visit";
 
 /**
@@ -34,9 +35,11 @@ import { visit as heldVisit } from "@/lib/visits/local-visit";
  * the order is not. Every add and remove goes through the Dexie store, so a phone that dies mid-order
  * loses at most the number half-entered in the box (`ORD-05`, `OFF-01b`).
  *
- * <b>Submitting is not here.</b> `ORD-06`'s order minimum and the seal into the outbox are slice 8 —
- * the draft this screen builds is exactly what that one seals, and splitting them keeps the minimum
- * (which needs a configuration that does not exist yet) out of the screen that has to work first.
+ * <b>Submitting arrived after the screen did</b>, and this paragraph used to say it never would: the
+ * seal into the outbox landed in slice 8a and `ORD-06`'s minimum in 8b-ii, both refused in `Submit`
+ * below. Left as a correction rather than deleted, because the sentence it replaces was accurate when
+ * written and false for two slices afterwards — the same way a comment goes wrong everywhere else in
+ * this codebase.
  */
 export function Order({ visitId }: { visitId: string }) {
   const t = useTranslations("Field.order");
@@ -82,21 +85,48 @@ export function Order({ visitId }: { visitId: string }) {
    */
   const on = businessDay(new Date());
 
-  const priced = useLive(
-    async () =>
-      shop
-        ? await priceOrder(
-            db,
-            shop.id,
-            on,
-            (held?.lines ?? []).map((line) => ({
-              productId: line.productId,
-              quantity: line.quantity,
-            })),
-          )
-        : null,
+  /*
+   * The minimum this shop's order has to meet (`ORD-06`, `BR-ORD-5`) — W11 slice 8b-ii.
+   *
+   * Resolved with the order rather than at submit, so the rep can be told the threshold while they
+   * can still do something about it. `null` covers three cases the screen treats alike: no minimum
+   * configured, none reaching this shop, and a device whose first pull has not landed — all of which
+   * mean every order passes, which is what `BR-ORD-5`'s "if configured" says.
+   */
+  const minimum = useLive(
+    async () => (shop ? await orderMinimumFor(db, shop.id) : null),
     null,
-    [db, shop?.id, on, held?.updatedAtUtc],
+    [db, shop?.id],
+  );
+
+  /*
+   * The order is read *inside* the query, not passed in from `held` above.
+   *
+   * It used to take `held.lines` and list `held.updatedAtUtc` as a dependency, which meant every
+   * edit tore down the subscription and built a new one. That re-subscribe is a race: in the tests
+   * for this slice it intermittently produced a live query that never emitted — no error, nothing
+   * logged, just a priced line rendering as "No price" for good, on a screen whose store held the
+   * right number all along. Reading the order here lets Dexie see that this query depends on the
+   * `orders` table and re-run it itself, which is the thing `liveQuery` is for.
+   */
+  const priced = useLive(
+    async () => {
+      if (!shop) return null;
+
+      const current = await orderFor(db, visitId);
+
+      return await priceOrder(
+        db,
+        shop.id,
+        on,
+        (current?.lines ?? []).map((line) => ({
+          productId: line.productId,
+          quantity: line.quantity,
+        })),
+      );
+    },
+    null,
+    [db, visitId, shop?.id, on],
   );
 
   if (visit === undefined) return <Waiting message={t("opening")} />;
@@ -132,7 +162,9 @@ export function Order({ visitId }: { visitId: string }) {
         rather than on the draft existing, which is the bug the first version of this had: gating it
         on `editable` meant no draft, no catalogue, no way to add the line that creates the draft.
       */}
-      {!sealed && held ? <Submit order={held} visitId={visitId} /> : null}
+      {!sealed && held ? (
+        <Submit order={held} visitId={visitId} minimum={minimum} priced={priced} />
+      ) : null}
 
       {!sealed ? (
         <Catalogue
@@ -167,7 +199,7 @@ function Sent() {
 }
 
 /**
- * Sealing the order and putting it in the outbox (`ORD-07`) — W11 slice 8a.
+ * Sealing the order and putting it in the outbox (`ORD-07`) — W11 slice 8a, the minimum in 8b-ii.
  *
  * <b>One transaction, both writes</b> — `submit()` owns that, and it is the same bargain check-out
  * makes: the order becoming `submitted` and the mutation existing are one fact, and splitting them
@@ -177,25 +209,76 @@ function Sent() {
  * <b>An empty order is refused here rather than at the server</b>, which the store also refuses —
  * this exists so the rep is told *why* instead of watching a button do nothing.
  *
- * <b>`ORD-06`'s order minimum is not here</b>, and its absence is a dependency rather than an
- * omission: `BR-ORD-5` says a minimum applies *if configured*, and there is no configuration for one
- * anywhere in the system — no entity, no authoring surface, no feed. Slice 2a named that gap and
- * slice 8b is where it gets paid for. A minimum invented on the device would be a rule no
- * administrator could see, change, or be held to.
+ * <b>`ORD-06`'s minimum is refused here too, and only here.</b> `BR-ORD-5` is the one business rule
+ * in this module with no server-side gate, deliberately: "must be met to submit" is a question asked
+ * at a counter with no signal, and a rep who found out on sync that yesterday's order was too small
+ * cannot go back and add a case to it. The server still *resolves* the same minimum (8b-i) through
+ * the same pure rule, so the two never disagree about which threshold applies.
+ *
+ * <b>Refused before the store is touched</b>, like the empty check — an order under the minimum
+ * stays a draft the rep can add to, which is the only useful thing to leave them holding.
  */
-function Submit({ order, visitId }: { order: LocalOrder; visitId: string }) {
+function Submit({
+  order,
+  visitId,
+  minimum,
+  priced,
+}: {
+  order: LocalOrder;
+  visitId: string;
+  minimum: ResolvedOrderMinimum | null;
+  priced: PricedOrder | null;
+}) {
   const t = useTranslations("Field.order");
   const router = useRouter();
   const { db } = useSync();
 
   const [sealing, setSealing] = useState(false);
-  const [refused, setRefused] = useState<"empty" | "unexpected" | null>(null);
+  const [refused, setRefused] = useState<
+    "empty" | "belowMinimum" | "currencyMismatch" | "uncheckedMinimum" | "unexpected" | null
+  >(null);
+
+  /*
+   * The **net** total is what a minimum is measured against, not the gross.
+   *
+   * A decision this slice had to make and `BR-ORD-5` did not: a minimum is a commercial rule about
+   * what an order is worth to the supplier, and the tax on it is collected for the state rather than
+   * earned. Two things settle it beyond taste. `priceLine` reads a missing tax rate as *unknown* and
+   * charges nothing (`PRD-07`), so a gross-based minimum would make the verdict depend on how far a
+   * tenant has got with configuring tax — the same order passing in one country and failing in
+   * another for reasons nobody authored. And `BR-ORD-6` has the server re-price on arrival: a
+   * threshold that moves with a recomputed VAT line is one a rep could meet on the device and miss on
+   * the server.
+   */
+  const verdict = checkOrderMinimum(minimum, priced?.net ?? null);
 
   const seal = async () => {
     setRefused(null);
 
     if (order.lines.length === 0) {
       setRefused("empty");
+
+      return;
+    }
+
+    if (verdict === "NotMet") {
+      setRefused("belowMinimum");
+
+      return;
+    }
+
+    if (verdict === "CurrencyMismatch") {
+      // Its own message, because "your order is too small" would send a rep to add stock nobody
+      // asked for and be refused again. This is somebody's configuration to fix, not theirs.
+      setRefused("currencyMismatch");
+
+      return;
+    }
+
+    if (verdict === "Unreadable") {
+      // A minimum applies and this device cannot decide against it — the stored amount is broken, or
+      // nothing on the order priced. Refusing is the safe half: the order stays, and stays editable.
+      setRefused("uncheckedMinimum");
 
       return;
     }
@@ -223,12 +306,32 @@ function Submit({ order, visitId }: { order: LocalOrder; visitId: string }) {
 
   return (
     <section className="flex flex-col gap-2">
+      {/*
+        The threshold is shown before the rep taps, not only after they are refused — which is what
+        keeping `resolveOrderMinimum` and `checkOrderMinimum` apart bought. A rep who can see they
+        need another 40 lei adds a case; one who finds out by being turned away has already decided
+        the order was finished.
+
+        Shown while the order is under the minimum only. A met minimum is a rule that has stopped
+        mattering, and a line about it would be one more number to read past on a small screen.
+      */}
+      {minimum && verdict === "NotMet" ? (
+        <p className="text-sm text-muted-foreground" role="status">
+          {t("minimum.short", { amount: `${minimum.amount} ${minimum.currencyCode}` })}
+        </p>
+      ) : null}
+
       {refused ? (
         <p className="text-sm text-destructive" role="alert">
           {t(`refusal.${refused}`)}
         </p>
       ) : null}
 
+      {/*
+        Not `disabled`. A button that cannot be pressed says nothing about why, and `BR-ORD-5` is a
+        rule a rep can actually satisfy — pressing it and being told the number is what turns a dead
+        control into an instruction. The same call the empty-order refusal already made.
+      */}
       <Button onClick={() => void seal()} disabled={sealing}>
         {sealing ? t("sealing") : t("submit")}
       </Button>

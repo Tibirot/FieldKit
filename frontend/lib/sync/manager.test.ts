@@ -88,6 +88,7 @@ function emptyPull(cursor = 0) {
       surveys: { upserts: [], tombstones: [], cursor: 0 },
       scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
       taxRates: { upserts: [], tombstones: [], cursor: 0 },
+      orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
     },
     snapshotVersion: `outlets#${cursor}`,
   };
@@ -344,6 +345,7 @@ describe("one sync run", () => {
         surveys: { upserts: [], tombstones: [], cursor: 0 },
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
         taxRates: { upserts: [], tombstones: [], cursor: 0 },
+        orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -379,6 +381,7 @@ describe("one sync run", () => {
         surveys: { upserts: [], tombstones: [], cursor: 0 },
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
         taxRates: { upserts: [], tombstones: [], cursor: 0 },
+        orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -430,6 +433,7 @@ describe("one sync run", () => {
         surveys: { upserts: [], tombstones: [], cursor: 0 },
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
         taxRates: { upserts: [], tombstones: [], cursor: 0 },
+        orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -476,6 +480,7 @@ describe("one sync run", () => {
         surveys: { upserts: [], tombstones: [], cursor: 0 },
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
         taxRates: { upserts: [], tombstones: [], cursor: 0 },
+        orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -516,6 +521,7 @@ describe("one sync run", () => {
         surveys: { upserts: [], tombstones: [], cursor: 0 },
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
         taxRates: { upserts: [], tombstones: [], cursor: 0 },
+        orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -556,6 +562,7 @@ describe("one sync run", () => {
         surveys: { upserts: [], tombstones: [], cursor: 0 },
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
         taxRates: { upserts: [], tombstones: [], cursor: 0 },
+        orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -583,6 +590,7 @@ describe("one sync run", () => {
         surveys: { upserts: [], tombstones: [], cursor: 0 },
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
         taxRates: { upserts: [], tombstones: [], cursor: 0 },
+        orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -616,6 +624,7 @@ describe("one sync run", () => {
         surveys: { upserts: [], tombstones: [], cursor: 0 },
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
         taxRates: { upserts: [], tombstones: [], cursor: 0 },
+        orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -653,6 +662,7 @@ describe("one sync run", () => {
       surveys: 0,
       scoreWeights: 0,
       taxRates: 0,
+      orderMinimums: 0,
     }, undefined);
 
     db.close();
@@ -885,6 +895,7 @@ describe("the assortment", () => {
         surveys: { upserts: [], tombstones: [], cursor: 0 },
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
         taxRates: { upserts: [], tombstones: [], cursor: 0 },
+        orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#1",
     };
@@ -1059,6 +1070,7 @@ describe("prices", () => {
         surveys: { upserts: [], tombstones: [], cursor: 0 },
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
         taxRates: { upserts: [], tombstones: [], cursor: 0 },
+        orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#1",
     };
@@ -1170,6 +1182,7 @@ describe("promotions", () => {
         surveys: { upserts: [], tombstones: [], cursor: 0 },
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
         taxRates: { upserts: [], tombstones: [], cursor: 0 },
+        orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#1",
     };
@@ -1362,26 +1375,18 @@ describe("promotions", () => {
 
 
 describe("tax rates", () => {
+  /*
+   * Built on `emptyPull` rather than listing every section again.
+   *
+   * The copy this replaces was a second hand-maintained list of the same entities, and adding the
+   * next one (`orderMinimums`, W11 slice 8b-ii) broke both at once — awkwardly, because the failure
+   * surfaces as a destructured `undefined` a long way from the omission. One list is the fix, and
+   * the entity after this costs one line instead of two.
+   */
   function taxPull(taxRates: { upserts: unknown[]; tombstones: unknown[]; cursor: number }) {
-    return {
-      changes: {
-        outlets: { upserts: [], tombstones: [], cursor: 0 },
-        journeys: { upserts: [], tombstones: [], cursor: 0 },
-        configuration: { upserts: [], tombstones: [], cursor: 0 },
-        products: { upserts: [], tombstones: [], cursor: 0 },
-        assortment: { upserts: [], tombstones: [], cursor: 0 },
-        outletAssortment: { upserts: [], tombstones: [], cursor: 0 },
-        priceLists: { upserts: [], tombstones: [], cursor: 0 },
-        priceLines: { upserts: [], tombstones: [], cursor: 0 },
-        priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
-        promotions: { upserts: [], tombstones: [], cursor: 0 },
-        promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
-        surveys: { upserts: [], tombstones: [], cursor: 0 },
-        scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
-        taxRates,
-      },
-      snapshotVersion: "outlets#0",
-    };
+    const base = emptyPull();
+
+    return { ...base, changes: { ...base.changes, taxRates } };
   }
 
   function rate(id: string, percentage: string, rowVersion: number) {

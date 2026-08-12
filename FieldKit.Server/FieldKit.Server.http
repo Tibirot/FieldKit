@@ -4056,12 +4056,31 @@ Content-Type: application/json
 # still be recordable), and that null means *unknown tax*, not untaxed. Same reading as
 # `GET /api/products/outlets/{id}/tax` gives below, which is the point: `BR-ORD-2` has the rep's
 # total and this server's recomputation agree to the cent.
+#
+# `orderMinimums` joins in W11 slice 8b-ii. 8b-i gave this server a minimum to read; nothing
+# carried it to a device, which is where `BR-ORD-5` is actually enforced — "must be met to submit"
+# is a question answered at a counter with no signal.
+#
+# `amount` is a **string**, like the two above and for a sharper reason: everywhere else on this
+# wire an IEEE-754 round-trip costs a hundredth, and here a hundredth decides whether a rep may
+# send their order at all.
+#
+# `currencyCode` travels with it, which no other reference row here needs. An order's currency
+# comes from the list that priced it (`BR-ORD-7`), and nothing makes that agree with what somebody
+# typed into a minimum — comparing 50 EUR against 200 RON by their numbers alone would refuse
+# orders comfortably over the threshold while looking exactly like the rule working.
+#
+# **Read `orderMinimums.tombstones` before the upserts.** The authoring PUT below replaces the
+# whole set, so raising one figure from 150 to 200 deletes every row and writes new ones with new
+# ids. A device that applied only the upserts would hold both and enforce whichever it ranked
+# first; a device that missed a deletion would go on refusing orders against a threshold its
+# tenant withdrew. Silently, and again looking like the rule working.
 
 POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
-{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 0, "journeys": 0, "configuration": 0, "products": 0, "assortment": 0, "outletAssortment": 0, "priceLists": 0, "priceLines": 0, "priceAssignments": 0, "promotions": 0, "promotionAssignments": 0, "surveys": 0, "scoreWeights": 0, "taxRates": 0 } }
+{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 0, "journeys": 0, "configuration": 0, "products": 0, "assortment": 0, "outletAssortment": 0, "priceLists": 0, "priceLines": 0, "priceAssignments": 0, "promotions": 0, "promotionAssignments": 0, "surveys": 0, "scoreWeights": 0, "taxRates": 0, "orderMinimums": 0 } }
 
 ### A second pull at the cursor the first returned. Carries only what changed since —
 ### an unchanged tenant answers with an empty page and the same cursor.
@@ -4069,7 +4088,7 @@ POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
-{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 42, "journeys": 17, "configuration": 3, "products": 812, "assortment": 840, "outletAssortment": 851, "priceLists": 860, "priceLines": 1204, "priceAssignments": 871, "promotions": 903, "promotionAssignments": 910, "surveys": 918, "scoreWeights": 925, "taxRates": 931 } }
+{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 42, "journeys": 17, "configuration": 3, "products": 812, "assortment": 840, "outletAssortment": 851, "priceLists": 860, "priceLines": 1204, "priceAssignments": 871, "promotions": 903, "promotionAssignments": 910, "surveys": 918, "scoreWeights": 925, "taxRates": 931, "orderMinimums": 938 } }
 
 ### A device that was replaced answers 409 `sync.pull.deviceInactive` — the client's job is
 ### to bind again, which re-snapshots from zero.
@@ -4077,7 +4096,7 @@ POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
-{ "deviceId": "{{revokedDeviceId}}", "cursors": { "outlets": 0, "journeys": 0, "configuration": 0, "products": 0, "assortment": 0, "outletAssortment": 0, "priceLists": 0, "priceLines": 0, "priceAssignments": 0, "promotions": 0, "promotionAssignments": 0, "surveys": 0, "scoreWeights": 0, "taxRates": 0 } }
+{ "deviceId": "{{revokedDeviceId}}", "cursors": { "outlets": 0, "journeys": 0, "configuration": 0, "products": 0, "assortment": 0, "outletAssortment": 0, "priceLists": 0, "priceLines": 0, "priceAssignments": 0, "promotions": 0, "promotionAssignments": 0, "surveys": 0, "scoreWeights": 0, "taxRates": 0, "orderMinimums": 0 } }
 
 ### ── Sync · push (OFF-04) ──────────────────────────────────────────────────
 # The drain. Every mutation carries an id minted on the device, and the ledger answers a

@@ -1,11 +1,18 @@
 import type { Table } from "dexie";
 
+import { resolveOrderMinimum } from "@/lib/pricing/order-minimum";
+import type {
+  OrderMinimumCandidate,
+  OrderMinimumScope,
+  ResolvedOrderMinimum,
+} from "@/lib/pricing/order-minimum";
 import { resolveTaxRate } from "@/lib/pricing/tax";
 
 import type {
   FieldKitDatabase,
   ReferenceAssortmentLine,
   ReferenceAssortmentOverride,
+  ReferenceOrderMinimum,
   ReferenceOutlet,
   ReferencePriceAssignment,
   ReferencePriceLine,
@@ -54,6 +61,9 @@ export const SCORE_WEIGHTS = "scoreWeights";
 
 /** The watermark key for tax rates (`PRD-07`, W11 slice 7b). */
 export const TAX_RATES = "taxRates";
+
+/** The watermark key for order minimums (`ORD-06`, W11 slice 8b-ii). */
+export const ORDER_MINIMUMS = "orderMinimums";
 
 /**
  * Applies one page of a pull (`OFF-02`, `OFF-03`, sync engine §3).
@@ -473,6 +483,63 @@ export function applyTaxRateChanges(
   page: EntityChanges<ReferenceTaxRate>,
 ): Promise<void> {
   return apply(db, "ref_tax_rates", TAX_RATES, page);
+}
+
+/** One page of order minimums (`ORD-06`, W11 slice 8b-ii). */
+export function applyOrderMinimumChanges(
+  db: FieldKitDatabase,
+  page: EntityChanges<ReferenceOrderMinimum>,
+): Promise<void> {
+  return apply(db, "ref_order_minimums", ORDER_MINIMUMS, page);
+}
+
+/**
+ * The minimum this outlet's order must meet, or **null for none** (`ORD-06`, `BR-ORD-5`) — W11
+ * slice 8b-ii.
+ *
+ * <b>Two queries, not one.</b> A minimum is scoped to the outlet *or* to its channel, and the two are
+ * indexed separately because exactly one of them is set on any row — a compound index would key a
+ * pair that is never whole. Both are read and `resolveOrderMinimum` ranks them, which keeps the
+ * precedence rule in the one place both languages check it.
+ *
+ * <b>Null is the ordinary answer.</b> `BR-ORD-5` applies a minimum *if configured*, most tenants
+ * configure none, and a device whose first pull has not landed holds none either — all three mean
+ * every order passes, which is the behaviour every order has had until this slice.
+ *
+ * <b>An outlet the device has never heard of also answers null</b>, rather than throwing. A rep
+ * cannot be standing in a shop that is not on their device; if they are, the order is going to be
+ * refused on push for reasons a minimum has nothing to say about.
+ */
+export async function orderMinimumFor(
+  db: FieldKitDatabase,
+  outletId: string,
+): Promise<ResolvedOrderMinimum | null> {
+  const shop = await db.outlets.get(outletId);
+  if (!shop) return null;
+
+  const [own, channelWide] = await Promise.all([
+    db.orderMinimums.where("outletId").equals(outletId).toArray(),
+    shop.channelId
+      ? db.orderMinimums.where("channelId").equals(shop.channelId).toArray()
+      : Promise.resolve([]),
+  ]);
+
+  return resolveOrderMinimum([
+    ...own.map((row) => minimumCandidate(row, "Outlet")),
+    ...channelWide.map((row) => minimumCandidate(row, "Channel")),
+  ]);
+}
+
+function minimumCandidate(
+  row: ReferenceOrderMinimum,
+  scope: OrderMinimumScope,
+): OrderMinimumCandidate {
+  return {
+    orderMinimumId: row.id,
+    scope,
+    currencyCode: row.currencyCode,
+    amount: row.amount,
+  };
 }
 
 /**

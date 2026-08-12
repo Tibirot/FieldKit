@@ -162,9 +162,15 @@ since v1. There is nothing to transform, because there were no visits before it;
 table and an existing device carries on with its outbox and its reference data untouched, which is
 `OFF-13`'s promise for a rep who updates the app mid-day with work still queued.
 
-**Versions 6, 7 and 9 add stores and nothing else** — surveys and score weights (W10 slice 7), the
-device's own `orders` (W11 slice 6), and `ref_tax_rates` (W11 slice 7b). Same argument as version 5:
-there is nothing to transform, and an empty `upgrade()` is a hook somebody later fills in by accident.
+**Versions 6, 7, 9 and 11 add stores and nothing else** — surveys and score weights (W10 slice 7),
+the device's own `orders` (W11 slice 6), `ref_tax_rates` (W11 slice 7b) and `ref_order_minimums`
+(W11 slice 8b-ii). Same argument as version 5: there is nothing to transform, and an empty
+`upgrade()` is a hook somebody later fills in by accident.
+
+Version 11 is also the first store that needs **no server backfill**, and for a reason worth naming:
+`OrderMinimum` was born sync-tracked one slice earlier, so there are no pre-existing rows sitting at
+row version zero for the feed to miss. Every other reference entity had to be backfilled because it
+existed before ADR-0013 did.
 
 **Version 8 re-baselines for a different reason than 3 and 4 did** (W11 slice 7a): those dropped a
 watermark because a field was *added*, this one because the rows were the wrong **type** — prices and

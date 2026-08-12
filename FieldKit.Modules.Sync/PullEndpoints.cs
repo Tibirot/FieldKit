@@ -45,6 +45,7 @@ public static class PullEndpoints
             IPriceChangeFeed prices,
             IPromotionChangeFeed promotions,
             ITaxRateChangeFeed taxRates,
+            IOrderMinimumChangeFeed orderMinimums,
             ITenantContext tenant,
             IClock clock,
             CancellationToken ct) =>
@@ -222,6 +223,20 @@ public static class PullEndpoints
             var taxRatePage = await taxRates.GetChangesAsync(
                 request.Cursors?.TaxRates ?? 0, PageLimit, ct);
 
+            /*
+             * Order minimums (W11 slice 8b-ii), and the tombstones are the half that matters.
+             *
+             * Tenant-wide for the same reason the tax rates above are: a minimum is a statement about
+             * a channel or a shop, not about a rep.
+             *
+             * The authoring PUT replaces the whole set, so an administrator correcting one figure
+             * deletes and recreates every row. A device that only ever upserted would go on enforcing
+             * a threshold its tenant withdrew — refusing orders a rep is entitled to send, and looking
+             * exactly like the rule working.
+             */
+            var orderMinimumPage = await orderMinimums.GetChangesAsync(
+                request.Cursors?.OrderMinimums ?? 0, PageLimit, ct);
+
             await RecordScopeAsync(
                 db, device.Id, tenant.TenantId, territory.Entering, territory.Leaving, ct);
 
@@ -259,7 +274,11 @@ public static class PullEndpoints
                     new EntityChanges<ScoreWeightSetSnapshot>(
                         weightPage.Upserts, weightPage.Tombstones, weightPage.Cursor),
                     new EntityChanges<TaxRateSnapshot>(
-                        taxRatePage.Upserts, taxRatePage.Tombstones, taxRatePage.Cursor)),
+                        taxRatePage.Upserts, taxRatePage.Tombstones, taxRatePage.Cursor),
+                    new EntityChanges<OrderMinimumSnapshot>(
+                        orderMinimumPage.Upserts,
+                        orderMinimumPage.Tombstones,
+                        orderMinimumPage.Cursor)),
                 // A patchwork, not a point in time: watermarks advance per entity type, and the
                 // device tolerates the skew because captured work records its own inputs
                 // (sync engine §3). The string names the outlet cursor only — it is a label for
@@ -434,7 +453,8 @@ public sealed record PullCursors(
     long? PromotionAssignments = null,
     long? Surveys = null,
     long? ScoreWeights = null,
-    long? TaxRates = null);
+    long? TaxRates = null,
+    long? OrderMinimums = null);
 
 public sealed record EntityChanges<T>(
     IReadOnlyList<T> Upserts, IReadOnlyList<ReferenceTombstone> Tombstones, long Cursor);
@@ -453,6 +473,7 @@ public sealed record PullChanges(
     EntityChanges<PromotionAssignmentSnapshot> PromotionAssignments,
     EntityChanges<SurveyFormSnapshot> Surveys,
     EntityChanges<ScoreWeightSetSnapshot> ScoreWeights,
-    EntityChanges<TaxRateSnapshot> TaxRates);
+    EntityChanges<TaxRateSnapshot> TaxRates,
+    EntityChanges<OrderMinimumSnapshot> OrderMinimums);
 
 public sealed record PullResponse(PullChanges Changes, string SnapshotVersion);

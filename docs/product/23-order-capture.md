@@ -108,6 +108,22 @@ Lifecycle and mechanics per [B4](decisions-and-assumptions.md#b4--order-lifecycl
   > currency — an order's comes from the list that priced it (`BR-ORD-7`), so a mismatch is reported
   > rather than compared. Enforcement is on the device (slice 8b-ii): "must be met to submit" is a
   > question answered at a counter with no signal.
+  >
+  > **The value measured is the order's net, before tax** (decided in slice 8b-ii; this rule did not
+  > say). A minimum is a commercial statement about what an order is worth to the supplier, and tax
+  > is collected for the state rather than earned — but two mechanical reasons settle it beyond
+  > taste. The device reads a missing tax rate as *unknown* and charges nothing (`PRD-07`), so a
+  > gross threshold would make the verdict depend on how far a tenant has got with configuring tax:
+  > the same order passing in one country and failing in another for reasons nobody authored. And
+  > `BR-ORD-6` has the server re-price on arrival, so a threshold that moves with a recomputed VAT
+  > line is one a rep could meet on the device and miss on the server.
+  >
+  > **This is the only business rule in the module with no server-side gate.** The server resolves
+  > the same minimum through the same pure rule, so the two never disagree about *which* threshold
+  > applies — but nothing on `/sync/push` refuses an order for being under it. Deliberate: a rep who
+  > learned on sync that yesterday's order was too small cannot go back and add a case to it, so a
+  > refusal that arrives after the visit is worse than none. The device is where the rule can still
+  > be acted on.
 - **BR-ORD-6** The order records the **snapshot version** of pricing it was captured against; if
   the server re-prices and differs, it is **flagged, not silently changed**.
 - **BR-ORD-7** Currency comes from the resolved price list; **no cross-currency lines** in one

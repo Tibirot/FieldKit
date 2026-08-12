@@ -7,6 +7,7 @@ import { draftFor } from "@/lib/orders/local-order";
 import { closeDatabase, FieldKitDatabase } from "./db";
 import { enqueue, markRejected, pending, pendingCount, statusOf } from "./outbox";
 import {
+  applyOrderMinimumChanges,
   applyOutletChanges,
   applyTaxRateChanges,
   OUTLETS,
@@ -220,7 +221,7 @@ describe("upgrading a device that has unsent work", () => {
     // rows. Without this the whole file could be passing against databases that never existed at
     // v1. The number moves with every schema version, which is the point — a device that skipped
     // one still has to arrive at the latest.
-    expect(upgraded.verno).toBe(10);
+    expect(upgraded.verno).toBe(11);
     expect(await upgraded.outbox.count()).toBe(3);
 
     // Still in capture order, which is what the drain depends on — and now read through the new
@@ -501,7 +502,7 @@ describe("upgrading a device whose outlets predate the geofence radius", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(10);
+    expect(upgraded.verno).toBe(11);
     expect(await watermark(upgraded, OUTLETS)).toBe(0);
     expect(await watermark(upgraded, PRODUCTS)).toBe(41);
 
@@ -536,7 +537,7 @@ describe("upgrading a device that predates the visits store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(10);
+    expect(upgraded.verno).toBe(11);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
 
     // The new store exists and is empty, which is the only correct starting state: there were no
@@ -572,7 +573,7 @@ describe("upgrading a device that predates the audit's reference stores", () => 
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(10);
+    expect(upgraded.verno).toBe(11);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
     expect(await upgraded.visits.count()).toBe(1);
 
@@ -648,7 +649,7 @@ describe("upgrading a device to the order store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(10);
+    expect(upgraded.verno).toBe(11);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // The store arrives empty on an upgraded device, which is the state a fresh install is in — so
@@ -697,7 +698,7 @@ describe("upgrading a device whose prices are floats", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(10);
+    expect(upgraded.verno).toBe(11);
 
     // The two that carried money go back to zero, so the next pull resends every row.
     expect(await watermark(upgraded, PRICE_LINES)).toBe(0);
@@ -738,7 +739,7 @@ describe("upgrading a device that has never held a tax rate", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(10);
+    expect(upgraded.verno).toBe(11);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // Empty on arrival, like every other new reference store: the next pull fills it, because the
@@ -796,12 +797,82 @@ describe("upgrading a device whose outlets have no country", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(10);
+    expect(upgraded.verno).toBe(11);
 
     expect(await watermark(upgraded, OUTLETS)).toBe(0);
 
     expect(await watermark(upgraded, PRODUCTS)).toBe(900);
     expect(await watermark(upgraded, TAX_RATES)).toBe(31);
+
+    upgraded.close();
+  });
+});
+
+describe("upgrading a device that has never held an order minimum", () => {
+  it("adds the store, and both its indexes work on a replayed database", async () => {
+    /*
+     * `OFF-13` for version 11 (W11 slice 8b-ii), and the same trap version 9 named: an index
+     * declared in a version an existing device *replays* fails in exactly one way — the table
+     * appears, `.get()` works, and only the indexed query throws.
+     *
+     * Here that would be worse than a wrong tax figure. `orderMinimumFor` reads through *both*
+     * `channelId` and `outletId`, and a throw inside a `liveQuery` is swallowed by `useLive`: the
+     * screen would resolve no minimum, and `BR-ORD-5` would silently stop applying on precisely the
+     * devices that had been running longest. So both indexes are exercised, not just the table.
+     */
+    const name = `migration:${crypto.randomUUID()}`;
+
+    const legacy = await openVersionFive(name);
+    await legacy.table("outbox").add({
+      mutationId: "m-min-1",
+      type: "CapturedVisit",
+      subjectId: "visit-1",
+      payload: { visitId: "visit-1" },
+      status: "pending",
+      createdAt: 1_000,
+      attempts: 0,
+    });
+    legacy.close();
+
+    const upgraded = new FieldKitDatabase(name);
+    await upgraded.open();
+
+    expect(upgraded.verno).toBe(11);
+    expect(await upgraded.outbox.count()).toBe(1);
+
+    // Empty on arrival, which for this store means every order passes — `BR-ORD-5` applies a minimum
+    // *if configured*, and a device that has not synced holds none.
+    expect(await upgraded.orderMinimums.count()).toBe(0);
+
+    await applyOrderMinimumChanges(upgraded, {
+      upserts: [
+        {
+          id: "min-channel",
+          channelId: "channel-1",
+          outletId: null,
+          amount: "150.00",
+          currencyCode: "RON",
+          rowVersion: 3,
+        },
+        {
+          id: "min-outlet",
+          channelId: null,
+          outletId: "outlet-1",
+          amount: "50.00",
+          currencyCode: "RON",
+          rowVersion: 4,
+        },
+      ],
+      tombstones: [],
+      cursor: 4,
+    });
+
+    expect(
+      (await upgraded.orderMinimums.where("channelId").equals("channel-1").toArray()).map((r) => r.id),
+    ).toEqual(["min-channel"]);
+    expect(
+      (await upgraded.orderMinimums.where("outletId").equals("outlet-1").toArray()).map((r) => r.id),
+    ).toEqual(["min-outlet"]);
 
     upgraded.close();
   });
@@ -817,7 +888,7 @@ describe("the schema itself", () => {
 
     await db.open();
 
-    expect(db.verno).toBe(10);
+    expect(db.verno).toBe(11);
 
     // The outbox is still keyed by the mutation id, which is the property the server's ledger
     // depends on: a re-send has to arrive under the id it was captured with.
