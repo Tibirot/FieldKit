@@ -1398,7 +1398,8 @@
         "Productive": "Productive",
         "NonProductive": "Nothing came of it"
       },
-      "stepsLabel": "Visit steps"
+      "stepsLabel": "Visit steps",
+      "openOrder": "Take the order"
     },
     "checkOut": {
       "title": "Finish the visit",
@@ -1457,6 +1458,39 @@
       "why": "Installed, it opens from your home screen and your browser stops clearing its data — which is what keeps a day of offline work safe.",
       "action": "Install",
       "dismiss": "Not now"
+    },
+    "order": {
+      "opening": "Opening this order…",
+      "title": "Order",
+      "empty": "Nothing on this order yet. Pick a product below and enter how many.",
+      "linesLabel": "On this order",
+      "catalogueLabel": "What this shop can be sold",
+      "noAssortment": "This shop has no products set up for ordering. Tell your supervisor.",
+      "quantity": "{quantity} {unit}",
+      "quantityLabel": "How many {product}",
+      "add": "Add",
+      "remove": "Remove",
+      "promoted": "Deal applied",
+      "unpriced": "No price",
+      "unpricedLines": "{count, plural, one {# line has no price at this shop and is not in the total} other {# lines have no price at this shop and are not in the total}}",
+      "unknownProduct": "A product this device does not hold",
+      "subtotal": "Subtotal",
+      "discount": "Discount",
+      "tax": "Tax",
+      "total": "Total",
+      "refusal": {
+        "quantity": "Enter how many, as a number greater than zero.",
+        "unpriced": "This shop has no price for that product today, so it cannot be ordered."
+      },
+      "unknownVisit": {
+        "title": "That visit is not on this device",
+        "body": "An order belongs to a call. Open the shop from today's journey to start one."
+      },
+      "sealed": {
+        "title": "This visit is finished",
+        "body": "An order can only be taken while the visit is open. Nothing here can be changed."
+      },
+      "totalsLabel": "Order total"
     }
   },
   "Guard": {
