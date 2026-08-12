@@ -227,6 +227,19 @@ function StepRow({ visit, step }: { visit: LocalVisit; step: LocalVisitStep }) {
         </LinkButton>
       ) : null}
 
+      {/*
+        The second type to grow a screen (W11 slice 9a), and it sits beside "Mark done" on the same
+        argument: `BR-AUD-6` seals the audit, and ticking the step is a separate act. A rep may work
+        the shelf and be interrupted, or find the aisle blocked and record that they were there —
+        completing the step on seal would make an audit the only way to finish it, and `BR-VIS-3`
+        would then hold a rep in a shop whose shelf they could not reach.
+      */}
+      {open && step.type === "Audit" ? (
+        <LinkButton variant="outline" size="sm" className="self-start" href={`/field/visits/${visit.id}/audit`}>
+          {t("openAudit")}
+        </LinkButton>
+      ) : null}
+
       {open ? (
         <Button
           variant="outline"
