@@ -1480,7 +1480,9 @@
       "total": "Total",
       "refusal": {
         "quantity": "Enter how many, as a number greater than zero.",
-        "unpriced": "This shop has no price for that product today, so it cannot be ordered."
+        "unpriced": "This shop has no price for that product today, so it cannot be ordered.",
+        "empty": "Add at least one product before submitting.",
+        "unexpected": "That could not be submitted. Try again, and tell your supervisor if it keeps happening."
       },
       "unknownVisit": {
         "title": "That visit is not on this device",
@@ -1490,7 +1492,13 @@
         "title": "This visit is finished",
         "body": "An order can only be taken while the visit is open. Nothing here can be changed."
       },
-      "totalsLabel": "Order total"
+      "totalsLabel": "Order total",
+      "submit": "Submit the order",
+      "sealing": "Submitting…",
+      "sent": {
+        "title": "This order is queued.",
+        "body": "It goes to the back office on the next sync. Nothing here can be changed now."
+      }
     }
   },
   "Guard": {

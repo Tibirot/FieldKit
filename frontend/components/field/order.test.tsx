@@ -2,13 +2,13 @@
 
 import "fake-indexeddb/auto";
 
-import { screen, waitFor, within } from "@testing-library/react";
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Order } from "@/components/field/order";
 import type { SyncContextValue } from "@/components/sync/sync-provider";
-import { draft } from "@/lib/orders/local-order";
+import { draft, orderFor } from "@/lib/orders/local-order";
 import {
   closeDatabase,
   FieldKitDatabase,
@@ -141,6 +141,20 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  /*
+   * Unmounted **before** the database is deleted, and the order matters.
+   *
+   * Testing Library registers its own cleanup at import time and Vitest runs `afterEach` hooks
+   * last-registered-first, so without this line the database is dropped while the previous test's
+   * components are still subscribed. `useLive` treats a failed observation as terminal — an errored
+   * observable never emits again — so the *next* test's screen could sit on its initial `null` and
+   * render a priced line as "No price".
+   *
+   * It presented as one test failing only when run with the others, which is the shape of every
+   * cross-test leak: isolation passes, the suite does not.
+   */
+  cleanup();
+
   await db.delete();
   closeDatabase();
 });
@@ -348,5 +362,108 @@ describe("<Order> and what a rep can put on it", () => {
     render(<Order visitId="visit-nope" />);
 
     expect(await screen.findByText("That visit is not on this device")).toBeTruthy();
+  });
+});
+
+describe("<Order> and submitting it", () => {
+  /** Adds one line of six cases, so every test below starts from a sendable order. */
+  async function withALine() {
+    render(<Order visitId="visit-1" />);
+
+    await userEvent.type((await catalogue()).getByLabelText("How many Cola 500ml"), "6");
+    await userEvent.click((await catalogue()).getAllByRole("button", { name: "Add" })[0]);
+
+    await waitFor(async () => expect((await draft(db, "visit-1"))?.lines).toHaveLength(1));
+  }
+
+  it("seals the order and queues it in one go", async () => {
+    /*
+     * `ORD-07`, and the two writes are one fact. `submit()` owns the transaction; what this asserts
+     * is that the screen actually calls it and that both halves landed — an order marked submitted
+     * with no outbox row is work the rep believes was sent and never was.
+     */
+    await withALine();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Submit the order" }));
+
+    await waitFor(async () => expect(await db.outbox.count()).toBe(1));
+
+    const sent = await orderFor(db, "visit-1");
+
+    expect(sent?.status).toBe("submitted");
+    expect(sent?.capturedAtUtc).not.toBeNull();
+
+    const queued = (await db.outbox.toArray())[0];
+
+    expect(queued.type).toBe("CapturedOrder");
+    expect(queued.subjectId).toBe(sent?.id);
+    expect(queued.status).toBe("pending");
+  });
+
+  it("puts the order on the wire as numbers, not as the strings it stores", async () => {
+    /*
+     * The one conversion `captured()` is allowed to make, checked from the outside because this is
+     * the only place it is observable. `CapturedOrderLine` takes bare `decimal` and nothing
+     * configures `AllowReadingFromString`, so a quoted `"27.00"` is a **400** — which fails the whole
+     * batch and is retried on every reconnect forever rather than recorded and stopped.
+     */
+    await withALine();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Submit the order" }));
+
+    await waitFor(async () => expect(await db.outbox.count()).toBe(1));
+
+    const payload = (await db.outbox.toArray())[0].payload as Record<string, unknown>;
+    const line = (payload.lines as Record<string, unknown>[])[0];
+
+    expect(typeof payload.total).toBe("number");
+    expect(payload.total).toBe(27);
+    expect(typeof line.unitPrice).toBe("number");
+    expect(line.lineTotal).toBe(27);
+  });
+
+  it("refuses an empty order and says why, rather than doing nothing", async () => {
+    // The store refuses it too — an order for nothing is not an order — but a button that silently
+    // declines is a rep tapping it harder. Nothing reaches the outbox.
+    render(<Order visitId="visit-1" />);
+
+    await userEvent.type((await catalogue()).getByLabelText("How many Cola 500ml"), "6");
+    await userEvent.click((await catalogue()).getAllByRole("button", { name: "Add" })[0]);
+
+    await waitFor(async () => expect((await draft(db, "visit-1"))?.lines).toHaveLength(1));
+
+    await userEvent.click(await screen.findByRole("button", { name: "Remove" }));
+
+    await waitFor(async () => expect((await draft(db, "visit-1"))?.lines).toHaveLength(0));
+
+    await userEvent.click(screen.getByRole("button", { name: "Submit the order" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Add at least one product before submitting.",
+    );
+
+    expect(await db.outbox.count()).toBe(0);
+  });
+
+  it("stops offering to change a sealed order (BR-ORD-4)", async () => {
+    /*
+     * The lock, from the screen. `putLine` and `removeLine` both refuse a non-draft, so this is
+     * about not *offering* the action — and about the blink the naive version had: reading `draft()`
+     * here would leave a sealed order rendering as "nothing on this order yet" with a catalogue
+     * under it, telling a rep who just sent an order that they never started one.
+     */
+    await withALine();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Submit the order" }));
+
+    // Asserted on the screen already mounted, which is the stronger claim: the live query flips it
+    // to sealed the moment the transaction commits, with no navigation and no remount involved.
+    expect(await screen.findByText("This order is queued.")).toBeTruthy();
+
+    // The lines are still shown — it is a record of what went — but nothing can act on them.
+    expect((await lines()).getByText(/6 case/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Remove" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Submit the order" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "What this shop can be sold" })).toBeNull();
   });
 });
