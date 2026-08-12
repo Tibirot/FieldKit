@@ -59,6 +59,7 @@ function nothingToPull() {
       promotionAssignments: empty,
       surveys: empty,
       scoreWeights: empty,
+      taxRates: empty,
     },
     snapshotVersion: 1,
   };

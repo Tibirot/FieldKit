@@ -51,7 +51,7 @@ flowchart LR
 
 | Store | Kind | Contents |
 |---|---|---|
-| `ref_*` (built: `ref_outlets`, `ref_planned_visits`, `ref_visit_workflows`, `ref_products`, `ref_assortment`, `ref_assortment_overrides`, `ref_price_lists`, `ref_price_lines`, `ref_price_assignments`, `ref_promotions`, `ref_promotion_assignments`) | Reference (read-only) | Rep-scoped snapshot; server-authoritative. What each is scoped *by* differs — see §3 |
+| `ref_*` (built: `ref_outlets`, `ref_planned_visits`, `ref_visit_workflows`, `ref_products`, `ref_assortment`, `ref_assortment_overrides`, `ref_price_lists`, `ref_price_lines`, `ref_price_assignments`, `ref_promotions`, `ref_promotion_assignments`, `ref_surveys`, `ref_score_weights`, `ref_tax_rates`) | Reference (read-only) | Rep-scoped snapshot; server-authoritative. What each is scoped *by* differs — see §3 |
 | `visits` | **Device-authored** | A visit as the rep works it (W9 slice 4). The one store here that is neither a copy of the server's data nor a write-once payload — see below |
 | `outbox` | Mutations | `{ mutationId, type, payload, status, createdAt, attempts, error? }` |
 | `blobs` | Binaries | Downscaled photos awaiting upload, keyed by mutation + slot |
@@ -246,6 +246,9 @@ row is it*, and the answer changes what the feed's interface has to look like:
 | `priceAssignments` | Channel rows by nothing; outlet rows by the device’s **outlet set** | **Yes** |
 | `promotions` | **Nothing** — each travels whole, targets and tiers inside ([`IPromotionChangeFeed`](../../FieldKit.Modules.Products.Contracts/IPromotionChangeFeed.cs)) | No |
 | `promotionAssignments` | Channel rows by nothing; outlet rows by the device’s **outlet set** | **Yes** |
+| `surveys` | **Nothing** — every device gets every questionnaire ([`ISurveyFormFeed`](../../FieldKit.Modules.Configuration.Contracts/ISurveyFormFeed.cs)) | No |
+| `scoreWeights` | **Nothing** — and **every published version**, not just the newest, because an audit records the one it was scored against (`BR-AUD-8`) | No |
+| `taxRates` | **Nothing** — a rate is a fact about a country and a class, not about a shop ([`ITaxRateChangeFeed`](../../FieldKit.Modules.Products.Contracts/ITaxRateChangeFeed.cs)) | No |
 
 A **baseline** call — "hand me these rows whatever their version" — exists because an outlet can
 enter a rep's territory *without being edited*, carrying a row version far below the device's cursor,
@@ -283,6 +286,19 @@ device pricing an order dated last Tuesday needs the promotion that was running 
 Filtering server-side would make an offline device compute a different total from the server for the
 same order — the disagreement the parity suite exists to prevent, arriving through the sync layer
 instead.
+
+**Tax rates were the last pricing input that never travelled** (W11 slice 7b). The device has had a
+tax engine since W7 slice 14 and the server has had rates since W6 slice 13; nothing carried one to
+the other, and `TaxRate` was not even `ISyncTracked`, so there was no delta to send. The failure was
+quiet rather than loud: `priceLine` reads a missing rate as *unknown* and charges nothing, so a rep
+saw a plausible net total that the server's recomputation exceeds by exactly the tax, on every order.
+Expired rates are held for the same reason expired promotions are — `BR-PRD-6` resolves against the
+*order's* date, and VAT changes on announced dates.
+
+> **The device still cannot use them, and that is the next slice.** A rate is matched to a
+> jurisdiction, and `OutletSnapshot` carries no `countryCode` — so the shop's half of the match is
+> missing. Until W11 slice 7c adds it, `ref_tax_rates` is a table the device holds and cannot query
+> for the outlet it is standing in.
 
 **Prices are the one place a device holds data outside its territory, and it is recorded as a
 limitation rather than defended.** Lists and lines go to every device, so a rep’s phone holds price

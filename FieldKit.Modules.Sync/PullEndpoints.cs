@@ -44,6 +44,7 @@ public static class PullEndpoints
             IAssortmentChangeFeed assortment,
             IPriceChangeFeed prices,
             IPromotionChangeFeed promotions,
+            ITaxRateChangeFeed taxRates,
             ITenantContext tenant,
             IClock clock,
             CancellationToken ct) =>
@@ -207,6 +208,20 @@ public static class PullEndpoints
             var weightPage = await weightings.GetChangesAsync(
                 request.Cursors?.ScoreWeights ?? 0, PageLimit, ct);
 
+            /*
+             * Tax rates (W11 slice 7b), and the last input the device was missing.
+             *
+             * Tenant-wide, like the price lists beside them: a rate is a statement about a country
+             * and a class rather than about a shop, and there is nothing in "this country charges 19%
+             * on standard goods" one rep may see and another may not.
+             *
+             * Expired rates travel too, exactly as expired promotions do. A device pricing an order
+             * dated before a VAT change needs the rate that was in force then — filtering here would
+             * make an offline device disagree with the server about an order neither thinks unusual.
+             */
+            var taxRatePage = await taxRates.GetChangesAsync(
+                request.Cursors?.TaxRates ?? 0, PageLimit, ct);
+
             await RecordScopeAsync(
                 db, device.Id, tenant.TenantId, territory.Entering, territory.Leaving, ct);
 
@@ -242,7 +257,9 @@ public static class PullEndpoints
                     new EntityChanges<SurveyFormSnapshot>(
                         surveyPage.Upserts, surveyPage.Tombstones, surveyPage.Cursor),
                     new EntityChanges<ScoreWeightSetSnapshot>(
-                        weightPage.Upserts, weightPage.Tombstones, weightPage.Cursor)),
+                        weightPage.Upserts, weightPage.Tombstones, weightPage.Cursor),
+                    new EntityChanges<TaxRateSnapshot>(
+                        taxRatePage.Upserts, taxRatePage.Tombstones, taxRatePage.Cursor)),
                 // A patchwork, not a point in time: watermarks advance per entity type, and the
                 // device tolerates the skew because captured work records its own inputs
                 // (sync engine §3). The string names the outlet cursor only — it is a label for
@@ -416,7 +433,8 @@ public sealed record PullCursors(
     long? Promotions = null,
     long? PromotionAssignments = null,
     long? Surveys = null,
-    long? ScoreWeights = null);
+    long? ScoreWeights = null,
+    long? TaxRates = null);
 
 public sealed record EntityChanges<T>(
     IReadOnlyList<T> Upserts, IReadOnlyList<ReferenceTombstone> Tombstones, long Cursor);
@@ -434,6 +452,7 @@ public sealed record PullChanges(
     EntityChanges<PromotionSnapshot> Promotions,
     EntityChanges<PromotionAssignmentSnapshot> PromotionAssignments,
     EntityChanges<SurveyFormSnapshot> Surveys,
-    EntityChanges<ScoreWeightSetSnapshot> ScoreWeights);
+    EntityChanges<ScoreWeightSetSnapshot> ScoreWeights,
+    EntityChanges<TaxRateSnapshot> TaxRates);
 
 public sealed record PullResponse(PullChanges Changes, string SnapshotVersion);

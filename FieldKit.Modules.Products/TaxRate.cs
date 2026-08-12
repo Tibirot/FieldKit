@@ -28,8 +28,20 @@ namespace FieldKit.Modules.Products;
 /// which is the state that means <i>unknown</i>. The two must stay distinguishable.
 /// </para>
 /// </remarks>
-public sealed class TaxRate : AggregateRoot, ITenantOwned, IAuditable
+public sealed class TaxRate : AggregateRoot, ITenantOwned, IAuditable, ISyncTracked
 {
+    /// <summary>
+    /// Set by the row-version interceptor, never here (ADR-0013) — W11 slice 7b.
+    /// </summary>
+    /// <remarks>
+    /// <b>The last of the pricing inputs to become syncable, and its absence was a silent gap.</b>
+    /// Prices, promotions and the assortment all reached the device in W8; tax did not, so the device
+    /// had every input to <c>priceLine</c> except the rate — and <c>priceLine</c> treats a missing
+    /// rate as <i>unknown</i> rather than zero, which is honest and still produces a total the server
+    /// disagrees with by exactly the tax. `BR-ORD-2` promises those two numbers match.
+    /// </remarks>
+    public long RowVersion { get; set; }
+
     public Guid Id { get; private set; }
 
     public Guid TaxClassId { get; private set; }

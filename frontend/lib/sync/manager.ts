@@ -21,6 +21,7 @@ import {
   applyProductChanges,
   applyPromotionAssignmentChanges,
   applyScoreWeightChanges,
+  applyTaxRateChanges,
   applySurveyChanges,
   applyPromotionChanges,
   ASSORTMENT,
@@ -34,6 +35,7 @@ import {
   PRODUCTS,
   PROMOTION_ASSIGNMENTS,
   SCORE_WEIGHTS,
+  TAX_RATES,
   SURVEYS,
   PROMOTIONS,
   pruneOutletAssortment,
@@ -294,6 +296,7 @@ async function refresh(
     promotionAssignments: await watermark(db, PROMOTION_ASSIGNMENTS),
     surveys: await watermark(db, SURVEYS),
     scoreWeights: await watermark(db, SCORE_WEIGHTS),
+    taxRates: await watermark(db, TAX_RATES),
   };
 
   let response;
@@ -317,6 +320,7 @@ async function refresh(
     promotionAssignments,
     surveys,
     scoreWeights,
+    taxRates,
   } = response.changes;
 
   // Two transactions, not one. Failing to store the round must not undo outlets that already
@@ -334,6 +338,7 @@ async function refresh(
   await applyPromotionAssignmentChanges(db, promotionAssignments);
   await applySurveyChanges(db, surveys);
   await applyScoreWeightChanges(db, scoreWeights);
+  await applyTaxRateChanges(db, taxRates);
 
   // After the outlets have landed, because it reads what the device now holds. An outlet that left
   // the rep's territory takes its overrides with it, and the server sends no tombstone for them —
@@ -365,6 +370,7 @@ async function refresh(
     promotionAssignments,
     surveys,
     scoreWeights,
+    taxRates,
   ];
 
   result.pulled += pages.reduce((total, page) => total + page.upserts.length, 0);

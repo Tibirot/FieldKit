@@ -34,6 +34,8 @@ import {
   PROMOTION_ASSIGNMENTS,
   PROMOTIONS,
   promotionsFor,
+  TAX_RATES,
+  taxRatesFor,
   watermark,
   workflowFor,
 } from "./reference";
@@ -86,6 +88,7 @@ function emptyPull(cursor = 0) {
       promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
       surveys: { upserts: [], tombstones: [], cursor: 0 },
       scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
+      taxRates: { upserts: [], tombstones: [], cursor: 0 },
     },
     snapshotVersion: `outlets#${cursor}`,
   };
@@ -341,6 +344,7 @@ describe("one sync run", () => {
         promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
         surveys: { upserts: [], tombstones: [], cursor: 0 },
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
+        taxRates: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -375,6 +379,7 @@ describe("one sync run", () => {
         promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
         surveys: { upserts: [], tombstones: [], cursor: 0 },
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
+        taxRates: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -425,6 +430,7 @@ describe("one sync run", () => {
         promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
         surveys: { upserts: [], tombstones: [], cursor: 0 },
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
+        taxRates: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -470,6 +476,7 @@ describe("one sync run", () => {
         promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
         surveys: { upserts: [], tombstones: [], cursor: 0 },
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
+        taxRates: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -509,6 +516,7 @@ describe("one sync run", () => {
         promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
         surveys: { upserts: [], tombstones: [], cursor: 0 },
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
+        taxRates: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -548,6 +556,7 @@ describe("one sync run", () => {
         promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
         surveys: { upserts: [], tombstones: [], cursor: 0 },
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
+        taxRates: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -574,6 +583,7 @@ describe("one sync run", () => {
         promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
         surveys: { upserts: [], tombstones: [], cursor: 0 },
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
+        taxRates: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -606,6 +616,7 @@ describe("one sync run", () => {
         promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
         surveys: { upserts: [], tombstones: [], cursor: 0 },
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
+        taxRates: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -642,6 +653,7 @@ describe("one sync run", () => {
       promotionAssignments: 0,
       surveys: 0,
       scoreWeights: 0,
+      taxRates: 0,
     }, undefined);
 
     db.close();
@@ -873,6 +885,7 @@ describe("the assortment", () => {
         promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
         surveys: { upserts: [], tombstones: [], cursor: 0 },
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
+        taxRates: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#1",
     };
@@ -1046,6 +1059,7 @@ describe("prices", () => {
         promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
         surveys: { upserts: [], tombstones: [], cursor: 0 },
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
+        taxRates: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#1",
     };
@@ -1245,6 +1259,7 @@ describe("promotions", () => {
         promotionAssignments,
         surveys: { upserts: [], tombstones: [], cursor: 0 },
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
+        taxRates: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#1",
     };
@@ -1430,6 +1445,82 @@ describe("promotions", () => {
     const remaining = await db.promotionAssignments.toArray();
     expect(remaining).toHaveLength(1);
     expect(remaining[0].id).toBe("assign-channel");
+
+    db.close();
+  });
+});
+
+
+describe("tax rates", () => {
+  function taxPull(taxRates: { upserts: unknown[]; tombstones: unknown[]; cursor: number }) {
+    return {
+      changes: {
+        outlets: { upserts: [], tombstones: [], cursor: 0 },
+        journeys: { upserts: [], tombstones: [], cursor: 0 },
+        configuration: { upserts: [], tombstones: [], cursor: 0 },
+        products: { upserts: [], tombstones: [], cursor: 0 },
+        assortment: { upserts: [], tombstones: [], cursor: 0 },
+        outletAssortment: { upserts: [], tombstones: [], cursor: 0 },
+        priceLists: { upserts: [], tombstones: [], cursor: 0 },
+        priceLines: { upserts: [], tombstones: [], cursor: 0 },
+        priceAssignments: { upserts: [], tombstones: [], cursor: 0 },
+        promotions: { upserts: [], tombstones: [], cursor: 0 },
+        promotionAssignments: { upserts: [], tombstones: [], cursor: 0 },
+        surveys: { upserts: [], tombstones: [], cursor: 0 },
+        scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
+        taxRates,
+      },
+      snapshotVersion: "outlets#0",
+    };
+  }
+
+  function rate(id: string, percentage: string, rowVersion: number) {
+    return {
+      id,
+      taxClassId: "standard",
+      countryCode: "RO",
+      percentage,
+      effectiveFrom: "2026-01-01",
+      effectiveTo: null,
+      rowVersion,
+    };
+  }
+
+  it("stores what the pull carried, under its own watermark", async () => {
+    /*
+     * The wiring test, and it exists because the feed and the store can both be right while nothing
+     * joins them. A missing line in the manager is silent: the pull succeeds, every other store
+     * fills, and the device simply never has a rate — which `priceLine` reads as *unknown* and
+     * charges nothing for. The rep sees a plausible net total and the server's recomputation exceeds
+     * it by exactly the tax, on every order.
+     */
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValue(
+      taxPull({ upserts: [rate("r1", "19.00", 12)], tombstones: [], cursor: 12 }),
+    );
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    expect((await taxRatesFor(db, "RO", "standard")).map((each) => each.id)).toEqual(["r1"]);
+    expect(await watermark(db, TAX_RATES)).toBe(12);
+
+    db.close();
+  });
+
+  it("asks for changes since the watermark it already holds", async () => {
+    // The delta half. Sending zero every run would re-download a tenant's whole rate table on a
+    // connection the rep may not have, and the cursor exists precisely so it does not.
+    const db = freshDatabase();
+
+    api.pull.mockResolvedValue(
+      taxPull({ upserts: [rate("r1", "19.00", 12)], tombstones: [], cursor: 12 }),
+    );
+
+    await syncOnce(db, TOKEN, DEVICE);
+    await syncOnce(db, TOKEN, DEVICE);
+
+    expect(api.pull.mock.calls[1][2].taxRates).toBe(12);
 
     db.close();
   });
