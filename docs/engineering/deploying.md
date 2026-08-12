@@ -212,6 +212,11 @@ deployed: the workflow that proves the change locally is the one that cannot rep
 file grants the role. Nothing else is wrong; the token simply does not carry a role Keycloak never
 heard of.
 
+> **Outstanding as of W11 slice 4a: `order:reject`.** The realm files grant it to `admin`, and the
+> deployed realm has never heard of it — so `POST /api/orders/{id}/rejection` answers `403` there
+> until the role is added by hand. It is the first role minted since the deploy on 2026-08-11, and
+> it is named here rather than left for whoever meets the 403 to work out.
+
 **Check before deploying** — realm commits since what is live:
 
 ```bash

@@ -98,6 +98,8 @@ public sealed class OrderDbContext(DbContextOptions<OrderDbContext> options, ITe
             // "What happened to this order" reads oldest-first, and BR-ORD-9's terminal-id check
             // reads every submission of one order — both are this index.
             submission.HasIndex(s => new { s.TenantId, s.OrderId, s.SubmittedAtUtc });
+
+            submission.Property(s => s.Note).HasMaxLength(OrderSubmission.MaximumNoteLength);
         });
 
         modelBuilder.Entity<OrderLine>(line =>

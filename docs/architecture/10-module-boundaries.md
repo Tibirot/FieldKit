@@ -249,6 +249,7 @@ the document a module author trusts when deciding what to depend on.
 | Visit | `…Modules.Visit` (+ `.Contracts`) | `visit` | **`IVisitIngest`**, **`IVisitContext`**, `IVisitQuery` | `VisitCompleted` |
 | Audit | `…Modules.Audit` (+ `.Contracts`) | `audit` | **`IAuditIngest`**, **`IAuditQuery`**, `IPerfectStoreScore` | `AuditCompleted` |
 | Order | `…Modules.Order` (+ `.Contracts`) | `ordering` | **`IOrderIngest`**, **`IOrderQuery`** | `OrderSubmitted` |
+| | *Gates on `order:reject` (W11 slice 4a) and borrows `visit:read` for reads. There is no `order:write`: nothing writes an order over HTTP, and rejecting is not editing.* | | | |
 | Sync | `…Modules.Sync` | `sync` | ~~`ISyncEndpoints` (pull/push)~~ — none yet; nothing outside the module calls it | ~~`DeviceRegistered`~~ — no subscriber yet |
 
 **Ten modules.** Contracts and events map 1:1 to the [functional specs'](../product/00-product-overview.md)

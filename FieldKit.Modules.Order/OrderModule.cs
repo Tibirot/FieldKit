@@ -31,29 +31,38 @@ public sealed class OrderModule : IModule
     public string Name => "Order";
 
     /// <summary>
-    /// None yet, and for a narrower reason than Audit's.
+    /// One, and it is deliberately narrower than <c>order:write</c>.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Nothing writes an order over HTTP</b>, so there is no <c>order:write</c> to define: an order
-    /// arrives through <c>/sync/push</c> under the rep's own token, which <c>visit:write</c> already
-    /// gates. A write permission nobody checks is worse than none — it appears in the role editor,
-    /// gets granted, and means nothing.
+    /// <b>Still no <c>order:write</c>, because nothing writes an order over HTTP.</b> An order arrives
+    /// through <c>/sync/push</c> under the rep's own token, which <c>visit:write</c> already gates. A
+    /// write permission nobody checks is worse than none — it appears in the role editor, gets
+    /// granted, and means nothing.
     /// </para>
     /// <para>
-    /// <b>Reading is <c>visit:read</c>'s for now, and unlike Audit that is a compromise rather than a
-    /// conclusion.</b> An audit genuinely <i>is</i> what happened during a visit. An order is
-    /// commercial, and a finance reader who should see order values without seeing a rep's movements
-    /// is an entirely reasonable person to exist. They do not exist yet, and a realm role minted
-    /// before its holder is a role nobody was granted — with the added cost, recorded in W10, that a
-    /// realm change is not applied by deploying. See <c>OrderEndpoints</c>.
+    /// <b><see cref="OrderPermissions.Reject"/> is the exception, and it names the act rather than the
+    /// table</b> (W11 slice 4a). Rejecting is not editing: it refuses an order back to the rep and
+    /// changes no line. Calling it <c>order:write</c> would promise a holder they could alter what a
+    /// shopkeeper agreed to, which is the one thing <c>BR-ORD-4</c> forbids anybody from doing.
     /// </para>
     /// <para>
-    /// The back office's Accept/Reject (<c>ORD-09</c>) is where a real <c>order:write</c> would be
-    /// argued, and W11 slice 4 ships its API.
+    /// <b>Reading is still <c>visit:read</c>'s, and that is a compromise rather than a conclusion.</b>
+    /// An audit genuinely <i>is</i> what happened during a visit. An order is commercial, and a finance
+    /// reader who should see order values without seeing a rep's movements is an entirely reasonable
+    /// person to exist — they just do not, yet.
+    /// </para>
+    /// <para>
+    /// <b>A new realm role is not free, and not applied by deploying.</b> The Keycloak import is
+    /// <c>IGNORE_EXISTING</c> (W10's finding, <see href="../docs/engineering/deploying.md">the
+    /// runbook</see>), so an existing environment needs the role added by hand before this endpoint
+    /// answers anything but <c>403</c>. That cost is why <c>order:read</c> is still not minted.
     /// </para>
     /// </remarks>
-    public IReadOnlyList<PermissionDefinition> Permissions => [];
+    public IReadOnlyList<PermissionDefinition> Permissions =>
+    [
+        new(OrderPermissions.Reject, "Refuse a submitted order back to the rep for correction."),
+    ];
 
     public void AddModule(IServiceCollection services, IConfiguration configuration)
     {
