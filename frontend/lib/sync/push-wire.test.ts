@@ -60,6 +60,7 @@ function nothingToPull() {
       surveys: empty,
       scoreWeights: empty,
       taxRates: empty,
+      orderMinimums: empty,
     },
     snapshotVersion: 1,
   };

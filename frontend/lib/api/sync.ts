@@ -3,6 +3,7 @@ import { apiSend } from "@/lib/api/client";
 import type {
   ReferenceAssortmentLine,
   ReferenceAssortmentOverride,
+  ReferenceOrderMinimum,
   ReferenceOutlet,
   ReferencePriceAssignment,
   ReferencePriceLine,
@@ -56,6 +57,7 @@ export type PullCursors = {
   surveys?: number;
   scoreWeights?: number;
   taxRates?: number;
+  orderMinimums?: number;
 };
 
 export type PullResponse = {
@@ -73,7 +75,8 @@ export type PullResponse = {
     promotionAssignments: EntityChanges<ReferencePromotionAssignment>;
     surveys: EntityChanges<ReferenceSurveyForm>;
     scoreWeights: EntityChanges<ReferenceScoreWeightSet>;
-  taxRates: EntityChanges<ReferenceTaxRate>;
+    taxRates: EntityChanges<ReferenceTaxRate>;
+    orderMinimums: EntityChanges<ReferenceOrderMinimum>;
   };
   snapshotVersion: string;
 };

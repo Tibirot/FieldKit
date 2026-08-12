@@ -1483,7 +1483,13 @@
         "quantity": "Scrie cantitatea, ca număr mai mare decât zero.",
         "unpriced": "Acest magazin nu are astăzi un preț pentru acel produs, așa că nu poate fi comandat.",
         "empty": "Adaugă cel puțin un produs înainte de a trimite.",
+        "belowMinimum": "Comenzile acestui magazin trebuie să atingă minimul de mai sus. Mai adaugă înainte de a trimite.",
+        "currencyMismatch": "Comanda minimă a magazinului este stabilită în altă monedă decât prețurile lui, așa că nu poate fi verificată. Anunță-ți supervizorul.",
+        "uncheckedMinimum": "Comanda minimă pentru acest magazin nu a putut fi verificată. Anunță-ți supervizorul.",
         "unexpected": "Comanda nu a putut fi trimisă. Încearcă din nou și anunță-ți supervizorul dacă se repetă."
+      },
+      "minimum": {
+        "short": "Magazinul comandă de la {amount}."
       },
       "unknownVisit": {
         "title": "Vizita nu se află pe acest dispozitiv",

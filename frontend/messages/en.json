@@ -1483,7 +1483,13 @@
         "quantity": "Enter how many, as a number greater than zero.",
         "unpriced": "This shop has no price for that product today, so it cannot be ordered.",
         "empty": "Add at least one product before submitting.",
+        "belowMinimum": "This shop's orders have to reach the minimum above. Add more before submitting.",
+        "currencyMismatch": "This shop's order minimum is set in a different currency to its prices, so it cannot be checked. Tell your supervisor.",
+        "uncheckedMinimum": "The order minimum for this shop could not be checked. Tell your supervisor.",
         "unexpected": "That could not be submitted. Try again, and tell your supervisor if it keeps happening."
+      },
+      "minimum": {
+        "short": "This shop orders from {amount}."
       },
       "unknownVisit": {
         "title": "That visit is not on this device",

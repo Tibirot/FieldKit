@@ -59,6 +59,7 @@ public sealed class ProductsModule : IModule
         services.AddScoped<IPriceChangeFeed, PriceChangeFeed>();
         services.AddScoped<IPromotionChangeFeed, PromotionChangeFeed>();
         services.AddScoped<ITaxRateChangeFeed, TaxRateChangeFeed>();
+        services.AddScoped<IOrderMinimumChangeFeed, OrderMinimumChangeFeed>();
 
         // What an order costs, for Order — the module that cannot reach the resolvers directly
         // (AT-1) and must not reimplement them. W11 slice 2c.
