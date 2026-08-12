@@ -89,6 +89,7 @@ public sealed class ProductsModule : IModule
         endpoints.MapPriceResolutionEndpoints();
         endpoints.MapPromotionResolutionEndpoints();
         endpoints.MapTaxEndpoints();
+        endpoints.MapOrderMinimumEndpoints();
     }
 }
 

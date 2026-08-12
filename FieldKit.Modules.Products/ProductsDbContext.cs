@@ -45,6 +45,8 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
 
     public DbSet<TaxRate> TaxRates => Set<TaxRate>();
 
+    public DbSet<OrderMinimum> OrderMinimums => Set<OrderMinimum>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -529,6 +531,37 @@ public sealed class ProductsDbContext(DbContextOptions<ProductsDbContext> option
                 .HasForeignKey(r => new { r.TenantId, r.TaxClassId })
                 .HasPrincipalKey(c => new { c.TenantId, c.Id })
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<OrderMinimum>(minimum =>
+        {
+            // The same one-scope constraint `price_list_assignment` carries, for the same reason: a
+            // row with both is a rule with two scopes and no meaning, and one with neither applies
+            // nowhere. Made unrepresentable rather than skipped defensively by every reader.
+            minimum.ToTable("order_minimum", table => table.HasCheckConstraint(
+                "ck_order_minimum_one_scope",
+                """("channel_id" IS NULL) <> ("outlet_id" IS NULL)"""));
+
+            minimum.HasKey(m => m.Id);
+            minimum.Property(m => m.ChannelId).HasColumnName("channel_id");
+            minimum.Property(m => m.OutletId).HasColumnName("outlet_id");
+            minimum.Property(m => m.CurrencyCode).HasMaxLength(3).IsRequired();
+
+            // Money, so the precision a price line gets. `HasPrecision` rather than a bare decimal:
+            // Npgsql would otherwise pick `numeric` unconstrained, and a threshold stored at a
+            // different scale from the totals it is compared against is a rounding argument waiting
+            // to happen.
+            minimum.Property(m => m.Amount).HasPrecision(18, 4);
+
+            // At most one minimum per scope. A second would make "what must this shop reach" a
+            // question with two answers, and the resolver's tie-break exists to keep two devices
+            // agreeing — not to make a data problem acceptable.
+            minimum.HasIndex(m => new { m.TenantId, m.ChannelId }).IsUnique();
+            minimum.HasIndex(m => new { m.TenantId, m.OutletId }).IsUnique();
+
+            // No foreign key on either id: both point into Outlets, and a constraint across a module
+            // boundary is the coupling schema-per-module (ADR-0005) exists to prevent. The endpoint
+            // checks them through `IOutletClassification` and `IOutletCatalog`.
         });
     }
 }

@@ -1483,6 +1483,100 @@ GET {{Server_HostAddress}}/api/products/outlets/{{outlet.response.body.id}}/tax?
 Accept: application/json
 Authorization: Bearer {{token.response.body.access_token}}
 
+### ── Products · order minimums (ORD-06, BR-ORD-5) ──────────────────────────────────────────────
+# The smallest order a shop may place. `B1` puts it **per channel with a per-outlet override** — the
+# third rule in this module to take that shape, after price list assignment and the assortment, so
+# the precedence a reader already knows applies again: outlet beats channel.
+#
+# It lives in Products rather than Configuration, which is worth saying because the plan once guessed
+# otherwise. Configuration owns *shape* — custom fields, workflows, forms, weights, all tenant-wide.
+# A per-channel commercial threshold is not that, and putting it there would have meant building the
+# channel/outlet override machinery a second time in a module that has none.
+#
+# **Authoring only, at this slice.** The refusal a rep meets is 8b-ii's, on the device: "must be met
+# to submit" has to be answered at a counter with no signal, so the resolver is pure and both sides
+# run it.
+#
+# Read `amount` — a **string**, and the minimum carries its own `currencyCode`. An order's currency
+# comes from the price list that priced it (`BR-ORD-7`); comparing 50 EUR against 200 RON by their
+# numbers alone would refuse orders comfortably over the threshold and look like the rule working, so
+# a mismatch is reported rather than compared.
+
+# @name orderMinimums
+PUT {{Server_HostAddress}}/api/products/order-minimums
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "minimums": [
+    { "channelId": "{{channel.response.body.id}}", "amount": "150.00", "currencyCode": "RON" },
+    { "outletId": "{{outlet.response.body.id}}", "amount": "50.00", "currencyCode": "RON" }
+  ]
+}
+
+### Which one applies at that shop. Expect `scope: "Outlet"` and 50.00 — the override wins even
+### though it is the *smaller* number, because precedence is about specificity and not about size.
+GET {{Server_HostAddress}}/api/products/outlets/{{outlet.response.body.id}}/order-minimum
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### Every minimum this tenant has.
+GET {{Server_HostAddress}}/api/products/order-minimums
+Accept: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+### A minimum of zero — expect 400. The opposite call to a tax rate, deliberately: 0.00 tax means
+### zero-rated goods, a real fact, while a minimum of zero means *no minimum*, which is already
+### expressible by not having a row. Two ways to say one thing is how a rep ends up reading
+### "minimum: 0.00" and wondering what it is for.
+PUT {{Server_HostAddress}}/api/products/order-minimums
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "minimums": [
+    { "channelId": "{{channel.response.body.id}}", "amount": "0", "currencyCode": "RON" }
+  ]
+}
+
+### A thousands separator — expect 400. `NumberStyles.Number` would read this as fifteen hundred
+### under invariant culture, so a tenant who meant one and a half gets a threshold ten times too high
+### and no complaint. The same refusal every amount in this module makes.
+PUT {{Server_HostAddress}}/api/products/order-minimums
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "minimums": [
+    { "channelId": "{{channel.response.body.id}}", "amount": "1,500", "currencyCode": "RON" }
+  ]
+}
+
+### Both scopes at once — expect 400 `product.orderMinimum.oneScope`. The check constraint would
+### refuse it too; this names the field instead of surfacing a database object at an author.
+PUT {{Server_HostAddress}}/api/products/order-minimums
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{
+  "minimums": [
+    {
+      "channelId": "{{channel.response.body.id}}",
+      "outletId": "{{outlet.response.body.id}}",
+      "amount": "10.00",
+      "currencyCode": "RON"
+    }
+  ]
+}
+
+### Withdrawing every minimum is an empty set, not a delete — the same shape a promotion's targets
+### and a tax class's rates use. Every order is submittable again afterwards.
+PUT {{Server_HostAddress}}/api/products/order-minimums
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.access_token}}
+
+{ "minimums": [] }
+
 ### An unknown time zone — expect 400. Checked against the runtime's zone database rather than a
 ### pattern, because "Europe/Bucuresti" is well-formed and does not exist. A visit's business day and
 ### a promotion's validity both resolve in this zone, so a wrong one is a wrong answer waiting.
