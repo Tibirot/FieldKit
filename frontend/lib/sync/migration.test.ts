@@ -3,6 +3,7 @@ import "fake-indexeddb/auto";
 import Dexie from "dexie";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { draftFor as auditDraftFor } from "@/lib/audits/local-audit";
 import { draftFor } from "@/lib/orders/local-order";
 import { closeDatabase, FieldKitDatabase } from "./db";
 import { enqueue, markRejected, pending, pendingCount, statusOf } from "./outbox";
@@ -221,7 +222,7 @@ describe("upgrading a device that has unsent work", () => {
     // rows. Without this the whole file could be passing against databases that never existed at
     // v1. The number moves with every schema version, which is the point — a device that skipped
     // one still has to arrive at the latest.
-    expect(upgraded.verno).toBe(11);
+    expect(upgraded.verno).toBe(12);
     expect(await upgraded.outbox.count()).toBe(3);
 
     // Still in capture order, which is what the drain depends on — and now read through the new
@@ -502,7 +503,7 @@ describe("upgrading a device whose outlets predate the geofence radius", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(11);
+    expect(upgraded.verno).toBe(12);
     expect(await watermark(upgraded, OUTLETS)).toBe(0);
     expect(await watermark(upgraded, PRODUCTS)).toBe(41);
 
@@ -537,7 +538,7 @@ describe("upgrading a device that predates the visits store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(11);
+    expect(upgraded.verno).toBe(12);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
 
     // The new store exists and is empty, which is the only correct starting state: there were no
@@ -573,7 +574,7 @@ describe("upgrading a device that predates the audit's reference stores", () => 
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(11);
+    expect(upgraded.verno).toBe(12);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
     expect(await upgraded.visits.count()).toBe(1);
 
@@ -649,7 +650,7 @@ describe("upgrading a device to the order store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(11);
+    expect(upgraded.verno).toBe(12);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // The store arrives empty on an upgraded device, which is the state a fresh install is in — so
@@ -698,7 +699,7 @@ describe("upgrading a device whose prices are floats", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(11);
+    expect(upgraded.verno).toBe(12);
 
     // The two that carried money go back to zero, so the next pull resends every row.
     expect(await watermark(upgraded, PRICE_LINES)).toBe(0);
@@ -739,7 +740,7 @@ describe("upgrading a device that has never held a tax rate", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(11);
+    expect(upgraded.verno).toBe(12);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // Empty on arrival, like every other new reference store: the next pull fills it, because the
@@ -797,7 +798,7 @@ describe("upgrading a device whose outlets have no country", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(11);
+    expect(upgraded.verno).toBe(12);
 
     expect(await watermark(upgraded, OUTLETS)).toBe(0);
 
@@ -837,7 +838,7 @@ describe("upgrading a device that has never held an order minimum", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(11);
+    expect(upgraded.verno).toBe(12);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // Empty on arrival, which for this store means every order passes — `BR-ORD-5` applies a minimum
@@ -878,6 +879,50 @@ describe("upgrading a device that has never held an order minimum", () => {
   });
 });
 
+describe("upgrading a device that predates the audit store", () => {
+  it("adds the store without touching the work already queued", async () => {
+    /*
+     * `OFF-13` for version 12 (W11 slice 9a). The store the device *authors* is the one an update
+     * must not disturb: every `ref_*` table is a copy the next sync rebuilds, and a queued mutation
+     * is the only record that a rep did the work.
+     *
+     * The audit written afterwards proves the table is real rather than merely declared — a store
+     * that opens and cannot be written to would pass a `count()` and fail at the shelf.
+     */
+    const name = `migration:${crypto.randomUUID()}`;
+
+    const legacy = await openVersionFive(name);
+    await legacy.table("outbox").add({
+      mutationId: "m-audit-1",
+      type: "CapturedVisit",
+      subjectId: "visit-1",
+      payload: { visitId: "visit-1" },
+      status: "pending",
+      createdAt: 1_000,
+      attempts: 0,
+    });
+    legacy.close();
+
+    const upgraded = new FieldKitDatabase(name);
+    await upgraded.open();
+
+    expect(upgraded.verno).toBe(12);
+    expect(await upgraded.outbox.count()).toBe(1);
+    expect(await upgraded.audits.count()).toBe(0);
+
+    const started = await auditDraftFor(upgraded, {
+      visitId: "visit-1",
+      outletId: "outlet-1",
+      weightSetVersion: 3,
+      now: new Date("2026-03-17T10:00:00.000Z"),
+    });
+
+    expect((await upgraded.audits.where("visitId").equals("visit-1").first())?.id).toBe(started.id);
+
+    upgraded.close();
+  });
+});
+
 describe("the schema itself", () => {
   it("declares every version, so a device that skipped one still arrives", async () => {
     // Dexie replays versions in order to bring an existing database forward. Deleting version 1
@@ -888,7 +933,7 @@ describe("the schema itself", () => {
 
     await db.open();
 
-    expect(db.verno).toBe(11);
+    expect(db.verno).toBe(12);
 
     // The outbox is still keyed by the mutation id, which is the property the server's ledger
     // depends on: a re-send has to arrive under the id it was captured with.

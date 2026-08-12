@@ -1410,7 +1410,8 @@
         "NonProductive": "Nothing came of it"
       },
       "stepsLabel": "Visit steps",
-      "openOrder": "Take the order"
+      "openOrder": "Take the order",
+      "openAudit": "Open the audit"
     },
     "checkOut": {
       "title": "Finish the visit",
@@ -1515,6 +1516,43 @@
       "sent": {
         "title": "This order is queued.",
         "body": "It goes to the back office on the next sync. Nothing here can be changed now."
+      }
+    },
+    "audit": {
+      "title": "The shelf",
+      "opening": "Opening…",
+      "shelf": "Must-stock products",
+      "noMustStock": "This shop has no must-stock products, so there is nothing to check.",
+      "progress": "{done} of {total} checked.",
+      "answer": {
+        "Present": "On shelf",
+        "Absent": "Not stocked",
+        "OutOfStock": "Out of stock",
+        "PresentFor": "{product} is on the shelf",
+        "AbsentFor": "{product} is not stocked here",
+        "OutOfStockFor": "{product} is stocked but out"
+      },
+      "seal": "Finish the audit",
+      "sealing": "Finishing…",
+      "refusal": {
+        "empty": "Check at least one product before finishing.",
+        "unexpected": "That could not be finished. Try again, and tell your supervisor if it keeps happening."
+      },
+      "sent": {
+        "title": "This audit is queued.",
+        "body": "It will reach the back office on the next sync, with the visit it belongs to."
+      },
+      "sealed": {
+        "title": "This visit is finished",
+        "body": "An audit belongs to a visit being worked, so this one can no longer be changed."
+      },
+      "unknownVisit": {
+        "title": "This device does not hold this visit",
+        "body": "Go back to today’s round and open the call from there."
+      },
+      "noWeights": {
+        "title": "No scoring set up yet",
+        "body": "An audit is scored against your tenant’s perfect-store weights, and none have been published. Tell your supervisor — an audit taken now could not be scored."
       }
     }
   },

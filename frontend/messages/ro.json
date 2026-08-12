@@ -1410,7 +1410,8 @@
         "NonProductive": "Fără rezultat"
       },
       "stepsLabel": "Pașii vizitei",
-      "openOrder": "Ia comanda"
+      "openOrder": "Ia comanda",
+      "openAudit": "Deschide auditul"
     },
     "checkOut": {
       "title": "Încheie vizita",
@@ -1515,6 +1516,43 @@
       "sent": {
         "title": "Comanda este în așteptare.",
         "body": "Ajunge la back office la următoarea sincronizare. Nimic de aici nu mai poate fi modificat."
+      }
+    },
+    "audit": {
+      "title": "Raftul",
+      "opening": "Se deschide…",
+      "shelf": "Produse obligatorii",
+      "noMustStock": "Acest magazin nu are produse obligatorii, așa că nu este nimic de verificat.",
+      "progress": "{done} din {total} verificate.",
+      "answer": {
+        "Present": "Pe raft",
+        "Absent": "Nelistat",
+        "OutOfStock": "Stoc epuizat",
+        "PresentFor": "{product} este pe raft",
+        "AbsentFor": "{product} nu este listat aici",
+        "OutOfStockFor": "{product} este listat, dar lipsește de pe raft"
+      },
+      "seal": "Încheie auditul",
+      "sealing": "Se încheie…",
+      "refusal": {
+        "empty": "Verifică cel puțin un produs înainte de a încheia.",
+        "unexpected": "Nu s-a putut încheia. Încearcă din nou și anunță-ți supervizorul dacă se repetă."
+      },
+      "sent": {
+        "title": "Auditul este în așteptare.",
+        "body": "Va ajunge la back office la următoarea sincronizare, împreună cu vizita de care aparține."
+      },
+      "sealed": {
+        "title": "Vizita este încheiată",
+        "body": "Un audit aparține unei vizite în desfășurare, așa că acesta nu mai poate fi modificat."
+      },
+      "unknownVisit": {
+        "title": "Dispozitivul nu are această vizită",
+        "body": "Întoarce-te la traseul de azi și deschide vizita de acolo."
+      },
+      "noWeights": {
+        "title": "Punctajul nu este configurat",
+        "body": "Un audit este punctat după ponderile perfect-store ale companiei, iar acestea nu au fost publicate. Anunță-ți supervizorul — un audit făcut acum nu ar putea fi punctat."
       }
     }
   },

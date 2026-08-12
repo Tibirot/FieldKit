@@ -20,6 +20,27 @@ dotnet run --project FieldKit.AppHost
 
 Aspire assigns the ports; read the front end's from the dashboard rather than assuming `:3000`.
 
+> **Stopping the AppHost does not stop what it started.** Ctrl-C — and the IDE's or an agent's
+> equivalent — reliably kills the AppHost process and reliably leaves its child tree running: the
+> `dcp` control plane, the server, the front end's `node`. Start it again and the new run is
+> *shadowed* by the old one, which still holds the ports; the browser then talks to yesterday's
+> build while you read today's source and disbelieve your eyes.
+>
+> It cost a W11 session twice — once looking at a fix that appeared not to have taken effect, and
+> once at a front end that never came up. The tell the first time was the **refusal message**: the
+> wording had changed in the fix and the browser was still showing the old sentence, which is one
+> small argument for refusal text being specific rather than generic.
+>
+> After stopping, check for orphans and clear them:
+>
+> ```bash
+> pwsh -NoProfile -Command "Get-Process dotnet,dcp,node -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,StartTime"
+> ```
+>
+> Anything whose `StartTime` predates the run you just stopped is an orphan. The containers
+> (Postgres, Keycloak) are managed by Docker and restart cleanly; it is the host processes that
+> linger.
+
 Seed a tenant the way an administrator would — every request is in
 [`FieldKit.Server.http`](../../FieldKit.Server/FieldKit.Server.http), in order: a role and a user, an
 org unit and a position, a channel and five outlets, a territory holding four of them with the rep

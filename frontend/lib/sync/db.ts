@@ -519,6 +519,61 @@ export type LocalOrder = {
  */
 export type LocalOrderStatus = "draft" | "submitted";
 
+/**
+ * One MSL product as the rep found it (`AUD-01`, `BR-AUD-1`) — W11 slice 9a.
+ *
+ * The names are the server's `AvailabilityStatus`, not numbers: an ordinal inserted into the middle
+ * of that enum would silently reinterpret every stored line, and this store outlives the app version
+ * that wrote it (`OFF-13`).
+ *
+ * <b>Three states, not two, and the third is why.</b> *Absent* is a listing the shop never took;
+ * *out of stock* is one it took and cannot keep filled. They look identical from the aisle and mean
+ * opposite things to the business — collapsing them makes the availability pillar unable to tell a
+ * distribution problem from a replenishment one, which is most of what the pillar is for.
+ */
+export type LocalAvailabilityStatus = "Present" | "Absent" | "OutOfStock";
+
+export type LocalAvailabilityLine = { productId: string; status: LocalAvailabilityStatus };
+
+/**
+ * An audit as the device holds it (`AUD-01`, `OFF-01b`) — W11 slice 9a.
+ *
+ * <b>The third thing in this database the device authors</b>, after `LocalVisit` and `LocalOrder`,
+ * and it takes the draft-then-sealed shape from the second: an audit is worked at a shelf with no
+ * signal and only exists here until the rep seals it. `BR-AUD-6` seals it for good.
+ *
+ * <b>The shape is the server's `CapturedAudit`</b>, so sealing is a projection rather than a
+ * translation — a field this type lacks is a field the push cannot send. What it adds is the
+ * device's own bookkeeping: the status, the outlet (the wire omits it, because the server takes it
+ * from the visit), and when it was last touched.
+ *
+ * <b>`weightSetVersion` is recorded at capture and never re-read.</b> `BR-AUD-8` has the server
+ * recompute the score against *these* weights, so a re-weighting between the shelf and the push must
+ * not move the answer. It is the one fact that cannot be recovered later, which is why it is stored
+ * with the audit rather than looked up when the audit is sealed.
+ *
+ * <b>Facings, prices and answers are not here yet</b> — slices 9b and 9c. Named rather than left to
+ * be discovered: `CapturedAudit` carries them, so an audit sealed today sends empty lists for all
+ * three, and the server's `Empty` refusal is what stops one with nothing in it at all.
+ */
+export type LocalAudit = {
+  /** Minted here, and it is the audit's identity on both sides — a replay maps to the same row. */
+  id: string;
+  visitId: string;
+  /** The shop, for this device's own screens. **Not sent** — the server takes it from the visit. */
+  outletId: string;
+  status: LocalAuditStatus;
+  /** The weighting this audit is scored against (`BR-AUD-8`), fixed when the draft is started. */
+  weightSetVersion: number;
+  availability: LocalAvailabilityLine[];
+  /** When the rep sealed it. Null while it is a draft, and never when the push arrived. */
+  capturedAtUtc: string | null;
+  updatedAtUtc: string;
+};
+
+/** Where an audit has got to on the device. `BR-AUD-6` makes `sealed` final. */
+export type LocalAuditStatus = "draft" | "sealed";
+
 export type OutboxStatus =
   /** Captured and durable. Waiting for a connection. */
   | "pending"
@@ -607,6 +662,7 @@ export class FieldKitDatabase extends Dexie {
   orderMinimums!: EntityTable<ReferenceOrderMinimum, "id">;
   visits!: EntityTable<LocalVisit, "id">;
   orders!: EntityTable<LocalOrder, "id">;
+  audits!: EntityTable<LocalAudit, "id">;
   outbox!: EntityTable<OutboxEntry, "mutationId">;
   meta!: EntityTable<MetaEntry, "key">;
   watermarks!: EntityTable<Watermark, "entity">;
@@ -924,6 +980,28 @@ export class FieldKitDatabase extends Dexie {
       ref_order_minimums: "id, channelId, outletId",
     });
 
+    /*
+     * Version 12 — the device authors an audit (`AUD-01`, `OFF-01b`, W11 slice 9a).
+     *
+     * The third store this device *writes* rather than receives, after `visits` and `orders`, and it
+     * takes the second one's argument whole: an audit is worked at a shelf with no signal, so a
+     * draft lost before it is sealed is work that existed nowhere else. The outbox holds things
+     * already sealed; a draft is precisely the thing that is not.
+     *
+     * The indexes are the two questions a screen asks — `visitId`, because `BR-AUD-6` ties an audit
+     * to one visit and the server allows one per visit, and `status`, because "is there an unsealed
+     * audit anywhere" is what a shell asks on launch. `availability` is not indexed and will not be:
+     * it is read with the row that carries it, as `orders.lines` and `visits.steps` already are.
+     *
+     * <b>No `upgrade()`</b>, for the reason version 7 gives: nothing existed to transform, and a
+     * device that opens the app after this finds the table empty — which is what a fresh install is.
+     * What `OFF-13` needs is that a **pending outbox survives it**, and that is `migration.test.ts`'s
+     * to assert rather than this block's to claim.
+     */
+    this.version(12).stores({
+      audits: "id, visitId, status",
+    });
+
     this.outlets = this.table("ref_outlets");
     this.plannedVisits = this.table("ref_planned_visits");
     this.workflows = this.table("ref_visit_workflows");
@@ -941,6 +1019,7 @@ export class FieldKitDatabase extends Dexie {
     this.orderMinimums = this.table("ref_order_minimums");
     this.visits = this.table("visits");
     this.orders = this.table("orders");
+    this.audits = this.table("audits");
     this.outbox = this.table("outbox");
     this.meta = this.table("meta");
     this.watermarks = this.table("watermarks");

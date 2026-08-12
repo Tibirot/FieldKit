@@ -1590,4 +1590,54 @@ describe("an order waits for the visit it belongs to", () => {
 
     db.close();
   });
+
+  it("holds an audit back on the same terms (W11 slice 9a)", async () => {
+    /*
+     * The same bug, on a mutation type that did not exist when 8c was written. `IAuditIngest` refuses
+     * an audit for a visit it has never seen (`UnknownVisit`), an audit is sealed at the shelf while
+     * `CapturedVisit` is only enqueued at check-out, and `markRejected` writes `failed`. Every step
+     * lines up — so the gate names the dependent types in a list rather than checking for one.
+     *
+     * Written here rather than found in a browser a second time.
+     */
+    const db = freshDatabase();
+
+    await db.visits.add(openVisit("inProgress"));
+    await enqueue(db, {
+      type: "CapturedAudit",
+      subjectId: "audit-1",
+      payload: { auditId: "audit-1", visitId: VISIT },
+    });
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    expect(api.push).not.toHaveBeenCalled();
+    expect(await db.outbox.count()).toBe(1);
+
+    db.close();
+  });
+
+  it("sends the audit once the visit has been accepted", async () => {
+    const db = freshDatabase();
+
+    await db.visits.add(openVisit("checkedOut"));
+    const audit = await enqueue(db, {
+      type: "CapturedAudit",
+      subjectId: "audit-1",
+      payload: { auditId: "audit-1", visitId: VISIT },
+    });
+
+    api.push.mockResolvedValue(accepted([audit.mutationId]));
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    const sent = (api.push.mock.calls[0][2] as { mutationId: string }[]).map(
+      (mutation) => mutation.mutationId,
+    );
+
+    expect(sent).toEqual([audit.mutationId]);
+    expect(await db.outbox.count()).toBe(0);
+
+    db.close();
+  });
 });

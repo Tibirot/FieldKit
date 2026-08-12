@@ -232,12 +232,23 @@ function slotOf(
  * nothing — but that needs a rep to have submitted a hundred orders without checking out once, and
  * a visit ends with the check-out that releases them. One order per visit is the shape the aggregate
  * enforces.
+ *
+ * <b>An audit is held on the same terms, and it was waiting to fail the same way</b> (W11 slice 9a).
+ * `IAuditIngest` refuses an audit for a visit it has never seen (`UnknownVisit`), an audit is sealed
+ * at the shelf while `CapturedVisit` is still only enqueued at check-out, and `markRejected` writes
+ * `failed` — every step of 8c's bug, on a mutation type that did not exist when 8c was written. It is
+ * gated here rather than found in a browser a second time.
+ *
+ * The list of dependent types is named once, below, so the next mutation that belongs to a visit is
+ * a line rather than a rediscovery.
  */
+const AFTER_THE_VISIT = new Set(["CapturedOrder", "CapturedAudit"]);
+
 async function sendable(db: FieldKitDatabase, batch: OutboxEntry[]): Promise<OutboxEntry[]> {
   const held = new Set<string>();
 
   for (const entry of batch) {
-    if (entry.type !== "CapturedOrder") continue;
+    if (!AFTER_THE_VISIT.has(entry.type)) continue;
 
     const visitId = (entry.payload as { visitId?: string } | null)?.visitId;
     if (!visitId) continue;
@@ -248,7 +259,7 @@ async function sendable(db: FieldKitDatabase, batch: OutboxEntry[]): Promise<Out
      * A visit this device does not hold is *sent*, not held.
      *
      * The device cannot reason about it — and holding forever would be a worse failure than the one
-     * being fixed, because the order would sit in the outbox with nothing that could ever release
+     * being fixed, because the mutation would sit in the outbox with nothing that could ever release
      * it. The server decides, which is what it did before this function existed.
      */
     if (!visit) continue;
