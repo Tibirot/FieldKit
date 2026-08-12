@@ -18,10 +18,11 @@ public sealed record OrderLineResponse(
 
 /// <summary>An order, as a reader sees it.</summary>
 /// <param name="Status">
-/// The name, not the ordinal — rendered here rather than by a converter on the contract. The repo
-/// carries three per-property <c>JsonStringEnumConverter</c>s already because nothing registers a
-/// global one, and W11 slice 0b is where that stops; this is the pattern that needs no band-aid,
-/// the same one <c>SurveyQuestionResponse</c> uses.
+/// The name, not the ordinal — rendered as a <c>string</c> here, the way <c>SurveyQuestionResponse</c>
+/// and <c>WorkflowStepResponse</c> do. Since W11 slice 0b the enum would cross as its name anyway, so
+/// this is no longer load-bearing; it stays because a response naming its own vocabulary in
+/// <c>string</c> is a choice about the DTO rather than a workaround for the serialiser, and it was
+/// written as one.
 /// </param>
 /// <param name="Total">
 /// <b>The device's total.</b> Not recomputed, and deliberately so — see <c>BR-ORD-6</c> and W11

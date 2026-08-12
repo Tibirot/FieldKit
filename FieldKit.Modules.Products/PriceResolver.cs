@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace FieldKit.Modules.Products;
 
 /// <summary>Which kind of assignment a resolved price came from.</summary>
@@ -16,6 +18,7 @@ namespace FieldKit.Modules.Products;
 /// stored ordinals.
 /// </para>
 /// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<PriceScope>))]
 public enum PriceScope
 {
     /// <summary>Set for every outlet trading in a channel.</summary>

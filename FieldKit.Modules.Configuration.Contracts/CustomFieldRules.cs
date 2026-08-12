@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using System.Text.Json;
 
 namespace FieldKit.Modules.Configuration.Contracts;
@@ -23,6 +24,7 @@ public sealed record CustomFieldViolation(
     IReadOnlyDictionary<string, string>? Args = null);
 
 /// <summary>The ways a custom-field value can fail its definition.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<CustomFieldViolationKind>))]
 public enum CustomFieldViolationKind
 {
     /// <summary>A key no definition describes.</summary>

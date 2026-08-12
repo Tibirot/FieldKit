@@ -13,11 +13,14 @@ public sealed record OrderLineDescriptor(
 /// A stored order, as another module reads it.
 /// </summary>
 /// <remarks>
-/// <see cref="Status"/> is the enum and carries no <c>JsonStringEnumConverter</c>, deliberately. This
-/// is a module contract, not a wire type — the endpoint that serialises it renders the name into a
-/// <c>string</c> field of its own, the way <c>SurveyQuestionResponse</c> does. Attaching a converter
-/// here would be the fourth per-property band-aid in the repo for a gap W11 slice 0b fixes globally,
-/// and it would put a serialisation concern in an assembly whose whole point is not having any.
+/// <see cref="Status"/> is the enum, and this record says nothing about how it is spelled. That was a
+/// refusal to add the fourth per-property band-aid; since W11 slice 0b it is simply the rule —
+/// <c>OrderStatus</c> declares its own wire form, and no record that mentions it has to.
+/// <para>
+/// This is still a module contract rather than a wire type: the endpoint that serialises an order
+/// renders the status into a <c>string</c> field of its own, the way <c>SurveyQuestionResponse</c>
+/// does.
+/// </para>
 /// </remarks>
 public sealed record OrderDescriptor(
     Guid Id,

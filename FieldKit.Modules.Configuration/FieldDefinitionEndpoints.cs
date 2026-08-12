@@ -13,18 +13,18 @@ namespace FieldKit.Modules.Configuration;
 /// A custom field an admin has defined.
 /// </summary>
 /// <remarks>
-/// The enums travel as their names, per-property, for the reason the outlet contract gives: an
-/// ordinal on the wire makes the API's meaning depend on the order members happen to sit in an enum.
-/// It matters more here than anywhere else — these
-/// enums are a <i>contract</i> other modules share, so a member inserted in the middle would silently
-/// re-point every stored definition rather than breaking a build.
+/// The enums travel as their names — declared on the enums themselves, not here (W11 slice 0b) — for
+/// the reason the outlet contract gives: an ordinal on the wire makes the API's meaning depend on the
+/// order members happen to sit in an enum. It matters more here than anywhere else: these enums are a
+/// <i>contract</i> other modules share, so a member inserted in the middle would silently re-point
+/// every stored definition rather than breaking a build.
 /// </remarks>
 public sealed record FieldDefinitionResponse(
     Guid Id,
-    [property: JsonConverter(typeof(JsonStringEnumConverter<CustomFieldEntity>))] CustomFieldEntity Entity,
+    CustomFieldEntity Entity,
     string Key,
     string Label,
-    [property: JsonConverter(typeof(JsonStringEnumConverter<CustomFieldType>))] CustomFieldType Type,
+    CustomFieldType Type,
     bool Required,
     IReadOnlyList<string> Options,
     int? MaxLength,
@@ -33,10 +33,10 @@ public sealed record FieldDefinitionResponse(
 
 /// <summary>Define a custom field. The entity and key are fixed after creation.</summary>
 public sealed record CreateFieldDefinitionRequest(
-    [property: JsonConverter(typeof(JsonStringEnumConverter<CustomFieldEntity>))] CustomFieldEntity Entity,
+    CustomFieldEntity Entity,
     string Key,
     string Label,
-    [property: JsonConverter(typeof(JsonStringEnumConverter<CustomFieldType>))] CustomFieldType Type,
+    CustomFieldType Type,
     bool Required = false,
     IReadOnlyList<string>? Options = null,
     int? MaxLength = null,
@@ -46,7 +46,7 @@ public sealed record CreateFieldDefinitionRequest(
 /// <summary>Update a custom field. No entity or key — see <see cref="FieldDefinition.Key"/>.</summary>
 public sealed record UpdateFieldDefinitionRequest(
     string Label,
-    [property: JsonConverter(typeof(JsonStringEnumConverter<CustomFieldType>))] CustomFieldType Type,
+    CustomFieldType Type,
     bool Required = false,
     IReadOnlyList<string>? Options = null,
     int? MaxLength = null,

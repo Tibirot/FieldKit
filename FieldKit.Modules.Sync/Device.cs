@@ -1,9 +1,11 @@
+using System.Text.Json.Serialization;
 using FieldKit.BuildingBlocks;
 using FieldKit.SharedKernel;
 
 namespace FieldKit.Modules.Sync;
 
 /// <summary>Why a device stopped being the rep's active one — and whether it may still drain.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<DeactivationReason>))]
 public enum DeactivationReason
 {
     /// <summary>

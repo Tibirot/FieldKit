@@ -23,7 +23,7 @@ public sealed record ProductResponse(
     // Serialized as its name, matching how OutletStatus and the Configuration enums cross the wire.
     // A bare enum would go out as 0 and 1, which is a number a client has to keep a private table
     // for — and which silently changes meaning if a member is ever inserted rather than appended.
-    [property: JsonConverter(typeof(JsonStringEnumConverter<ProductStatus>))] ProductStatus Status,
+    ProductStatus Status,
     IReadOnlyDictionary<string, JsonElement> CustomFields);
 
 /// <summary>Create a product.</summary>
@@ -42,7 +42,6 @@ public sealed record CreateProductRequest(
     Guid? TaxClassId = null,
     string? UnitOfMeasure = null,
     int? PackSize = null,
-    [property: JsonConverter(typeof(JsonStringEnumConverter<ProductStatus>))]
     ProductStatus Status = ProductStatus.Active,
     IReadOnlyDictionary<string, JsonElement>? CustomFields = null);
 
@@ -60,7 +59,6 @@ public sealed record UpdateProductRequest(
     Guid? TaxClassId = null,
     string? UnitOfMeasure = null,
     int? PackSize = null,
-    [property: JsonConverter(typeof(JsonStringEnumConverter<ProductStatus>))]
     ProductStatus Status = ProductStatus.Active,
     IReadOnlyDictionary<string, JsonElement>? CustomFields = null);
 

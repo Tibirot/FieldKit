@@ -355,4 +355,41 @@ public class WorkingCalendarTests(ServerFixture fixture)
 
         Assert.Equal(HttpStatusCode.Forbidden, attempted.StatusCode);
     }
+
+    [Fact]
+    public async Task A_pattern_sent_as_day_names_is_read_as_those_days()
+    {
+        /*
+         * Posted as raw JSON, not through `WorkingCalendarRequest` — the typed client would
+         * serialize whatever the server can read, so a round trip proves nothing about the wire.
+         * This is the same reason `AssortmentOverrideTests` asserts on a raw body.
+         *
+         * `DayOfWeek` is the case no attribute can cover: it belongs to the BCL, so it cannot carry
+         * a `[JsonConverter]` of ours the way every FieldKit enum now does. Only the converter
+         * registered on the host's serializer options reaches it, and this is what says so.
+         *
+         * It matters more here than almost anywhere else on this API, which is the other half of the
+         * point: `DayOfWeek`'s ordinals start the week on **Sunday**, so a client sending `[1]`
+         * meaning Monday and a server reading `[1]` as Monday agree by luck rather than by contract
+         * — and the day the two disagree, a rep is sent out on the wrong weekday and the JSON looks
+         * perfectly reasonable to anyone reading it.
+         */
+        using var client = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var rep = await RepAsync(client);
+
+        using var body = new StringContent(
+            """{"workingDays":["Monday","Thursday"],"visitsPerDay":6}""",
+            System.Text.Encoding.UTF8,
+            "application/json");
+
+        var written = await client.PutAsync($"/api/journey/calendars/{rep}", body);
+
+        Assert.Equal(HttpStatusCode.OK, written.StatusCode);
+
+        var stored = await client.GetFromJsonAsync<WorkingCalendarResponse>(
+            $"/api/journey/calendars/{rep}");
+
+        Assert.Equal(["Monday", "Thursday"], stored!.WorkingDays);
+    }
 }

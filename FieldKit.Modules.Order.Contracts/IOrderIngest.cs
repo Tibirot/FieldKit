@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace FieldKit.Modules.Order.Contracts;
 
 /// <summary>
@@ -10,6 +12,7 @@ namespace FieldKit.Modules.Order.Contracts;
 /// it. Leaving the name out would make this enum disagree with the spec and with the device's own
 /// store for no gain; a rejected order re-opening (<c>BR-ORD-9</c>) needs the word too.
 /// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<OrderStatus>))]
 public enum OrderStatus
 {
     /// <summary>Editable, on the device. Never ingested — see the note above.</summary>
@@ -94,6 +97,7 @@ public sealed record CapturedOrder(
 /// read out of its own store; distinguishing "no such visit" from "not yours" would turn this into a
 /// way to discover whose visits exist.
 /// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<OrderIngestRefusal>))]
 public enum OrderIngestRefusal
 {
     None,

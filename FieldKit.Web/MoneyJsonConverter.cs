@@ -19,11 +19,16 @@ namespace FieldKit.Web;
 /// <c>decimal.js</c> without ever having been a float.
 /// </para>
 /// <para>
-/// <b>Registered globally rather than applied per property.</b> The enums in this codebase use
-/// <c>[JsonConverter]</c> attributes at each site, which is fine because forgetting one produces a
-/// number a client can still read. Forgetting one here produces a float, silently, in the one place
-/// the project has a business rule against floats — and it would look correct in every test that
-/// round-trips through a typed client. A converter nobody has to remember cannot be forgotten.
+/// <b>Registered globally rather than applied per property.</b> Forgetting one here produces a float,
+/// silently, in the one place the project has a business rule against floats — and it would look
+/// correct in every test that round-trips through a typed client. A converter nobody has to remember
+/// cannot be forgotten.
+/// <para>
+/// The enums used to be the counter-example, attributed one property at a time on the grounds that
+/// forgetting one produced a number a client could still read. Three shipped bugs later that turned
+/// out to be the wrong reading — a number a client *can* read is a number it reads *wrongly* — so
+/// W11 slice 0b moved them to their declarations and registered a converter here too.
+/// </para>
 /// </para>
 /// <para>
 /// <b>Invariant culture, both directions.</b> Parsing <c>"12.50"</c> under a comma-decimal culture

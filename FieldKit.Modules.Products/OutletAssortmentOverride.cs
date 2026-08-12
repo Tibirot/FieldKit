@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using FieldKit.BuildingBlocks;
 using FieldKit.Infrastructure;
 using FieldKit.SharedKernel;
@@ -5,6 +6,7 @@ using FieldKit.SharedKernel;
 namespace FieldKit.Modules.Products;
 
 /// <summary>Whether an override puts a product into an outlet's assortment or takes it out.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<AssortmentOverrideKind>))]
 public enum AssortmentOverrideKind
 {
     Added = 0,

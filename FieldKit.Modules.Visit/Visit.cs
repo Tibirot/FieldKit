@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using FieldKit.BuildingBlocks;
 using FieldKit.Modules.Configuration.Contracts;
 using FieldKit.Modules.Visit.Contracts;
@@ -6,6 +7,7 @@ using FieldKit.SharedKernel;
 namespace FieldKit.Modules.Visit;
 
 /// <summary>Where a visit has got to.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<VisitStatus>))]
 public enum VisitStatus
 {
     /// <summary>Checked in, being worked.</summary>
@@ -25,6 +27,7 @@ public enum VisitStatus
 /// here would be a third classification to configure and the first one nobody could compare across
 /// tenants.
 /// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<VisitOutcome>))]
 public enum VisitOutcome
 {
     /// <summary>Something came of it — an order, an audit, the job.</summary>
@@ -52,6 +55,7 @@ public enum VisitOutcome
 /// them apart. A column that admits a gap is worth more than a column that fills it in.
 /// </para>
 /// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<VisitSource>))]
 public enum VisitSource
 {
     /// <summary>Worked online, through <c>/api/visits/check-in</c>.</summary>

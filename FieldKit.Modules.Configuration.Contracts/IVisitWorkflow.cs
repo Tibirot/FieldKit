@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace FieldKit.Modules.Configuration.Contracts;
 
 /// <summary>
@@ -10,6 +12,7 @@ namespace FieldKit.Modules.Configuration.Contracts;
 /// no module behind them yet are still named here — a workflow an admin cannot express is a workflow
 /// they will express badly with the types that do exist.
 /// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<VisitStepType>))]
 public enum VisitStepType
 {
     /// <summary>A store audit — availability, share of shelf, planogram (<c>AUD-01</c>).</summary>

@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace FieldKit.Modules.Journey.Contracts;
 
 /// <summary>A call the rep could not make, and why (<c>JRN-06</c>, <c>VIS-07</c>).</summary>
@@ -22,6 +24,7 @@ public sealed record RescheduledCall(Guid PlannedVisitId, DateOnly Date);
 public sealed record UnplannedCall(Guid OutletId, DateOnly Date);
 
 /// <summary>Why an annotation from a device was refused. <see cref="None"/> means it was not.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<JourneyIngestRefusal>))]
 public enum JourneyIngestRefusal
 {
     None,

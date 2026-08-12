@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace FieldKit.Modules.Configuration.Contracts;
 
 /// <summary>
@@ -25,6 +27,7 @@ namespace FieldKit.Modules.Configuration.Contracts;
 /// re-interpret every stored weight.
 /// </para>
 /// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<ScorePillar>))]
 public enum ScorePillar
 {
     /// <summary>Availability against the outlet's MSL (<c>AUD-01</c>, <c>BR-AUD-1</c>).</summary>

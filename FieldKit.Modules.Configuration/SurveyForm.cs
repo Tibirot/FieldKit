@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using FieldKit.BuildingBlocks;
 using FieldKit.Infrastructure;
 using FieldKit.Modules.Configuration.Contracts;
@@ -84,6 +85,7 @@ public sealed class SurveyQuestion : ITenantOwned
 }
 
 /// <summary>Why a survey form was refused. <see cref="None"/> means it was not.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<SurveyFormRefusal>))]
 public enum SurveyFormRefusal
 {
     None,

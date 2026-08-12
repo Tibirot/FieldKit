@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace FieldKit.Modules.Configuration.Contracts;
 
 /// <summary>
@@ -9,6 +11,7 @@ namespace FieldKit.Modules.Configuration.Contracts;
 /// store, so "which kinds exist" is a question the type system should answer rather than one a typo
 /// could extend. The list is the spec's own (§3).
 /// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<SurveyQuestionType>))]
 public enum SurveyQuestionType
 {
     /// <summary>Free text.</summary>

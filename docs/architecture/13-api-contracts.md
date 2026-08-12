@@ -32,25 +32,34 @@ this doc is the **external** API.
   [sync engine](12-offline-sync-engine.md#3-pull-protocol-reference-delta) makes the same rule for
   the same reason, and a device holding a name is a device an inserted enum value cannot corrupt.
 
-  **Unlike `Money`, this is attributed per property** (`[property: JsonConverter(typeof(JsonStringEnumConverter<T>))]`),
-  and the `Money` bullet above already says what is wrong with that: an attribute can be forgotten,
-  and forgetting it is silent. **Two were.** `VisitStepRequest.Type` and `RevokeDeviceRequest.Reason`
-  spent W7 and W8 accepting only the ordinal — `{"type":"Audit"}` was a `400` and `{"type":0}` was
-  the only thing that worked — while both endpoints' *responses* returned the name, and while
-  [`FieldKit.Server.http`](../../FieldKit.Server/FieldKit.Server.http) documented requests that
-  could not succeed as written.
+  **Declared on the enum, not on the properties that mention it** (W11 slice 0b). The type carries
+  `[JsonConverter(typeof(JsonStringEnumConverter<T>))]`, so the rule holds wherever the enum is
+  serialised — including by a reader that is not this host, such as the wire-vector tests.
 
-  Neither could be caught by the tests as they stood: every test posts the request record, so it
+  It was attributed per property until then, twenty-six times across eight modules, and the `Money`
+  bullet above already said what is wrong with that: an attribute can be forgotten, and forgetting it
+  is silent. **Three were.** `VisitStepRequest.Type` and `RevokeDeviceRequest.Reason` spent W7 and W8
+  accepting only the ordinal — `{"type":"Audit"}` was a `400` and `{"type":0}` was the only thing
+  that worked — while both endpoints' *responses* returned the name, and while
+  [`FieldKit.Server.http`](../../FieldKit.Server/FieldKit.Server.http) documented requests that could
+  not succeed as written. `CapturedAvailability.Status` was the third, caught by the wire vectors.
+
+  None could be caught by the tests as they stood: every test posts the request record, so it
   serialises through the same converter it deserialises through and agrees with itself whatever the
   format is. The assertion that closes it is **raw JSON**, and it has to assert the *acceptance* —
-  a test that a bad name is refused passes against an endpoint that refuses every name. Both
-  endpoints now have the pair.
+  a test that a bad name is refused passes against an endpoint that refuses every name.
 
-  Registering one converter globally, as `Money` does, would remove the hazard rather than document
-  it, and nothing argues against it — no response DTO carries a bare enum today, so it would change
-  requests only. It is deliberately *not* part of the fix that found the two: changing how every
-  module binds its request bodies is a decision to take on its own evidence, not a rider on a
-  two-property correction.
+  **A converter is also registered globally on the host, and it is not redundant.** A type-level
+  attribute cannot be put on an enum this project does not declare, and `WorkingCalendarRequest`
+  carries a list of `DayOfWeek` — whose ordinals start the week on **Sunday**, so a caller sending a
+  number and a server reading one agree by luck. Journey used to register a converter of its own for
+  exactly that; the global one subsumes it, and
+  `WorkingCalendarTests.A_pattern_sent_as_day_names_is_read_as_those_days` is what holds it in place.
+
+  Removing the per-property attributes changed **no response**: every enum on a response either
+  carried the attribute — and now inherits the same format from its declaration — or was already
+  rendered into a `string` field by hand, which several DTOs do as a deliberate choice about their own
+  vocabulary rather than as a workaround.
 
 ## 2. Two API styles
 

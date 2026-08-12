@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using FieldKit.BuildingBlocks;
 using FieldKit.Modules.Configuration.Contracts;
 using FieldKit.SharedKernel;
@@ -5,6 +6,7 @@ using FieldKit.SharedKernel;
 namespace FieldKit.Modules.Visit;
 
 /// <summary>Where one step of a visit has got to.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<VisitStepStatus>))]
 public enum VisitStepStatus
 {
     /// <summary>Still to do. Where every step starts, and where an optional one may stay.</summary>

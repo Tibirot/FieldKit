@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace FieldKit.Modules.Visit.Contracts;
 
 /// <summary>
@@ -64,6 +66,7 @@ public sealed record CapturedVisit(
     double? CheckOutLongitude);
 
 /// <summary>Why an ingest was refused, as an <c>ADR-0012</c> code the device can act on.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<VisitIngestRefusal>))]
 public enum VisitIngestRefusal
 {
     None = 0,

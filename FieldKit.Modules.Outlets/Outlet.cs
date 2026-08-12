@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using System.Text.Json;
 using FieldKit.BuildingBlocks;
 using FieldKit.SharedKernel;
@@ -7,6 +8,7 @@ namespace FieldKit.Modules.Outlets;
 /// <summary>
 /// Where an outlet is in its life (<c>OUT-04</c>).
 /// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter<OutletStatus>))]
 public enum OutletStatus
 {
     /// <summary>Visited normally.</summary>

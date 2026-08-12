@@ -17,16 +17,17 @@ namespace FieldKit.Modules.Configuration;
 /// meaning depend on where a member happens to sit in the enum, and this one will grow.
 /// </para>
 /// <para>
-/// <b>The converter is what makes that true.</b> It is opt-in per property here — nothing registers
-/// a global one — so the paragraph above described an intention rather than the wire format until
-/// it was added: <c>"Audit"</c> was refused with a 400 and only <c>0</c> was accepted, which is the
-/// ordinal this comment rules out. The response side never had the problem, because
-/// <see cref="WorkflowStepResponse.Type"/> is a <c>string</c>; a request and its own response
-/// disagreeing about how one enum is spelled is the shape of the bug.
+/// <b>This is the endpoint that proved the rule needed enforcing.</b> While every enum said so one
+/// property at a time, the paragraph above described an intention rather than the wire format:
+/// <c>"Audit"</c> was refused with a 400 and only <c>0</c> was accepted. The response side never had
+/// the problem, because <see cref="WorkflowStepResponse.Type"/> is a <c>string</c> — a request and its
+/// own response disagreeing about how one enum is spelled is the shape of the bug. The attribute now
+/// lives on <see cref="VisitStepType"/>, where forgetting it is not an option a caller has
+/// (W11 slice 0b).
 /// </para>
 /// </remarks>
 public sealed record VisitStepRequest(
-    [property: JsonConverter(typeof(JsonStringEnumConverter<VisitStepType>))] VisitStepType Type,
+    VisitStepType Type,
     bool Mandatory,
     string Label);
 

@@ -69,6 +69,7 @@ public sealed record OutletImportCapabilities(
 /// omission. Both are atomic — the difference is <i>which</i> set is written, not whether the write
 /// is all-or-nothing.
 /// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<OutletImportMode>))]
 public enum OutletImportMode
 {
     /// <summary>One bad row and nothing is written.</summary>
@@ -124,7 +125,7 @@ public sealed record OutletImportResponse(
     int Rejected,
     int Imported,
     bool DryRun,
-    [property: JsonConverter(typeof(JsonStringEnumConverter<OutletImportMode>))] OutletImportMode Mode,
+    OutletImportMode Mode,
     IReadOnlyList<OutletImportProblem> Problems,
     string? RejectedRowsCsv,
     IReadOnlyList<string> IgnoredColumns,
