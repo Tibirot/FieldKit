@@ -4047,6 +4047,92 @@ Content-Type: application/json
   ]
 }
 
+### ── Sync · the order arm (ORD-07/OFF-04, W11 slice 5) ──────────────────────────────────────────
+# `CapturedOrder` is a mutation kind from W11 slice 5, having been this file's *unsupported* example
+# until slice 0 handed that job to `CapturedReturn`. The payload is the device's, whole: no outlet
+# (it comes from the visit), no status (`B4` puts `Draft` on the device and the first status this
+# server writes is `Submitted`), and no recomputed money — `unitPrice` and `lineTotal` are what the
+# rep and the shopkeeper agreed, which `BR-ORD-6` makes the record.
+#
+# **`mutationId` matters more here than for any other kind.** Every other mutation is idempotent on
+# its own subject; an order is not, because the same `orderId` arrives both when a device retries and
+# when a rep corrects a rejection (`BR-ORD-9`). This is the one arm that hands its id to the module.
+#
+# Needs a visit of the rep's own and products the shop is assorted (`BR-ORD-1`) — run the check-in
+# and assortment requests above first, or the order lands stored and `Rejected` with the line flagged,
+# which is itself worth seeing once.
+
+### An order taken at a counter. Answers `accepted` — and note what "accepted" means: the push
+### applied. If a line is off-assortment the order is still stored, and comes back `Rejected` from
+### `GET /api/orders/by-visit/{id}` rather than as a transport failure.
+POST {{host}}/api/sync/push
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceId}}",
+  "mutations": [
+    {
+      "mutationId": "0195e7c4-0000-7000-8000-00000000a010",
+      "type": "CapturedOrder",
+      "order": {
+        "orderId": "0195e7c4-0000-7000-8000-00000000e010",
+        "visitId": "{{visit.response.body.visit.id}}",
+        "currencyCode": "RON",
+        "total": 58.50,
+        "capturedAtUtc": "2026-04-06T09:45:00+00:00",
+        "lines": [
+          {
+            "productId": "{{product.response.body.id}}",
+            "quantity": 6,
+            "unitOfMeasure": "case",
+            "packSize": 12,
+            "unitPrice": 4.50,
+            "lineTotal": 27.00
+          }
+        ]
+      }
+    }
+  ]
+}
+
+### The same mutation id again — answered from the ledger, not re-applied. Exactly-once effect over
+### at-least-once delivery: run the request above twice and the order still has one set of lines.
+
+### A *different* mutation carrying the same `orderId` is an edit after submit (`BR-ORD-4`), and comes
+### back `rejected` with `order.ingest.alreadySubmitted`. The device stops retrying: nothing it can do
+### makes one legal, and the way back is a rejection it has not been given (`BR-ORD-9`).
+POST {{host}}/api/sync/push
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceId}}",
+  "mutations": [
+    {
+      "mutationId": "0195e7c4-0000-7000-8000-00000000a011",
+      "type": "CapturedOrder",
+      "order": {
+        "orderId": "0195e7c4-0000-7000-8000-00000000e010",
+        "visitId": "{{visit.response.body.visit.id}}",
+        "currencyCode": "RON",
+        "total": 99.00,
+        "capturedAtUtc": "2026-04-06T09:50:00+00:00",
+        "lines": [
+          {
+            "productId": "{{product.response.body.id}}",
+            "quantity": 22,
+            "unitOfMeasure": "case",
+            "packSize": 12,
+            "unitPrice": 4.50,
+            "lineTotal": 99.00
+          }
+        ]
+      }
+    }
+  ]
+}
+
 ### Partial success, which is the normal case rather than an error path. The first visit
 ### lands; the second is refused `visit.ingest.outcomeReasonRequired` (BR-VIS-3) and the
 ### response is 200 with per-mutation results, because failing the batch would lose the one

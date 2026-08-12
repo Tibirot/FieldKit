@@ -27,6 +27,7 @@
     <!-- And Audit owns what makes an audit valid and what it scores to (W10 slice 6). Sync holds no
          opinion about either: it routes the mutation and reports what came back. -->
     <ProjectReference Include="..\FieldKit.Modules.Audit.Contracts\FieldKit.Modules.Audit.Contracts.csproj" />
+    <ProjectReference Include="..\FieldKit.Modules.Order.Contracts\FieldKit.Modules.Order.Contracts.csproj" />
   </ItemGroup>
 
   <!--
@@ -55,3 +56,4 @@
   </ItemGroup>
 
 </Project>
+

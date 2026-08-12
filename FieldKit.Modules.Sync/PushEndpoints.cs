@@ -1,5 +1,6 @@
 using FieldKit.BuildingBlocks;
 using FieldKit.Modules.Audit.Contracts;
+using FieldKit.Modules.Order.Contracts;
 using FieldKit.Modules.Journey.Contracts;
 using FieldKit.Modules.Visit.Contracts;
 using FieldKit.Web;
@@ -36,6 +37,7 @@ public static class PushEndpoints
             IVisitIngest visits,
             IJourneyIngest journeys,
             IAuditIngest audits,
+            IOrderIngest orders,
             ITenantContext tenant,
             CancellationToken ct) =>
         {
@@ -78,7 +80,8 @@ public static class PushEndpoints
                     continue;
                 }
 
-                var outcome = await ApplyAsync(mutation, visits, journeys, audits, tenant.UserId, ct);
+                var outcome = await ApplyAsync(
+                    mutation, visits, journeys, audits, orders, tenant.UserId, ct);
 
                 ledger.Record(device.Id, mutation.MutationId, outcome);
                 results.Add(MutationResult.From(mutation.MutationId, outcome));
@@ -101,13 +104,14 @@ public static class PushEndpoints
     /// </remarks>
     private static async Task<MutationOutcome> ApplyAsync(
         PushedMutation mutation, IVisitIngest visits, IJourneyIngest journeys, IAuditIngest audits,
-        string userId, CancellationToken ct) => mutation.Type switch
+        IOrderIngest orders, string userId, CancellationToken ct) => mutation.Type switch
         {
             nameof(CapturedVisit) => await ApplyVisitAsync(mutation, visits, userId, ct),
             nameof(NotVisitedCall) => await ApplyNotVisitedAsync(mutation, journeys, userId, ct),
             nameof(RescheduledCall) => await ApplyRescheduleAsync(mutation, journeys, userId, ct),
             nameof(UnplannedCall) => await ApplyUnplannedAsync(mutation, journeys, userId, ct),
             nameof(CapturedAudit) => await ApplyAuditAsync(mutation, audits, userId, ct),
+            nameof(CapturedOrder) => await ApplyOrderAsync(mutation, orders, userId, ct),
 
             // An unknown type is rejected rather than ignored: a device that keeps retrying something
             // the server silently drops never drains.
@@ -179,6 +183,53 @@ public static class PushEndpoints
             ? new MutationOutcome(MutationStatus.Accepted)
             : new MutationOutcome(MutationStatus.Rejected, RefusalCode(result.Refusal), result.Reason);
     }
+
+    /// <summary>
+    /// Applies a pushed order (<c>ORD-07</c>, <c>OFF-04</c>) — W11 slice 5.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The only arm that hands the mutation id to the module it calls</b>, and the reason is
+    /// <c>BR-ORD-9</c>. Every other kind is idempotent on its own subject — a visit by its id, an
+    /// annotation by the call it is about — so a repeat is recognisable from the payload. An order is
+    /// not: the same order id arrives twice both when a device retries and when a rep corrects a
+    /// rejection, and only the mutation id tells those apart. Order records it (W11 slice 3) so its
+    /// answer and this ledger's cannot drift.
+    /// </para>
+    /// <para>
+    /// <b>An order rejected by a rule still answers <c>accepted</c> here</b>, which looks wrong and is
+    /// not. The push asked this server to record an order and it did; that <c>BR-ORD-1</c> then
+    /// refused it is an outcome carried on the order itself, and the rep meets it on the way back
+    /// down. Answering <c>rejected</c> would tell the device the mutation never applied, and the
+    /// retry would arrive to find the order already there. Only a refusal that stored <i>nothing</i>
+    /// is a rejection at this layer.
+    /// </para>
+    /// </remarks>
+    private static async Task<MutationOutcome> ApplyOrderAsync(
+        PushedMutation mutation, IOrderIngest orders, string userId, CancellationToken ct)
+    {
+        if (mutation.Order is null) return Missing("order");
+
+        var result = await orders.IngestAsync(mutation.Order, mutation.MutationId, userId, ct);
+
+        return result.Refusal is OrderIngestRefusal.None
+            ? new MutationOutcome(MutationStatus.Accepted)
+            : new MutationOutcome(MutationStatus.Rejected, RefusalCode(result.Refusal), result.Message);
+    }
+
+    /// <summary>Maps Order's refusal onto an <c>ADR-0012</c> code the device can branch on.</summary>
+    private static string RefusalCode(OrderIngestRefusal refusal) => refusal switch
+    {
+        OrderIngestRefusal.UnknownVisit => "order.ingest.visitUnknown",
+        OrderIngestRefusal.Invalid => "order.ingest.invalid",
+
+        // A second, different push against an order that is already sealed (`BR-ORD-4`). The device
+        // stops retrying on this one: nothing it can do makes an edit-after-submit legal, and the
+        // documented way back is a rejection it has not been given.
+        OrderIngestRefusal.AlreadySubmitted => "order.ingest.alreadySubmitted",
+
+        _ => "order.ingest.refused",
+    };
 
     /// <summary>Maps Audit's refusal onto an <c>ADR-0012</c> code the device can branch on.</summary>
     private static string RefusalCode(AuditIngestRefusal refusal) => refusal switch
@@ -255,7 +306,8 @@ public sealed record PushedMutation(
     NotVisitedCall? NotVisited = null,
     RescheduledCall? Rescheduled = null,
     UnplannedCall? Unplanned = null,
-    CapturedAudit? Audit = null);
+    CapturedAudit? Audit = null,
+    CapturedOrder? Order = null);
 
 public sealed record MutationResult(Guid MutationId, string Status, string? Reason, string? Detail)
 {
@@ -267,3 +319,6 @@ public sealed record MutationResult(Guid MutationId, string Status, string? Reas
 }
 
 public sealed record PushResponse(IReadOnlyList<MutationResult> Results);
+
+
+

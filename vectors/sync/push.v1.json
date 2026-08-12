@@ -216,6 +216,68 @@
       "expected": { "slot": "audit", "bound": true }
     },
     {
+      "name": "an order taken at a counter",
+      "why": "`CapturedOrder` becomes real on the wire (W11 slice 5), having been this file's *unsupported* placeholder until W11 slice 0 moved that job to `CapturedReturn`.\n\nWhat the payload does not carry is the interesting half. No **outlet**, because that comes from the visit — a device that could name one could name a different shop from the one the rep stood in, and 'which shop was this' would have two answers. No **status**, because `B4` puts `Draft` on the device and the first status this server writes is `Submitted`; there is no create-a-draft path to describe. And no **recomputed money**: `unitPrice` and `lineTotal` are the device's, which `BR-ORD-6` makes the record because they are what the rep and the shopkeeper agreed — the server's arithmetic sits beside them, never over them.\n\nThe `mutationId` matters more here than for any other kind. Every other mutation is idempotent on its own subject, so a repeat is recognisable from the payload; an order is not, because the same `orderId` arrives both when a device retries and when a rep corrects a rejection (`BR-ORD-9`). Only the mutation id tells those apart, which is why this is the one arm that hands it to the module it calls.",
+      "outbox": {
+        "type": "CapturedOrder",
+        "payload": {
+          "orderId": "0195e7c4-0000-7000-8000-00000000e001",
+          "visitId": "0195e7c4-0000-7000-8000-00000000b001",
+          "currencyCode": "RON",
+          "total": 58.50,
+          "capturedAtUtc": "2026-04-06T09:45:00+00:00",
+          "lines": [
+            {
+              "productId": "0195e7c4-0000-7000-8000-00000000d001",
+              "quantity": 6,
+              "unitOfMeasure": "case",
+              "packSize": 12,
+              "unitPrice": 4.50,
+              "lineTotal": 27.00
+            },
+            {
+              "productId": "0195e7c4-0000-7000-8000-00000000d002",
+              "quantity": 5,
+              "unitOfMeasure": "bottle",
+              "packSize": null,
+              "unitPrice": 6.30,
+              "lineTotal": 31.50
+            }
+          ]
+        }
+      },
+      "wire": {
+        "mutationId": "0195e7c4-0000-7000-8000-00000000a006",
+        "type": "CapturedOrder",
+        "order": {
+          "orderId": "0195e7c4-0000-7000-8000-00000000e001",
+          "visitId": "0195e7c4-0000-7000-8000-00000000b001",
+          "currencyCode": "RON",
+          "total": 58.50,
+          "capturedAtUtc": "2026-04-06T09:45:00+00:00",
+          "lines": [
+            {
+              "productId": "0195e7c4-0000-7000-8000-00000000d001",
+              "quantity": 6,
+              "unitOfMeasure": "case",
+              "packSize": 12,
+              "unitPrice": 4.50,
+              "lineTotal": 27.00
+            },
+            {
+              "productId": "0195e7c4-0000-7000-8000-00000000d002",
+              "quantity": 5,
+              "unitOfMeasure": "bottle",
+              "packSize": null,
+              "unitPrice": 6.30,
+              "lineTotal": 31.50
+            }
+          ]
+        }
+      },
+      "expected": { "slot": "order", "bound": true }
+    },
+    {
       "name": "a kind this server does not carry",
       "why": "Bound, then refused by name at the routing arm rather than at the parser. The distinction matters to a device: `sync.push.typeUnsupported` is a per-mutation result it records and stops retrying, where a parse failure fails the entire batch. There is no `outbox` half — no client produces this, and the case exists to pin what happens when a newer device meets an older server.\n\nThis case named `CapturedAudit` until W10 slice 6 and `CapturedOrder` until W11 slice 0, each time because the server learned to carry the thing the case assumed it could not. Twice was enough: `CapturedReturn` is drawn from the **Won't** list rather than the *not yet* list — returns and credit orders are `ORD-11` / `BR-ORD-8`, out of scope for v1 by decision rather than by schedule. A negative pin has to name something that is never coming, or it expires the moment the roadmap reaches it, and it expires *silently* — the assertion keeps passing while asserting nothing.",
       "wire": {
@@ -226,3 +288,4 @@
     }
   ]
 }
+

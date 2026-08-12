@@ -1,6 +1,7 @@
 using System.Text.Json;
 using FieldKit.Modules.Audit.Contracts;
 using FieldKit.Modules.Journey.Contracts;
+using FieldKit.Modules.Order.Contracts;
 using FieldKit.Modules.Sync;
 using FieldKit.Modules.Visit.Contracts;
 
@@ -98,6 +99,7 @@ public class SyncPushWireTests
         Assert.Equal(slot == "rescheduled", mutation.Rescheduled is not null);
         Assert.Equal(slot == "unplanned", mutation.Unplanned is not null);
         Assert.Equal(slot == "audit", mutation.Audit is not null);
+        Assert.Equal(slot == "order", mutation.Order is not null);
     }
 
     [Fact]
@@ -122,6 +124,7 @@ public class SyncPushWireTests
                 nameof(RescheduledCall) => "rescheduled",
                 nameof(UnplannedCall) => "unplanned",
                 nameof(CapturedAudit) => "audit",
+                nameof(CapturedOrder) => "order",
                 _ => null,
             };
 
@@ -146,7 +149,7 @@ public class SyncPushWireTests
 
             var payloads = vector.GetProperty("wire").EnumerateObject()
                 .Select(property => property.Name)
-                .Where(property => property is "visit" or "notVisited" or "rescheduled" or "unplanned" or "audit")
+                .Where(property => property is "visit" or "notVisited" or "rescheduled" or "unplanned" or "audit" or "order")
                 .ToList();
 
             Assert.Equal(slot is null ? [] : new List<string> { slot }, payloads);
@@ -161,3 +164,5 @@ public class SyncPushWireTests
         return JsonDocument.Parse(File.ReadAllText(path)).RootElement;
     }
 }
+
+

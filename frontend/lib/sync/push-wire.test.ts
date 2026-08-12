@@ -86,9 +86,9 @@ describe("the shared push vectors", () => {
     expect(vectors.length).toBeGreaterThan(0);
     expect(vectors.some((vector) => vector.expected.slot === "notVisited")).toBe(true);
 
-    // …and the newest slot, so a file that loaded but predated W10 slice 6 is caught here rather
-    // than by every audit case quietly not running.
-    expect(vectors.some((vector) => vector.expected.slot === "audit")).toBe(true);
+    // …and the newest slot, so a file that loaded but predated W11 slice 5 is caught here rather
+    // than by every order case quietly not running.
+    expect(vectors.some((vector) => vector.expected.slot === "order")).toBe(true);
   });
 
   it.each(vectors.filter((vector) => vector.outbox))(
@@ -137,7 +137,7 @@ describe("the shared push vectors", () => {
 
       const [, , mutations] = api.push.mock.calls[0];
       const slots = Object.keys(mutations[0]).filter((key) =>
-        ["visit", "notVisited", "rescheduled", "unplanned", "audit"].includes(key),
+        ["visit", "notVisited", "rescheduled", "unplanned", "audit", "order"].includes(key),
       );
 
       expect(slots).toEqual([vector.expected.slot]);
