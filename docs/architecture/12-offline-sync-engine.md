@@ -469,6 +469,34 @@ against a date it already holds. Nothing has to be told; time passes on the devi
 > within one batch would also work — and would put the rule in two places and make it a property of
 > the wire rather than of the device. One function, on the device, where a test can reach it.
 
+> ### Finished in W11 slice 8d — the hold was right, and it released into a second refusal
+>
+> **8c fixed the ordering and not the outcome.** Held until the visit had been accepted, the order
+> then arrived at a visit the server had already sealed — because a pushed `CapturedVisit` is created
+> **already checked out** (`Visit.Ingest`: "sealed on arrival") and a device only enqueues one *at*
+> check-out. Both `OrderIngestService` and `AuditIngestService` refused a sealed visit, so
+> offline-captured work had no window at all: `UnknownVisit` before the visit landed, and
+> sealed-refused after it. *Every* offline order, since W11 slice 1.
+>
+> **Found in a browser again**, while verifying slice 9a's audit screen — and reproduced with an
+> order rather than inferred from the audit: check in, take the order, check out, sync, and the
+> outbox holds `order.ingest.visitUnknown` beside `audit.ingest.visitSealed`.
+>
+> **Why no test caught this one either.** The two that covered it — `A_sealed_visit_refuses_a_new_order`
+> and its audit twin — asserted the refusal while sending a capture time *before* the check-out. They
+> were describing the ordinary offline round and calling it the abuse case, and they passed because
+> the rule tested a flag rather than a moment.
+>
+> **The rule was always about `capturedAtUtc`.** "Work attached to a visit already filed as done"
+> means work *taken* after the seal, so that is what is compared, through
+> `VisitFacts.WasOpenAt(moment)` — a fact both modules ask and each acts on its own way, which is the
+> split `IVisitContext` already drew. Both timestamps come from the same device's clock, so the
+> comparison holds on a phone that is wrong about the time; and the boundary is **inclusive**, because
+> an order sealed as the rep walks out is the ordinary end of a call.
+>
+> **The drain gate stays.** It is still right that work should not be sent before the visit it names —
+> and 9a extended it to `CapturedAudit`, which had the identical dependency.
+
 **Request** is a batch of the rep's captured work:
 
 ```jsonc

@@ -54,18 +54,31 @@ internal sealed class AuditIngestService(
         }
 
         /*
-         * BR-AUD-6, and the direction is worth stating: an audit belongs to a visit *being worked*.
+         * BR-AUD-6, and W11 slice 8d rewrote it because the old reading refused every audit there
+         * has ever been.
          *
-         * A sealed visit refuses a *new* audit — the visit was filed as done, and attaching a fresh
-         * measurement to it would change a record already counted. The replay above is deliberately
-         * ahead of this check, because a retry of an audit that landed before check-out is not a new
-         * audit at all.
+         * The rule is that an audit belongs to a visit *being worked* — the visit was filed as done,
+         * and attaching a fresh measurement afterwards would change a record already counted. What
+         * this used to test was `visit.Sealed`, which sounds like the same thing and is not: a
+         * pushed `CapturedVisit` is created **already checked out** (`Visit.Ingest`: "sealed on
+         * arrival"), and a device only enqueues one *at* check-out. So an offline audit has no
+         * window at all — it is `UnknownVisit` before the visit lands and `VisitSealed` after — and
+         * the same was true of every order, through `OrderIngestService`'s copy of this check.
+         *
+         * What the rule means is *captured* after the seal, so that is what is compared. Both
+         * timestamps come from the same device's clock — `CapturedAudit.CapturedAtUtc` and the
+         * `CheckedOutAtUtc` the device sent on its own `CapturedVisit` — so the comparison is
+         * internally consistent even on a phone whose clock is wrong, which is the only way it could
+         * be made to work at all.
+         *
+         * The replay check above stays ahead of this, because a retry of an audit that already
+         * landed is not a new audit whatever the timestamps say.
          */
-        if (visit.Sealed)
+        if (!visit.WasOpenAt(captured.CapturedAtUtc))
         {
             return new AuditIngestResult(
                 AuditIngestRefusal.VisitSealed,
-                "That visit is checked out. An audit belongs to a visit that is being worked.");
+                "That visit was checked out before this audit was taken.");
         }
 
         // A different audit against the same visit. Caught here so the answer is a refusal a device

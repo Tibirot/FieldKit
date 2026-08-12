@@ -72,6 +72,19 @@ weighted score** — see [decision A2](decisions-and-assumptions.md#a2--audit--p
   Share-of-shelf ratios and weighted sums are exactly where float64 would diverge.
 - **BR-AUD-6** An audit belongs to a visit and is **sealed with it** (append-only, not editable
   after sync — [B7](decisions-and-assumptions.md#b7--conflict-resolution-matrix)).
+  > **"Sealed with it" is about when the audit was *taken*, not about the visit's state on arrival**
+  > (settled in W11 slice 8d, after the first reading made every offline audit impossible).
+  >
+  > Read as "a checked-out visit refuses an audit", the rule has no case left: a pushed
+  > `CapturedVisit` is created **already checked out**, and a device only enqueues one *at*
+  > check-out — so every offline audit arrives at a sealed visit. The order module had the same
+  > sentence and the same defect.
+  >
+  > What it protects against is a measurement taken *after* the visit was filed as done, so that is
+  > what is compared: `CapturedAudit.CapturedAtUtc` against the visit's check-out. Both come from the
+  > same device's clock, which is what makes the comparison sound on a phone that is wrong about the
+  > time. The boundary is **inclusive** — an audit sealed as the rep walks out is the ordinary end of
+  > a call.
 - **BR-AUD-7** Mandatory survey questions must be answered before the audit step completes.
 - **BR-AUD-8** The audit records the **weight-set version** it was scored against (as-of-capture).
   The server recomputes with **those** weights; re-weighting a tenant does **not** retroactively

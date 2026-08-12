@@ -118,18 +118,28 @@ internal sealed class OrderIngestService(
         }
 
         /*
-         * An order belongs to a visit *being worked*.
+         * An order belongs to a visit *being worked* — and W11 slice 8d found that the old reading of
+         * that sentence refused every order a rep has ever taken offline.
          *
-         * A sealed visit refuses a new order for the reason a sealed visit refuses a new audit: the
-         * visit was filed as done, and attaching a fresh order to it would change a record already
-         * counted. The replay above is deliberately ahead of this, so a retry of an order that
-         * arrived before check-out still succeeds after it.
+         * This used to test `visit.Sealed`. A pushed `CapturedVisit` is created **already checked
+         * out** (`Visit.Ingest`: "sealed on arrival") and a device only enqueues one *at* check-out,
+         * so an order captured at a counter has no window: `UnknownVisit` before the visit lands,
+         * and this refusal after it. W11 slice 8c held the order back until the visit had been
+         * accepted, which was right about the ordering and moved the failure rather than removing it
+         * — the browser run for slice 9a is where that finally showed.
+         *
+         * What the rule means is *captured* after the seal. Both timestamps come from the same
+         * device's clock, so the comparison holds even on a phone that is wrong about the time.
+         *
+         * The refusal stays `UnknownVisit` rather than gaining a value of its own: the device cannot
+         * do anything different about it, and `OrderIngestRefusal` is a public contract whose reasons
+         * a rep's screen already maps.
          */
-        if (visit.Sealed)
+        if (!visit.WasOpenAt(captured.CapturedAtUtc))
         {
             return new OrderIngestResult(
                 OrderIngestRefusal.UnknownVisit,
-                "That visit is not one of yours, or no longer exists.");
+                "That visit was checked out before this order was taken.");
         }
 
         var (order, refusal) = Order.Record(captured, visit.OutletId, userId, mutationId, clock);

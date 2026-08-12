@@ -186,6 +186,14 @@ public class AuditIngestTests(ServerFixture fixture)
         Facings: [new CapturedFacings(Guid.CreateVersion7(), 6)],
         Prices: [new CapturedPrice(Guid.CreateVersion7(), 1099, 999, "RON")]);
 
+    /// <summary>When the server sealed the visit, from the check-out response itself.</summary>
+    private static async Task<DateTimeOffset> CheckedOutAtAsync(HttpResponseMessage checkedOut)
+    {
+        var detail = await checkedOut.Content.ReadFromJsonAsync<VisitDetailResponse>();
+
+        return detail!.Visit.CheckedOutAtUtc!.Value;
+    }
+
     private Task<AuditIngestResult> IngestAsync(CapturedAudit audit, string? token = null) =>
         AsAsync(token ?? fixture.AdminAccessToken, services =>
             services.GetRequiredService<IAuditIngest>()
@@ -253,10 +261,20 @@ public class AuditIngestTests(ServerFixture fixture)
     }
 
     [Fact]
-    public async Task A_sealed_visit_refuses_a_new_audit()
+    public async Task An_audit_taken_before_check_out_is_accepted_after_it()
     {
-        // BR-AUD-6, and the direction matters: the visit was filed as done, so attaching a fresh
-        // measurement to it would change a record that has already been counted.
+        /*
+         * The regression W11 slice 8d exists for, and this test used to assert the opposite.
+         *
+         * It was called `A_sealed_visit_refuses_a_new_audit`, it checked out the visit and expected
+         * `VisitSealed` — while sending a capture time months *before* the check-out. That is not a
+         * new audit attached to a finished visit; it is the ordinary offline round, and it is the
+         * only shape an audit has ever had. A pushed `CapturedVisit` is created already sealed and a
+         * device only enqueues one at check-out, so every audit arrives at a sealed visit.
+         *
+         * The old test passed because the rule tested a flag rather than a moment, and it is why
+         * nothing caught this until slice 9a drove the screen in a browser.
+         */
         using var client = Admin();
 
         var (visitId, _, weights) = await VisitAsync(client);
@@ -267,6 +285,32 @@ public class AuditIngestTests(ServerFixture fixture)
         Assert.Equal(HttpStatusCode.OK, checkedOut.StatusCode);
 
         var result = await IngestAsync(Audit(visitId, weights));
+
+        Assert.Equal(AuditIngestRefusal.None, result.Refusal);
+    }
+
+    [Fact]
+    public async Task An_audit_taken_after_check_out_is_refused()
+    {
+        // `BR-AUD-6` as it was always meant: the visit was filed as done, so a measurement taken
+        // *afterwards* would change a record already counted. The moment is what decides, not the
+        // flag — and a capture time in the future of the check-out is the only way to be that.
+        using var client = Admin();
+
+        var (visitId, _, weights) = await VisitAsync(client);
+
+        var checkedOut = await client.PostAsJsonAsync(
+            $"/api/visits/{visitId}/check-out", new CheckOutRequest(VisitOutcome.Productive));
+
+        Assert.Equal(HttpStatusCode.OK, checkedOut.StatusCode);
+
+        // Read back rather than reached for from a clock: `DateTimeOffset.UtcNow` is banned in this
+        // project, and taking the moment from the response is the exact boundary anyway.
+        var sealedAt = await CheckedOutAtAsync(checkedOut);
+
+        var late = Audit(visitId, weights) with { CapturedAtUtc = sealedAt.AddSeconds(1) };
+
+        var result = await IngestAsync(late);
 
         Assert.Equal(AuditIngestRefusal.VisitSealed, result.Refusal);
     }
