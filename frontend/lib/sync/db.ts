@@ -278,7 +278,20 @@ export type ReferenceTaxRate = {
   rowVersion: number;
 };
 
-/** What a promotion applies to. Exactly one id is set; an empty list means "everything". */
+/**
+ * What a promotion applies to. Exactly one id is set.
+ *
+ * **An empty list reaches nothing**, and this comment used to say the opposite. The server is
+ * unambiguous — `PromotionEndpoints` calls an empty target set "a real state, not a refusal: the
+ * promotion then discounts nothing", and it is how a deal is withdrawn without editing its window or
+ * deleting a record other things point at.
+ *
+ * Worth recording rather than quietly correcting, because of *when* it was caught: W11 slice 7d wrote
+ * the first device code that reads this field, and the comment would have had it apply every
+ * withdrawn promotion to every line. A confident wrong sentence with no code under it yet is exactly
+ * the shape of the price feed's `amount arrives as a number because that is what JSON has`
+ * (slice 7a) — right up to the moment somebody believed it.
+ */
 export type ReferencePromotionTarget = { productId: string | null; categoryId: string | null };
 
 /**

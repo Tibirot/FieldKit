@@ -230,6 +230,17 @@ exactly at percentage/tiered discounts, tax, and rounding. Therefore:
   > suite therefore asserts separately that each amount's **value** is at the currency's scale, not
   > only that it prints that way. Found by mutation — deleting the tax's rounding broke nothing until
   > that assertion existed.
+  >
+  > **W11 slice 7d finally composed them.** The three resolvers and the line arithmetic all had
+  > mirrors and vectors; nothing gathered candidates out of the device's store and ran them, so every
+  > rule was in place and none of them met. `frontend/lib/orders/pricing.ts` mirrors
+  > `PricingService.cs` — batched gathering, then the pure functions, then a sum of the lines'
+  > already-rounded amounts. Two things are specific to the mirror. It **retired the device's second
+  > answer to `BR-PRD-2`**: `priceListFor` picked a list by the order IndexedDB returned assignments
+  > in, which agreed with `resolvePrice` until two lists tied and then silently disagreed. And
+  > `PricedOrder`'s totals are **nullable** where the C# leans on `default(Money)`, because the
+  > TypeScript `Money` refuses an empty currency — an order that priced nothing has no currency, and
+  > a fabricated one is a number a screen would render as real.
 - **BR-PRD-9** A **single documented rounding policy** applies on both sides: round **half-up** to
   the currency's minor units, **per line**, tax computed on the rounded net line. (Per-tenant/
   jurisdiction override is a *Could*.)

@@ -26,8 +26,6 @@ import {
   PRICE_ASSIGNMENTS,
   PRICE_LINES,
   PRICE_LISTS,
-  priceListFor,
-  priceOf,
   product,
   products,
   PRODUCTS,
@@ -1100,95 +1098,6 @@ describe("prices", () => {
     expect(await watermark(db, PRICE_LISTS)).toBe(4);
     expect(await watermark(db, PRICE_LINES)).toBe(5);
     expect(await watermark(db, PRICE_ASSIGNMENTS)).toBe(6);
-
-    db.close();
-  });
-
-  it("prefers the outlet's own list over its channel's", async () => {
-    // BR-PRD-2's precedence, re-expressed on the device because it prices an order with no
-    // connection. The parity suite is what keeps this from drifting from the server's resolver.
-    const db = freshDatabase();
-
-    api.pull.mockResolvedValue(
-      pricePull(
-        {
-          upserts: [list("channel-list", "2026-01-01", null, 4), list("outlet-list", "2026-01-01", null, 5)],
-          tombstones: [],
-          cursor: 5,
-        },
-        { upserts: [], tombstones: [], cursor: 0 },
-        {
-          upserts: [
-            assignment("assign-channel", "channel-list", "channel", 6),
-            assignment("assign-outlet", "outlet-list", "outlet", 7),
-          ],
-          tombstones: [],
-          cursor: 7,
-        },
-      ),
-    );
-
-    await syncOnce(db, TOKEN, DEVICE);
-
-    expect((await priceListFor(db, OUTLET, CHANNEL, "2026-06-01"))?.id).toBe("outlet-list");
-
-    db.close();
-  });
-
-  it("picks the list in effect on the day it is asked about, not the day it synced", async () => {
-    // A device offline for a week may be pricing an order on the day a new list takes over.
-    const db = freshDatabase();
-
-    api.pull.mockResolvedValue(
-      pricePull(
-        {
-          upserts: [
-            list("old", "2026-01-01", "2026-05-31", 4),
-            list("new", "2026-06-01", null, 5),
-          ],
-          tombstones: [],
-          cursor: 5,
-        },
-        { upserts: [], tombstones: [], cursor: 0 },
-        {
-          upserts: [
-            assignment("assign-old", "old", "channel", 6),
-            assignment("assign-new", "new", "channel", 7),
-          ],
-          tombstones: [],
-          cursor: 7,
-        },
-      ),
-    );
-
-    await syncOnce(db, TOKEN, DEVICE);
-
-    expect((await priceListFor(db, OUTLET, CHANNEL, "2026-05-15"))?.id).toBe("old");
-    expect((await priceListFor(db, OUTLET, CHANNEL, "2026-06-15"))?.id).toBe("new");
-    expect(await priceListFor(db, OUTLET, CHANNEL, "2025-12-31")).toBeUndefined();
-
-    db.close();
-  });
-
-  it("finds a product's price on a list, and nothing for one it does not price", async () => {
-    const db = freshDatabase();
-
-    api.pull.mockResolvedValue(
-      pricePull(
-        { upserts: [list(LIST, "2026-01-01", null, 4)], tombstones: [], cursor: 4 },
-        {
-          upserts: [{ id: "line-1", priceListId: LIST, productId: "product-1", amount: 12.5, rowVersion: 5 }],
-          tombstones: [],
-          cursor: 5,
-        },
-        { upserts: [], tombstones: [], cursor: 0 },
-      ),
-    );
-
-    await syncOnce(db, TOKEN, DEVICE);
-
-    expect((await priceOf(db, LIST, "product-1"))?.amount).toBe(12.5);
-    expect(await priceOf(db, LIST, "product-2")).toBeUndefined();
 
     db.close();
   });
