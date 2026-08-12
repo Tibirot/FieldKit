@@ -76,6 +76,23 @@ export function pendingCount(db: FieldKitDatabase): Promise<number> {
 }
 
 /**
+ * How much work the server refused and nothing will retry (`OFF-05`, `OFF-09`) — W11 slice 8c.
+ *
+ * <b>Counted separately from `pending` because it is a different question.</b> Pending is "waiting
+ * for a connection"; this is "waiting for a person". Folding them together would put a refusal
+ * behind a number that goes to zero on its own, and the rep would watch it clear without anything
+ * having been fixed.
+ *
+ * <b>The indicator was calling this state "Everything synced".</b> `pendingCount` counts only
+ * `pending`, so a `failed` row was invisible to the chip — a rep who lost an order was told their
+ * work was safe, which is the one thing the indicator exists to be honest about. Found in a browser
+ * during W11 slice 8a's verification, alongside the ordering bug that produced the failure.
+ */
+export function failedCount(db: FieldKitDatabase): Promise<number> {
+  return db.outbox.where("status").equals("failed").count();
+}
+
+/**
  * Marks a batch as sent and counts the attempt.
  *
  * The attempt is counted *now*, before the answer, because the failure this protects against is the

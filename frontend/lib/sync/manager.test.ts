@@ -1435,3 +1435,154 @@ describe("tax rates", () => {
     db.close();
   });
 });
+
+describe("an order waits for the visit it belongs to", () => {
+  const OUTLET = "outlet-1";
+  /*
+   * W11 slice 8c, and the bug it fixes was found in a browser rather than here — which is the point
+   * of these tests: they encode a rule about the *ordering between two mutations*, which is the one
+   * thing neither the device suite nor the server suite had a place to express.
+   *
+   * A rep submits an order at the counter and checks out afterwards, so `CapturedVisit` is enqueued
+   * *later* and the order is genuinely the older row. Pushed first, the server refuses it —
+   * `order.ingest.visitUnknown`, correctly — `markRejected` writes `failed`, nothing retries a
+   * failed row, and the order is gone.
+   */
+  const VISIT = "visit-1";
+
+  function openVisit(status: "inProgress" | "checkedOut") {
+    return {
+      id: VISIT,
+      outletId: OUTLET,
+      plannedVisitId: null,
+      status,
+      checkedInAtUtc: "2026-08-12T09:00:00.000Z",
+      checkInLatitude: null,
+      checkInLongitude: null,
+      checkInDistanceMetres: null,
+      wasInsideGeofence: null,
+      overrideReason: null,
+      steps: [],
+      checkedOutAtUtc: status === "checkedOut" ? "2026-08-12T09:30:00.000Z" : null,
+      checkOutLatitude: null,
+      checkOutLongitude: null,
+      outcome: null,
+      outcomeReason: null,
+    };
+  }
+
+  async function queueOrder(db: FieldKitDatabase) {
+    return enqueue(db, {
+      type: "CapturedOrder",
+      subjectId: "order-1",
+      payload: { orderId: "order-1", visitId: VISIT },
+    });
+  }
+
+  it("holds the order back while the visit is still open", async () => {
+    // The exact shape found in the browser: the order is submitted mid-visit, the device syncs, and
+    // there is no `CapturedVisit` anywhere yet because check-out has not happened.
+    const db = freshDatabase();
+
+    await db.visits.add(openVisit("inProgress"));
+    await queueOrder(db);
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    expect(api.push).not.toHaveBeenCalled();
+    expect(await db.outbox.count()).toBe(1);
+
+    db.close();
+  });
+
+  it("holds it while the visit's own mutation is still queued", async () => {
+    /*
+     * Check-out has happened, so a `CapturedVisit` exists — but it has not landed. Sending the order
+     * now would race the visit through a batch boundary, and the refusal is terminal, so "probably
+     * fine" is not good enough.
+     */
+    const db = freshDatabase();
+
+    await db.visits.add(openVisit("checkedOut"));
+    const order = await queueOrder(db);
+    await enqueue(db, { type: "CapturedVisit", subjectId: VISIT, payload: { visitId: VISIT } });
+
+    api.push.mockResolvedValue(accepted([]));
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    const sent = api.push.mock.calls.flatMap((call) => call[2] as { mutationId: string }[]);
+
+    expect(sent.map((mutation) => mutation.mutationId)).not.toContain(order.mutationId);
+
+    db.close();
+  });
+
+  it("sends it once the visit has been accepted", async () => {
+    // The release condition: checked out, and its mutation has left the outbox. Nothing else has to
+    // happen — the order goes on the next run, which is the one this simulates.
+    const db = freshDatabase();
+
+    await db.visits.add(openVisit("checkedOut"));
+    const order = await queueOrder(db);
+
+    api.push.mockResolvedValue(accepted([order.mutationId]));
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    const sent = (api.push.mock.calls[0][2] as { mutationId: string }[]).map(
+      (mutation) => mutation.mutationId,
+    );
+
+    expect(sent).toEqual([order.mutationId]);
+    expect(await db.outbox.count()).toBe(0);
+
+    db.close();
+  });
+
+  it("sends an order whose visit this device does not hold", async () => {
+    /*
+     * The fallback, and it is deliberately the *old* behaviour. A device that cannot find the visit
+     * cannot reason about it — and holding forever would be a worse failure than the one being
+     * fixed, because nothing could ever release the order. The server decides.
+     */
+    const db = freshDatabase();
+
+    const order = await queueOrder(db);
+
+    api.push.mockResolvedValue(accepted([order.mutationId]));
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    expect(api.push).toHaveBeenCalled();
+    expect(await db.outbox.count()).toBe(0);
+
+    db.close();
+  });
+
+  it("does not stop the visit itself from going", async () => {
+    // The held order must not take the batch down with it — the visit is what releases it, so a
+    // filter that returned nothing when *any* entry was held would deadlock the device.
+    const db = freshDatabase();
+
+    await db.visits.add(openVisit("checkedOut"));
+    await queueOrder(db);
+    const visit = await enqueue(db, {
+      type: "CapturedVisit",
+      subjectId: VISIT,
+      payload: { visitId: VISIT },
+    });
+
+    api.push.mockResolvedValue(accepted([visit.mutationId]));
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    const sent = (api.push.mock.calls[0][2] as { mutationId: string }[]).map(
+      (mutation) => mutation.mutationId,
+    );
+
+    expect(sent).toEqual([visit.mutationId]);
+
+    db.close();
+  });
+});

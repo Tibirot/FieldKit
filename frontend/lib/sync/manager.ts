@@ -1,7 +1,7 @@
 import { ApiError } from "@/lib/api/client";
 import { bindDevice, pull, push, type PushedMutation } from "@/lib/api/sync";
 
-import { requestPersistentStorage, type FieldKitDatabase } from "./db";
+import { requestPersistentStorage, type FieldKitDatabase, type OutboxEntry } from "./db";
 import {
   markAccepted,
   markInflight,
@@ -207,6 +207,65 @@ function slotOf(
   return "visit";
 }
 
+/**
+ * Drops mutations whose turn has not come (`OFF-04`) — W11 slice 8c.
+ *
+ * <b>An order may not be pushed before the visit it was taken during.</b> `OrderIngestService`
+ * refuses an order for a visit it has never seen (`order.ingest.visitUnknown`), and that refusal is
+ * right — an order has to belong to a call this rep made. What was wrong was the *order of the
+ * sending*: `CapturedVisit` is only enqueued at check-out, so an order submitted at the counter is
+ * genuinely the older row and went first, was refused, was marked `failed`, and was never retried.
+ * The rep lost the order and the indicator said "Everything synced".
+ *
+ * <b>Found in a browser, and neither suite could have found it.</b> The device tests mock the sync
+ * API so nothing meets a real refusal, and every server test pushes a visit before an order because
+ * one that wanted the order to succeed had to. The seam is the ordering *between* two mutations.
+ *
+ * <b>Held, not reordered.</b> Sending the visit first inside the same batch would work only if the
+ * server applied a batch in array order — which it does, but relying on that would put this rule in
+ * two places and make it a property of the wire rather than of the device. Holding the order for a
+ * later run keeps the rule here, in one function, where it is testable.
+ *
+ * <b>The starvation case is real and bounded.</b> A batch of a hundred held orders would push
+ * nothing — but that needs a rep to have submitted a hundred orders without checking out once, and
+ * a visit ends with the check-out that releases them. One order per visit is the shape the aggregate
+ * enforces.
+ */
+async function sendable(db: FieldKitDatabase, batch: OutboxEntry[]): Promise<OutboxEntry[]> {
+  const held = new Set<string>();
+
+  for (const entry of batch) {
+    if (entry.type !== "CapturedOrder") continue;
+
+    const visitId = (entry.payload as { visitId?: string } | null)?.visitId;
+    if (!visitId) continue;
+
+    const visit = await db.visits.get(visitId);
+
+    /*
+     * A visit this device does not hold is *sent*, not held.
+     *
+     * The device cannot reason about it — and holding forever would be a worse failure than the one
+     * being fixed, because the order would sit in the outbox with nothing that could ever release
+     * it. The server decides, which is what it did before this function existed.
+     */
+    if (!visit) continue;
+
+    // Still open: no `CapturedVisit` has been enqueued yet, so the server cannot possibly know it.
+    if (visit.status !== "checkedOut") {
+      held.add(entry.mutationId);
+      continue;
+    }
+
+    // Checked out, but its own mutation has not landed — pending, in flight, or refused.
+    const outstanding = await db.outbox.where("subjectId").equals(visitId).count();
+
+    if (outstanding > 0) held.add(entry.mutationId);
+  }
+
+  return held.size === 0 ? batch : batch.filter((entry) => !held.has(entry.mutationId));
+}
+
 /** Sends everything queued, in batches, oldest first. */
 async function drain(
   db: FieldKitDatabase,
@@ -216,7 +275,16 @@ async function drain(
   signal?: AbortSignal,
 ): Promise<SyncResult["interrupted"]> {
   for (;;) {
-    const batch = await pending(db, PUSH_BATCH);
+    const queued = await pending(db, PUSH_BATCH);
+    if (queued.length === 0) return undefined;
+
+    const batch = await sendable(db, queued);
+
+    /*
+     * Everything in this batch is waiting on something else. Returning rather than looping is what
+     * stops the drain spinning: `pending` would hand back the same rows forever, and the thing they
+     * are waiting for is a *later* mutation that this run will never reach.
+     */
     if (batch.length === 0) return undefined;
 
     const mutations: PushedMutation[] = batch.map((entry) => ({

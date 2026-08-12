@@ -421,9 +421,18 @@ against a date it already holds. Nothing has to be told; time passes on the devi
 
 ## 4. Push protocol (device-owned mutations)
 
-> ### ⚠︎ Open defect — an order submitted mid-visit is lost, silently (found W11 slice 8a)
+> ### Fixed in W11 slice 8c — an order submitted mid-visit used to be lost, silently
 >
-> Reproduced in a browser against a real server, end to end. Three separate rules combine into data
+> Kept rather than deleted, because the *shape* of it is the lesson: three individually correct rules
+> combined into data loss, and no suite could see the combination.
+>
+> **What now happens.** The drain holds a `CapturedOrder` back until the visit it names has reached
+> the server — checked out, and its own mutation gone from the outbox. A held order does not block
+> the batch, so the visit that releases it goes in the same run. And a refused mutation is counted:
+> the indicator reads **"needs attention"** instead of "Everything synced", ranked above offline
+> because it needs a person rather than a connection (`OFF-09`).
+>
+> Reproduced in a browser against a real server, end to end. Three separate rules combined into data
 > loss:
 >
 > 1. **The order is enqueued before the visit it belongs to.** A rep submits the order at the counter
@@ -444,11 +453,15 @@ against a date it already holds. Nothing has to be told; time passes on the devi
 > to express — the same two-suites-one-seam shape as the `/sync/push` property-name bug in W9 and the
 > float prices in W11 slice 7a.
 >
-> **It is not obvious which rule should give**, which is why this is recorded rather than patched
-> inside a screen slice: the drain could respect a dependency between mutations; the order could
-> refuse to seal before check-out; a rejection that *may become valid later* could be distinguished
-> from one that never will; and the indicator has to stop calling a failed mutation "synced"
-> regardless. The last of those is a bug on its own terms.
+> **Two of the four candidate rules gave.** The drain now holds the order — chosen over making the
+> order refuse to seal before check-out, because that would change what *submitted* means to a rep
+> standing at a counter, and over distinguishing retryable refusals, which needs the server to say
+> which is which. The indicator was fixed regardless: calling refused work "synced" is wrong whatever
+> the ordering does.
+>
+> **Held, not reordered.** The server does apply a batch in array order, so sending the visit first
+> within one batch would also work — and would put the rule in two places and make it a property of
+> the wire rather than of the device. One function, on the device, where a test can reach it.
 
 **Request** is a batch of the rep's captured work:
 

@@ -23,14 +23,14 @@ import { useConnectivity } from "@/lib/sync/connectivity";
 export function SyncIndicator() {
   const t = useTranslations("Sync");
   const online = useConnectivity();
-  const { pending, running, outcome, syncNow } = useSync();
+  const { pending, failed, running, outcome, syncNow } = useSync();
 
-  const state = describe({ online, pending, running, outcome });
+  const state = describe({ online, pending, failed, running, outcome });
 
   return (
     <div className="flex items-center gap-2" data-testid="sync-indicator">
       <Badge variant={state.variant} aria-live="polite">
-        {t(state.message, { count: pending })}
+        {t(state.message, { count: state.message === "needsAttention" ? failed : pending })}
       </Badge>
 
       {/*
@@ -52,7 +52,7 @@ export function SyncIndicator() {
  * is how a chip ends up rendering `Sync.pendign` at a rep instead of failing to build.
  */
 type State = {
-  message: "rebind" | "signInAgain" | "syncing" | "offline" | "pending" | "synced";
+  message: "rebind" | "signInAgain" | "needsAttention" | "syncing" | "offline" | "pending" | "synced";
   variant: "default" | "secondary" | "destructive" | "outline";
 };
 
@@ -63,20 +63,37 @@ type State = {
  * state that needs a person rather than a connection. Offline outranks a pending count, because it
  * tells the rep the count is not their fault. "Synced" is last, and only reachable when there is
  * genuinely nothing outstanding.
+ *
+ * <b>That first sentence was true of the intent and false of the code until W11 slice 8c.</b>
+ * `outcome` is how the last *run* ended, not whether any work was refused — so a mutation the server
+ * rejected ranked nowhere at all, and the chip fell through to "Everything synced" over an order the
+ * rep had lost. `failed` is the count that was missing.
  */
 function describe({
   online,
   pending,
+  failed,
   running,
   outcome,
 }: {
   online: boolean;
   pending: number;
+  failed: number;
   running: boolean;
   outcome: string | null | undefined;
 }): State {
   if (outcome === "deviceRejected") return { message: "rebind", variant: "destructive" };
   if (outcome === "unauthorized") return { message: "signInAgain", variant: "destructive" };
+  /*
+   * Refused work outranks everything a connection could fix, and this line is the bug W11 slice 8c
+   * was opened for: only `pending` was counted, so an order the server refused was invisible and the
+   * chip read **"Everything synced"** over work that was gone. A rep was told their day was safe.
+   *
+   * Above `syncing` and `offline` on purpose. Both of those are temporary and neither is the rep's
+   * problem; this one does not clear on its own and needs a person (`OFF-09`).
+   */
+  if (failed > 0) return { message: "needsAttention", variant: "destructive" };
+
   if (running) return { message: "syncing", variant: "secondary" };
   if (!online) return { message: "offline", variant: "outline" };
   if (pending > 0) return { message: "pending", variant: "secondary" };

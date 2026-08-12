@@ -1279,7 +1279,8 @@
     "signInAgain": "Sign in again to sync",
     "rebind": "Register this device again to sync",
     "itemPending": "Not synced",
-    "itemFailed": "Needs attention"
+    "itemFailed": "Needs attention",
+    "needsAttention": "{count, plural, one {# item needs attention — it was refused and will not retry} other {# items need attention — they were refused and will not retry}}"
   },
   "Field": {
     "title": "FieldKit",

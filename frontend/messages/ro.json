@@ -1279,7 +1279,8 @@
     "signInAgain": "Autentifică-te din nou pentru a sincroniza",
     "rebind": "Înregistrează din nou acest dispozitiv pentru a sincroniza",
     "itemPending": "Nesincronizat",
-    "itemFailed": "Necesită atenție"
+    "itemFailed": "Necesită atenție",
+    "needsAttention": "{count, plural, one {# element necesită atenție — a fost respins și nu se reîncearcă} few {# elemente necesită atenție — au fost respinse și nu se reîncearcă} other {# de elemente necesită atenție — au fost respinse și nu se reîncearcă}}"
   },
   "Field": {
     "title": "FieldKit",
