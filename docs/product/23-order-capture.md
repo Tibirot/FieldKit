@@ -77,12 +77,32 @@ Lifecycle and mechanics per [B4](decisions-and-assumptions.md#b4--order-lifecycl
 - **BR-ORD-4** An order is editable **only while Draft**; **locked after submit** — this is the
   rule that keeps orders conflict-free on sync ([B7](decisions-and-assumptions.md#b7--conflict-resolution-matrix)).
   The **one exception** is a server-rejected order (BR-ORD-9).
-- **BR-ORD-5** Order minimum (value/qty), if configured, must be met to submit.
-  > **Value only, and the "qty" here disagrees with the ledger** (found building W11 slice 8b-i).
-  > [B1](decisions-and-assumptions.md#b1--pricing--promotions) assumes *"optional minimum order value
-  > per channel/outlet"* — value alone. Value is what ships, because it is the decision that was
-  > actually made and a quantity minimum needs its own: units, cases, or lines, none of which is
-  > written down anywhere. Named here rather than picked silently.
+- **BR-ORD-5** Order minimum (**value**), if configured, must be met to submit. A minimum expressed
+  in **quantity** is out of scope until units of measure become a vocabulary with conversions — see
+  below.
+  > **The rule used to say "value/qty", and that was settled to value in W11 slice 8b-i.** Not as a
+  > scope cut: a quantity minimum is not a well-defined thing in this model yet.
+  >
+  > [B1](decisions-and-assumptions.md#b1--pricing--promotions) — a reviewed assumption — says
+  > *"optional minimum order value per channel/outlet"*, value alone. The rule was the only place
+  > "qty" appeared, and `ORD-06` is a `Should`.
+  >
+  > **What makes quantity undefined rather than merely unbuilt.** `Product.UnitOfMeasure` is a
+  > deliberately inert label — its own comment says *"nothing branches on it… it labels a quantity
+  > rather than deciding anything"* — and there is no unit conversion anywhere in the system. So
+  > "minimum 20" has no answer for an order of 6 cases and 5 bottles: summing to 11 is meaningless.
+  > `PackSize` gets part of the way (6 cases × 12 = 72 units) and is null for anything sold loose or
+  > by weight, so a quantity rule would silently miscount exactly the products it cannot describe.
+  >
+  > **The prerequisite, named so it is not rediscovered mid-slice.** A quantity minimum needs units
+  > of measure promoted to a vocabulary with a base unit and conversion factors — the "additive
+  > migration plus a backfill" `Product.UnitOfMeasure` already predicts. The alternatives are worse:
+  > a minimum that names one UoM has to refuse or ignore lines in others, and "total units, ignore
+  > UoM" is the version that looks like it works and quietly does not.
+  >
+  > **Worth revisiting if a customer asks.** Minimum quantity is genuinely common in FMCG as a pallet
+  > or truck-efficiency rule rather than an invoice-size one. The response then is to raise the UoM
+  > vocabulary, not to squeeze a quantity check on top of a label nothing branches on.
   >
   > The minimum is authored in **Products**, beside price-list assignment, and carries its own
   > currency — an order's comes from the list that priced it (`BR-ORD-7`), so a mismatch is reported
@@ -157,7 +177,7 @@ you notice the *history* is what appends while the aggregate is what re-opens.
 | ORD-03 | On-device promotion application (line + order level) | Must | 3 |
 | ORD-04 | Suggested list (assortment/MSL/last order) | Should | 3 |
 | ORD-05 | Draft/resume; edit until submit | Must | 3 |
-| ORD-06 | Order-minimum validation | Should | 3 |
+| ORD-06 | Order-minimum validation (**value**; quantity needs a UoM vocabulary — see `BR-ORD-5`) | Should | 3 |
 | ORD-07 | Submit → sealed, locked, queued for sync | Must | 3 |
 | ORD-08 | Snapshot-version capture + server re-price flag | Should | 3 |
 | ORD-09 | Back-office Accept/Reject | Could | 4 |
