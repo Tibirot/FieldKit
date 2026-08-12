@@ -421,6 +421,35 @@ against a date it already holds. Nothing has to be told; time passes on the devi
 
 ## 4. Push protocol (device-owned mutations)
 
+> ### ⚠︎ Open defect — an order submitted mid-visit is lost, silently (found W11 slice 8a)
+>
+> Reproduced in a browser against a real server, end to end. Three separate rules combine into data
+> loss:
+>
+> 1. **The order is enqueued before the visit it belongs to.** A rep submits the order at the counter
+>    and checks out afterwards, and `CapturedVisit` is only enqueued *at check-out* — so the order's
+>    outbox row is genuinely older, and any drain order sends it first.
+> 2. **The server refuses it.** `OrderIngestService` rejects an order whose visit it has never seen:
+>    `order.ingest.visitUnknown`. That check is correct — an order has to belong to a call this rep
+>    made.
+> 3. **The refusal is terminal, and invisible.** `markRejected` writes `status: "failed"`, nothing
+>    retries a failed row, and `pendingCount` counts only `"pending"` — so the shell reads
+>    **"Everything synced"** with a dead order in the outbox.
+>
+> The visit syncs a moment later and is accepted. The order never is. Nobody is told.
+>
+> **Why no test caught it.** Every device test mocks `@/lib/api/sync`, so nothing exercises the real
+> refusal; every server test pushes a visit before an order, because a test that wanted an order to
+> succeed had to. The seam is the *ordering between two mutations*, which neither suite has a place
+> to express — the same two-suites-one-seam shape as the `/sync/push` property-name bug in W9 and the
+> float prices in W11 slice 7a.
+>
+> **It is not obvious which rule should give**, which is why this is recorded rather than patched
+> inside a screen slice: the drain could respect a dependency between mutations; the order could
+> refuse to seal before check-out; a rejection that *may become valid later* could be distinguished
+> from one that never will; and the indicator has to stop calling a failed mutation "synced"
+> regardless. The last of those is a bug on its own terms.
+
 **Request** is a batch of the rep's captured work:
 
 ```jsonc
