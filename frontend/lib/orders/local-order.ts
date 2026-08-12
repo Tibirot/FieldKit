@@ -90,6 +90,22 @@ export function order(db: FieldKitDatabase, id: string): Promise<LocalOrder | un
 }
 
 /**
+ * The visit's order whatever state it is in — draft, or sealed and queued (W11 slice 8a).
+ *
+ * <b>Separate from {@link draft} rather than a flag on it.</b> A caller asking for *the draft* is
+ * asking what may still be edited, and that question has to keep answering `undefined` once the
+ * order is submitted — it is what `BR-ORD-4`'s lock looks like from the store. A screen showing the
+ * rep what they sent is asking a different question, and conflating the two is how a sealed order
+ * ends up rendered with an Add button beside it.
+ */
+export function orderFor(
+  db: FieldKitDatabase,
+  visitId: string,
+): Promise<LocalOrder | undefined> {
+  return db.orders.where("visitId").equals(visitId).first();
+}
+
+/**
  * Adds a line, or replaces the one already naming that product.
  *
  * <b>Replaces rather than sums.</b> A rep who picks the same product twice has changed their mind

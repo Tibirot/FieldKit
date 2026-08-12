@@ -6,7 +6,14 @@ import { useState } from "react";
 import { useSync } from "@/components/sync/sync-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { draft as heldDraft, draftFor, putLine, removeLine } from "@/lib/orders/local-order";
+import { useRouter } from "@/i18n/navigation";
+import {
+  draftFor,
+  orderFor,
+  putLine,
+  removeLine,
+  submit as submitOrder,
+} from "@/lib/orders/local-order";
 import { priceOrder, type PricedOrder } from "@/lib/orders/pricing";
 import { Decimal } from "@/lib/pricing/money";
 import type { FieldKitDatabase, LocalOrder, ReferenceProduct } from "@/lib/sync/db";
@@ -43,7 +50,20 @@ export function Order({ visitId }: { visitId: string }) {
     [db, visit?.outletId],
   );
 
-  const held = useLive(async () => (await heldDraft(db, visitId)) ?? null, null, [db, visitId]);
+  /*
+   * The visit's order whatever state it is in, not just the draft.
+   *
+   * Reading `draft()` here was right until submitting existed: the moment an order is sealed it
+   * stops being a draft, and a screen bound to that query would blink back to "nothing on this order
+   * yet" with a catalogue under it — telling a rep who has just sent an order that they have not
+   * started one. What is `BR-ORD-4`'s lock in the store is a *rendering* decision here.
+   */
+  const held = useLive(async () => (await orderFor(db, visitId)) ?? null, null, [db, visitId]);
+
+  // Three states, not two: no order yet, a draft, and one that has been sent. The middle and the
+  // first look the same to the catalogue and different to everything else.
+  const sealed = held !== null && held.status !== "draft";
+  const editable = sealed ? null : held;
 
   const orderable = useLive(
     async () => (shop ? await orderableProducts(db, shop.id, shop.channelId) : []),
@@ -98,18 +118,121 @@ export function Order({ visitId }: { visitId: string }) {
         {shop ? <p className="text-sm text-muted-foreground">{shop.name}</p> : null}
       </header>
 
-      <Lines order={held} priced={priced} products={orderable} />
+      {/* A sealed order says so before anything else on the screen. The lines below it are then a
+          record of what went, rather than a list with controls the rep will look for. */}
+      {sealed ? <Sent /> : null}
+
+      <Lines order={held} priced={priced} products={orderable} editable={!sealed} />
 
       <Totals priced={priced} />
 
-      <Catalogue
-        products={orderable}
-        order={held}
-        visitId={visitId}
-        outletId={visit.outletId}
-        on={on}
-      />
+      {/*
+        Submit appears with the draft, not with the first line — so tapping it on an order the rep
+        has just emptied says *why* rather than doing nothing. The catalogue is keyed on `sealed`
+        rather than on the draft existing, which is the bug the first version of this had: gating it
+        on `editable` meant no draft, no catalogue, no way to add the line that creates the draft.
+      */}
+      {!sealed && held ? <Submit order={held} visitId={visitId} /> : null}
+
+      {!sealed ? (
+        <Catalogue
+          products={orderable}
+          order={editable}
+          visitId={visitId}
+          outletId={visit.outletId}
+          on={on}
+        />
+      ) : null}
     </div>
+  );
+}
+
+/**
+ * The order is sealed and queued (`ORD-07`, `BR-ORD-4`) — W11 slice 8a.
+ *
+ * <b>Queued, not sent, and the wording says so.</b> The rep is offline more often than not; the
+ * outbox row exists and the shell's pending count is where "has the back office got it" is answered
+ * (`OFF-05`). Telling them "sent" here would be a claim this screen cannot make and the indicator
+ * would then contradict it.
+ */
+function Sent() {
+  const t = useTranslations("Field.order");
+
+  return (
+    <div className="flex flex-col gap-1 rounded-xl border border-border p-3" role="status">
+      <p className="text-sm">{t("sent.title")}</p>
+      <p className="text-sm text-muted-foreground">{t("sent.body")}</p>
+    </div>
+  );
+}
+
+/**
+ * Sealing the order and putting it in the outbox (`ORD-07`) — W11 slice 8a.
+ *
+ * <b>One transaction, both writes</b> — `submit()` owns that, and it is the same bargain check-out
+ * makes: the order becoming `submitted` and the mutation existing are one fact, and splitting them
+ * leaves a window where a crash produces either an order the rep believes was sent and never was, or
+ * a mutation for an order still showing as editable.
+ *
+ * <b>An empty order is refused here rather than at the server</b>, which the store also refuses —
+ * this exists so the rep is told *why* instead of watching a button do nothing.
+ *
+ * <b>`ORD-06`'s order minimum is not here</b>, and its absence is a dependency rather than an
+ * omission: `BR-ORD-5` says a minimum applies *if configured*, and there is no configuration for one
+ * anywhere in the system — no entity, no authoring surface, no feed. Slice 2a named that gap and
+ * slice 8b is where it gets paid for. A minimum invented on the device would be a rule no
+ * administrator could see, change, or be held to.
+ */
+function Submit({ order, visitId }: { order: LocalOrder; visitId: string }) {
+  const t = useTranslations("Field.order");
+  const router = useRouter();
+  const { db } = useSync();
+
+  const [sealing, setSealing] = useState(false);
+  const [refused, setRefused] = useState<"empty" | "unexpected" | null>(null);
+
+  const seal = async () => {
+    setRefused(null);
+
+    if (order.lines.length === 0) {
+      setRefused("empty");
+
+      return;
+    }
+
+    setSealing(true);
+
+    const sent = await submitOrder(db, order.id, new Date());
+
+    if (!sent) {
+      // The store refused for a reason this screen already checked, so it is not a state a rep can
+      // reach by working normally — a concurrent seal from another tab is the honest candidate.
+      setSealing(false);
+      setRefused("unexpected");
+
+      return;
+    }
+
+    /*
+     * Back to the visit rather than staying here. The order step is what the rep came from and what
+     * they still have to tick, and the visit screen is where the rest of the call is — the same call
+     * check-out makes about returning to the round.
+     */
+    router.replace(`/field/visits/${visitId}`);
+  };
+
+  return (
+    <section className="flex flex-col gap-2">
+      {refused ? (
+        <p className="text-sm text-destructive" role="alert">
+          {t(`refusal.${refused}`)}
+        </p>
+      ) : null}
+
+      <Button onClick={() => void seal()} disabled={sealing}>
+        {sealing ? t("sealing") : t("submit")}
+      </Button>
+    </section>
   );
 }
 
@@ -118,10 +241,12 @@ function Lines({
   order,
   priced,
   products,
+  editable,
 }: {
   order: LocalOrder | null;
   priced: PricedOrder | null;
   products: ReferenceProduct[];
+  editable: boolean;
 }) {
   const t = useTranslations("Field.order");
   const { db } = useSync();
@@ -179,13 +304,18 @@ function Lines({
                   {priceOf ? priceOf.total.toString() : t("unpriced")}
                 </span>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void removeLine(db, order.id, line.productId, new Date())}
-                >
-                  {t("remove")}
-                </Button>
+                {/* Not rendered on a sealed order rather than rendered disabled: `removeLine`
+                    already refuses one, so this is about not offering the action — a rep looking at
+                    a greyed-out Remove is a rep wondering what they did wrong. */}
+                {editable ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void removeLine(db, order.id, line.productId, new Date())}
+                  >
+                    {t("remove")}
+                  </Button>
+                ) : null}
               </div>
             </li>
           );

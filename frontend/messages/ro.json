@@ -1480,7 +1480,9 @@
       "total": "Total",
       "refusal": {
         "quantity": "Scrie cantitatea, ca număr mai mare decât zero.",
-        "unpriced": "Acest magazin nu are astăzi un preț pentru acel produs, așa că nu poate fi comandat."
+        "unpriced": "Acest magazin nu are astăzi un preț pentru acel produs, așa că nu poate fi comandat.",
+        "empty": "Adaugă cel puțin un produs înainte de a trimite.",
+        "unexpected": "Comanda nu a putut fi trimisă. Încearcă din nou și anunță-ți supervizorul dacă se repetă."
       },
       "unknownVisit": {
         "title": "Vizita nu se află pe acest dispozitiv",
@@ -1490,7 +1492,13 @@
         "title": "Vizita este încheiată",
         "body": "O comandă se poate lua doar cât timp vizita este deschisă. Nimic de aici nu mai poate fi modificat."
       },
-      "totalsLabel": "Total comandă"
+      "totalsLabel": "Total comandă",
+      "submit": "Trimite comanda",
+      "sealing": "Se trimite…",
+      "sent": {
+        "title": "Comanda este în așteptare.",
+        "body": "Ajunge la back office la următoarea sincronizare. Nimic de aici nu mai poate fi modificat."
+      }
     }
   },
   "Guard": {
