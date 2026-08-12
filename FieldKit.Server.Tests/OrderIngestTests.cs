@@ -223,10 +223,22 @@ public class OrderIngestTests(ServerFixture fixture)
     }
 
     [Fact]
-    public async Task A_sealed_visit_refuses_a_new_order()
+    public async Task An_order_taken_before_check_out_is_accepted_after_it()
     {
-        // The other half of the rule above: a *new* order attached to a filed visit would change a
-        // record already counted. Only the replay is allowed through.
+        /*
+         * The regression W11 slice 8d exists for, and this test used to assert the opposite.
+         *
+         * It was called `A_sealed_visit_refuses_a_new_order`, checked the visit out, and expected
+         * `UnknownVisit` — while sending a capture time days *before* the check-out. That is not a
+         * new order on a filed visit; it is what every order a rep takes at a counter looks like. A
+         * pushed `CapturedVisit` is created already sealed and a device only enqueues one at
+         * check-out, so an offline order always arrives at a sealed visit.
+         *
+         * W11 slice 8c held the order until the visit had landed, which was right about the ordering
+         * and turned `UnknownVisit`-because-missing into `UnknownVisit`-because-sealed. Nothing
+         * caught that: this test asserted the refusal, and the device suite mocks the API so it never
+         * meets one. It took driving the audit screen in a browser.
+         */
         using var admin = Admin();
 
         var (visitId, _, assorted) = await VisitAsync(admin);
@@ -235,7 +247,31 @@ public class OrderIngestTests(ServerFixture fixture)
             $"/api/visits/{visitId}/check-out", new CheckOutRequest(VisitOutcome.Productive));
         Assert.Equal(HttpStatusCode.OK, checkedOut.StatusCode);
 
-        var result = await IngestAsync(Captured(visitId, Line()));
+        var result = await IngestAsync(Captured(visitId, Line(assorted[0])));
+
+        Assert.Equal(OrderIngestRefusal.None, result.Refusal);
+    }
+
+    [Fact]
+    public async Task An_order_taken_after_check_out_is_refused()
+    {
+        // The rule that survives: an order placed *after* the visit was filed would change a record
+        // already counted. The moment decides it, not the flag.
+        using var admin = Admin();
+
+        var (visitId, _, assorted) = await VisitAsync(admin);
+
+        var checkedOut = await admin.PostAsJsonAsync(
+            $"/api/visits/{visitId}/check-out", new CheckOutRequest(VisitOutcome.Productive));
+        Assert.Equal(HttpStatusCode.OK, checkedOut.StatusCode);
+
+        // Read back rather than reached for from a clock:  is banned in this
+        // project, and taking the moment from the response is the exact boundary anyway.
+        var sealedAt = (await checkedOut.Content.ReadFromJsonAsync<VisitDetailResponse>())!.Visit.CheckedOutAtUtc!.Value;
+
+        var late = Captured(visitId, Line(assorted[0])) with { CapturedAtUtc = sealedAt.AddSeconds(1) };
+
+        var result = await IngestAsync(late);
 
         Assert.Equal(OrderIngestRefusal.UnknownVisit, result.Refusal);
     }
