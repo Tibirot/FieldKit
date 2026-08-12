@@ -114,6 +114,26 @@ Realm roles here mirror the permission catalogue the modules contribute in code.
 is manual today; the catalogue endpoint (`GET /api/iam/permissions`) is what an admin UI will read,
 and realm provisioning (`IAM-10`) is what will eventually generate these.
 
+## User ids are pinned, and that is not cosmetic
+
+Every fixture user carries an explicit `id`. Keycloak would otherwise generate one on import — and
+because this Keycloak deliberately keeps [no data volume](#no-data-volume-by-design), it re-imports on
+every start, so **the subject of `rep` changed on every run**.
+
+Three things fell out of that, none of which announced itself:
+
+- Postgres *does* keep its volume, so each run's user rows, territory assignments and positions were
+  orphaned by the next. A developer's database accumulates one set of debris per start.
+- The device's local store is named `fieldkit:<tenant>:<subject>`, so every restart handed the
+  browser a **brand-new IndexedDB** and a full re-sync.
+- Nothing could be seeded against a subject, because the subject was not knowable until the container
+  was already running.
+
+The last of those is why the pinning landed with the dev seeding in W11. `Iam:SeedTenants[].Users`
+names a `SubjectId` and `Org:SeedRepAssignments` names the same one; both have to match the `id` here,
+and `DevSeedingTests` asserts that the token the realm mints carries the id the config seeded — the
+one assertion that catches the two halves drifting apart.
+
 ## The credentials in this file are not secrets
 
 `dev-only-not-a-secret` is a fixture password for a container that listens on localhost with
