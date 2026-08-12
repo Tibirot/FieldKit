@@ -37,6 +37,10 @@ public sealed class OrgModule : IModule
         services.AddModuleDbContext<OrgDbContext>(connectionString, OrgDbContext.SchemaName);
         services.AddHostedService<ModuleMigrator<OrgDbContext>>();
 
+        // After the migrator, so the tables it writes to exist. Does nothing unless configured,
+        // which in practice means development — see the class for why it is separate from IAM's.
+        services.AddHostedService<RepAssignmentSeeder>();
+
         // Organization owns which territory covers an outlet; this is how Outlets asks (ORG-05).
         services.AddScoped<ITerritoryDirectory, TerritoryDirectory>();
 

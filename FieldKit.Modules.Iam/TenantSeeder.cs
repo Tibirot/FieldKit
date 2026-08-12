@@ -16,6 +16,32 @@ public sealed class SeedTenant
     public string Id { get; init; } = "";
     public string Name { get; init; } = "";
     public string Realm { get; init; } = "";
+
+    /// <summary>
+    /// People this tenant should already know about, by the subject their realm issues.
+    /// </summary>
+    /// <remarks>
+    /// <b>A convenience for development, and it only works because the realm files pin user ids.</b>
+    /// Keycloak generates a subject on import, and the dev Keycloak has no data volume by design —
+    /// so before those ids were pinned, every restart produced a different subject and left the
+    /// previous run's user rows orphaned. Seeding by subject would have been impossible and the
+    /// database accumulated debris instead.
+    /// </remarks>
+    public SeedUser[] Users { get; init; } = [];
+}
+
+/// <summary>One person to ensure the tenant knows about, from configuration.</summary>
+public sealed class SeedUser
+{
+    /// <summary>The realm's subject — must match the pinned <c>id</c> in the realm file.</summary>
+    public string SubjectId { get; init; } = "";
+    public string Email { get; init; } = "";
+    public string DisplayName { get; init; } = "";
+    public string Locale { get; init; } = "en-GB";
+    public string TimeZone { get; init; } = "Europe/Bucharest";
+
+    /// <summary>The system role template to hold, by name — <c>BR-IAM-3</c> wants at least one.</summary>
+    public string Role { get; init; } = "";
 }
 
 /// <summary>
@@ -106,6 +132,12 @@ public sealed class TenantSeeder(
 
             await SeedRoleTemplatesAsync(db, seed, cancellationToken);
 
+            // Saved before the users, because they are matched to roles by name and the templates
+            // above may be the rows being matched against.
+            await db.SaveChangesAsync(cancellationToken);
+
+            await SeedUsersAsync(db, seed, clock, cancellationToken);
+
             // Per tenant, so one malformed seed cannot roll back the tenants before it.
             await db.SaveChangesAsync(cancellationToken);
         }
@@ -138,6 +170,74 @@ public sealed class TenantSeeder(
             "Seeded {Count} system role template(s) for tenant on realm '{Realm}'.",
             SystemRoleTemplates.All.Count,
             seed.Realm);
+    }
+
+    /// <summary>
+    /// Ensures the configured people exist, so a dev environment has somebody to be.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Idempotent by subject, and it never touches a user it finds.</b> A profile edited in the
+    /// app must survive the next start, and re-seeding a display name from a config file would be a
+    /// silent overwrite of somebody's work — the same rule the tenant rows above follow.
+    /// </para>
+    /// <para>
+    /// <b>Why this exists at all.</b> A rep signs in and the field app has nothing for them: the
+    /// device pull is scoped by territory, territory membership hangs off a *user row*, and nothing
+    /// creates one for a realm account. So the first run of a fresh database needed three API calls
+    /// before the app could show a round — which was discovered the slow way, during W11's browser
+    /// verification, after the wrong conclusion had already been drawn about the realm roles.
+    /// </para>
+    /// <para>
+    /// A missing role name is logged and skipped rather than throwing: `BR-IAM-3` wants every user
+    /// to hold at least one role, and a startup that refuses to boot over a typo in a dev
+    /// convenience is worse than one that says what it could not do.
+    /// </para>
+    /// </remarks>
+    private async Task SeedUsersAsync(
+        IamDbContext db, SeedTenant seed, IClock clock, CancellationToken cancellationToken)
+    {
+        foreach (var user in seed.Users)
+        {
+            if (string.IsNullOrWhiteSpace(user.SubjectId) || string.IsNullOrWhiteSpace(user.Role))
+            {
+                logger.LogError(
+                    "Ignoring malformed seed user '{Email}' on realm '{Realm}'.", user.Email, seed.Realm);
+
+                continue;
+            }
+
+            if (await db.Users.AnyAsync(row => row.SubjectId == user.SubjectId, cancellationToken))
+            {
+                continue;
+            }
+
+            var role = await db.Roles.FirstOrDefaultAsync(
+                candidate => candidate.Name == user.Role, cancellationToken);
+
+            if (role is null)
+            {
+                logger.LogWarning(
+                    "Seed user '{Email}' names role '{Role}', which this tenant does not have.",
+                    user.Email,
+                    user.Role);
+
+                continue;
+            }
+
+            var created = User.Create(
+                user.SubjectId, user.Email, user.DisplayName, user.Locale, user.TimeZone);
+
+            created.SetRoles([role.Id], clock);
+
+            db.Users.Add(created);
+
+            logger.LogInformation(
+                "Seeded user '{Email}' as '{Role}' on realm '{Realm}'.",
+                user.Email,
+                user.Role,
+                seed.Realm);
+        }
     }
 
     private static DbContextOptions<IamDbContext> BuildOptions(

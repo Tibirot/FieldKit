@@ -178,6 +178,7 @@
   ],
   "users": [
     {
+      "id": "00000000-0000-4000-8000-00000000a001",
       "username": "rep",
       "email": "rep@fieldkit.local",
       "firstName": "Dev",
@@ -199,6 +200,7 @@
       ]
     },
     {
+      "id": "00000000-0000-4000-8000-00000000a002",
       "username": "viewer",
       "email": "viewer@fieldkit.local",
       "firstName": "Dev",
@@ -226,6 +228,7 @@
       ]
     },
     {
+      "id": "00000000-0000-4000-8000-00000000a003",
       "username": "admin",
       "email": "admin@fieldkit.local",
       "firstName": "Dev",
