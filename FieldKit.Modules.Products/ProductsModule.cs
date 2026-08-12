@@ -62,6 +62,9 @@ public sealed class ProductsModule : IModule
         // What an order costs, for Order — the module that cannot reach the resolvers directly
         // (AT-1) and must not reimplement them. W11 slice 2c.
         services.AddScoped<IPricingService, PricingService>();
+
+        // …and Order asks this one whether a line may be sold here at all (W11 slice 4b).
+        services.AddScoped<IAssortmentService, AssortmentService>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
@@ -103,4 +106,5 @@ public static class ProductsPermissions
     public const string Read = "product:read";
     public const string Write = "product:write";
 }
+
 

@@ -13,6 +13,7 @@
       open — the three facts an order cannot be filed without.
     -->
     <ProjectReference Include="..\FieldKit.Modules.Visit.Contracts\FieldKit.Modules.Visit.Contracts.csproj" />
+    <ProjectReference Include="..\FieldKit.Modules.Products.Contracts\FieldKit.Modules.Products.Contracts.csproj" />
 
     <!--
       Notably absent, and each for a reason rather than an oversight:
@@ -48,3 +49,4 @@
   </ItemGroup>
 
 </Project>
+

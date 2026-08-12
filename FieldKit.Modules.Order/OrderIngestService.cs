@@ -1,4 +1,5 @@
 using FieldKit.Modules.Order.Contracts;
+using FieldKit.Modules.Products.Contracts;
 using FieldKit.SharedKernel;
 using FieldKit.Modules.Visit.Contracts;
 using Microsoft.EntityFrameworkCore;
@@ -16,14 +17,20 @@ namespace FieldKit.Modules.Order;
 /// against it.
 /// </para>
 /// <para>
-/// <b>The assortment gate is not here yet</b>, and that is scheduling rather than oversight.
+/// <b>The assortment gate arrived in slice 4b</b>, one slice after the re-open path it needs.
 /// <c>BR-ORD-1</c> says only assorted products can be ordered, and <c>ORD-12</c> says the answer when
 /// they are not is a <i>rejection the rep can fix</i> — a very different outcome from a refusal that
-/// leaves the push nowhere to go. Both arrive in slice 4, together, because a gate without the
-/// re-open path would strand exactly the work <c>BR-ORD-9</c> exists to protect.
+/// leaves the push nowhere to go. Building the gate first would have been a way to strand exactly the
+/// work <c>BR-ORD-9</c> exists to protect.
+/// </para>
+/// <para>
+/// <b>It runs on a resubmission too.</b> A rep who fixes the flagged line and happens to add another
+/// off-assortment one gets rejected again, which is the only answer that keeps <c>BR-ORD-1</c> true —
+/// a correction is a submission, not an exemption.
 /// </para>
 /// </remarks>
-internal sealed class OrderIngestService(OrderDbContext db, IVisitContext visits, IClock clock)
+internal sealed class OrderIngestService(
+    OrderDbContext db, IVisitContext visits, IAssortmentService assortment, IClock clock)
     : IOrderIngest
 {
     public async Task<OrderIngestResult> IngestAsync(
@@ -90,6 +97,10 @@ internal sealed class OrderIngestService(OrderDbContext db, IVisitContext visits
                 return new OrderIngestResult(OrderIngestRefusal.Invalid, Explain(invalid));
             }
 
+            // Gated again, because a correction is a submission and not an exemption: a rep who fixes
+            // the flagged line and adds a different off-assortment one is rejected a second time.
+            await GateOnAssortmentAsync(existing, existing.OutletId, cancellationToken);
+
             // The replaced lines and the new submission need no announcing: they hang off a tracked
             // parent with client-set keys, which is precisely what `ClientGeneratedKeyConvention`
             // ended in slice 0b-i. Dropping the old lines is orphan removal, which EF always handled.
@@ -134,9 +145,53 @@ internal sealed class OrderIngestService(OrderDbContext db, IVisitContext visits
         // claiming otherwise was a copy of a workaround into a place that never needed one.
         db.Orders.Add(order!);
 
+        await GateOnAssortmentAsync(order!, visit.OutletId, cancellationToken);
+
         await db.SaveChangesAsync(cancellationToken);
 
         return OrderIngestResult.Ok();
+    }
+
+    /// <summary>
+    /// Rejects the order if any line names a product this outlet may not be sold (<c>BR-ORD-1</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It rejects rather than refuses, and that distinction is the whole reason this waited for
+    /// slice 4.</b> A refusal would answer the push with "no" and leave the rep's work nowhere — the
+    /// order is on their device, sealed, and the only thing they could do is lose it. A rejection
+    /// stores the order, names the offending line, and flows back down so they can fix it and
+    /// resubmit (<c>ORD-12</c>, <c>F4</c>). Slice 1 deferred the gate for exactly this: a gate without
+    /// somewhere to go is a way to strand work.
+    /// </para>
+    /// <para>
+    /// <b>So the push still succeeds.</b> The device asked this server to record an order and it did;
+    /// that the order was then refused by a rule is an outcome, not a transport failure, and the rep
+    /// learns it from the pull feed like every other thing that happened to their work. Answering the
+    /// push with a refusal would also make the mutation look unapplied, and the retry would arrive to
+    /// find the order already there.
+    /// </para>
+    /// <para>
+    /// <b>The first offending line, in line order.</b> An order can name several off-assortment
+    /// products and the rejection carries one, because <c>F4</c>'s rejection is whole-order with
+    /// <i>an</i> offending line. Taking the first by position rather than whichever the set happens
+    /// to yield makes the same order reject the same way twice.
+    /// </para>
+    /// </remarks>
+    private async Task GateOnAssortmentAsync(
+        Order order, Guid outletId, CancellationToken cancellationToken)
+    {
+        var ordered = order.Lines.Select(line => line.ProductId).ToList();
+
+        var allowed = await assortment.AssortedAsync(outletId, ordered, cancellationToken);
+
+        var offending = order.Lines
+            .OrderBy(line => line.Position)
+            .FirstOrDefault(line => !allowed.Contains(line.ProductId));
+
+        if (offending is null) return;
+
+        order.Reject(OrderRejectionReason.OffAssortment, offending.ProductId, note: null, clock);
     }
 
     private static string Explain(OrderRefusal refusal) => refusal switch
@@ -150,5 +205,9 @@ internal sealed class OrderIngestService(OrderDbContext db, IVisitContext visits
         _ => "That order was refused.",
     };
 }
+
+
+
+
 
 
