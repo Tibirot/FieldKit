@@ -10,7 +10,9 @@ import {
   applyOutletChanges,
   OUTLETS,
   outlets,
+  PRICE_LINES,
   PRODUCTS,
+  PROMOTIONS,
   SCORE_WEIGHTS,
   SURVEYS,
   watermark,
@@ -214,7 +216,7 @@ describe("upgrading a device that has unsent work", () => {
     // rows. Without this the whole file could be passing against databases that never existed at
     // v1. The number moves with every schema version, which is the point — a device that skipped
     // one still has to arrive at the latest.
-    expect(upgraded.verno).toBe(7);
+    expect(upgraded.verno).toBe(8);
     expect(await upgraded.outbox.count()).toBe(3);
 
     // Still in capture order, which is what the drain depends on — and now read through the new
@@ -495,7 +497,7 @@ describe("upgrading a device whose outlets predate the geofence radius", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(7);
+    expect(upgraded.verno).toBe(8);
     expect(await watermark(upgraded, OUTLETS)).toBe(0);
     expect(await watermark(upgraded, PRODUCTS)).toBe(41);
 
@@ -530,7 +532,7 @@ describe("upgrading a device that predates the visits store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(7);
+    expect(upgraded.verno).toBe(8);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
 
     // The new store exists and is empty, which is the only correct starting state: there were no
@@ -566,7 +568,7 @@ describe("upgrading a device that predates the audit's reference stores", () => 
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(7);
+    expect(upgraded.verno).toBe(8);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
     expect(await upgraded.visits.count()).toBe(1);
 
@@ -637,7 +639,7 @@ describe("upgrading a device to the order store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(7);
+    expect(upgraded.verno).toBe(8);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // The store arrives empty on an upgraded device, which is the state a fresh install is in — so
@@ -659,6 +661,47 @@ describe("upgrading a device to the order store", () => {
   });
 });
 
+describe("upgrading a device whose prices are floats", () => {
+  it("drops the price and promotion watermarks so the rows are re-pulled", async () => {
+    /*
+     * W11 slice 7a, and the reason this re-baseline is unlike versions 3 and 4.
+     *
+     * Those dropped a watermark because a *field had been added* — every row was still the right
+     * shape, just thinner. This one drops it because the rows on the device are the wrong **type**:
+     * `amount` was a JSON number, which is an IEEE-754 float by the time `JSON.parse` is done, and
+     * the pricing engine reads decimal strings precisely so it never sees one.
+     *
+     * A delta pull alone would not fix it. It sends the rows that changed *after* the cursor, so a
+     * price nobody edits again would keep its float for the life of the install — and the rep would
+     * price orders from it every day without anything looking wrong.
+     */
+    const name = `migration:${crypto.randomUUID()}`;
+
+    const legacy = await openVersionFive(name);
+    await legacy.table("watermarks").bulkPut([
+      { entity: "priceLines", cursor: 900 },
+      { entity: "promotions", cursor: 700 },
+      { entity: "products", cursor: 500 },
+    ]);
+    legacy.close();
+
+    const upgraded = new FieldKitDatabase(name);
+    await upgraded.open();
+
+    expect(upgraded.verno).toBe(8);
+
+    // The two that carried money go back to zero, so the next pull resends every row.
+    expect(await watermark(upgraded, PRICE_LINES)).toBe(0);
+    expect(await watermark(upgraded, PROMOTIONS)).toBe(0);
+
+    // …and nothing else is reset. Re-downloading a tenant's whole catalogue over a connection the
+    // rep may not have is the cost this deliberately does not pay twice.
+    expect(await watermark(upgraded, PRODUCTS)).toBe(500);
+
+    upgraded.close();
+  });
+});
+
 describe("the schema itself", () => {
   it("declares every version, so a device that skipped one still arrives", async () => {
     // Dexie replays versions in order to bring an existing database forward. Deleting version 1
@@ -669,7 +712,7 @@ describe("the schema itself", () => {
 
     await db.open();
 
-    expect(db.verno).toBe(7);
+    expect(db.verno).toBe(8);
 
     // The outbox is still keyed by the mutation id, which is the property the server's ledger
     // depends on: a re-send has to arrive under the id it was captured with.
@@ -678,5 +721,7 @@ describe("the schema itself", () => {
     db.close();
   });
 });
+
+
 
 

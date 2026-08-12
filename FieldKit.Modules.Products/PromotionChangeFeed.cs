@@ -105,12 +105,12 @@ internal sealed class PromotionChangeFeed(ProductsDbContext db) : IPromotionChan
         promotion.Id,
         promotion.Name,
         promotion.Type.ToString(),
-        promotion.PercentOff,
-        promotion.AmountOff,
+        WireDecimal.From(promotion.PercentOff),
+        WireDecimal.From(promotion.AmountOff),
         promotion.Currency,
         promotion.BuyQuantity,
         promotion.GetQuantity,
-        promotion.GetPercentOff,
+        WireDecimal.From(promotion.GetPercentOff),
         promotion.GetProductId,
         promotion.ValidFrom,
         promotion.ValidTo,
@@ -119,7 +119,10 @@ internal sealed class PromotionChangeFeed(ProductsDbContext db) : IPromotionChan
         [.. tiers
             .OrderBy(tier => tier.MinQuantity)
             .Select(tier => new PromotionTierSnapshot(
-                tier.MinQuantity, tier.PercentOff, tier.AmountOff, tier.Currency))],
+                tier.MinQuantity,
+                WireDecimal.From(tier.PercentOff),
+                WireDecimal.From(tier.AmountOff),
+                tier.Currency))],
         promotion.RowVersion);
 
     private static PromotionAssignmentSnapshot Describe(PromotionAssignment assignment) => new(
