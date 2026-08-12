@@ -78,6 +78,16 @@ Lifecycle and mechanics per [B4](decisions-and-assumptions.md#b4--order-lifecycl
   rule that keeps orders conflict-free on sync ([B7](decisions-and-assumptions.md#b7--conflict-resolution-matrix)).
   The **one exception** is a server-rejected order (BR-ORD-9).
 - **BR-ORD-5** Order minimum (value/qty), if configured, must be met to submit.
+  > **Value only, and the "qty" here disagrees with the ledger** (found building W11 slice 8b-i).
+  > [B1](decisions-and-assumptions.md#b1--pricing--promotions) assumes *"optional minimum order value
+  > per channel/outlet"* — value alone. Value is what ships, because it is the decision that was
+  > actually made and a quantity minimum needs its own: units, cases, or lines, none of which is
+  > written down anywhere. Named here rather than picked silently.
+  >
+  > The minimum is authored in **Products**, beside price-list assignment, and carries its own
+  > currency — an order's comes from the list that priced it (`BR-ORD-7`), so a mismatch is reported
+  > rather than compared. Enforcement is on the device (slice 8b-ii): "must be met to submit" is a
+  > question answered at a counter with no signal.
 - **BR-ORD-6** The order records the **snapshot version** of pricing it was captured against; if
   the server re-prices and differs, it is **flagged, not silently changed**.
 - **BR-ORD-7** Currency comes from the resolved price list; **no cross-currency lines** in one
