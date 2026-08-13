@@ -1104,6 +1104,60 @@ change, not an Order one, and naming that dependency is cheaper than discovering
 `ORD-10`/`ORD-11` stay `Could`/`Won't`. Background sync (`OFF-07`) is Phase 3's own thing and a third
 transport.
 
+### Week 11½ · Regression remediation
+**Goal:** clear what the [post-W11 regression](engineering/regression-2026-08-13.md) found, before
+W12 builds a dashboard on top of it.
+
+Seven findings, none of them a break in shipped behaviour. What makes them worth a week's slot rather
+than a backlog is that **two of them are load-bearing for W12**: the demo is the full loop, and a rep
+who cannot start a call cannot walk it (R4), while a dashboard that reports order values inherits
+whatever the two sides disagree about (R6).
+
+**Done when:** a rep with no planned call can work a shop; a refused mutation says why; and the
+device and the server agree what day it is.
+
+#### Decomposition
+
+**The ordering is by dependency, not by size.** R1–R3 are minutes each and clear the noise so the two
+real slices are reviewed on their own. R4 comes before R6 because it is what makes R6 testable by
+hand — pricing across a day boundary needs a call you can actually start.
+
+**Two of these are the same shape as the bugs W11 spent itself on**: a value written and never read
+(R2), and two implementations of one rule with nothing comparing them (R6). That is not a coincidence
+worth restating in every row, so it is said once here.
+
+| # | Slice | Requirements | ~Size |
+|---|---|---|---|
+| R1 | **The registry catches up** — `IOrderMinimumChangeFeed` joins the module registry (regression F2) | — | 10 |
+| | *One table row. It is here rather than folded into another slice because the registry is a deliverable, and a doc fix that rides along with code is a doc fix nobody reviews.* | | |
+| R2 | **Three tests stop racing** — wait for the DOM, not the store (regression F4) | — | 20 |
+| | *`audit.test.tsx:627`, `:751` and `order-minimum.test.tsx:220` wait on `db.outbox.count()` and then assert on the screen. The store write and the re-render are two moments; the gap is what failed CI during slice 14. Third sighting of the pattern, so this slice also adds the helper — `expectEventually` or equivalent — rather than a fourth hand-rolled `waitFor`.* | | |
+| R3 | **A rep can tell two Marias apart** — the picker shows the email beside the name (regression F5) | `JRN-03` | 30 |
+| | *`UserResponse` already carries `Email`; the picker renders `displayName` alone. One line of JSX and a test that two candidates with the same name are distinguishable.* | | |
+| R4 | **A call you can start anywhere** — the device half of the unplanned visit (regression F7) | `JRN-06`, `BR-JRN-4` | 300 |
+| | *The finding: `JRN-06` is a Phase-2 **Must** that names the unplanned visit, and every layer is built except the one that starts it — `AddUnplannedAsync`, `TryAddUnplanned`, the `unplanned` wire slot, the sync manager's mapping and the back office's badge all exist, while the only mention of `UnplannedCall` in the front end is the slot mapping. A route for a mutation the device cannot produce. **What it needs:** an `addUnplanned` writer in `lib/visits/` beside `markNotVisited` (its closest sibling, 92 lines), an entry point on the journey screen that lists in-scope outlets, and the check-in path reached from it. **Scope discipline:** an unplanned call belongs to no cycle and cannot be rescheduled — the journey spec settles that, so this slice does not reopen it. **It also unblocks manual testing**: without it, a rep with no planned call has Sync now and This device and nothing else, which is why the regression's rep-side sweep could not reach check-in, the audit or order capture.* | | |
+| R5 | **A refusal says what it was** — the offline path renders the code it already stores (regression F1) | `OFF-09`, [ADR-0012](architecture/adr/0012-server-message-localization.md) | 150 |
+| | *`markRejected` stores `errorCode` and `errorDetail` under a comment saying the UI translates them, and nothing reads either — six references in the whole front end, all of them the declaration or the write. A rep whose order was refused sees **"Needs attention"** and cannot find out why, on the one surface where it matters: the work is done and only a person can unstick it. **`refusalText` already exists** and does exactly this on the back-office path, with an English fallback by design — so this is wiring, not new machinery, and the `Refusals` catalogue's four entries do not have to grow first. **Where it surfaces** is the design question: the badge is an annotation and has no room for a sentence, so the reason belongs on the visit or order the badge is attached to.* | | |
+| R6 | **One answer to "what day is it"** — the outlet's zone decides, on both sides (regression F6) | `BR-PRD-6`, `ORD-08` | 350 |
+| | *Bigger than the regression wrote it up, and the write-up understated it. The **device** prices against its local day (`businessDay` in `order.tsx`/`audit.tsx` reads `getFullYear/getMonth/getDate`); the **server** re-prices against the UTC date. For a rep in Bucharest before 03:00 those are different days, so slice 14's comparison will flag a disagreement the rep did nothing to cause. **The fix is the outlet's own zone, used by both**: `OutletSnapshot` grows `TimeZoneId` (a public contract change — escalate), the device stores it (local store version 20) and dates its pricing by it, and the re-price resolves the same value server-side. **`businessDay` is duplicated** in `order.tsx:701` and `audit.tsx:1340`; this slice collapses it into one function that takes a zone. **Vectors:** the day-boundary rule is exactly the kind of thing the parity corpus exists for, and a small vector file is cheaper than discovering the two sides disagree in production.* | | |
+| R7 | **The rule both sides share** — an order-minimum vector corpus (regression F3) | `BR-ORD-5`, `PRD-08` | 200 |
+| | *`OrderMinimumResolver` and `lib/pricing/order-minimum.ts` resolve the same rule independently and nothing compares them. `BR-ORD-5` is the only rule in the module with **no server-side gate** — the device is where it can still be acted on — which makes agreement more important than usual, not less: nothing downstream will catch a divergence, because nothing downstream checks. A `vectors/pricing/order-minimum.v1.json` and a reader on each side, matching the five that already exist.* | | |
+
+**Not in W11½.** The four **non-findings** the regression recorded stay recorded and unfixed on
+purpose — storage rounding to whole megabytes, no service worker under `next dev`, shops with no
+workflow, and the duplicate seed users. Each looks like a defect and is not, and the regression
+document explains why so nobody re-opens them.
+
+**Two process items, sized here because they cost the next pass more than they cost now.**
+
+- **A published plan for today in the dev seed.** Half of what the regression's rep-side sweep could
+  not reach was unreachable for want of one, and W12's demo walks the same path. ~60 lines, and it
+  belongs with R4 rather than after it.
+- **A production build in the CI loop or the runbook.** `next dev` does not register the service
+  worker, so the offline shell — the app's central claim — is the one thing no local check exercises.
+  This is a `Week 14` E2E concern by the plan, but the gap is worth naming now rather than
+  discovering it there.
+
 ### Week 12 · Dashboards + config-builder UI
 **Goal:** the Phase 3 demo — the full loop, both sides.
 - Supervisor **dashboard** (coverage, strike rate, perfect-store, order value) from module query contracts ([reporting](product/00-product-overview.md#reporting--kpis-cross-cutting-read-side)).
