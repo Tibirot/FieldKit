@@ -32,6 +32,21 @@ vi.mock("@/i18n/navigation", () => ({
   useRouter: () => ({ replace: vi.fn() }),
 }));
 
+/*
+ * The camera stops at the canvas, so the canvas is where the fake goes.
+ *
+ * jsdom implements no 2D context, so the real `downscale` throws before it resizes anything — mocking
+ * it is the only way to reach the code *after* the shutter. `B5`'s arithmetic has its own tests in
+ * `fitWithin`, and the encode is verified in a browser.
+ *
+ * At the top level because that is where it runs: `vi.mock` is hoisted above every test whatever it
+ * is nested inside, and vitest warns about the pretence.
+ */
+vi.mock("@/lib/photos/downscale", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/photos/downscale")>()),
+  downscale: async (file: Blob) => file,
+}));
+
 const sync = vi.hoisted(() => ({ current: {} as SyncContextValue }));
 
 vi.mock("@/components/sync/sync-provider", async (importOriginal) => ({
@@ -850,5 +865,113 @@ describe("<Audit> and the score", () => {
     // One line answered and found: 100% of what was measured, which is the number the server will
     // store against this audit.
     expect((await screen.findByLabelText("Perfect store")).textContent).toBe("100.00%");
+  }, 15_000);
+});
+
+describe("<Audit> and photographs", () => {
+  /*
+   * The camera is faked at the file input, not at the canvas: `downscale` is a no-op in jsdom, which
+   * has no 2D context, so it is stubbed for these tests and covered by `fitWithin` and a browser.
+   * What is under test here is everything after the shutter — the pair of rows, the section the rep
+   * chose, and what the seal carries.
+   */
+  const photograph = () =>
+    new File([new Uint8Array(4096)], "shelf.jpg", { type: "image/jpeg" });
+
+  it("stores the image and points the audit at it", async () => {
+    render(<Audit visitId="visit-1" />);
+
+    await userEvent.upload(await screen.findByLabelText("Take a photo"), photograph());
+
+    await waitFor(async () => expect(await db.blobs.count()).toBe(1));
+
+    const stored = (await db.blobs.toArray())[0];
+    const audit = (await auditFor(db, "visit-1"))!;
+
+    // The pair, which is the whole point: a reference with no blob can never be uploaded, and a blob
+    // with no reference is a picture nothing will ask for.
+    expect(audit.photos).toEqual([{ section: "General", objectKey: stored.objectKey }]);
+    expect(stored.auditId).toBe(audit.id);
+  });
+
+  it("starts the audit on the first photograph, as the first shelf answer does", async () => {
+    // A shop that will not let a rep count the shelf still lets them photograph the display, and
+    // `AUD-05` calls that a real audit. It must not need an availability tap first.
+    render(<Audit visitId="visit-1" />);
+
+    await (await shelf()).findByText("Cola 500ml");
+    expect(await db.audits.count()).toBe(0);
+
+    await userEvent.upload(screen.getByLabelText("Take a photo"), photograph());
+
+    await waitFor(async () => expect(await db.audits.count()).toBe(1));
+  });
+
+  it("files the photograph under the section the rep chose", async () => {
+    // `AuditSection` is what a supervisor filters by, and only the person holding the camera knows
+    // whether this is the chiller, the gondola end or a shelf edge.
+    render(<Audit visitId="visit-1" />);
+
+    await userEvent.selectOptions(
+      await screen.findByLabelText("This photo shows"),
+      "PriceCompliance",
+    );
+    await userEvent.upload(screen.getByLabelText("Take a photo"), photograph());
+
+    await waitFor(async () =>
+      expect((await auditFor(db, "visit-1"))?.photos[0]?.section).toBe("PriceCompliance"),
+    );
+  });
+
+  it("removes the image with the reference", async () => {
+    // Leaving the blob would upload bytes no audit mentions and no supervisor can reach.
+    render(<Audit visitId="visit-1" />);
+
+    await userEvent.upload(await screen.findByLabelText("Take a photo"), photograph());
+    await waitFor(async () => expect(await db.blobs.count()).toBe(1));
+
+    await userEvent.click(await screen.findByRole("button", { name: "Remove" }));
+
+    await waitFor(async () => expect(await db.blobs.count()).toBe(0));
+    expect((await auditFor(db, "visit-1"))?.photos).toEqual([]);
+  });
+
+  it("finishes an audit that is only a photograph (AUD-05)", async () => {
+    /*
+     * The case the section exists for, and the one a device could easily refuse: `Audit.Check` counts
+     * photographs as work, so a screen that demanded a number first would refuse an audit the server
+     * would have taken.
+     */
+    render(<Audit visitId="visit-1" />);
+
+    await userEvent.upload(await screen.findByLabelText("Take a photo"), photograph());
+    await waitFor(async () => expect(await db.audits.count()).toBe(1));
+
+    await userEvent.click(await screen.findByRole("button", { name: "Finish the audit" }));
+
+    await waitFor(async () => expect(await db.outbox.count()).toBe(1), { timeout: 10_000 });
+
+    const payload = (await db.outbox.toArray())[0].payload as {
+      photos: { section: string; objectKey: string }[];
+    };
+
+    expect(payload.photos).toHaveLength(1);
+    expect(payload.photos[0].section).toBe("General");
+  }, 15_000);
+
+  it("stops offering the camera once the audit is sealed, while still showing what was taken", async () => {
+    // `BR-AUD-6`. The pictures are a record of what was sent — and the blobs are still on the device,
+    // because nothing has uploaded them yet.
+    render(<Audit visitId="visit-1" />);
+
+    await userEvent.upload(await screen.findByLabelText("Take a photo"), photograph());
+    await waitFor(async () => expect(await db.audits.count()).toBe(1));
+
+    await userEvent.click(await screen.findByRole("button", { name: "Finish the audit" }));
+    await waitFor(async () => expect(await db.outbox.count()).toBe(1), { timeout: 10_000 });
+
+    expect(screen.queryByLabelText("Take a photo")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Remove" })).toBeNull();
+    expect(await db.blobs.count()).toBe(1);
   }, 15_000);
 });

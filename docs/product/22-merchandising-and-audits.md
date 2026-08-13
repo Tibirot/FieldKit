@@ -362,6 +362,33 @@ short while they can still count the facing they skipped.
   and finding it reads 100%, which overstates a shelf nobody finished walking — and it is what the
   server does, so the device does it too. Diverging here to be more useful would break `BR-AUD-5`.
 
+### Photographs on the device (W11 slice 11)
+
+Capture and downscale only. The upload is slice 12, so every key written today points at an object
+that does not exist — which `CapturedPhoto` already describes as the ordinary case rather than a
+defect.
+
+- **Downscaled before storing, never after** (`B5`: ~1600px longest edge, JPEG ~0.7). Keeping the
+  camera's original until upload would spend the device's scarcest quota on bytes nobody wants; a
+  phone frame is 3–8 MB and a rep takes several per call.
+- **Two rows, one transaction.** The audit holds a reference and `blobs` holds the image. A reference
+  with no blob can never be uploaded; a blob with no reference is a picture nothing will ask for.
+  Removing a photograph removes both, or the device uploads bytes no supervisor can reach.
+- **The key is minted on the device**, like the audit's id, so the reference and the upload agree
+  without a round trip — the rep is usually offline when the shutter goes. `audits/{auditId}/{id}.jpg`
+  puts one audit's images under one prefix.
+- **The `blobs` store is the second thing here the server cannot re-send**, after the outbox. Every
+  `ref_*` table is a copy; a photograph is an original until it is uploaded.
+- **The rep chooses the section.** `AuditSection` is what a supervisor filters by, and only the person
+  holding the camera knows whether this is the chiller, the gondola end or a shelf edge.
+- **An audit that is only a photograph is a real audit**, which the device now agrees with: `measured`
+  counts photographs, as `Audit.Check` does. A shop that will not let a rep count the shelf still lets
+  them photograph the display.
+
+Not done here, and worth naming: a `Photo`-type **survey question** still cannot be answered on the
+device. `CapturedPhoto` carries a section and no question key, so a picture cannot say *which*
+question it answers — closing that needs a contract change, not a screen.
+
 ## 7. Offline behavior
 
 Audits run **fully offline** inside a visit. Templates, MSL, and expected prices are synced

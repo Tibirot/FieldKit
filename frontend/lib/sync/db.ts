@@ -593,9 +593,60 @@ export type LocalAudit = {
    */
   surveyFormId: string | null;
   answers: LocalAnswer[];
+  /**
+   * What the rep photographed, as **references** (`AUD-05`, `B5`) — W11 slice 11.
+   *
+   * <b>The images are not here.</b> They live in the `blobs` table under these same keys, and travel
+   * to object storage on their own schedule (`OFF-08`) — never through the JSON push, which regularly
+   * wins the race and lands an audit whose pictures arrive minutes later.
+   */
+  photos: LocalPhoto[];
   /** When the rep sealed it. Null while it is a draft, and never when the push arrived. */
   capturedAtUtc: string | null;
   updatedAtUtc: string;
+};
+
+/**
+ * Which part of the audit a photo is evidence for (`AUD-05`).
+ *
+ * The names `AuditSection` carries, because the enum is serialised by name — an ordinal here would be
+ * a second vocabulary to keep in step, and a device holding a photo taken before a member was
+ * inserted would file it under the wrong section.
+ */
+export type LocalAuditSection =
+  | "Availability"
+  | "ShareOfShelf"
+  | "PriceCompliance"
+  | "Survey"
+  | "General";
+
+/**
+ * One photo's reference (`AUD-05`, `B5`) — W11 slice 11.
+ *
+ * <b>The key is minted on the device</b>, like the audit's own id: the reference and the upload have
+ * to agree without a round trip, and the rep is usually offline when the picture is taken.
+ */
+export type LocalPhoto = { section: LocalAuditSection; objectKey: string };
+
+/**
+ * An image waiting to be uploaded (`OFF-08`, `B5`) — W11 slice 11.
+ *
+ * <b>The one table on this device holding something the server cannot re-send.</b> Every `ref_*`
+ * store is a copy; the outbox and this are the originals. A blob dropped before its upload is a
+ * photograph that existed nowhere else, which is why `objectKey` is the primary key rather than an
+ * auto-increment: the audit already references it, and a re-keyed row would strand that reference.
+ *
+ * <b>`auditId` is indexed</b> so a sealed audit's images can be found without scanning — the upload
+ * path (W11 slice 12) walks them, and clearing up after a rejected audit needs the same question.
+ */
+export type LocalPhotoBlob = {
+  objectKey: string;
+  auditId: string;
+  section: LocalAuditSection;
+  /** The downscaled JPEG itself (`B5`: ~1600px, quality ~0.7). */
+  image: Blob;
+  bytes: number;
+  capturedAtUtc: string;
 };
 
 /**
@@ -735,6 +786,7 @@ export class FieldKitDatabase extends Dexie {
   visits!: EntityTable<LocalVisit, "id">;
   orders!: EntityTable<LocalOrder, "id">;
   audits!: EntityTable<LocalAudit, "id">;
+  blobs!: EntityTable<LocalPhotoBlob, "objectKey">;
   outbox!: EntityTable<OutboxEntry, "mutationId">;
   meta!: EntityTable<MetaEntry, "key">;
   watermarks!: EntityTable<Watermark, "entity">;
@@ -1131,6 +1183,31 @@ export class FieldKitDatabase extends Dexie {
           });
       });
 
+    /*
+     * Version 15 — photographs, and the `blobs` store W8 left uncreated (`OFF-08`, `B5`, W11 11).
+     *
+     * <b>W8 deliberately did not add this table</b>, because nothing wrote to it: a store with no
+     * writer is a schema claim nobody can check, and its shape would have been guessed a phase early.
+     * It arrives now with the code that fills it.
+     *
+     * `photos` is back-filled for the same reason 13 and 14 back-filled theirs: `captured()` sends it
+     * as a list, and a draft sealed with it `undefined` would push JSON missing a property.
+     *
+     * <b>The blobs live in their own store, not on the audit row.</b> An audit is read on every
+     * render of the shelf screen; the images are read once, by the uploader. Dexie hands back whole
+     * records, so keeping a megabyte of JPEG on the row would make every live query carry it.
+     */
+    this.version(15)
+      .stores({ blobs: "objectKey, auditId" })
+      .upgrade(async (tx) => {
+        await tx
+          .table("audits")
+          .toCollection()
+          .modify((audit: Partial<LocalAudit>) => {
+            audit.photos ??= [];
+          });
+      });
+
     this.outlets = this.table("ref_outlets");
     this.plannedVisits = this.table("ref_planned_visits");
     this.workflows = this.table("ref_visit_workflows");
@@ -1149,6 +1226,7 @@ export class FieldKitDatabase extends Dexie {
     this.visits = this.table("visits");
     this.orders = this.table("orders");
     this.audits = this.table("audits");
+    this.blobs = this.table("blobs");
     this.outbox = this.table("outbox");
     this.meta = this.table("meta");
     this.watermarks = this.table("watermarks");

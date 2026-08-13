@@ -382,6 +382,9 @@ describe("sealing", () => {
       // survey step, and the server refuses answers naming no form (`MalformedAnswers`).
       surveyFormId: null,
       answers: null,
+      // Empty rather than null: `CapturedAudit` defaults `photos` to null, but an audit with none
+      // took none, and saying so costs two characters.
+      photos: [],
     });
   });
 

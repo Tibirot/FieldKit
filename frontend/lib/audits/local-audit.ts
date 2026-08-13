@@ -67,6 +67,7 @@ export async function draftFor(
       prices: [],
       surveyFormId: null,
       answers: [],
+      photos: [],
       capturedAtUtc: null,
       updatedAtUtc: request.now.toISOString(),
     };
@@ -452,6 +453,17 @@ function captured(audit: LocalAudit): Record<string, unknown> {
             questionText: answer.questionText,
             value: answer.value,
           })),
+    /*
+     * References, never images (`AUD-05`, `B5`) — W11 slice 11.
+     *
+     * The pictures go to object storage on their own schedule and this push regularly wins the race,
+     * so an audit routinely lands naming objects that do not exist yet. `CapturedPhoto` says so at
+     * length: a reader shows a gap rather than an error.
+     */
+    photos: audit.photos.map((photo) => ({
+      section: photo.section,
+      objectKey: photo.objectKey,
+    })),
   };
 }
 
@@ -523,6 +535,13 @@ export function measured(audit: LocalAudit): boolean {
     // A questionnaire the rep worked is a measurement too (W11 slice 9c) — `AUD-04` is a whole
     // section of the audit, and a shop with nothing on the shelf can still have a form filled in
     // about the display, the fridge and the signage.
-    audit.answers.length > 0
+    audit.answers.length > 0 ||
+    /*
+     * And so is a photograph (W11 slice 11). `Audit.Check` counts them explicitly — "an audit that is
+     * only a questionnaire, or only a photograph of a display, is real work" — so a device that
+     * refused one would refuse an audit the server would have taken, which is the shape of bug 9b
+     * shipped and 9c repeated.
+     */
+    audit.photos.length > 0
   );
 }
