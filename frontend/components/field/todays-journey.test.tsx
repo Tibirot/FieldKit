@@ -14,7 +14,8 @@ import {
   type ReferenceOutlet,
   type ReferencePlannedVisit,
 } from "@/lib/sync/db";
-import { enqueue } from "@/lib/sync/outbox";
+import { enqueue, markRejected } from "@/lib/sync/outbox";
+import { eventually } from "@/test/eventually";
 import { render } from "@/test/render";
 
 /**
@@ -178,6 +179,49 @@ describe("<TodaysJourney>", () => {
 
     expect(await screen.findByText("Worked")).toBeTruthy();
     expect(await screen.findByText("Not synced")).toBeTruthy();
+  });
+
+  it("says why the back office refused a visit, not just that it did (W11½ R5)", async () => {
+    // Regression F1: `markRejected` has stored the reason since W8 and nothing read it, so a rep saw
+    // *Needs attention* and had no way to find out what to attend to.
+    await db.outlets.add(outlet("outlet-1", "Mega Image", "RO-001"));
+    await db.plannedVisits.add(call("call-1", "outlet-1"));
+    await db.visits.add(visit("visit-1", "outlet-1"));
+
+    const entry = await enqueue(db, {
+      type: "CapturedVisit",
+      subjectId: "visit-1",
+      payload: {},
+    });
+
+    await markRejected(db, entry.mutationId, "visit.ingest.outletUnknown", "No such outlet.");
+
+    render(<TodaysJourney now={TODAY} />);
+
+    // The badge still says what it always said; the sentence is the half that was missing.
+    expect(await screen.findByText("Needs attention")).toBeTruthy();
+    expect((await screen.findByRole("alert")).textContent).toBe("No such outlet.");
+  });
+
+  it("says nothing extra when a failure carried no reason", async () => {
+    // A transport failure marks no code, and "refused, reason unknown" is a worse answer than the
+    // badge alone. The absence has to be a decision rather than an accident of the data.
+    await db.outlets.add(outlet("outlet-1", "Mega Image", "RO-001"));
+    await db.plannedVisits.add(call("call-1", "outlet-1"));
+    await db.visits.add(visit("visit-1", "outlet-1"));
+
+    const entry = await enqueue(db, {
+      type: "CapturedVisit",
+      subjectId: "visit-1",
+      payload: {},
+    });
+
+    await markRejected(db, entry.mutationId);
+
+    render(<TodaysJourney now={TODAY} />);
+
+    expect(await screen.findByText("Needs attention")).toBeTruthy();
+    await eventually(() => expect(screen.queryByRole("alert")).toBeNull());
   });
 
   it("names a call whose shop this device does not hold rather than showing an id", async () => {

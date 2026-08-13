@@ -2,7 +2,12 @@ import { createTranslator } from "next-intl";
 import { describe, expect, it } from "vitest";
 
 import type { FieldProblem } from "@/lib/api/client";
-import { refusalText, refusalTexts, type RefusalTranslator } from "@/lib/api/refusals";
+import {
+  refusalText,
+  refusalTexts,
+  storedRefusalText,
+  type RefusalTranslator,
+} from "@/lib/api/refusals";
 
 import en from "../../messages/en.json";
 import ro from "../../messages/ro.json";
@@ -90,5 +95,57 @@ describe("refusalText", () => {
       "A price list needs a name.",
       "A price list ends after it starts.",
     ]);
+  });
+});
+
+describe("storedRefusalText", () => {
+  /**
+   * A refusal the *device* kept, rather than one it just received — W11½ R5.
+   *
+   * `markRejected` has written `errorCode` and `errorDetail` since W8 and nothing read either
+   * (regression F1). These are the four shapes that reach a rep's screen.
+   */
+  it("says a known refusal in the reader's language, from the code alone", () => {
+    const said = storedRefusalText(translator("ro"), {
+      code: "journey.plan.alreadyPublished",
+      detail: "This plan is already published.",
+    });
+
+    expect(said).toBe(ro.Refusals.journey.plan.alreadyPublished);
+    expect(said).not.toBe("This plan is already published.");
+  });
+
+  it("falls back to the server's sentence for a code the catalogue has never heard of", () => {
+    // The ordinary case rather than the exception: no sync-push refusal has a catalogue entry, and
+    // ADR-0012 says that is the design — a correct sentence beats `journey.plan.noneForDate`.
+    expect(
+      storedRefusalText(translator("ro"), {
+        code: "journey.plan.noneForDate",
+        detail: "You have no published round covering that day.",
+      }),
+    ).toBe("You have no published round covering that day.");
+  });
+
+  it("falls back to the server's sentence when the entry wanted an argument nobody stored", () => {
+    /*
+     * `t.has` cannot tell an entry with placeholders from one without, and `markRejected` never kept
+     * the args. **`next-intl` does not throw here** — it returns the key path — so a screen that
+     * trusted `t.has` would print `Refusals.journey.plan.windowTooLong` at a rep, which is the
+     * failure ADR-0012 exists to prevent. The guard inspects the template instead.
+     */
+    const said = storedRefusalText(translator("en"), {
+      code: "journey.plan.windowTooLong",
+      detail: "Plan at most 90 days at a time.",
+    });
+
+    expect(said).toBe("Plan at most 90 days at a time.");
+    expect(said).not.toContain("Refusals.");
+  });
+
+  it("says nothing at all when the device kept neither", () => {
+    // A transport failure marks no code. The badge already says *failed*; a box reading "refused,
+    // reason unknown" would be a worse answer than the one it replaced.
+    expect(storedRefusalText(translator("en"), {})).toBeUndefined();
+    expect(storedRefusalText(translator("en"), { detail: "" })).toBeUndefined();
   });
 });

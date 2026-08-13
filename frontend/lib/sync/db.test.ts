@@ -17,6 +17,7 @@ import {
   pending,
   pendingCount,
   reclaimInflight,
+  refusalOf,
   statusOf,
 } from "./outbox";
 import { applyOutletChanges, outlet, outlets, watermark, OUTLETS } from "./reference";
@@ -162,6 +163,61 @@ describe("the outbox", () => {
     expect(await pending(db)).toEqual([]);
     expect(await pendingCount(db)).toBe(0);
     expect(await statusOf(db, "visit-1")).toBe("failed");
+
+    // And it can be read back, which is what W11½ R5 added. Written since W8 under a comment saying
+    // the UI translates it; nothing read it until R5 (regression F1).
+    expect(await refusalOf(db, "visit-1")).toEqual({
+      code: "visit.ingest.outletUnknown",
+      detail: "No such outlet.",
+    });
+
+    db.close();
+  });
+
+  it("has no reason to give for work nothing has refused", async () => {
+    const db = freshDatabase();
+
+    await enqueue(db, { type: "CapturedVisit", subjectId: "visit-1", payload: {} });
+
+    expect(await refusalOf(db, "visit-1")).toBeUndefined();
+    expect(await refusalOf(db, "visit-nobody-has-heard-of")).toBeUndefined();
+
+    db.close();
+  });
+
+  it("says nothing when a failure carried no reason at all", async () => {
+    // A transport failure marks no code. The badge already says *failed*, and a box reading
+    // "refused, reason unknown" would be a worse answer than the one it replaced.
+    const db = freshDatabase();
+
+    const entry = await enqueue(db, { type: "CapturedVisit", subjectId: "visit-1", payload: {} });
+    await markRejected(db, entry.mutationId);
+
+    expect(await statusOf(db, "visit-1")).toBe("failed");
+    expect(await refusalOf(db, "visit-1")).toBeUndefined();
+
+    db.close();
+  });
+
+  it("gives the oldest refusal, because the later ones are usually its consequences", async () => {
+    const db = freshDatabase();
+
+    const first = await enqueue(db, { type: "CapturedVisit", subjectId: "visit-1", payload: {} });
+    const second = await enqueue(db, { type: "CapturedOrder", subjectId: "visit-1", payload: {} });
+
+    // Stamped apart, because `createdAt` is millisecond epoch and two enqueues can share one.
+    await db.outbox.update(first.mutationId, { createdAt: 1_000 });
+    await db.outbox.update(second.mutationId, { createdAt: 2_000 });
+
+    await markRejected(db, second.mutationId, "order.ingest.visitUnknown", "No such visit.");
+    await markRejected(db, first.mutationId, "visit.ingest.outletUnknown", "No such outlet.");
+
+    // The order was refused *because* the visit was, so the visit's refusal is the one to act on —
+    // and rejection order is not capture order, which is why this reads `createdAt` and not the row.
+    expect(await refusalOf(db, "visit-1")).toEqual({
+      code: "visit.ingest.outletUnknown",
+      detail: "No such outlet.",
+    });
 
     db.close();
   });
