@@ -238,12 +238,22 @@ description of what exists until the pre-Phase-2 audit checked it against the as
 four of its entries had no interface behind them. A registry that overstates its surface is exactly
 the document a module author trusts when deciding what to depend on.
 
+> **And it drifted the other way.** The post-W11 regression found `IOrderMinimumChangeFeed` missing
+> altogether and three built contracts — `IReferenceChangeFeed`, `IAssortmentService`,
+> `IPricingService` — still shown as planned, two of which Order already consumes. Understating is the
+> mirror of the error above and misleads the same reader in the opposite direction: they conclude
+> they may not depend on something that has been there for weeks.
+>
+> `ModuleRegistryTests` now checks both directions on every build, so the table cannot drift again
+> without the suite saying so. A convention that only a person can enforce is a convention that
+> decays between audits — this one decayed twice.
+
 | Module | Assembly | Schema | Key contracts | Publishes |
 |---|---|---|---|---|
 | IAM | `…Modules.Iam` (+ `.Contracts`) | `iam` | **`IUserDirectory`**, **`ITenantRegistry`** | `UserDeactivated` |
 | Organization | `…Modules.Org` (+ `.Contracts`) | `org` | **`ITerritoryDirectory`**, **`IRepScope`**, `IOrgHierarchy` | `RepAssignmentChanged` |
-| Outlets | `…Modules.Outlets` (+ `.Contracts`) | `outlets` | **`IOutletCatalog`**, **`IOutletClassification`**, **`IOutletGeofence`**, `IReferenceChangeFeed`, `IOutletProposalIngest` | `OutletChanged`, `OutletClosed` |
-| Products & Pricing | `…Modules.Products` (+ `.Contracts`) | `products` | **`IProductChangeFeed`**, **`IAssortmentChangeFeed`**, **`IPriceChangeFeed`**, **`IPromotionChangeFeed`**, **`ITaxRateChangeFeed`**, `IProductCatalog`, `IAssortmentService`, `IPricingService` | `PriceListPublished`, `PromotionActivated` |
+| Outlets | `…Modules.Outlets` (+ `.Contracts`) | `outlets` | **`IOutletCatalog`**, **`IOutletClassification`**, **`IOutletGeofence`**, **`IReferenceChangeFeed`**, `IOutletProposalIngest` | `OutletChanged`, `OutletClosed` |
+| Products & Pricing | `…Modules.Products` (+ `.Contracts`) | `products` | **`IProductChangeFeed`**, **`IAssortmentChangeFeed`**, **`IPriceChangeFeed`**, **`IPromotionChangeFeed`**, **`ITaxRateChangeFeed`**, **`IOrderMinimumChangeFeed`**, **`IAssortmentService`**, **`IPricingService`**, `IProductCatalog` | `PriceListPublished`, `PromotionActivated` |
 | Configuration | `…Modules.Configuration` (+ `.Contracts`) | `config` | **`IFieldDefinitionCatalog`**, **`IVisitWorkflow`**, **`IVisitWorkflowFeed`**, **`ISurveyForms`**, **`ISurveyFormFeed`**, **`IScoreWeights`**, **`IScoreWeightFeed`** | `ConfigurationPublished` |
 | Journey | `…Modules.Journey` (+ `.Contracts`) | `journey` | **`IJourneyQuery`**, **`IJourneyChangeFeed`**, **`IJourneyIngest`** | `JourneyPublished`, `PlannedVisitMarkedNotVisited` |
 | Visit | `…Modules.Visit` (+ `.Contracts`) | `visit` | **`IVisitIngest`**, **`IVisitContext`**, `IVisitQuery` | `VisitCompleted` |
