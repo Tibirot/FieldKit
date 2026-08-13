@@ -16,6 +16,7 @@ import {
   type ReferenceOutlet,
   type ReferenceProduct,
 } from "@/lib/sync/db";
+import { eventually } from "@/test/eventually";
 import { render } from "@/test/render";
 
 /**
@@ -624,7 +625,7 @@ describe("<Audit> and finishing it", () => {
     // replace, and under the whole suite this went red about one run in three. A flaky test is a
     // test people learn to re-run.
     await waitFor(async () => expect(await db.outbox.count()).toBe(1), { timeout: 10_000 });
-    expect(screen.queryByRole("alert")).toBeNull();
+    await eventually(() => expect(screen.queryByRole("alert")).toBeNull());
   }, 15_000);
 
   it("stops offering to change a sealed audit (BR-AUD-6)", async () => {
@@ -748,7 +749,9 @@ describe("<Audit> and sealing what is actually stored", () => {
     finish.click();
 
     await waitFor(async () => expect(await db.outbox.count()).toBe(1), { timeout: 10_000 });
-    expect(screen.queryByText("Check at least one product before finishing.")).toBeNull();
+    await eventually(() =>
+      expect(screen.queryByText("Check at least one product before finishing.")).toBeNull(),
+    );
   }, 15_000);
 });
 

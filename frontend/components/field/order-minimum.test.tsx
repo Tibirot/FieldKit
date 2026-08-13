@@ -15,6 +15,7 @@ import {
   type ReferenceOrderMinimum,
   type ReferenceOutlet,
 } from "@/lib/sync/db";
+import { eventually } from "@/test/eventually";
 import { render } from "@/test/render";
 
 /**
@@ -217,7 +218,7 @@ describe("<Order> and the order minimum", () => {
 
     // The threshold line goes with the refusal it explained — a met minimum is a rule that has
     // stopped mattering, and one more number to read past on a small screen.
-    expect(screen.queryByText(/This shop orders from/)).toBeNull();
+    await eventually(() => expect(screen.queryByText(/This shop orders from/)).toBeNull());
   });
 
   it("sends every order when no minimum is configured", async () => {
