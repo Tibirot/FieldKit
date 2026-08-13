@@ -490,19 +490,32 @@ function Shelf({
                 />
               </label>
 
-              <label className="flex items-center gap-2">
-                <span className="text-muted-foreground">{t("shelfPrice")}</span>
-                <input
-                  // `inputMode`, never `type="number"` — a numeric input hands back a `number` on
-                  // some browsers, and this value becomes minor units the server compares exactly.
-                  inputMode="decimal"
-                  className="w-24 rounded-md border border-border px-2 py-1 text-right"
-                  disabled={!editable}
-                  defaultValue={read.get(product.id) ?? ""}
-                  aria-label={t("shelfPriceFor", { product: product.name })}
-                  onChange={(event) => { const value = event.target.value; void queued(() => readPrice(product.id, value)); }}
-                />
-              </label>
+              {/*
+                <b>No box until the device knows what money this shop trades in</b> (found by CI, W11
+                slice 11). `currency` is the code of a list that priced *something* here, and `""`
+                when none covers the outlet — or, briefly, while the resolution is still running.
+
+                A reading filed under `""` can be neither scored nor sent: `minorUnits` calls
+                `Money.of`, which refuses anything that is not a 3-letter ISO-4217 code, so the line
+                threw at the seal from 9b and inside the score's render from slice 10 — taking the
+                whole screen with it. Offering a box whose value cannot be kept is worse than not
+                offering it, and the store refuses such a line as well.
+              */}
+              {currency === "" ? null : (
+                <label className="flex items-center gap-2">
+                  <span className="text-muted-foreground">{t("shelfPrice")}</span>
+                  <input
+                    // `inputMode`, never `type="number"` — a numeric input hands back a `number` on
+                    // some browsers, and this value becomes minor units the server compares exactly.
+                    inputMode="decimal"
+                    className="w-24 rounded-md border border-border px-2 py-1 text-right"
+                    disabled={!editable}
+                    defaultValue={read.get(product.id) ?? ""}
+                    aria-label={t("shelfPriceFor", { product: product.name })}
+                    onChange={(event) => { const value = event.target.value; void queued(() => readPrice(product.id, value)); }}
+                  />
+                </label>
+              )}
 
               {/*
                 What the device says it should cost, shown beside the box rather than pre-filled

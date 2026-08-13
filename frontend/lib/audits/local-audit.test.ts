@@ -183,6 +183,32 @@ describe("reading a shelf price", () => {
     ]);
   });
 
+  it("refuses a reading with no currency, rather than storing one that cannot be sent", async () => {
+    /*
+     * <b>Regression, and CI found it — every test passed while an unhandled error was thrown.</b>
+     *
+     * The screen files an observation under the currency of a list that priced *something* at this
+     * shop, and falls back to `""` when none covers the outlet at all. But `minorUnits` calls
+     * `Money.of`, which refuses anything that is not a 3-letter ISO-4217 code — so a line stored
+     * this way threw at the **seal** from 9b, and from slice 10 threw again inside the score's
+     * render, which unmounts the whole audit screen.
+     *
+     * Refused here so the store cannot hold a line that can be neither scored nor sent; the screen
+     * stops offering the box for the same reason.
+     */
+    const started = await draftFor(db, REQUEST);
+
+    const refused = await putPrice(
+      db,
+      started.id,
+      { productId: "p-1", observed: "4.79", expected: null, currencyCode: "" },
+      NOW,
+    );
+
+    expect(refused).toBeUndefined();
+    expect((await auditFor(db, "visit-1"))?.prices).toEqual([]);
+  });
+
   it("keeps an observation for a product no list covers", async () => {
     // Not a compliance failure — the server scores nothing against a null expected — but a real
     // reading, and the only evidence that the price list has a gap here.

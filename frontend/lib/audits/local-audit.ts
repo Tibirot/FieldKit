@@ -286,6 +286,23 @@ export async function putPrice(
 
     const others = current.prices.filter((line) => line.productId !== check.productId);
 
+    /*
+     * <b>A reading with no currency is refused, not stored</b> (found by CI, W11 slice 11).
+     *
+     * The screen files an observation under the currency of a list that priced *something* at this
+     * shop, and falls back to `""` when no list covers the outlet at all — deliberately, because
+     * inventing a currency would be worse. But an empty code is not a value this line can hold:
+     * `minorUnits` calls `Money.of`, which refuses anything that is not a 3-letter ISO-4217 code, so
+     * such a line **throws at the seal** and — since slice 10 — while the score renders, taking the
+     * whole screen down with it.
+     *
+     * Refused here so the store cannot hold a line that can be neither scored nor sent. The screen
+     * stops offering the box for the same reason, one layer up.
+     */
+    if (check.observed !== null && !/^[A-Za-z]{3}$/.test((check as LocalPriceCheck).currencyCode)) {
+      return undefined;
+    }
+
     return save(db, current, {
       prices: check.observed === null ? others : [...others, check as LocalPriceCheck],
     }, now);

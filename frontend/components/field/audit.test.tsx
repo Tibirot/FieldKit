@@ -689,6 +689,31 @@ describe("<Audit> and finishing it", () => {
   });
 });
 
+describe("<Audit> when no price list covers the shop", () => {
+  it("offers no shelf-price box, because it cannot say what money the shop trades in", async () => {
+    /*
+     * <b>Regression, found by CI.</b> The whole suite passed while an unhandled error was thrown:
+     * a reading filed under `""` reaches `Money.of`, which refuses anything that is not a 3-letter
+     * ISO-4217 code — so the line threw at the seal from 9b, and from slice 10 threw again inside
+     * the score's render, which takes the entire audit screen down.
+     *
+     * A box whose value cannot be kept is worse than no box. The facings count stays, because a
+     * facing is a number that needs no currency at all.
+     */
+    await db.priceAssignments.clear();
+    await db.priceLines.clear();
+
+    render(<Audit visitId="visit-1" />);
+
+    expect(await (await shelf()).findByText("Cola 500ml")).toBeTruthy();
+
+    await waitFor(() => expect(screen.getAllByText("No expected price")).toHaveLength(2));
+
+    expect(screen.queryByLabelText("Shelf price of Cola 500ml")).toBeNull();
+    expect(screen.getByLabelText("Facings of Cola 500ml")).toBeTruthy();
+  });
+});
+
 describe("<Audit> and sealing what is actually stored", () => {
   it("seals on what the store holds now, not on the snapshot it last rendered", async () => {
     /*
