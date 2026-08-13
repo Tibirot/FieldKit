@@ -26,6 +26,22 @@ builder.AddServiceDefaults();
 builder.AddRequestProblemDetails();
 builder.Services.AddOpenApi();
 
+/*
+ * Blob storage for shelf photographs (`OFF-08`, `B5`, W11 slice 12a).
+ *
+ * <b>Registered only when the AppHost supplied one.</b> Aspire's `WithReference(photos)` writes the
+ * `photos` connection string; a host booted without it — the test fixture, or a deployment that has
+ * not been given storage — must still start, and `SyncModule` leaves `IPhotoStorage` unregistered so
+ * the presign endpoint can say so honestly rather than the whole API failing to boot.
+ *
+ * The client resolves its credential from the connection string: an account key in development
+ * (Azurite), a managed identity when published. `BlobPhotoStorage` signs differently for each.
+ */
+if (builder.Configuration.GetConnectionString("photos") is not null)
+{
+    builder.AddAzureBlobServiceClient("photos");
+}
+
 // Validate the Keycloak-issued JWT (ADR-0008) and reject one without a usable tenant claim, so
 // every authenticated request is attributable before it reaches an endpoint.
 builder.AddKeycloakAuthentication();

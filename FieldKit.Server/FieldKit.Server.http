@@ -4647,3 +4647,59 @@ Content-Type: application/json
 ### a *new* mutation id (BR-ORD-9), and that arm lands in W11 slice 5 — there is no live REST path
 ### into an order, which is the same call §7 of the order spec makes about capture. The rejected
 ### submission's id stays terminal: replaying it succeeds and changes nothing.
+
+###############################################################################
+# Photographs — a presigned upload URL (`OFF-08`, `B5`, W11 slice 12a)
+###############################################################################
+#
+# The device downscales a shelf photograph to ~1600px / JPEG ~0.7 (`B5`), mints its own object key,
+# and asks here for somewhere to put the bytes. The image never travels through this API — the JSON
+# push carries a *reference* and the picture goes to object storage on its own schedule, which is why
+# an audit routinely lands naming an object that does not exist yet.
+#
+# **The tenant prefix is the server's to write.** The device sends `audits/{auditId}/{photoId}.jpg`
+# and never a tenant: it does not know its tenant id, and the whole of the isolation is that there is
+# no request it could craft to reach another tenant's prefix.
+
+### A URL for one photograph. Write-only, one blob, fifteen minutes.
+POST {{host}}/api/sync/photos/presign
+Authorization: Bearer {{repToken.response.body.access_token}}
+Content-Type: application/json
+
+{
+  "objectKey": "audits/019ff9ee-0de7-7ed9-8854-88e457c80f25/019ff9ee-0de7-7ed9-8854-88e457c80f26.jpg"
+}
+
+### Traversal is a **400**. The key is anchored to `audits/{guid}/{guid}.jpg`, so nothing a caller
+### sends can climb out of the prefix the server just wrote.
+POST {{host}}/api/sync/photos/presign
+Authorization: Bearer {{repToken.response.body.access_token}}
+Content-Type: application/json
+
+{
+  "objectKey": "audits/../../secrets/key.jpg"
+}
+
+### A caller's own tenant prefix is a **400** too — not because it would work, but because a device
+### that sends one has misunderstood the contract, and silently ignoring it would hide that.
+POST {{host}}/api/sync/photos/presign
+Authorization: Bearer {{repToken.response.body.access_token}}
+Content-Type: application/json
+
+{
+  "objectKey": "00000000-0000-0000-0000-000000000001/audits/a/b.jpg"
+}
+
+### Anonymous is a **401**. The URL is a capability, and the bytes are a rep's work.
+POST {{host}}/api/sync/photos/presign
+Content-Type: application/json
+
+{
+  "objectKey": "audits/019ff9ee-0de7-7ed9-8854-88e457c80f25/019ff9ee-0de7-7ed9-8854-88e457c80f26.jpg"
+}
+
+### **The `PUT` itself has no request here**, and cannot: the URL comes back in the response above,
+### already signed, and goes straight to object storage rather than through this server. The device
+### sends the bytes with `x-ms-blob-type: BlockBlob` — see `PhotoPresignTests`, which does exactly
+### that against a real Blob service, because a presigned URL that does not work is the one failure
+### this endpoint exists to avoid.

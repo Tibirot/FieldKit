@@ -42,6 +42,22 @@ public sealed class SyncModule : IModule
         // The ledger is scoped: it hands out tracked entities on the request context, so the
         // caller can commit them with the work they describe (W8 slice 4).
         services.AddScoped<IMutationLedger, MutationLedger>();
+
+        /*
+         * Photo storage (`OFF-08`, W11 slice 12a).
+         *
+         * <b>Registered only when a storage account is configured.</b> Aspire supplies the connection
+         * through `WithReference(photos)`, and the presign endpoint is the sole consumer — so a host
+         * booted without one (every test that does not need photographs) starts normally and answers
+         * `501` there rather than failing at startup for a capability it was not asked for.
+         *
+         * Singleton, because `BlobServiceClient` is thread-safe and holds its own connection pool;
+         * one per request would build a new pipeline for every upload a rep starts.
+         */
+        if (configuration.GetConnectionString("photos") is not null)
+        {
+            services.AddSingleton<IPhotoStorage, BlobPhotoStorage>();
+        }
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
@@ -49,6 +65,7 @@ public sealed class SyncModule : IModule
         endpoints.MapDeviceEndpoints();
         endpoints.MapPullEndpoints();
         endpoints.MapPushEndpoints();
+        endpoints.MapPhotoEndpoints();
     }
 }
 

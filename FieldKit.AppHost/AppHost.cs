@@ -181,9 +181,36 @@ else
         .WithEnvironment("KC_HOSTNAME", keycloak.GetEndpoint("http"));
 }
 
+/*
+ * Object storage for shelf photographs (`OFF-08`, `B5`, W11 slice 12a).
+ *
+ * <b>Azurite in development, Azure Blob Storage when published</b> — one resource, two runtimes, and
+ * the same client code against both. A filesystem stub behind the same interface would have kept the
+ * dev graph one container smaller and left the path that actually ships unexercised: presigned URLs
+ * are a Blob feature, and a fake that hands back a local path proves nothing about a SAS.
+ *
+ * <b>Photographs are the one thing here that is not re-fetchable.</b> `ADR-0011` already names object
+ * storage as geo-redundant for exactly this reason: the outbox and idempotency design mean a restored
+ * database loses no captured work, but a lost blob is a photograph that existed nowhere else once the
+ * device has moved on.
+ */
+var storage = builder.AddAzureStorage("storage")
+    .RunAsEmulator(emulator => emulator
+        // A named volume, so a rep's photographs survive `dotnet run` cycles during development —
+        // the same reasoning the Postgres volume above carries, and the same reproducibility caveat.
+        .WithDataVolume("fieldkit-azurite-data"));
+
+// One container, not one per tenant: the tenant is the first segment of every object's path, minted
+// server-side from the caller's token (see `PhotoEndpoints`). Containers are a coarse unit that would
+// have to be created on tenant onboarding and are easy to address across; a path prefix the API
+// controls is checked on every request by construction.
+var photos = storage.AddBlobs("photos");
+
 var server = builder.AddProject<Projects.FieldKit_Server>("server")
     .WithReference(database)
     .WaitFor(database)
+    .WithReference(photos)
+    .WaitFor(storage)
     // The API validates tokens against this realm; wiring the reference now means service discovery
     // resolves the authority in the next slice rather than a hard-coded URL.
     .WithReference(keycloak)
