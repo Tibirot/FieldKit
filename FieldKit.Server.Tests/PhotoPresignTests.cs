@@ -18,6 +18,14 @@ namespace FieldKit.Server.Tests;
 [Collection(ServerCollection.Name)]
 public sealed class PhotoPresignTests(ServerFixture fixture)
 {
+    /// <summary>
+    /// The origin the fixture tells the API to allow, which is what a browser would send.
+    /// </summary>
+    /// <remarks>
+    /// The same value the AppHost sets in development; the CORS rule is cut from it at startup.
+    /// </remarks>
+    private const string WebOrigin = "http://localhost:3000";
+
     private static string SomeKey() => $"audits/{Guid.NewGuid()}/{Guid.NewGuid()}.jpg";
 
     private sealed record Presigned(string Url, string ObjectKey, DateTimeOffset ExpiresAtUtc);
@@ -188,6 +196,60 @@ public sealed class PhotoPresignTests(ServerFixture fixture)
         var elsewhere = await direct.PutAsync(somebodyElses, content);
 
         Assert.Equal(HttpStatusCode.Forbidden, elsewhere.StatusCode);
+    }
+
+    [Fact]
+    public async Task Lets_a_browser_ask_permission_before_uploading()
+    {
+        /*
+         * <b>The wall a browser check found after the Content Security Policy came down.</b>
+         *
+         * The upload carries `x-ms-blob-type`, which makes the `PUT` non-simple, so a browser sends
+         * `OPTIONS` first and storage answers only if a CORS rule names the calling origin. Nothing
+         * did, so every upload failed *after* the policy allowed it — presign succeeded, bytes never
+         * moved, retry hid it.
+         *
+         * Simulated exactly as a browser does it: the preflight is a plain `OPTIONS` with the origin
+         * and the intended method and headers, and it must come back allowing them.
+         */
+        var presigned = await (await fixture.CreateAuthenticatedClient().PostAsJsonAsync(
+            "/api/sync/photos/presign",
+            new { objectKey = SomeKey() })).Content.ReadFromJsonAsync<Presigned>();
+
+        using var direct = new HttpClient();
+        using var preflight = new HttpRequestMessage(HttpMethod.Options, presigned!.Url);
+
+        preflight.Headers.Add("Origin", WebOrigin);
+        preflight.Headers.Add("Access-Control-Request-Method", "PUT");
+        preflight.Headers.Add("Access-Control-Request-Headers", "x-ms-blob-type,content-type");
+
+        var answer = await direct.SendAsync(preflight);
+
+        Assert.Equal(HttpStatusCode.OK, answer.StatusCode);
+        Assert.Equal(WebOrigin, answer.Headers.GetValues("Access-Control-Allow-Origin").Single());
+    }
+
+    [Fact]
+    public async Task Does_not_let_a_browser_read_a_photograph_back()
+    {
+        /*
+         * The CORS rule allows `PUT` and `OPTIONS` and nothing else, which is the same narrowness the
+         * SAS has. A rule that allowed `GET` would undo the presigned URL being write-only — from a
+         * different direction, and without touching the signature that makes it so.
+         */
+        var presigned = await (await fixture.CreateAuthenticatedClient().PostAsJsonAsync(
+            "/api/sync/photos/presign",
+            new { objectKey = SomeKey() })).Content.ReadFromJsonAsync<Presigned>();
+
+        using var direct = new HttpClient();
+        using var preflight = new HttpRequestMessage(HttpMethod.Options, presigned!.Url);
+
+        preflight.Headers.Add("Origin", WebOrigin);
+        preflight.Headers.Add("Access-Control-Request-Method", "GET");
+
+        var answer = await direct.SendAsync(preflight);
+
+        Assert.NotEqual(HttpStatusCode.OK, answer.StatusCode);
     }
 
     [Fact]

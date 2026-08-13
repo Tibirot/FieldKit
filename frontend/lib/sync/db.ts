@@ -677,6 +677,18 @@ export type LocalPhotoBlob = {
    * and the count is what lets a later run skip it and still show a rep it is stuck.
    */
   attempts: number;
+  /**
+   * Why the last upload failed, or empty when none has (`OFF-08`, `OFF-09`) — W11 slice 12c.
+   *
+   * <b>Kept because swallowing it hid a bug for a whole slice.</b> The uploader caught every failure
+   * and recorded only that there had been one, so a Content Security Policy refusing every `PUT`
+   * looked exactly like a bad connection — and the retry made it look like a bad connection
+   * *forever*. It took a browser console to find, and nothing on the device could have said.
+   *
+   * A short message, not a stack: it is for a rep's "why is this stuck" (slice 13) and for whoever
+   * reads the store when a photograph will not go, and both want a sentence.
+   */
+  lastFailure: string;
 };
 
 /**
@@ -1260,6 +1272,25 @@ export class FieldKitDatabase extends Dexie {
           .modify((blob: Partial<LocalPhotoBlob>) => {
             blob.uploadedAtUtc ??= WAITING;
             blob.attempts ??= 0;
+          });
+      });
+
+    /*
+     * Version 17 — a photograph remembers why it would not go (`OFF-08`, `OFF-09`, W11 slice 12c).
+     *
+     * No new index: nothing queries by failure, and this is read one row at a time by whoever is
+     * looking at a stuck picture. A field, back-filled empty, because `lastFailure` is a `string` for
+     * the same reason `uploadedAtUtc` is — a reader should not have to hold two shapes in mind for
+     * "nothing here yet".
+     */
+    this.version(17)
+      .stores({})
+      .upgrade(async (tx) => {
+        await tx
+          .table("blobs")
+          .toCollection()
+          .modify((blob: Partial<LocalPhotoBlob>) => {
+            blob.lastFailure ??= "";
           });
       });
 

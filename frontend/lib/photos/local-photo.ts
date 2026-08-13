@@ -71,6 +71,7 @@ export async function attachPhoto(
       // Waiting, and never tried — the uploader's starting state (`OFF-08`, W11 slice 12b).
       uploadedAtUtc: WAITING,
       attempts: 0,
+      lastFailure: "",
     };
 
     await db.blobs.put(blob);

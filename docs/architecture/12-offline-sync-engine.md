@@ -647,6 +647,30 @@ sequenceDiagram
   device knows what it has uploaded; the server is not yet told, and nothing reconciles a reference
   whose object never arrives.
 
+**What W11 slice 12c fixed — two walls a browser puts between the device and storage:**
+
+Neither is visible from either test suite, and together they made 12a and 12b, both individually
+correct, add up to a feature that could not work at all. A `PUT` to a *different origin* is subject
+to rules that nothing on the server or in a mocked `fetch` can see.
+
+- **The Content Security Policy has to name the storage origin.** `connect-src` listed this app and
+  Keycloak, so the browser refused every upload before a byte left the device. The AppHost hands the
+  front end `PHOTO_STORAGE_URL` — a **URL, not the connection string**, because the browser needs an
+  origin and has no business holding an account key. In development the policy also names the
+  origin's loopback sibling: the presigned URL comes back on `127.0.0.1` while the page is on
+  `localhost`, and to a browser those are two origins.
+- **Object storage has to accept a browser, and does not by default.** The upload carries
+  `x-ms-blob-type`, which makes the `PUT` non-simple, so a preflight `OPTIONS` goes first and storage
+  answers it only if a CORS rule names the calling origin. The API applies that rule at startup
+  (`PhotoStorageCors`) from `FIELDKIT_WEB_ORIGIN` — `PUT` and `OPTIONS` only, never `GET`, which
+  would undo the presigned URL being write-only from a direction the signature does not control. The
+  rule is **replaced** on each start rather than appended, so restarts do not grow the list and a
+  retired deployment's origin does not stay allowed.
+- **The failure was invisible, which is why it survived CI.** The uploader recorded *that* an upload
+  failed and not *why*, so a policy refusing every request looked exactly like a weak signal.
+  `lastFailure` now keeps the reason (local store version 17) — and it is what slice 13 needs before
+  it can tell a rep anything true.
+
 Photos ([B5](../product/decisions-and-assumptions.md#b5--photo--binary-sync)) upload
 **independently** of the JSON push and can lag it; the audit references the object key, resolved
 when the upload confirms. Failures retry without blocking data sync. **Terminal case:** if a device
