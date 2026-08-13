@@ -210,6 +210,17 @@ separately.
 **Cost if left:** a narrow window of false disagreements, on orders taken late at night in a tenant
 that changed prices that day.
 
+> **Sharpened while planning the fix, and it is worse than the paragraph above says.** The device does
+> not use UTC — `businessDay` in `order.tsx:701` and `audit.tsx:1340` reads `getFullYear`,
+> `getMonth` and `getDate`, which are **local**. So the two sides do not merely round the same instant
+> differently; they apply two different rules. A rep in Bucharest before 03:00 has a device that says
+> one day and a server that says the day before, and W11 slice 14's comparison will flag the result as
+> a disagreement the rep did nothing to cause.
+>
+> That moves the fix from "use the outlet's zone server-side" to "**both sides date pricing by the
+> outlet's zone**", which is `W11½` slice **R6**. `businessDay` is also duplicated across the two
+> screens, and collapses into one function that takes a zone.
+
 ---
 
 ### F7 — A rep cannot add an unplanned visit, and `JRN-06` is a Must
@@ -305,6 +316,11 @@ exists and has not been applied.
 None blocks W12 on its own. **F7 is the one that would change the plan**, because it is scope rather
 than polish — and because W12's demo is the full loop, which a rep who cannot start a call cannot
 walk.
+
+> **Planned as `Week 11½` in the [delivery plan](../delivery-plan.md).** Seven slices, R1–R7, in the
+> order below. Two decisions were taken when it was written: F7 is **built** rather than deferred
+> (`JRN-06` is a Phase-2 Must and the server half exists), and F6 is fixed on **both sides** through
+> the outlet's own time zone rather than server-side alone.
 
 Two things worth doing regardless of the list, both about the *next* pass rather than this one:
 
