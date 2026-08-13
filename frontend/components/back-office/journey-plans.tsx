@@ -23,7 +23,7 @@ import {
 } from "@/lib/api/journeys";
 import { fetchOutlets, outletsKey, type Outlet } from "@/lib/api/outlets";
 import { refusalTexts } from "@/lib/api/refusals";
-import { fetchUsers, usersKey } from "@/lib/api/users";
+import { fetchUsers, identifying, usersKey } from "@/lib/api/users";
 import { usePermissions } from "@/lib/auth/use-permissions";
 import { useBusinessDay } from "@/lib/dates";
 
@@ -173,7 +173,7 @@ function Generator({ onGenerated }: { onGenerated: (plan: GeneratedPlan) => void
             <option value="">{t("chooseRep")}</option>
             {reps.map((candidate) => (
               <option key={candidate.subjectId} value={candidate.subjectId}>
-                {candidate.displayName}
+                {identifying(candidate)}
               </option>
             ))}
           </select>

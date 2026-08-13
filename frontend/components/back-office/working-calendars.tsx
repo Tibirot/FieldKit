@@ -24,7 +24,7 @@ import {
   type WorkingCalendar,
 } from "@/lib/api/journeys";
 import { refusalTexts } from "@/lib/api/refusals";
-import { fetchUsers, usersKey, type User } from "@/lib/api/users";
+import { fetchUsers, identifying, usersKey, type User } from "@/lib/api/users";
 import { usePermissions } from "@/lib/auth/use-permissions";
 import { useBusinessDay } from "@/lib/dates";
 
@@ -190,7 +190,7 @@ function Calendars({
             >
               {unconfigured.map((candidate) => (
                 <option key={candidate.subjectId} value={candidate.subjectId}>
-                  {candidate.displayName}
+                  {identifying(candidate)}
                 </option>
               ))}
             </select>

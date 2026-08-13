@@ -165,8 +165,12 @@ describe("<TerritoryAssignments>", () => {
 
     const options = [...screen.getByLabelText(/^rep/i).querySelectorAll("option")];
 
-    expect(options.map((option) => option.textContent)).toContain("Ana Ionescu");
-    expect(options.map((option) => option.textContent)).not.toContain("Bogdan Pop");
+    // By subject, not by label. These read `textContent` against the whole name until W11½ R3 added
+    // the email to it — at which point the *negative* assertion would have passed for the wrong
+    // reason forever, because "Bogdan Pop" is no longer any option's exact text even when he is
+    // offered. A test that cannot fail is worse than the one it replaced.
+    expect(options.map((option) => option.value)).toContain("sub-ana");
+    expect(options.map((option) => option.value)).not.toContain("sub-bogdan");
   });
 
   it("still shows the rep an existing assignment is about, deactivated or not", async () => {
