@@ -1453,6 +1453,18 @@
         "alreadyReported": "Ai raportat deja această vizită."
       }
     },
+    "unplanned": {
+      "open": "Ești în alt magazin?",
+      "title": "Vizită în alt magazin",
+      "intro": "O vizită neplanificată contează la fel de mult. Alege magazinul și fă check-in ca de obicei — va fi adăugată pe traseul tău.",
+      "loading": "Se citesc magazinele de pe acest dispozitiv…",
+      "none": "Niciun alt magazin pe acest dispozitiv. Sincronizează pentru a-ți prelua teritoriul sau întreabă-ți supervizorul.",
+      "close": "Închide",
+      "search": {
+        "label": "Care magazin?",
+        "placeholder": "Caută după nume sau cod…"
+      }
+    },
     "summary": {
       "title": "Înainte să închei vizita",
       "timeOnSite": "Timp în magazin",

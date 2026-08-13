@@ -13,6 +13,8 @@ import { outlet as heldOutlet, workflowFor } from "@/lib/sync/reference";
 import { assess, type GeofenceAssessment } from "@/lib/visits/geofencing";
 import { checkIn, inProgress, type VisitRefusal } from "@/lib/visits/local-visit";
 import { currentPosition, type PositionOutcome } from "@/lib/visits/position";
+import { todayOn } from "@/lib/visits/today";
+import { addUnplanned } from "@/lib/visits/unplanned";
 
 /**
  * Starting a visit, decided entirely on the device (`VIS-01`, `VIS-02`) — W9 slice 6.
@@ -131,13 +133,15 @@ export function CheckIn({
     setStarting(true);
     setRefused(null);
 
+    const now = new Date();
+
     const result = await checkIn(db, {
       outlet,
       workflow: workflow ?? undefined,
       at: position?.ok ? position.at : null,
       plannedVisitId: plannedVisitId ?? null,
       overrideReason: reason,
-      now: new Date(),
+      now,
     });
 
     if (!result.ok) {
@@ -146,6 +150,21 @@ export function CheckIn({
 
       return;
     }
+
+    /*
+     * A call nobody planned is annotated onto the rep's round (`JRN-06`, `BR-JRN-4`) — W11½ R4.
+     *
+     * <b>Here rather than on the tap that chose the shop</b>, because this is the moment the call
+     * becomes a fact. Queuing it from the picker would tell a supervisor a call happened at every
+     * shop a rep opened and thought better of, and coverage is a number supervisors act on.
+     *
+     * <b>After the visit, and it cannot take the visit down with it.</b> The two are independent
+     * mutations — a `CapturedVisit` for an unplanned call carries no `plannedVisitId`, so nothing
+     * orders them — and the only refusal reachable here is "this device already queued one for this
+     * shop today", which is a second call at one shop: real, ordinary, and not a reason to refuse a
+     * rep the visit they are standing in. The server takes the same view and answers success.
+     */
+    if (!plannedVisitId) await addUnplanned(db, outlet.id, todayOn(now));
 
     /*
      * Straight into the visit (W9 slice 7), and `replace` rather than `push` on purpose: *back* from

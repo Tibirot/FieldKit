@@ -145,10 +145,14 @@ describe("<CheckIn> inside the fence", () => {
     });
   });
 
-  it("captures nothing in the outbox — a visit reaches the server when it is sealed, not when it opens", async () => {
+  it("captures no visit in the outbox — a visit reaches the server when it is sealed, not when it opens", async () => {
     // The whole shape of `OFF-01`: the device authors a visit and works it offline, and only
     // check-out turns it into one `CapturedVisit`. A mutation queued here would send the server a
     // half-worked visit and make `IVisitIngest` a second implementation of this flow.
+    //
+    // This asserted an *empty* outbox until W11½ R4, which was broader than the claim: an unplanned
+    // check-in now also queues the journey annotation, which is a different mutation about a
+    // different thing. Narrowed to the type it is actually about rather than relaxed to a count.
     render(<CheckIn outletId="outlet-1" />);
 
     await screen.findByText(/You are at this shop/);
@@ -156,7 +160,52 @@ describe("<CheckIn> inside the fence", () => {
 
     await waitFor(async () => expect(await db.visits.count()).toBe(1));
 
-    expect(await pending(db)).toEqual([]);
+    expect((await pending(db)).filter((entry) => entry.type === "CapturedVisit")).toEqual([]);
+  });
+
+  it("adds the call to the rep's round when nobody planned it (`JRN-06`) — W11½ R4", async () => {
+    /*
+     * The device half of an annotation every other layer already had (regression F7). Queued at
+     * check-in rather than when the shop was picked, because this is the moment the call is a fact.
+     *
+     * <b>Half past midnight in Bucharest, which is still the previous day in UTC.</b> The suite runs
+     * in `Europe/Bucharest` on purpose (`vitest.config.ts`), so this instant is 17 March locally and
+     * 16 March at Greenwich — and a `toISOString().slice(0, 10)` would date the call to a day the
+     * rep's published round may not even cover, which the server answers `NoPlanForDate` to. The
+     * assertion is the whole reason `todayOn` is used here rather than the obvious thing.
+     */
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-03-16T22:30:00Z"));
+
+    try {
+      render(<CheckIn outletId="outlet-1" />);
+
+      await screen.findByText(/You are at this shop/);
+      await userEvent.click(screen.getByRole("button", { name: "Check in and start the visit" }));
+
+      await waitFor(async () => {
+        const queued = (await pending(db)).filter((entry) => entry.type === "UnplannedCall");
+
+        expect(queued).toHaveLength(1);
+        expect(queued[0].subjectId).toBe("outlet-1");
+        expect(queued[0].payload).toEqual({ outletId: "outlet-1", date: "2026-03-17" });
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("adds nothing to the round for a call that was already on it", async () => {
+    // The other half, and the one that would overstate a rep's coverage if it were wrong: a planned
+    // call annotated as unplanned would count the same shop twice on the same day.
+    render(<CheckIn outletId="outlet-1" plannedVisitId="call-1" />);
+
+    await screen.findByText(/You are at this shop/);
+    await userEvent.click(screen.getByRole("button", { name: "Check in and start the visit" }));
+
+    await waitFor(async () => expect(await db.visits.count()).toBe(1));
+
+    expect((await pending(db)).filter((entry) => entry.type === "UnplannedCall")).toEqual([]);
   });
 });
 

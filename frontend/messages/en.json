@@ -1453,6 +1453,18 @@
         "alreadyReported": "You have already reported this call."
       }
     },
+    "unplanned": {
+      "open": "Calling somewhere else?",
+      "title": "Call at another shop",
+      "intro": "A call nobody planned still counts. Pick the shop and check in as usual — it will be added to your round.",
+      "loading": "Reading the shops on this device…",
+      "none": "No other shops on this device. Sync to pick up your territory, or ask your supervisor.",
+      "close": "Close",
+      "search": {
+        "label": "Which shop?",
+        "placeholder": "Search by name or code…"
+      }
+    },
     "summary": {
       "title": "Before you finish",
       "timeOnSite": "Time in the shop",

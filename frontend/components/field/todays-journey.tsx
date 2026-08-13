@@ -2,6 +2,7 @@
 
 import { useFormatter, useTranslations } from "next-intl";
 
+import { UnplannedCall } from "@/components/field/unplanned-call";
 import { useSync } from "@/components/sync/sync-provider";
 import { SyncBadge } from "@/components/sync/sync-badge";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +72,16 @@ export function TodaysJourney({ now }: { now?: Date }) {
           ))}
         </ol>
       )}
+
+      {/*
+        Beneath the round, never above it — the plan is what a rep should be working, and an unplanned
+        call is what they do when the day departs from it (`JRN-06`) — W11½ R4.
+
+        Rendered whether or not there are stops, and the empty case is the one that matters most: a
+        rep whose plan has not arrived had *no* way into the field app at all before this, which is
+        the state the regression sweep found the device in.
+      */}
+      <UnplannedCall date={date} />
     </div>
   );
 }

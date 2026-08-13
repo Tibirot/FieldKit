@@ -267,6 +267,76 @@ not-visited only, and nothing noticed the other one was still missing.
 That is worth checking against intent before scheduling, since the plan is the authority on what
 actually shipped. If it was deferred, the row should say so.
 
+**Fixed in W11½ R4.** It was not a deferral: `JRN-06` is a Must and the plan's row carried no note,
+so the device half was simply never built. The slice adds `lib/visits/unplanned.ts` beside
+`markNotVisited`, a collapsible picker under the round, and the enqueue at check-in. Reading the code
+to build it turned up **F8** below, which the sweep could not have seen from the outside.
+
+---
+
+### F8 — A second call at a worked shop is recorded against the call it is not
+
+**Where:** `frontend/components/field/todays-journey.tsx:150` (`destinationOf`)
+
+Found while building R4, not during the sweep. The function's own doc comment says:
+
+> A *finished* visit still goes to check-in, and that is deliberate rather than an omission: the
+> sealed visit is a record, and what a rep at that shop wants next is an unplanned second call
+> (`JRN-06`), not the read-only page.
+
+The routing agrees with the first half and contradicts the second: the link is
+`/field/outlets/{outletId}?call={plannedVisitId}` for **every** stop, worked or not. So the second
+call carries the planned call id, is captured as that call rather than as an unplanned one, and — as
+of R4 — is the one path that reaches check-in without queuing an `UnplannedCall`.
+
+**Cost if left:** a rep who calls twice at one shop has the second call recorded as the first. The
+coverage figure is unaffected (the call was already counted), so this understates activity rather
+than overstating it — which is why it is a finding rather than a defect worth stopping R4 for.
+
+**Fix:** drop the `call` parameter when `stop.progress === "worked"`. Not `notVisited` — a shop that
+opened after all *is* the planned call being made, and carrying the id is what lets the round agree.
+
+Left out of R4 deliberately: it is a behaviour change to the planned path, with its own tests, in a
+slice that is already at the top of its budget.
+
+---
+
+### F9 — An unplanned call still needs a published round covering the day
+
+**Where:** `JourneyIngestService.AddUnplannedAsync` — `JourneyIngestRefusal.NoPlanForDate`
+
+Found by walking R4 in a browser, as the dev rep, on a day their plan does not cover. The device
+queued the call, pushed it, and the server refused it:
+
+```
+journey.plan.noneForDate — "You have no published round covering that day."
+```
+
+The server is right: an unplanned call is a row *on a plan*, and there is no plan to put it on. But
+it means **F7's headline claim was only half true**. F7 said the missing entry point was "the only way
+into the field app when a plan is missing"; R4 delivers that half — check-in, the audit and order
+capture are all now reachable with no round — while the journey annotation is refused until a
+published plan covers the day.
+
+**Cost as it stands:** the rep's *visit* is captured and reaches the back office normally. What they
+lose is the call appearing on a round, and — because **F1** is still open — the badge says *Needs
+attention* with no reason, while the outbox holds `errorCode: "journey.plan.noneForDate"` and the
+sentence above, unread. This is F1's exact shape, observed live rather than reasoned about.
+
+**Not obviously a defect.** Three readings, and the choice belongs with the journey spec rather than
+with a slice:
+
+1. *Correct as designed* — coverage is measured against a plan, and a call outside every plan is not
+   a fact about anybody's round. Then R5 is the whole fix: say why.
+2. *The device should not offer what the server will refuse* — the picker could hide the section when
+   no round covers today. Cheap, and it would have hidden the entry point in exactly the state that
+   motivated the slice.
+3. *An unplanned call should create the round it needs.* The largest change and the only one that
+   makes "a call you can start anywhere" literally true.
+
+**Recommended:** ship **R5** first — it turns this from a silent failure into a sentence a rep can act
+on — and take the question to the journey spec afterwards.
+
 ---
 
 ## 3. Debts confirmed still open
