@@ -339,6 +339,29 @@ the two scores match exactly, `decimal.js` reads a string, and `JSON.parse` woul
   travel together or not at all: `CapturedAudit` takes `answers` as a required list, so a draft that
   reached the outbox with it missing would be refused as a 400 that retries forever.
 
+### The score at the shelf (W11 slice 10)
+
+The device runs W10 slice 5's TypeScript mirror of `PerfectStoreScore` and shows the result while the
+rep is still standing there — which is the whole point: a score that first appears in a report next
+week tells somebody else how the shop was, and a score at the shelf tells the rep which pillar is
+short while they can still count the facing they skipped.
+
+- **It scores the numbers it will push, not the numbers it holds.** Prices are converted to minor
+  units by the same function `/sync/push` uses, because the server scores the entries it stored.
+  Scoring the draft's decimal strings instead would round in a different place and hand the rep a
+  number the back office contradicts — which is exactly what `BR-AUD-5` forbids.
+- **Against the weighting the audit names, never the newest** (`BR-AUD-8`). A re-weighting that syncs
+  mid-round must not restate what the rep was shown, nor disagree with what the server will store.
+- **Skipped is not zero, and the breakdown says so.** `BR-AUD-2`'s renormalisation is invisible in a
+  total: a rep seeing 80 cannot tell an excellent share-of-shelf from one nobody measured.
+- **A weighting naming a pillar the device cannot compute is not scored at all.** Dropping the unknown
+  pillar would change the denominator and produce a confident number the back office contradicts, so
+  the screen says it cannot be scored here rather than guessing. A pillar added server-side reaches
+  devices before a build that understands it does.
+- **The availability denominator is the lines the rep answered, not the MSL.** Answering one product
+  and finding it reads 100%, which overstates a shelf nobody finished walking — and it is what the
+  server does, so the device does it too. Diverging here to be more useful would break `BR-AUD-5`.
+
 ## 7. Offline behavior
 
 Audits run **fully offline** inside a visit. Templates, MSL, and expected prices are synced

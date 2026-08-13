@@ -1576,7 +1576,21 @@
       "noAnswer": "Fără răspuns",
       "optionOf": "{option} pentru {question}",
       "photoLater": "Întrebările cu fotografie nu pot fi completate încă pe acest dispozitiv.",
-      "stillNeeded": "Acestea au nevoie de un răspuns înainte de a încheia:"
+      "stillNeeded": "Acestea au nevoie de un răspuns înainte de a încheia:",
+      "score": {
+        "title": "Magazin perfect",
+        "value": "{score}%",
+        "none": "Încă fără scor",
+        "noWeighting": "Auditul se punctează după o ponderare pe care acest dispozitiv nu o are, așa că nu poate fi afișată aici. Va fi punctat oricum când ajunge la back office.",
+        "pillars": "Din ce este format scorul",
+        "skipped": "Nemăsurat",
+        "pillarValue": "{percentage}% · valorează {weight}%",
+        "pillar": {
+          "Availability": "Pe raft",
+          "ShareOfShelf": "Cotă de raft",
+          "PriceCompliance": "Preț"
+        }
+      }
     }
   },
   "Guard": {

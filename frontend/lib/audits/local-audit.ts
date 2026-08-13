@@ -1,3 +1,4 @@
+import type { PillarWeight, ScoreInputs } from "@/lib/audits/score";
 import { Decimal, Money } from "@/lib/pricing/money";
 import type {
   FieldKitDatabase,
@@ -451,6 +452,36 @@ function captured(audit: LocalAudit): Record<string, unknown> {
             questionText: answer.questionText,
             value: answer.value,
           })),
+  };
+}
+
+/**
+ * The audit as `computeScore` reads it (`AUD-06`, `BR-AUD-5`) — W11 slice 10.
+ *
+ * <b>Built from `captured()`'s own numbers, not from the draft's decimals.</b> The server scores the
+ * entries it stored, which are the minor units this device pushed; scoring the strings here instead
+ * would give the rep a number derived from a different rounding than the one the server will use, and
+ * `BR-AUD-5` requires the two to agree **exactly**. So the price lines go through the same
+ * `minorUnits` the wire does — one conversion, one place to be wrong.
+ *
+ * <b>No tolerance, because the server passes none.</b> `Audit.Ingest` calls `PerfectStoreScore` with
+ * the default `PriceToleranceMinorUnits = 0`, so a device that allowed a ban either way would show a
+ * compliance percentage the server then contradicts. When a tolerance becomes configuration it has to
+ * arrive here from the same place it arrives there.
+ */
+export function scoreInputsFor(
+  audit: LocalAudit,
+  weights: readonly PillarWeight[],
+): ScoreInputs {
+  return {
+    availability: audit.availability.map((line) => ({ status: line.status })),
+    facings: audit.facings.map((line) => ({ facings: line.facings })),
+    categoryFacings: audit.categoryFacings,
+    prices: audit.prices.map((line) => ({
+      observedMinorUnits: minorUnits(line.observed, line.currencyCode),
+      expectedMinorUnits: line.expected === null ? null : minorUnits(line.expected, line.currencyCode),
+    })),
+    weights,
   };
 }
 

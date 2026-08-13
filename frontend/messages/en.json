@@ -1576,7 +1576,21 @@
       "noAnswer": "No answer",
       "optionOf": "{option} for {question}",
       "photoLater": "Photo questions cannot be answered on this device yet.",
-      "stillNeeded": "These still need an answer before you can finish:"
+      "stillNeeded": "These still need an answer before you can finish:",
+      "score": {
+        "title": "Perfect store",
+        "value": "{score}%",
+        "none": "Not scored yet",
+        "noWeighting": "This audit is scored against a weighting this device does not hold, so it cannot be shown here. It will still be scored when it reaches the back office.",
+        "pillars": "What the score is made of",
+        "skipped": "Not measured",
+        "pillarValue": "{percentage}% · worth {weight}%",
+        "pillar": {
+          "Availability": "On shelf",
+          "ShareOfShelf": "Share of shelf",
+          "PriceCompliance": "Price"
+        }
+      }
     }
   },
   "Guard": {

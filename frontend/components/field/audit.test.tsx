@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Audit } from "@/components/field/audit";
 import type { SyncContextValue } from "@/components/sync/sync-provider";
-import { auditFor } from "@/lib/audits/local-audit";
+import { auditFor, draftFor, putAvailability } from "@/lib/audits/local-audit";
 import {
   closeDatabase,
   FieldKitDatabase,
@@ -625,7 +625,9 @@ describe("<Audit> and finishing it", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Finish the audit" }));
 
-    expect(await screen.findByText("This audit is queued.")).toBeTruthy();
+    // Ten seconds, like every other seal-path wait in this file: sealing is a two-store transaction
+    // and a router replace, and under the whole suite the 1s default went red about one run in three.
+    expect(await screen.findByText("This audit is queued.", undefined, { timeout: 10_000 })).toBeTruthy();
 
     // The answers are still shown — it is a record of what went — but nothing can act on them.
     expect(
@@ -670,4 +672,183 @@ describe("<Audit> and finishing it", () => {
 
     expect(await screen.findByText("This visit is finished")).toBeTruthy();
   });
+});
+
+describe("<Audit> and sealing what is actually stored", () => {
+  it("seals on what the store holds now, not on the snapshot it last rendered", async () => {
+    /*
+     * <b>Regression. It surfaced as a suite flake, and it was a real race.</b>
+     *
+     * The first tap on a shelf is *two* writes — `draftFor`, then `putAvailability` — so between them
+     * the screen legitimately holds an audit that has measured nothing, with the Finish button already
+     * rendered on it. Tapping through that gap was refused with "check at least one product" for a
+     * product the rep had just checked, and they had to tap again for a seal the store would have taken.
+     *
+     * Staged here the way the race stages itself: an empty draft the screen has rendered, then an
+     * answer written straight to the store, then the tap. What the seal must read is the store.
+     */
+    const started = await draftFor(db, {
+      visitId: "visit-1",
+      outletId: "outlet-1",
+      weightSetVersion: 3,
+      now: new Date("2026-03-17T09:30:00.000Z"),
+    });
+
+    render(<Audit visitId="visit-1" />);
+
+    const finish = await screen.findByRole("button", { name: "Finish the audit" });
+
+    await putAvailability(db, started.id, "p-1", "Present", new Date("2026-03-17T09:31:00.000Z"));
+
+    /*
+     * A **native** click, not `userEvent.click`: the write is committed but the live query's re-emit
+     * is still a microtask away, and `userEvent` would flush it before dispatching. Clicking the DOM
+     * directly lands the tap in the gap — which is the whole race, staged rather than waited for.
+     */
+    finish.click();
+
+    await waitFor(async () => expect(await db.outbox.count()).toBe(1), { timeout: 10_000 });
+    expect(screen.queryByText("Check at least one product before finishing.")).toBeNull();
+  }, 15_000);
+});
+
+describe("<Audit> and the score", () => {
+  it("scores what the rep has measured so far, pillar by pillar (AUD-06)", async () => {
+    /*
+     * Two answered, one found: availability is 50%. The other two pillars are skipped — no facings
+     * counted, no shelf price read — so the total renormalises over availability alone rather than
+     * dragging in two zeroes (`BR-AUD-2`, W10 slice 0).
+     *
+     * <b>The denominator is the lines the rep answered, not the whole MSL.</b> Answering one product
+     * and finding it reads 100%, which overstates a shelf nobody finished walking — and it is
+     * deliberate here because it is what the server does: `Audit.Ingest` scores the entries it stored,
+     * and `BR-AUD-5` has the two numbers agree exactly. A device that divided by the MSL instead
+     * would be the more useful screen and the wrong one.
+     */
+    render(<Audit visitId="visit-1" />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Cola 500ml is on the shelf" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Water 2L is not stocked here" }));
+
+    const pillars = within(await screen.findByRole("list", { name: "What the score is made of" }));
+
+    await waitFor(() => expect(pillars.getByText("50.00% · worth 50%")).toBeTruthy());
+    expect(screen.getByLabelText("Perfect store").textContent).toBe("50.00%");
+
+    // Said, not implied: a rep seeing 50 cannot otherwise tell an unmeasured pillar from a bad one.
+    expect(pillars.getAllByText("Not measured")).toHaveLength(2);
+  });
+
+  it("says nothing is scored yet rather than showing a zero", async () => {
+    /*
+     * An audit whose every pillar was skipped has no weighted mean to take. Printing 0% would tell a
+     * rep they had failed a shop they have not finished measuring — and 9c made this reachable, since
+     * an audit can now exist on a questionnaire answer alone.
+     */
+    await db.surveys.add({
+      id: "form-1",
+      name: "Cold chain",
+      rowVersion: 1,
+      questions: [
+        { order: 1, key: "chiller", text: "Chiller working?", type: "Boolean", mandatory: false, options: [] },
+      ],
+    });
+
+    render(<Audit visitId="visit-1" />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Yes to Chiller working?" }));
+
+    expect((await screen.findByLabelText("Perfect store")).textContent).toBe("Not scored yet");
+  });
+
+  it("scores against the weighting the audit names, not the newest (BR-AUD-8)", async () => {
+    /*
+     * <b>The rule this section is most likely to get wrong.</b> `BR-AUD-8` fixes the version when the
+     * draft starts, and the server scores the audit against *that* version. A screen reading "the
+     * newest" would restate the rep's morning after an overnight re-weighting synced — and would
+     * disagree with the number the back office stores.
+     *
+     * Version 3 weights availability at 50; version 4 weights it at 100. The rep started before the
+     * re-weighting synced, so the draft names 3 while the device now holds both — the state a rep is
+     * in whenever a round outlives a publish.
+     *
+     * <b>Both versions are in place before the render, deliberately.</b> The first shape of this test
+     * added version 4 *after* asserting, and it caught nothing: swapping the lookup for
+     * `currentScoreWeightSet` still passed, because the assertion ran before the re-emit. A test whose
+     * verdict depends on which of two async things happens first is not a test.
+     */
+    await db.scoreWeights.add({
+      id: "w-4",
+      version: 4,
+      publishedAtUtc: "2026-06-01T00:00:00.000Z",
+      weights: [
+        { pillar: "Availability", percentage: "100.00" },
+        { pillar: "ShareOfShelf", percentage: "0.00" },
+        { pillar: "PriceCompliance", percentage: "0.00" },
+      ],
+      rowVersion: 1,
+    });
+
+    // The draft the rep started this morning, naming the weighting that was current then.
+    const started = await draftFor(db, {
+      visitId: "visit-1",
+      outletId: "outlet-1",
+      weightSetVersion: 3,
+      now: new Date("2026-03-17T09:30:00.000Z"),
+    });
+    await putAvailability(db, started.id, "p-1", "Present", new Date("2026-03-17T09:31:00.000Z"));
+    await putAvailability(db, started.id, "p-2", "Absent", new Date("2026-03-17T09:32:00.000Z"));
+
+    render(<Audit visitId="visit-1" />);
+
+    const pillars = within(await screen.findByRole("list", { name: "What the score is made of" }));
+
+    // Worth 50, not 100: the audit names version 3, and version 3 is what it is scored against.
+    await waitFor(() => expect(pillars.getByText("50.00% · worth 50%")).toBeTruthy());
+    expect(pillars.queryByText("50.00% · worth 100%")).toBeNull();
+  });
+
+  it("refuses to guess when the weighting names a pillar it cannot compute", async () => {
+    /*
+     * A weight set published by a newer server, holding a pillar this build has never heard of.
+     * Dropping it would change the denominator the weighted mean is taken over, so the device would
+     * show a confident number the back office then contradicts — which is exactly what `BR-AUD-5`
+     * exists to prevent. Saying so is the honest answer.
+     */
+    await db.scoreWeights.add({
+      id: "w-9",
+      version: 9,
+      publishedAtUtc: "2026-07-01T00:00:00.000Z",
+      weights: [
+        { pillar: "Availability", percentage: "50.00" },
+        { pillar: "PlanogramCompliance", percentage: "50.00" },
+      ],
+      rowVersion: 1,
+    });
+
+    render(<Audit visitId="visit-1" />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Cola 500ml is on the shelf" }));
+
+    expect(
+      (await screen.findByText(/cannot be shown here/)).textContent,
+    ).toContain("It will still be scored when it reaches the back office.");
+
+    expect(screen.queryByRole("list", { name: "What the score is made of" })).toBeNull();
+  });
+
+  it("still shows the score after the audit is sealed", async () => {
+    // What the rep sent, and what the server will store against it. A breakdown that vanishes at the
+    // seal leaves them nothing to have been told.
+    render(<Audit visitId="visit-1" />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Cola 500ml is on the shelf" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Finish the audit" }));
+
+    await waitFor(async () => expect(await db.outbox.count()).toBe(1), { timeout: 10_000 });
+
+    // One line answered and found: 100% of what was measured, which is the number the server will
+    // store against this audit.
+    expect((await screen.findByLabelText("Perfect store")).textContent).toBe("100.00%");
+  }, 15_000);
 });

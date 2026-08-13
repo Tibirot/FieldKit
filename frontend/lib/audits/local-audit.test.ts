@@ -14,6 +14,7 @@ import {
   putCategoryFacings,
   putFacings,
   putPrice,
+  scoreInputsFor,
   seal,
 } from "@/lib/audits/local-audit";
 import { closeDatabase, FieldKitDatabase } from "@/lib/sync/db";
@@ -524,5 +525,90 @@ describe("sealing", () => {
 
     expect(await draft(db, "visit-1")).toBeUndefined();
     expect((await auditFor(db, "visit-1"))?.id).toBe(started.id);
+  });
+});
+
+describe("what the scorer is handed", () => {
+  const WEIGHTS = [
+    { pillar: "Availability" as const, percentage: "50.00" },
+    { pillar: "ShareOfShelf" as const, percentage: "30.00" },
+    { pillar: "PriceCompliance" as const, percentage: "20.00" },
+  ];
+
+  it("hands the scorer the same minor units the wire will carry (BR-AUD-5)", async () => {
+    /*
+     * <b>The one claim this adapter exists to make.</b> The server scores the entries it stored,
+     * which are the integers `captured()` pushed; a device that scored the draft's decimal strings
+     * instead would round in a different place and show the rep a number the back office then
+     * contradicts. `BR-AUD-5` has the two agree **exactly**.
+     *
+     * <b>Yen, because a hard-coded ×100 survives every RON case.</b> A sabotage that replaced the
+     * conversion with `Math.round(Number(amount) * 100)` scored `4.795` identically — the float lands
+     * on the right side of the midpoint by luck. `JPY` has **no** minor unit, so `300` is `300` and
+     * anything assuming cents says `30000`: a hundredfold error in the compliance pillar.
+     */
+    const started = await draftFor(db, REQUEST);
+    await putPrice(
+      db,
+      started.id,
+      { productId: "p-1", observed: "300", expected: "280", currencyCode: "JPY" },
+      NOW,
+    );
+
+    const sent = await seal(db, started.id, LATER);
+    const wire = (await db.outbox.toArray())[0].payload as {
+      prices: { observedMinorUnits: number; expectedMinorUnits: number }[];
+    };
+
+    expect(scoreInputsFor(sent!, WEIGHTS).prices).toEqual([
+      { observedMinorUnits: 300, expectedMinorUnits: 280 },
+    ]);
+
+    // Not just "480" — the *same* 480 the push carries, so the two cannot drift apart later.
+    expect(scoreInputsFor(sent!, WEIGHTS).prices).toEqual(
+      wire.prices.map((line) => ({
+        observedMinorUnits: line.observedMinorUnits,
+        expectedMinorUnits: line.expectedMinorUnits,
+      })),
+    );
+  });
+
+  it("keeps a price with no expectation, so the pillar can leave it out itself", async () => {
+    // `BR-AUD-3` drops unexpectable prices from *both* halves of the ratio, and that is the scorer's
+    // rule to apply — dropping the line here would hide from it that the rep read a shelf edge at all.
+    const started = await draftFor(db, REQUEST);
+    await putPrice(
+      db,
+      started.id,
+      { productId: "p-1", observed: "3.00", expected: null, currencyCode: "RON" },
+      NOW,
+    );
+
+    expect(scoreInputsFor((await auditFor(db, "visit-1"))!, WEIGHTS).prices).toEqual([
+      { observedMinorUnits: 300, expectedMinorUnits: null },
+    ]);
+  });
+
+  it("passes the category total through as null rather than zero", async () => {
+    /*
+     * `BR-AUD-2`'s distinction, carried rather than flattened: null skips share-of-shelf, and a zero
+     * would say the category has nothing on the shelf — a claim about the shop rather than about what
+     * the rep could count.
+     */
+    const started = await draftFor(db, REQUEST);
+    await putFacings(db, started.id, "p-1", 6, NOW);
+
+    const inputs = scoreInputsFor((await auditFor(db, "visit-1"))!, WEIGHTS);
+
+    expect(inputs.categoryFacings).toBeNull();
+    expect(inputs.facings).toEqual([{ facings: 6 }]);
+  });
+
+  it("sends no tolerance, because the server passes none", async () => {
+    // `Audit.Ingest` calls `PerfectStoreScore` with the default `PriceToleranceMinorUnits = 0`. A
+    // device that allowed a ban either way would show a compliance percentage the server contradicts.
+    const started = await draftFor(db, REQUEST);
+
+    expect(scoreInputsFor(started, WEIGHTS).priceToleranceMinorUnits).toBeUndefined();
   });
 });
