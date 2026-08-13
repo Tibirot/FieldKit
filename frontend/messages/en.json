@@ -1577,6 +1577,22 @@
       "optionOf": "{option} for {question}",
       "photoLater": "Photo questions cannot be answered on this device yet.",
       "stillNeeded": "These still need an answer before you can finish:",
+      "photos": {
+        "title": "Photos",
+        "unreadable": "No preview",
+        "section": "This photo shows",
+        "take": "Take a photo",
+        "none": "No photos yet.",
+        "remove": "Remove",
+        "failed": "That photo could not be saved. Try taking it again.",
+        "sections": {
+          "General": "The shop",
+          "Availability": "What is on the shelf",
+          "ShareOfShelf": "The shelf",
+          "PriceCompliance": "A price tag",
+          "Survey": "A questionnaire answer"
+        }
+      },
       "score": {
         "title": "Perfect store",
         "value": "{score}%",

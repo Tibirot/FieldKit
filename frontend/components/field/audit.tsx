@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useSync } from "@/components/sync/sync-provider";
 import { Button } from "@/components/ui/button";
@@ -27,13 +27,17 @@ import {
   type PillarScore,
   type ScorePillar,
 } from "@/lib/audits/score";
+import { downscale } from "@/lib/photos/downscale";
+import { attachPhoto, photosFor, removePhoto } from "@/lib/photos/local-photo";
 import { expectedPrices } from "@/lib/orders/pricing";
 import { looksLikeAnAmount } from "@/lib/api/price-lists";
 import type { ResolvedPrice } from "@/lib/pricing/price-resolver";
 import type {
   FieldKitDatabase,
   LocalAudit,
+  LocalAuditSection,
   LocalAvailabilityStatus,
+  LocalPhotoBlob,
   ReferenceProduct,
   ReferenceSurveyForm,
   ReferenceSurveyQuestion,
@@ -235,6 +239,20 @@ export function Audit({ visitId }: { visitId: string }) {
       <Survey
         audit={held}
         forms={forms}
+        onStart={() =>
+          draftFor(db, {
+            visitId,
+            outletId: visit.outletId,
+            weightSetVersion: weights?.version ?? held?.weightSetVersion ?? 0,
+            now: new Date(),
+          })
+        }
+        editable={!sealed}
+        queued={queued}
+      />
+
+      <Photos
+        audit={held}
         onStart={() =>
           draftFor(db, {
             visitId,
@@ -472,19 +490,32 @@ function Shelf({
                 />
               </label>
 
-              <label className="flex items-center gap-2">
-                <span className="text-muted-foreground">{t("shelfPrice")}</span>
-                <input
-                  // `inputMode`, never `type="number"` — a numeric input hands back a `number` on
-                  // some browsers, and this value becomes minor units the server compares exactly.
-                  inputMode="decimal"
-                  className="w-24 rounded-md border border-border px-2 py-1 text-right"
-                  disabled={!editable}
-                  defaultValue={read.get(product.id) ?? ""}
-                  aria-label={t("shelfPriceFor", { product: product.name })}
-                  onChange={(event) => { const value = event.target.value; void queued(() => readPrice(product.id, value)); }}
-                />
-              </label>
+              {/*
+                <b>No box until the device knows what money this shop trades in</b> (found by CI, W11
+                slice 11). `currency` is the code of a list that priced *something* here, and `""`
+                when none covers the outlet — or, briefly, while the resolution is still running.
+
+                A reading filed under `""` can be neither scored nor sent: `minorUnits` calls
+                `Money.of`, which refuses anything that is not a 3-letter ISO-4217 code, so the line
+                threw at the seal from 9b and inside the score's render from slice 10 — taking the
+                whole screen with it. Offering a box whose value cannot be kept is worse than not
+                offering it, and the store refuses such a line as well.
+              */}
+              {currency === "" ? null : (
+                <label className="flex items-center gap-2">
+                  <span className="text-muted-foreground">{t("shelfPrice")}</span>
+                  <input
+                    // `inputMode`, never `type="number"` — a numeric input hands back a `number` on
+                    // some browsers, and this value becomes minor units the server compares exactly.
+                    inputMode="decimal"
+                    className="w-24 rounded-md border border-border px-2 py-1 text-right"
+                    disabled={!editable}
+                    defaultValue={read.get(product.id) ?? ""}
+                    aria-label={t("shelfPriceFor", { product: product.name })}
+                    onChange={(event) => { const value = event.target.value; void queued(() => readPrice(product.id, value)); }}
+                  />
+                </label>
+              )}
 
               {/*
                 What the device says it should cost, shown beside the box rather than pre-filled
@@ -697,6 +728,209 @@ async function mustStock(
   return products
     .filter((product): product is ReferenceProduct => product !== undefined)
     .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+/** The sections a photograph can be evidence for, in the order the rep meets them on this screen. */
+const PHOTO_SECTIONS: readonly LocalAuditSection[] = [
+  "General",
+  "Availability",
+  "ShareOfShelf",
+  "PriceCompliance",
+  "Survey",
+];
+
+/**
+ * What the rep photographed (`AUD-05`, `OFF-08`, `B5`) — W11 slice 11.
+ *
+ * <b>The picture is stored before this returns, and uploaded later.</b> `B5` splits the two on
+ * purpose: a rep in a back room with one bar cannot wait for a 4 MB upload to finish before carrying
+ * on, and the audit must not be held hostage to it. The upload itself is slice 12; today every key
+ * this writes points at an object that does not exist, which the server's `CapturedPhoto` describes
+ * as the ordinary case rather than a defect.
+ *
+ * <b>Downscaled first, always.</b> Storing the camera's original would spend the device's scarcest
+ * quota on bytes nobody wants — `B5` is ~1600px and JPEG ~0.7, which still reads a price tag.
+ *
+ * <b>The section is the rep's to choose.</b> `AuditSection` is what a supervisor filters by, and only
+ * the person holding the camera knows whether this is the chiller, the gondola end or the shelf edge.
+ * It defaults to *General*, which is what most photographs are.
+ */
+function Photos({
+  audit,
+  onStart,
+  editable,
+  queued,
+}: {
+  audit: LocalAudit | null;
+  onStart: () => Promise<LocalAudit>;
+  editable: boolean;
+  queued: Queued;
+}) {
+  const t = useTranslations("Field.audit");
+  const { db } = useSync();
+
+  const [section, setSection] = useState<LocalAuditSection>("General");
+  const [failed, setFailed] = useState(false);
+
+  const held = useLive(
+    async () => (audit ? await photosFor(db, audit.id) : []),
+    [],
+    [db, audit?.id, audit?.photos.length],
+  );
+
+  async function take(file: File) {
+    setFailed(false);
+
+    const current = audit ?? (await onStart());
+
+    try {
+      await attachPhoto(db, {
+        auditId: current.id,
+        section,
+        image: await downscale(file),
+        // Minted here rather than inside the store, so the key is a fact about *this* photograph
+        // rather than about when the transaction happened to run.
+        photoId: crypto.randomUUID(),
+        now: new Date(),
+      });
+    } catch {
+      /*
+       * A camera file that cannot be decoded, or a browser with no canvas. Said rather than swallowed
+       * — a rep who tapped the shutter and saw nothing appear would take it again, and again.
+       */
+      setFailed(true);
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className="text-sm font-medium">{t("photos.title")}</h2>
+
+      {failed ? (
+        <p className="text-sm text-destructive" role="alert">
+          {t("photos.failed")}
+        </p>
+      ) : null}
+
+      {editable ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground">{t("photos.section")}</span>
+            <select
+              className="rounded-md border border-border bg-transparent px-2 py-1"
+              value={section}
+              aria-label={t("photos.section")}
+              onChange={(event) => setSection(event.target.value as LocalAuditSection)}
+            >
+              {PHOTO_SECTIONS.map((each) => (
+                <option key={each} value={each}>
+                  {t(`photos.sections.${each}`)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {/*
+            `capture="environment"` asks for the rear camera directly rather than a file picker,
+            which is the difference between a rep photographing a shelf and a rep hunting through
+            their gallery. A browser that does not understand it falls back to the picker, which is
+            the right degradation.
+          */}
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            aria-label={t("photos.take")}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+
+              // Cleared so the same file can be chosen twice — a rep photographing two identical
+              // shelf edges gets no change event the second time otherwise.
+              event.target.value = "";
+
+              if (file) void queued(() => take(file));
+            }}
+          />
+        </div>
+      ) : null}
+
+      {held.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t("photos.none")}</p>
+      ) : (
+        <ul aria-label={t("photos.title")} className="flex flex-wrap gap-2">
+          {held.map((photo) => (
+            <Photo
+              key={photo.objectKey}
+              photo={photo}
+              editable={editable}
+              onRemove={() =>
+                void queued(() => removePhoto(db, photo.auditId, photo.objectKey, new Date()))
+              }
+            />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/**
+ * One stored photograph, shown from the blob rather than from a server.
+ *
+ * <b>The object URL is revoked when the thumbnail goes.</b> Each one pins its blob in memory until
+ * released, and a rep working a long round would accumulate every picture they had taken that day.
+ */
+function Photo({
+  photo,
+  editable,
+  onRemove,
+}: {
+  photo: LocalPhotoBlob;
+  editable: boolean;
+  onRemove: () => void;
+}) {
+  const t = useTranslations("Field.audit");
+
+  /*
+   * Derived rather than held in state, so the first paint has it — and revoked on the way out,
+   * because each URL pins its blob in memory until released and a rep takes a lot of pictures.
+   *
+   * <b>A thumbnail that cannot be made must not take the screen down.</b> `createObjectURL` throws on
+   * anything that is not a real `Blob`, and the row is worth rendering without its picture: the rep
+   * still needs to see that a photograph is attached and still needs the button that removes it.
+   * Throwing here would unmount the whole audit — the shelf, the questionnaire and the score — over
+   * one unreadable image.
+   */
+  const source = useMemo(() => {
+    try {
+      return URL.createObjectURL(photo.image);
+    } catch {
+      return null;
+    }
+  }, [photo.image]);
+
+  useEffect(() => () => (source === null ? undefined : URL.revokeObjectURL(source)), [source]);
+
+  const label = t(`photos.sections.${photo.section}`);
+
+  return (
+    <li className="flex flex-col gap-1 rounded-xl border border-border p-2 text-xs">
+      {source === null ? (
+        <span className="flex size-24 items-center justify-center rounded-lg border border-border text-muted-foreground">
+          {t("photos.unreadable")}
+        </span>
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element -- an object URL, not a served asset: `next/image` would try to optimise a blob the server has never seen.
+        <img src={source} alt={label} className="size-24 rounded-lg object-cover" />
+      )}
+      <span className="text-muted-foreground">{label}</span>
+      {editable ? (
+        <Button type="button" size="sm" variant="outline" onClick={onRemove}>
+          {t("photos.remove")}
+        </Button>
+      ) : null}
+    </li>
+  );
 }
 
 /**

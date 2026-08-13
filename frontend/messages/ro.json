@@ -1577,6 +1577,22 @@
       "optionOf": "{option} pentru {question}",
       "photoLater": "Întrebările cu fotografie nu pot fi completate încă pe acest dispozitiv.",
       "stillNeeded": "Acestea au nevoie de un răspuns înainte de a încheia:",
+      "photos": {
+        "title": "Fotografii",
+        "unreadable": "Fără previzualizare",
+        "section": "Fotografia arată",
+        "take": "Fă o fotografie",
+        "none": "Nicio fotografie încă.",
+        "remove": "Șterge",
+        "failed": "Fotografia nu a putut fi salvată. Încearcă din nou.",
+        "sections": {
+          "General": "Magazinul",
+          "Availability": "Ce este pe raft",
+          "ShareOfShelf": "Raftul",
+          "PriceCompliance": "O etichetă de preț",
+          "Survey": "Un răspuns din chestionar"
+        }
+      },
       "score": {
         "title": "Magazin perfect",
         "value": "{score}%",
