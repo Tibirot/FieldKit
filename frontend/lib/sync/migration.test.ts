@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { draftFor as auditDraftFor } from "@/lib/audits/local-audit";
 import { draftFor } from "@/lib/orders/local-order";
-import { closeDatabase, FieldKitDatabase } from "./db";
+import { closeDatabase, FieldKitDatabase, WAITING } from "./db";
 import { enqueue, markRejected, pending, pendingCount, statusOf } from "./outbox";
 import {
   applyOrderMinimumChanges,
@@ -276,6 +276,59 @@ async function openVersionFourteen(name: string): Promise<Dexie> {
   return fourteenth;
 }
 
+/**
+ * The schema as W11 slice 11 shipped it — photographs exist, and nothing uploads them.
+ *
+ * The state of every device that took a picture before the uploader existed, which is the population
+ * version 16 has to carry forward.
+ */
+async function openVersionFifteen(name: string): Promise<Dexie> {
+  const legacy = await openVersionFourteen(name);
+  legacy.close();
+
+  const fifteenth = new Dexie(name);
+  fifteenth.version(1).stores(VERSION_1_STORES);
+  fifteenth.version(2).stores({
+    outbox: "mutationId, status, createdAt, subjectId, [status+createdAt]",
+  });
+  fifteenth.version(3).stores({}).upgrade((tx) => tx.table("watermarks").delete("outlets"));
+  fifteenth.version(4).stores({}).upgrade((tx) => tx.table("watermarks").delete("outlets"));
+  fifteenth.version(5).stores({ visits: "id, status, outletId" });
+  fifteenth.version(6).stores({ ref_surveys: "id, name" });
+  fifteenth.version(7).stores({ orders: "id, visitId, status" });
+  fifteenth.version(8).stores({}).upgrade(async (tx) => {
+    await tx.table("watermarks").delete("priceLines");
+    await tx.table("watermarks").delete("promotions");
+  });
+  fifteenth.version(9).stores({ ref_tax_rates: "id, [countryCode+taxClassId]" });
+  fifteenth.version(10).stores({}).upgrade((tx) => tx.table("watermarks").delete("outlets"));
+  fifteenth.version(11).stores({ ref_order_minimums: "id, channelId, outletId" });
+  fifteenth.version(12).stores({ audits: "id, visitId, status" });
+  fifteenth.version(13).stores({}).upgrade(async (tx) => {
+    await tx.table("audits").toCollection().modify((audit: Record<string, unknown>) => {
+      audit.facings ??= [];
+      audit.prices ??= [];
+      audit.categoryFacings ??= null;
+    });
+  });
+  fifteenth.version(14).stores({}).upgrade(async (tx) => {
+    await tx.table("audits").toCollection().modify((audit: Record<string, unknown>) => {
+      audit.answers ??= [];
+      audit.surveyFormId ??= null;
+    });
+  });
+  // Two indexes, not three: `uploadedAtUtc` is version 16's, and declaring it here would let the
+  // test open a database no device ever had — and hide the index actually being added.
+  fifteenth.version(15).stores({ blobs: "objectKey, auditId" }).upgrade(async (tx) => {
+    await tx.table("audits").toCollection().modify((audit: Record<string, unknown>) => {
+      audit.photos ??= [];
+    });
+  });
+  await fifteenth.open();
+
+  return fifteenth;
+}
+
 function outletRow(id: string, rowVersion: number) {
   return {
     id,
@@ -343,7 +396,7 @@ describe("upgrading a device that has unsent work", () => {
     // rows. Without this the whole file could be passing against databases that never existed at
     // v1. The number moves with every schema version, which is the point — a device that skipped
     // one still has to arrive at the latest.
-    expect(upgraded.verno).toBe(15);
+    expect(upgraded.verno).toBe(16);
     expect(await upgraded.outbox.count()).toBe(3);
 
     // Still in capture order, which is what the drain depends on — and now read through the new
@@ -624,7 +677,7 @@ describe("upgrading a device whose outlets predate the geofence radius", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(15);
+    expect(upgraded.verno).toBe(16);
     expect(await watermark(upgraded, OUTLETS)).toBe(0);
     expect(await watermark(upgraded, PRODUCTS)).toBe(41);
 
@@ -659,7 +712,7 @@ describe("upgrading a device that predates the visits store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(15);
+    expect(upgraded.verno).toBe(16);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
 
     // The new store exists and is empty, which is the only correct starting state: there were no
@@ -695,7 +748,7 @@ describe("upgrading a device that predates the audit's reference stores", () => 
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(15);
+    expect(upgraded.verno).toBe(16);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
     expect(await upgraded.visits.count()).toBe(1);
 
@@ -771,7 +824,7 @@ describe("upgrading a device to the order store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(15);
+    expect(upgraded.verno).toBe(16);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // The store arrives empty on an upgraded device, which is the state a fresh install is in — so
@@ -820,7 +873,7 @@ describe("upgrading a device whose prices are floats", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(15);
+    expect(upgraded.verno).toBe(16);
 
     // The two that carried money go back to zero, so the next pull resends every row.
     expect(await watermark(upgraded, PRICE_LINES)).toBe(0);
@@ -861,7 +914,7 @@ describe("upgrading a device that has never held a tax rate", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(15);
+    expect(upgraded.verno).toBe(16);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // Empty on arrival, like every other new reference store: the next pull fills it, because the
@@ -919,7 +972,7 @@ describe("upgrading a device whose outlets have no country", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(15);
+    expect(upgraded.verno).toBe(16);
 
     expect(await watermark(upgraded, OUTLETS)).toBe(0);
 
@@ -959,7 +1012,7 @@ describe("upgrading a device that has never held an order minimum", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(15);
+    expect(upgraded.verno).toBe(16);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // Empty on arrival, which for this store means every order passes — `BR-ORD-5` applies a minimum
@@ -1027,7 +1080,7 @@ describe("upgrading a device that predates the audit store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(15);
+    expect(upgraded.verno).toBe(16);
     expect(await upgraded.outbox.count()).toBe(1);
     expect(await upgraded.audits.count()).toBe(0);
 
@@ -1078,7 +1131,7 @@ describe("upgrading a device holding an audit from before the numbers", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(15);
+    expect(upgraded.verno).toBe(16);
 
     const audit = (await upgraded.audits.get("audit-1"))!;
 
@@ -1132,7 +1185,7 @@ describe("upgrading a device holding an audit from before the questionnaire", ()
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(15);
+    expect(upgraded.verno).toBe(16);
 
     const audit = (await upgraded.audits.get("audit-1"))!;
 
@@ -1182,7 +1235,7 @@ describe("upgrading a device that has never held a photograph", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(15);
+    expect(upgraded.verno).toBe(16);
 
     const audit = (await upgraded.audits.get("audit-1"))!;
 
@@ -1197,9 +1250,68 @@ describe("upgrading a device that has never held a photograph", () => {
       image: new Blob([new Uint8Array(8)], { type: "image/jpeg" }),
       bytes: 8,
       capturedAtUtc: "2026-03-17T10:05:00.000Z",
+      // Written through *today's* schema, so it carries version 16's fields — this test is about the
+      // table existing, not about what a version-15 row looked like. That is the test below.
+      uploadedAtUtc: WAITING,
+      attempts: 0,
     });
 
     expect(await upgraded.blobs.where("auditId").equals("audit-1").count()).toBe(1);
+
+    upgraded.close();
+  });
+});
+
+describe("upgrading a device holding photographs nothing has uploaded", () => {
+  it("marks every one as waiting, and indexes the answer", async () => {
+    /*
+     * `OFF-13` for version 16 (W11 slice 12b). Slice 11 stored photographs with no notion of an
+     * upload, because there was none; this is the population that exists on every device that took a
+     * picture in between.
+     *
+     * <b>Waiting is the empty string, not null</b>, and that is the version's whole point: IndexedDB
+     * will not index `null`, and the uploader asks "what is still waiting" on every sync run. Without
+     * the index that question is a scan of every image a rep has taken this week, because Dexie hands
+     * back whole records — megabytes of JPEG to read one field.
+     */
+    const name = `migration:${crypto.randomUUID()}`;
+
+    const legacy = await openVersionFifteen(name);
+    await legacy.table("blobs").bulkAdd([
+      {
+        objectKey: "audits/audit-1/photo-1.jpg",
+        auditId: "audit-1",
+        section: "General",
+        image: new Blob([new Uint8Array(8)], { type: "image/jpeg" }),
+        bytes: 8,
+        capturedAtUtc: "2026-03-17T10:05:00.000Z",
+      },
+      {
+        objectKey: "audits/audit-1/photo-2.jpg",
+        auditId: "audit-1",
+        section: "PriceCompliance",
+        image: new Blob([new Uint8Array(16)], { type: "image/jpeg" }),
+        bytes: 16,
+        capturedAtUtc: "2026-03-17T10:06:00.000Z",
+      },
+    ]);
+    legacy.close();
+
+    const upgraded = new FieldKitDatabase(name);
+    await upgraded.open();
+
+    expect(upgraded.verno).toBe(16);
+
+    const carried = await upgraded.blobs.get("audits/audit-1/photo-1.jpg");
+
+    expect(carried?.uploadedAtUtc).toBe(WAITING);
+    expect(carried?.attempts).toBe(0);
+
+    // The image itself is untouched, which is the point of the exercise: it is the only copy.
+    expect(carried?.bytes).toBe(8);
+
+    // And the new index answers the uploader's question rather than making it scan.
+    expect(await upgraded.blobs.where("uploadedAtUtc").equals(WAITING).count()).toBe(2);
 
     upgraded.close();
   });
@@ -1215,7 +1327,7 @@ describe("the schema itself", () => {
 
     await db.open();
 
-    expect(db.verno).toBe(15);
+    expect(db.verno).toBe(16);
 
     // The outbox is still keyed by the mutation id, which is the property the server's ledger
     // depends on: a re-send has to arrive under the id it was captured with.

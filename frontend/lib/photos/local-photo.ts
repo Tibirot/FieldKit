@@ -1,8 +1,9 @@
-import type {
-  FieldKitDatabase,
-  LocalAudit,
-  LocalAuditSection,
-  LocalPhotoBlob,
+import {
+  type FieldKitDatabase,
+  type LocalAudit,
+  type LocalAuditSection,
+  type LocalPhotoBlob,
+  WAITING,
 } from "@/lib/sync/db";
 
 /**
@@ -67,6 +68,9 @@ export async function attachPhoto(
       image: request.image,
       bytes: request.image.size,
       capturedAtUtc: request.now.toISOString(),
+      // Waiting, and never tried — the uploader's starting state (`OFF-08`, W11 slice 12b).
+      uploadedAtUtc: WAITING,
+      attempts: 0,
     };
 
     await db.blobs.put(blob);

@@ -1,5 +1,6 @@
 import { ApiError } from "@/lib/api/client";
 import { bindDevice, pull, push, type PushedMutation } from "@/lib/api/sync";
+import { uploadPhotos } from "@/lib/photos/upload";
 
 import { requestPersistentStorage, type FieldKitDatabase, type OutboxEntry } from "./db";
 import {
@@ -63,6 +64,15 @@ export type SyncResult = {
   pulled: number;
   dropped: number;
   cursor: number;
+  /** Photographs that reached object storage this run (`OFF-08`) — W11 slice 12b. */
+  uploaded: number;
+  /**
+   * Photographs still on the device after it.
+   *
+   * Failures *and* the ones given up on, because the rep needs one number for "pictures the back
+   * office does not have" — the difference between them is the uploader's business, not theirs.
+   */
+  awaitingUpload: number;
   /**
    * The run stopped early. The store is consistent either way — this says whether the device is up
    * to date or merely further along than it was.
@@ -160,7 +170,15 @@ export async function syncOnce(
   deviceId: string,
   signal?: AbortSignal,
 ): Promise<SyncResult> {
-  const result: SyncResult = { pushed: 0, rejected: 0, pulled: 0, dropped: 0, cursor: 0 };
+  const result: SyncResult = {
+    pushed: 0,
+    rejected: 0,
+    pulled: 0,
+    dropped: 0,
+    cursor: 0,
+    uploaded: 0,
+    awaitingUpload: 0,
+  };
 
   const drained = await drain(db, accessToken, deviceId, result, signal);
   if (drained !== undefined) {
@@ -176,6 +194,24 @@ export async function syncOnce(
   if (refreshed !== undefined) result.interrupted = refreshed;
 
   result.cursor = await watermark(db, OUTLETS);
+
+  /*
+   * Photographs last, and on their own terms (`OFF-08`, `B5`, sync engine §6) — W11 slice 12b.
+   *
+   * <b>After the pull, not before.</b> A JPEG is twenty times a visit's JSON, and the reference data
+   * a rep needs to work the *next* shop is worth more than the picture of the last one. A rep whose
+   * signal dies here has delivered their day's work and refreshed their round; only evidence lags.
+   *
+   * <b>It runs even when the pull was interrupted.</b> The two transports fail for different reasons
+   * — a pull refused for a stale cursor says nothing about whether a blob can be PUT — and skipping
+   * the upload because the pull stumbled would make photographs hostage to a queue they are not in.
+   * What it does not do is overwrite `interrupted`: a run that uploaded everything and failed to pull
+   * is still a run that did not finish.
+   */
+  const photos = await uploadPhotos(db, accessToken, new Date(), signal);
+
+  result.uploaded = photos.uploaded;
+  result.awaitingUpload = photos.failed + photos.abandoned;
 
   return result;
 }
@@ -549,7 +585,16 @@ export function startSync(
 
       // No token is not a failure to report — it is a rep who is signed out, and the outbox waits.
       if (!token) {
-        return { pushed: 0, rejected: 0, pulled: 0, dropped: 0, cursor: 0, interrupted: "unauthorized" as const };
+        return {
+          pushed: 0,
+          rejected: 0,
+          pulled: 0,
+          dropped: 0,
+          cursor: 0,
+          uploaded: 0,
+          awaitingUpload: 0,
+          interrupted: "unauthorized" as const,
+        };
       }
 
       return syncOnce(db, token, deviceId);

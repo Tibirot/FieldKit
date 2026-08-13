@@ -623,7 +623,29 @@ sequenceDiagram
   exists to support: a rep who sealed an audit on a dead connection and found signal an hour later.
   The cost is bounded and worth naming — a rep can obtain a URL for an audit id they invented and
   write a JPEG nothing references, in their own tenant, one blob, fifteen minutes, no read, no delete.
-- **The `confirm` step above, and the missing-blob flag, are not built yet** (W11 slice 12b/13).
+**What W11 slice 12b added — the device's half:**
+
+- **The upload runs last on a sync run**: push, then pull, then photographs. A JPEG is twenty times a
+  visit's JSON, and the reference data a rep needs for the *next* shop is worth more than the picture
+  of the last one.
+- **It runs even when the pull was interrupted.** The two transports fail for different reasons — a
+  pull refused for a stale cursor says nothing about whether a blob can be `PUT` — and skipping the
+  upload because the pull stumbled would make photographs hostage to a queue they are not in. It does
+  not clear `interrupted`: a run that uploaded everything and failed to pull still did not finish.
+- **Only a sealed audit's photographs are sent.** A draft's are still the rep's to remove, and
+  uploading one spends their data on an image that may be deleted a minute later — leaving an object
+  no audit will ever name.
+- **Serially, oldest first.** The connection is the thing the rep is short of; three parallel uploads
+  on a bad signal finish later than three sequential ones and are likelier to time out together.
+- **Each photograph carries its own failure count**, and after eight it stops being retried on every
+  run — kept, never deleted, because it is the only copy. Telling the rep is slice 13.
+- **The bytes stay on the device after upload.** A rep looking at a sealed audit should still see what
+  they photographed, and the upload path is write-only so the device is the only copy they can reach.
+  Pruning is `OFF-11`'s question, not this slice's.
+
+- **The `confirm` step above, and the missing-blob flag, are still not built** (W11 slice 13). The
+  device knows what it has uploaded; the server is not yet told, and nothing reconciles a reference
+  whose object never arrives.
 
 Photos ([B5](../product/decisions-and-assumptions.md#b5--photo--binary-sync)) upload
 **independently** of the JSON push and can lag it; the audit references the object key, resolved

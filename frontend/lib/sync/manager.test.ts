@@ -10,6 +10,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/lib/api/client";
 
+import { draftFor as auditDraftFor, seal as sealAudit } from "@/lib/audits/local-audit";
+import { attachPhoto } from "@/lib/photos/local-photo";
+
 import { FieldKitDatabase } from "./db";
 import { ensureDevice, startSync, syncOnce } from "./manager";
 import { enqueue, pending } from "./outbox";
@@ -42,6 +45,7 @@ const api = vi.hoisted(() => ({
   bindDevice: vi.fn(),
   pull: vi.fn(),
   push: vi.fn(),
+  presignPhoto: vi.fn(),
 }));
 
 vi.mock("@/lib/api/sync", () => api);
@@ -1639,5 +1643,137 @@ describe("an order waits for the visit it belongs to", () => {
     expect(await db.outbox.count()).toBe(0);
 
     db.close();
+  });
+});
+
+describe("photographs go last, and on their own terms", () => {
+  /*
+   * `OFF-08`, `B5`, sync engine §6 — W11 slice 12b.
+   *
+   * The ordering is a rule *between transports*, which is the one thing neither the uploader's own
+   * tests nor the outbox's can express: each knows only its own half.
+   */
+  const OUTLET = "outlet-1";
+  const VISIT = "visit-1";
+
+  /** Accepts whatever it is handed, so the drain finishes and the run reaches the photographs. */
+  function acceptEverything() {
+    api.push.mockImplementation(async (_t: string, _d: string, mutations: { mutationId: string }[]) => ({
+      results: mutations.map((mutation) => ({
+        mutationId: mutation.mutationId,
+        status: "accepted" as const,
+        reason: null,
+        detail: null,
+      })),
+    }));
+  }
+  async function sealedAuditWithPhoto(db: FieldKitDatabase) {
+    const audit = await auditDraftFor(db, {
+      visitId: VISIT,
+      outletId: OUTLET,
+      weightSetVersion: 1,
+      now: new Date("2026-08-13T09:00:00.000Z"),
+    });
+
+    await attachPhoto(db, {
+      auditId: audit.id,
+      section: "General",
+      image: new Blob([new Uint8Array(64)], { type: "image/jpeg" }),
+      photoId: "photo-1",
+      now: new Date("2026-08-13T09:01:00.000Z"),
+    });
+
+    await sealAudit(db, audit.id, new Date("2026-08-13T09:02:00.000Z"));
+
+    return audit;
+  }
+
+  it("uploads after the push and the pull, never before", async () => {
+    /*
+     * A JPEG is twenty times a visit's JSON. Spending the first seconds of a reconnect on evidence,
+     * while the day's work sits on the phone and the rep's next round is unrefreshed, is the wrong
+     * order — and it is the order an implementation gets by accident if the upload is put anywhere
+     * convenient.
+     */
+    const db = freshDatabase();
+    const order: string[] = [];
+
+    await sealedAuditWithPhoto(db);
+
+    api.push.mockImplementation(async () => {
+      order.push("push");
+
+      return { results: [{ mutationId: "m", status: "accepted", reason: null, detail: null }] };
+    });
+    api.pull.mockImplementation(async () => {
+      order.push("pull");
+
+      return emptyPull();
+    });
+    api.presignPhoto.mockImplementation(async () => {
+      order.push("presign");
+
+      return { url: "https://storage.example/x?sig=y", objectKey: "t/x", expiresAtUtc: "" };
+    });
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 201 })));
+
+    await syncOnce(db, TOKEN, DEVICE);
+
+    expect(order.indexOf("presign")).toBeGreaterThan(order.indexOf("push"));
+    expect(order.indexOf("presign")).toBeGreaterThan(order.indexOf("pull"));
+
+    vi.unstubAllGlobals();
+    await db.delete();
+  });
+
+  it("still uploads when the pull was interrupted", async () => {
+    /*
+     * The two transports fail for different reasons — a pull refused for a stale cursor says nothing
+     * about whether a blob can be PUT — and skipping the upload because the pull stumbled would make
+     * photographs hostage to a queue they are not in.
+     *
+     * What it must *not* do is call the run finished: `interrupted` stands.
+     */
+    const db = freshDatabase();
+
+    await sealedAuditWithPhoto(db);
+
+    acceptEverything();
+    api.pull.mockRejectedValue(new TypeError("Failed to fetch"));
+    api.presignPhoto.mockResolvedValue({
+      url: "https://storage.example/x?sig=y",
+      objectKey: "t/x",
+      expiresAtUtc: "",
+    });
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 201 })));
+
+    const result = await syncOnce(db, TOKEN, DEVICE);
+
+    expect(result.uploaded).toBe(1);
+    expect(result.interrupted).toBe("offline");
+
+    vi.unstubAllGlobals();
+    await db.delete();
+  });
+
+  it("reports what is still on the phone", async () => {
+    // One number for "pictures the back office does not have" — the difference between a failure and
+    // one given up on is the uploader's business, not the rep's.
+    const db = freshDatabase();
+
+    await sealedAuditWithPhoto(db);
+
+    acceptEverything();
+    api.pull.mockResolvedValue(emptyPull());
+    api.presignPhoto.mockRejectedValue(new TypeError("Failed to fetch"));
+
+    const result = await syncOnce(db, TOKEN, DEVICE);
+
+    expect(result.uploaded).toBe(0);
+    expect(result.awaitingUpload).toBe(1);
+
+    await db.delete();
   });
 });

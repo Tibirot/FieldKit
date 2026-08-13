@@ -629,6 +629,13 @@ export type LocalAuditSection =
 export type LocalPhoto = { section: LocalAuditSection; objectKey: string };
 
 /**
+ * What {@link LocalPhotoBlob.uploadedAtUtc} holds while the image is still on the device.
+ *
+ * Empty rather than null so IndexedDB can index it — see the field's own note.
+ */
+export const WAITING = "";
+
+/**
  * An image waiting to be uploaded (`OFF-08`, `B5`) — W11 slice 11.
  *
  * <b>The one table on this device holding something the server cannot re-send.</b> Every `ref_*`
@@ -647,6 +654,29 @@ export type LocalPhotoBlob = {
   image: Blob;
   bytes: number;
   capturedAtUtc: string;
+  /**
+   * When this image reached object storage, or {@link WAITING} while it has not (`OFF-08`) — W11 12b.
+   *
+   * <b>An empty string rather than null, and the type says so.</b> IndexedDB will not index `null`,
+   * and this field exists to be *queried* — the uploader asks "what is still waiting" on every sync
+   * run, and without an index that is a scan of every image a rep has taken this week, because Dexie
+   * hands back whole records to answer a question about one field. Typing it `string | null` while
+   * storing `""` would be a lie in the one place a reader checks.
+   *
+   * <b>The bytes are kept after upload, deliberately.</b> A rep looking at a sealed audit should
+   * still see what they photographed, and the device is the only copy they can reach — the upload
+   * path is write-only by design. Pruning is `OFF-11`'s question (storage pressure), not this
+   * slice's, and deleting on success would answer it by losing the picture.
+   */
+  uploadedAtUtc: string;
+  /**
+   * How many times an upload has been tried and failed.
+   *
+   * Kept per photograph rather than per run, because the retry schedule is this transport's own
+   * (`B5`): a picture that has failed nine times must not keep a rep's whole round waiting on it,
+   * and the count is what lets a later run skip it and still show a rep it is stuck.
+   */
+  attempts: number;
 };
 
 /**
@@ -1205,6 +1235,31 @@ export class FieldKitDatabase extends Dexie {
           .toCollection()
           .modify((audit: Partial<LocalAudit>) => {
             audit.photos ??= [];
+          });
+      });
+
+    /*
+     * Version 16 — a photograph knows whether it has been uploaded (`OFF-08`, W11 slice 12b).
+     *
+     * <b>`uploadedAtUtc` is indexed, and that is the version's whole point.</b> The uploader asks
+     * "what is still waiting" on every sync run, and a scan of every blob a rep has taken this week
+     * is a scan of megabytes — Dexie hands back whole records, images included, to answer a question
+     * about one field.
+     *
+     * IndexedDB will not index `null`, so *waiting* is stored as the empty string rather than null:
+     * `where("uploadedAtUtc").equals("")` is an index seek, and a filter over everything is not. The
+     * type says `string | null` because null is what a reader means; the store's own predicate is
+     * the only place that distinction is spelled.
+     */
+    this.version(16)
+      .stores({ blobs: "objectKey, auditId, uploadedAtUtc" })
+      .upgrade(async (tx) => {
+        await tx
+          .table("blobs")
+          .toCollection()
+          .modify((blob: Partial<LocalPhotoBlob>) => {
+            blob.uploadedAtUtc ??= WAITING;
+            blob.attempts ??= 0;
           });
       });
 
