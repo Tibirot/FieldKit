@@ -1,6 +1,8 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
+using Azure.Storage.Blobs;
+using FieldKit.Modules.Sync;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Hosting;
@@ -146,6 +148,22 @@ public sealed class ServerFixture : IAsyncLifetime
         // The same key the AppHost's `WithReference(photos)` writes. Its presence is what makes the
         // host register the blob client and the presign endpoint at all — see `SyncModule`.
         Environment.SetEnvironmentVariable("ConnectionStrings__photos", _azurite.GetConnectionString());
+
+        /*
+         * The container, which the app no longer creates for itself (W11 slice 12d).
+         *
+         * The AppHost declares it — bicep when published, Aspire's emulator hook in development — and
+         * neither of those is here, so the fixture does what they do. This is the same bargain as the
+         * connection strings above: supply what the orchestrator supplies, then exercise the real
+         * code path.
+         *
+         * The honest cost of the change: nothing in this suite would now notice the AppHost dropping
+         * the declaration. `scripts/check-deploy-manifest.mjs` is what covers that, and it asserts the
+         * published container carries this exact name.
+         */
+        await new BlobServiceClient(_azurite.GetConnectionString())
+            .GetBlobContainerClient(BlobPhotoStorage.ContainerName)
+            .CreateIfNotExistsAsync();
 
         // What the AppHost sets, and what the CORS rule the API applies at startup is cut from — the
         // browser upload is refused without it, one layer past the Content Security Policy.

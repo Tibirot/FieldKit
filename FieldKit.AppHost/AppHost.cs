@@ -206,6 +206,30 @@ var storage = builder.AddAzureStorage("storage")
 // controls is checked on every request by construction.
 var photos = storage.AddBlobs("photos");
 
+// Must match `BlobPhotoStorage.ContainerName`, which the AppHost cannot reference — it depends on the
+// server project, never on a module. `scripts/check-deploy-manifest.mjs` asserts the published name,
+// so the two cannot drift without the deploy gate saying so.
+const string PhotoContainerName = "photos";
+
+/*
+ * And the container is *declared*, not made on first use (W11 slice 12d).
+ *
+ * <b>Least privilege is the argument.</b> It was created lazily, by the API, on every presign — which
+ * means the identity that signs URLs also has to be allowed to create containers. An endpoint whose
+ * whole design is a write-only signature over one blob should not hold that right; declared here, the
+ * runtime needs blob read/write and nothing more.
+ *
+ * It also takes a round trip off the rep's path — every presign paid a `CreateIfNotExists` before it
+ * signed anything, on the connection the rep is already short of — and it puts the container in the
+ * deploy manifest, where `scripts/check-deploy-manifest.mjs` can see it. Infrastructure that exists
+ * only as a side effect of the first request is infrastructure nothing can check.
+ *
+ * <b>What it gives up, stated:</b> a container deleted in production no longer heals itself; it comes
+ * back on the next deploy. That is the right trade for a permission, but it is a trade.
+ */
+// On the account rather than on `photos`: the overload hanging off the blob resource is obsolete.
+var photoContainer = storage.AddBlobContainer("photo-container", PhotoContainerName);
+
 var server = builder.AddProject<Projects.FieldKit_Server>("server")
     .WithReference(database)
     .WaitFor(database)
@@ -298,14 +322,26 @@ if (builder.ExecutionContext.IsRunMode)
  *
  * <b>Two sources for the same origin, because the resource is two different things.</b> Published,
  * `storage` is an Azure Blob account described in bicep and has no endpoint a container app can be
- * pointed at — asking for one fails the manifest with "container app context not found". Its
- * connection string there *is* the service URI (`https://{account}.blob.core.windows.net/`), because
- * production signs with a managed identity and so carries no key. In development the account is an
- * Azurite container, whose connection string very much does carry a key, so the endpoint is the only
- * form safe to hand a browser. The check that caught this is the manifest job, not a test.
+ * pointed at — asking for one fails the manifest with "container app context not found". In
+ * development the account is an Azurite container, whose connection string carries an account key, so
+ * the endpoint is the only form safe to hand a browser. The check that caught this is the manifest
+ * job, not a test.
+ *
+ * <b>The bicep output, not the resource</b> (W11 slice 12d). 12c passed `photos` here, which reads as
+ * harmless — the value is the same service URI either way — and quietly made this a *reference*: the
+ * published front end's identity was granted Storage Blob, Table **and** Queue Data Contributor on
+ * the whole account, in order to obtain a string. Nothing in the front end talks to storage; the
+ * browser does, with a signature the API mints. Naming the output asks for the value and nothing else.
  */
 if (builder.ExecutionContext.IsPublishMode)
-    frontend.WithEnvironment("PHOTO_STORAGE_URL", photos);
+{
+    frontend.WithEnvironment("PHOTO_STORAGE_URL", storage.Resource.BlobEndpoint);
+
+    // And **no** roles with it. Naming the output is still a reference, and Aspire's default for one
+    // is the full data-plane grant; declaring an empty set says what is true — the front end holds a
+    // string, and nothing in it ever opens a connection to storage.
+    frontend.WithRoleAssignments(storage);
+}
 else
     frontend.WithEnvironment("PHOTO_STORAGE_URL", storage.GetEndpoint("blob"));
 

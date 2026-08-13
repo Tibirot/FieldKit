@@ -177,6 +177,54 @@ if (server) {
 }
 
 /*
+ * The photo container is declared, and carries the name the code writes to (W11 slice 12d).
+ *
+ * It used to be created lazily by the API, on every presign, which meant the identity that signs
+ * write-only URLs also had to be allowed to create containers. Declared, the deploy makes it — and
+ * the name is now in two places that cannot reference each other: `AppHost.cs` and
+ * `BlobPhotoStorage.ContainerName`. This is what stops them drifting apart in silence, since a
+ * mismatch fails nothing until a rep's upload 404s in the field.
+ */
+const PHOTO_CONTAINER_NAME = "photos";
+
+const photoContainer = manifest.resources?.["photo-container"];
+check(
+  photoContainer !== undefined,
+  "no `photo-container` resource — the photos container would not be created by the deploy, and " +
+    "nothing creates it at runtime any more",
+);
+check(
+  (photoContainer?.connectionString ?? "").includes(`ContainerName=${PHOTO_CONTAINER_NAME}`),
+  `photo-container does not name "${PHOTO_CONTAINER_NAME}" (got "${photoContainer?.connectionString}") — ` +
+    "it must match BlobPhotoStorage.ContainerName, which the AppHost cannot reference",
+);
+
+/*
+ * And the front end holds no data-plane role on the storage account.
+ *
+ * W11 slice 12c gave the front end the storage *origin* for its Content Security Policy — a string —
+ * by passing the resource to `WithEnvironment`. That reads as harmless and is not: a reference earns
+ * Aspire's default grant, and the published front-end identity came away with Storage Blob, Table
+ * **and** Queue Data Contributor over the whole account. Nothing in the front end opens a connection
+ * to storage; the browser does, with a signature the API mints and scopes to one blob.
+ *
+ * Read from the bicep because the manifest only names the module, not what is inside it.
+ */
+const frontendRoles = join(dirname(path), "webfrontend-roles-storage.module.bicep");
+
+try {
+  const bicep = readFileSync(frontendRoles, "utf8");
+  const granted = bicep.match(/roleAssignments@/g) ?? [];
+  check(
+    granted.length === 0,
+    `webfrontend holds ${granted.length} storage role assignment(s) — it needs the origin as a ` +
+      "string, not access to the account (see `WithRoleAssignments(storage)` in AppHost.cs)",
+  );
+} catch {
+  // No module at all is the better outcome: nothing referenced storage from the front end.
+}
+
+/*
  * The scale rules, read out of the generated bicep rather than the manifest.
  *
  * ADR-0011 priced this deployment on three numbers — Keycloak pinned to one replica, the API and
