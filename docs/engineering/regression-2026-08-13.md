@@ -4,10 +4,10 @@ A whole-app pass at the end of Week 11, run against `main` at
 [`16d52ca`](https://github.com/Tibirot/FieldKit/commit/16d52ca) — every automated gate, plus static
 analysis and a browser sweep looking for the things a green suite cannot tell you.
 
-**Headline: every gate is green and nothing found is a bug in shipped behaviour.** The findings are
-six gaps — a doc that has drifted, a stored value nothing reads, a rule mirrored in two languages with
-no shared corpus, three latent test flakes, and one small usability limit. They are ordered by what
-they would cost if left.
+**Headline: every gate is green and nothing found is broken in what shipped.** The findings are seven
+gaps — a doc that has drifted, a stored value nothing reads, a rule mirrored in two languages with no
+shared corpus, three latent test flakes, a small usability limit, and one `Must` whose device half is
+absent. They are ordered by what they would cost if left.
 
 ---
 
@@ -31,12 +31,46 @@ they would cost if left.
 The architecture gates are included in that run: the module-boundary tests, the `IgnoreQueryFilters`
 ban and the `DateTimeOffset.UtcNow` ban all hold.
 
-**Coverage this pass did not have.** The browser sweep ran as an administrator only, so the field
-app's rep-side flows — check-in, the audit screen, order capture, sync — were exercised by their unit
-and integration tests but not by hand. The `/en/field` shell renders and syncs; the flows behind it
-were last walked by hand during W11 slices 9–14.
+The browser sweep ran twice — once as an administrator over the back office, once as a rep over the
+field app. §2a records what the rep-side pass covered and what it could not reach.
 
 ---
+
+## 2a. The rep-side sweep
+
+Signed in as the rep, on a device holding four outlets and seven visits from earlier work.
+
+**Exercised and correct:**
+
+| Surface | Result |
+|---|---|
+| Today's journey, no plan for today | correct empty state, and it says what to do next |
+| Sync indicator | live, and honest — reported the two photographs this device is genuinely still holding |
+| Offline → online | chip switches to *"Offline — your work is saved on this device"* and recovers on reconnect |
+| This device screen | shops held, waiting-to-send, last-synced and storage all correct |
+| `/en/offline` route | 200 |
+| Console across every rep screen | no errors, no React warnings, no hydration warnings |
+
+**Three things that look like defects and are not.** Recorded so nobody spends an afternoon on them:
+
+- **"Storage used 0 of 20358 MB"** while the device holds photographs. `navigator.storage.estimate()`
+  reports 235,601 bytes; whole megabytes is a deliberate choice with a comment saying so
+  (*"a rep comparing 18 with 2048 does not need either to three decimals"*). Accurate, not a bug.
+- **No service worker registered.** `ServiceWorkerRegistrar` skips registration outside production
+  because `public/sw.js` is a post-build artefact, and the code explains that registering under
+  `next dev` would log a 404 on every page load. Deliberate — but see the coverage limit below.
+- **Every shop reports "No steps are set up for this shop."** The four outlets this rep holds are in a
+  channel with no visit workflow. Configuration, not code, and the empty state is handled gracefully.
+
+**What this pass could not reach, and why:**
+
+- **Check-in, visit steps, the audit screen and order capture.** All four sit behind a planned call,
+  and this rep has none for today. Their behaviour rests on unit and integration tests plus the manual
+  walks during W11 slices 9–14. Getting to them needs either a published plan for today or the
+  unplanned path in **F7** below — which is itself the finding.
+- **True offline shell loading.** The service worker only exists after a production build, so
+  `next dev` cannot demonstrate the app starting with the network gone. Exercising it needs
+  `npm run build && npm start`.
 
 ## 2. Findings
 
@@ -178,6 +212,47 @@ that changed prices that day.
 
 ---
 
+### F7 — A rep cannot add an unplanned visit, and `JRN-06` is a Must
+
+**Where:** the field app has no writer for it. `frontend/lib/visits/` exports `checkIn`, `checkOut`,
+`completeStep` and `markNotVisited` — and nothing for an unplanned call.
+
+`JRN-06` — *"Not-visited with reason; **add unplanned visit**"* — is a **Must**, Phase 2. Half of it
+is built and reachable: `NotVisited` renders from the check-in screen whenever there is a planned
+visit id. The other half exists everywhere **except** the place that would create one:
+
+| Layer | Unplanned call |
+|---|---|
+| `JourneyIngestService.AddUnplannedAsync` | built |
+| `JourneyPlan.TryAddUnplanned`, `VisitSource.Unplanned` | built |
+| `/sync/push` wire slot `unplanned` | built |
+| Sync manager: `"UnplannedCall" → "unplanned"` | built |
+| Back office renders the *Unplanned* badge | built |
+| **Anything on the device that enqueues one** | **missing** |
+
+The only mention of `UnplannedCall` in the whole front end is the slot mapping in
+`frontend/lib/sync/manager.ts:250` — a route for a mutation the device cannot produce.
+
+**Cost if left:** a rep standing in a shop that is not on today's plan cannot record the call at all.
+Worse, it is the *only* way into the field app when a plan is missing: with no planned calls, this
+rep's app offers **Sync now** and **This device** and nothing else. That is the state the sweep found
+it in, and it is why check-in, the audit and order capture could not be exercised by hand.
+
+The journey spec anticipated this shape — *"an unplanned call belongs to no cycle and so cannot be
+moved at all. That is not an omission"* — so the design question is settled; only the device's entry
+point is absent.
+
+**It does not read as a deliberate deferral.** W7 slice 5 is named *"Rep-side annotations —
+not-visited with reason, **unplanned visit**, reschedule within cycle"*, and the delivery plan carries
+no note saying the device half was dropped — the row has no outcome annotation at all. So the most
+likely reading is that the server half shipped under that slice, the device half followed for
+not-visited only, and nothing noticed the other one was still missing.
+
+That is worth checking against intent before scheduling, since the plan is the authority on what
+actually shipped. If it was deferred, the row should say so.
+
+---
+
 ## 3. Debts confirmed still open
 
 Carried from earlier slices, re-checked and still true. None is a defect; each is a decision with a
@@ -218,11 +293,23 @@ exists and has not been applied.
 
 ## 5. Suggested order
 
-1. **F4** — three lines, removes a known CI flake.
-2. **F2** — one table row.
-3. **F1** — the only finding that costs a rep something today.
-4. **F3** — a vector file and two readers; prevents a silent divergence.
-5. **F5** — one line of JSX.
-6. **F6** — with the `OutletSnapshot` time-zone debt, not before.
+1. **F7** — confirm against intent first; if it is not a deferral it is an unshipped `Must`, and it is
+   the reason a rep with no plan can do nothing at all.
+2. **F4** — three lines, removes a known CI flake.
+3. **F2** — one table row.
+4. **F1** — the finding that costs a rep most today, and the machinery to fix it already exists.
+5. **F3** — a vector file and two readers; prevents a silent divergence.
+6. **F5** — one line of JSX.
+7. **F6** — with the `OutletSnapshot` time-zone debt, not before.
 
-None blocks W12.
+None blocks W12 on its own. **F7 is the one that would change the plan**, because it is scope rather
+than polish — and because W12's demo is the full loop, which a rep who cannot start a call cannot
+walk.
+
+Two things worth doing regardless of the list, both about the *next* pass rather than this one:
+
+- **A published plan for today in the dev seed.** Half of what this sweep could not reach was
+  unreachable for want of one, and the same will be true of every future manual pass and of the W12
+  demo.
+- **A production build in the loop.** `next dev` cannot register the service worker, so the offline
+  shell — the app's central claim — is the one thing no local check ever exercises.
