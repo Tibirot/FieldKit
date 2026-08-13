@@ -295,8 +295,19 @@ if (builder.ExecutionContext.IsRunMode)
  * the device — presign succeeded, upload never happened, retry made it look like a bad network. It
  * shipped that way in 12b and a browser check found it, which no test in either suite could: the
  * device tests mock `fetch` and the server tests upload from .NET, where there is no CSP.
+ *
+ * <b>Two sources for the same origin, because the resource is two different things.</b> Published,
+ * `storage` is an Azure Blob account described in bicep and has no endpoint a container app can be
+ * pointed at — asking for one fails the manifest with "container app context not found". Its
+ * connection string there *is* the service URI (`https://{account}.blob.core.windows.net/`), because
+ * production signs with a managed identity and so carries no key. In development the account is an
+ * Azurite container, whose connection string very much does carry a key, so the endpoint is the only
+ * form safe to hand a browser. The check that caught this is the manifest job, not a test.
  */
-frontend.WithEnvironment("PHOTO_STORAGE_URL", storage.GetEndpoint("blob"));
+if (builder.ExecutionContext.IsPublishMode)
+    frontend.WithEnvironment("PHOTO_STORAGE_URL", photos);
+else
+    frontend.WithEnvironment("PHOTO_STORAGE_URL", storage.GetEndpoint("blob"));
 
 // The address Keycloak will send the browser back to after a login.
 //
