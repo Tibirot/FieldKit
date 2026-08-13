@@ -168,3 +168,33 @@ export function presignPhoto(
     signal,
   );
 }
+
+/** What the server made of a confirmation (`OFF-08`, `B5`, W11 slice 13a). */
+export type PhotoConfirmation = {
+  confirmed: number;
+  /** Keys naming no reference the server holds — usually an audit that has not been pushed yet. */
+  unknown: number;
+};
+
+/**
+ * Tells the server the bytes are in storage.
+ *
+ * <b>One key per call, not a batch, even though the endpoint takes a list.</b> The reply is counts
+ * rather than per-key outcomes, so a batch of five with one `unknown` cannot say *which* — and since
+ * a key already confirmed also answers `confirmed: 0`, that batch could never become fully
+ * acknowledged and would retry every one of its photographs forever. One key makes the answer
+ * unambiguous, and a hundred-byte `POST` after a 200 KB `PUT` is not the thing costing the rep.
+ */
+export function confirmPhoto(
+  accessToken: string,
+  objectKey: string,
+  signal?: AbortSignal,
+): Promise<PhotoConfirmation> {
+  return apiSend<PhotoConfirmation>(
+    "POST",
+    "/api/sync/photos/confirm",
+    accessToken,
+    { objectKeys: [objectKey] },
+    signal,
+  );
+}

@@ -211,7 +211,16 @@ export async function syncOnce(
   const photos = await uploadPhotos(db, accessToken, new Date(), signal);
 
   result.uploaded = photos.uploaded;
-  result.awaitingUpload = photos.failed + photos.abandoned;
+
+  /*
+   * One number for "evidence the back office does not have" (`OFF-05`) — W11 slice 13b.
+   *
+   * Failures, the ones given up on, **and** the ones in storage the server has not acknowledged.
+   * They are three states to the uploader and one fact to a rep: a picture their supervisor cannot
+   * see. An unconfirmed photograph is the mildest of the three and still belongs here, because the
+   * alternative is telling a rep everything is in while the server is still expecting something.
+   */
+  result.awaitingUpload = photos.failed + photos.abandoned + photos.awaitingConfirmation;
 
   return result;
 }

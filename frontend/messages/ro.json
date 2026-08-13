@@ -1288,8 +1288,10 @@
     "syncNow": "Sincronizează acum",
     "signInAgain": "Autentifică-te din nou pentru a sincroniza",
     "rebind": "Înregistrează din nou acest dispozitiv pentru a sincroniza",
+    "photosPending": "{count, plural, one {# fotografie de trimis} few {# fotografii de trimis} other {# de fotografii de trimis}}",
     "itemPending": "Nesincronizat",
     "itemFailed": "Necesită atenție",
+    "itemPhotosPending": "Se trimit fotografiile",
     "needsAttention": "{count, plural, one {# element necesită atenție — a fost respins și nu se reîncearcă} few {# elemente necesită atenție — au fost respinse și nu se reîncearcă} other {# de elemente necesită atenție — au fost respinse și nu se reîncearcă}}"
   },
   "Field": {

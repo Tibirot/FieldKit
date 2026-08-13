@@ -23,14 +23,14 @@ import { useConnectivity } from "@/lib/sync/connectivity";
 export function SyncIndicator() {
   const t = useTranslations("Sync");
   const online = useConnectivity();
-  const { pending, failed, running, outcome, syncNow } = useSync();
+  const { pending, failed, photographs, running, outcome, syncNow } = useSync();
 
-  const state = describe({ online, pending, failed, running, outcome });
+  const state = describe({ online, pending, failed, photographs, running, outcome });
 
   return (
     <div className="flex items-center gap-2" data-testid="sync-indicator">
       <Badge variant={state.variant} aria-live="polite">
-        {t(state.message, { count: state.message === "needsAttention" ? failed : pending })}
+        {t(state.message, { count: state.count })}
       </Badge>
 
       {/*
@@ -52,8 +52,24 @@ export function SyncIndicator() {
  * is how a chip ends up rendering `Sync.pendign` at a rep instead of failing to build.
  */
 type State = {
-  message: "rebind" | "signInAgain" | "needsAttention" | "syncing" | "offline" | "pending" | "synced";
+  message:
+    | "rebind"
+    | "signInAgain"
+    | "needsAttention"
+    | "syncing"
+    | "offline"
+    | "pending"
+    | "photosPending"
+    | "synced";
   variant: "default" | "secondary" | "destructive" | "outline";
+  /**
+   * What the message's `{count}` means, chosen with the message rather than beside it.
+   *
+   * Three states now carry a number and they are three different numbers. Picking it at the render
+   * site meant a ternary that had to be extended every time a state was added — and getting it wrong
+   * shows a rep a real count against the wrong noun, which reads as truth.
+   */
+  count: number;
 };
 
 /**
@@ -73,17 +89,19 @@ function describe({
   online,
   pending,
   failed,
+  photographs,
   running,
   outcome,
 }: {
   online: boolean;
   pending: number;
   failed: number;
+  photographs: number;
   running: boolean;
   outcome: string | null | undefined;
 }): State {
-  if (outcome === "deviceRejected") return { message: "rebind", variant: "destructive" };
-  if (outcome === "unauthorized") return { message: "signInAgain", variant: "destructive" };
+  if (outcome === "deviceRejected") return { message: "rebind", variant: "destructive", count: pending };
+  if (outcome === "unauthorized") return { message: "signInAgain", variant: "destructive", count: pending };
   /*
    * Refused work outranks everything a connection could fix, and this line is the bug W11 slice 8c
    * was opened for: only `pending` was counted, so an order the server refused was invisible and the
@@ -92,11 +110,24 @@ function describe({
    * Above `syncing` and `offline` on purpose. Both of those are temporary and neither is the rep's
    * problem; this one does not clear on its own and needs a person (`OFF-09`).
    */
-  if (failed > 0) return { message: "needsAttention", variant: "destructive" };
+  if (failed > 0) return { message: "needsAttention", variant: "destructive", count: failed };
 
-  if (running) return { message: "syncing", variant: "secondary" };
-  if (!online) return { message: "offline", variant: "outline" };
-  if (pending > 0) return { message: "pending", variant: "secondary" };
+  if (running) return { message: "syncing", variant: "secondary", count: pending };
+  if (!online) return { message: "offline", variant: "outline", count: pending };
+  if (pending > 0) return { message: "pending", variant: "secondary", count: pending };
 
-  return { message: "synced", variant: "outline" };
+  /*
+   * Photographs, below the outbox and above "synced" (`OFF-08`) — W11 slice 13b.
+   *
+   * <b>Below, because a queued visit is the more urgent fact</b> — it is the work itself, and the
+   * pictures are evidence about work already delivered. A rep whose visit has not gone needs to hear
+   * that first, and a chip cannot say two things.
+   *
+   * <b>Above "synced", because that is the lie this slice exists to stop.</b> The push and the upload
+   * are separate transports, so an empty outbox says nothing about a photograph still on the phone —
+   * and the chip read "Everything synced" over it, which tells a rep they can close the app.
+   */
+  if (photographs > 0) return { message: "photosPending", variant: "secondary", count: photographs };
+
+  return { message: "synced", variant: "outline", count: 0 };
 }

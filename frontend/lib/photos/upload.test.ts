@@ -4,7 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { draftFor, seal } from "@/lib/audits/local-audit";
 import { attachPhoto } from "@/lib/photos/local-photo";
-import { fullyUploaded, uploadPhotos, waiting } from "@/lib/photos/upload";
+import {
+  awaitingConfirmation,
+  evidenceComplete,
+  outstandingPhotographs,
+  uploadPhotos,
+  waiting,
+} from "@/lib/photos/upload";
 import { closeDatabase, FieldKitDatabase, WAITING } from "@/lib/sync/db";
 
 /**
@@ -16,10 +22,12 @@ import { closeDatabase, FieldKitDatabase, WAITING } from "@/lib/sync/db";
  * `PhotoPresignTests`' question, answered against a real Blob service.
  */
 const presigned = vi.hoisted(() => vi.fn());
+const confirmed = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/api/sync", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/sync")>()),
   presignPhoto: presigned,
+  confirmPhoto: confirmed,
 }));
 
 const NOW = new Date("2026-03-17T10:15:00.000Z");
@@ -62,6 +70,11 @@ beforeEach(() => {
     expiresAtUtc: LATER.toISOString(),
   }));
 
+  // The server's ordinary answer: it knew the key and recorded it. The "not yet" answer is its own
+  // case below, because it is the one the two-transport design depends on.
+  confirmed.mockReset();
+  confirmed.mockResolvedValue({ confirmed: 1, unknown: 0 });
+
   put = vi.fn(async () => new Response(null, { status: 201 }));
   vi.stubGlobal("fetch", put);
 });
@@ -78,9 +91,15 @@ describe("what gets uploaded", () => {
 
     const result = await uploadPhotos(db, "token", LATER);
 
-    expect(result).toEqual({ uploaded: 2, failed: 0, abandoned: 0 });
+    expect(result).toEqual({
+      uploaded: 2,
+      failed: 0,
+      abandoned: 0,
+      confirmed: 2,
+      awaitingConfirmation: 0,
+    });
     expect(await waiting(db)).toEqual([]);
-    expect(await fullyUploaded(db, started.id)).toBe(true);
+    expect(await evidenceComplete(db, started.id)).toBe(true);
   });
 
   it("leaves a draft's photographs alone", async () => {
@@ -95,7 +114,13 @@ describe("what gets uploaded", () => {
 
     const result = await uploadPhotos(db, "token", LATER);
 
-    expect(result).toEqual({ uploaded: 0, failed: 0, abandoned: 0 });
+    expect(result).toEqual({
+      uploaded: 0,
+      failed: 0,
+      abandoned: 0,
+      confirmed: 0,
+      awaitingConfirmation: 0,
+    });
     expect(put).not.toHaveBeenCalled();
     expect(await waiting(db)).toHaveLength(1);
   });
@@ -171,7 +196,13 @@ describe("when an upload fails", () => {
 
     const result = await uploadPhotos(db, "token", LATER);
 
-    expect(result).toEqual({ uploaded: 1, failed: 1, abandoned: 0 });
+    expect(result).toEqual({
+      uploaded: 1,
+      failed: 1,
+      abandoned: 0,
+      confirmed: 1,
+      awaitingConfirmation: 0,
+    });
 
     const stuck = (await waiting(db))[0];
 
@@ -242,7 +273,13 @@ describe("when an upload fails", () => {
 
     const result = await uploadPhotos(db, "token", LATER);
 
-    expect(result).toEqual({ uploaded: 0, failed: 0, abandoned: 1 });
+    expect(result).toEqual({
+      uploaded: 0,
+      failed: 0,
+      abandoned: 1,
+      confirmed: 0,
+      awaitingConfirmation: 0,
+    });
     expect(put).not.toHaveBeenCalled();
     expect(await db.blobs.count()).toBe(1);
   });
@@ -291,13 +328,144 @@ describe("whether an audit's evidence has landed", () => {
 
     await uploadPhotos(db, "token", LATER);
 
-    expect(await fullyUploaded(db, started.id)).toBe(false);
+    expect(await evidenceComplete(db, started.id)).toBe(false);
   });
 
   it("is true for an audit that took none", async () => {
     // Vacuously, and deliberately: an audit with no photographs is not waiting for any.
     const started = await draftFor(db, REQUEST);
 
-    expect(await fullyUploaded(db, started.id)).toBe(true);
+    expect(await evidenceComplete(db, started.id)).toBe(true);
+  });
+});
+
+describe("telling the server the bytes arrived", () => {
+  it("confirms with the key the server minted, not the device's own", async () => {
+    /*
+     * <b>The one thing the device cannot reconstruct.</b> The tenant prefix comes back from presign
+     * and is not ours to know, so confirming with `audits/…` would name nothing and the photograph
+     * would look unacknowledged forever — the exact failure this slice exists to make impossible.
+     */
+    const started = await audited(1);
+
+    await uploadPhotos(db, "token", LATER);
+
+    expect(confirmed).toHaveBeenCalledWith(
+      "token",
+      `tenant/audits/${started.id}/photo-0.jpg`,
+      undefined,
+    );
+  });
+
+  it("confirms one key per call rather than a batch", async () => {
+    /*
+     * The endpoint takes a list, and using it would be wrong here: the reply is counts, so a batch
+     * with one `unknown` cannot say which — and because an already-confirmed key also answers
+     * `confirmed: 0`, that batch could never settle and would re-confirm every photograph in it on
+     * every sync, forever.
+     */
+    await audited(3);
+
+    await uploadPhotos(db, "token", LATER);
+
+    expect(confirmed).toHaveBeenCalledTimes(3);
+  });
+
+  it("leaves a photograph unacknowledged when the audit has not landed yet", async () => {
+    /*
+     * <b>Ordinary, not a failure.</b> The two transports are independent and the upload can win, so
+     * the server legitimately does not know the audit yet. Counting this as failed would put a
+     * "needs attention" in front of a rep for something that fixes itself on the next push.
+     */
+    confirmed.mockResolvedValue({ confirmed: 0, unknown: 1 });
+
+    const started = await audited(1);
+
+    const result = await uploadPhotos(db, "token", LATER);
+
+    expect(result.uploaded).toBe(1);
+    expect(result.failed).toBe(0);
+    expect(result.awaitingConfirmation).toBe(1);
+    expect(await evidenceComplete(db, started.id)).toBe(false);
+    expect(await awaitingConfirmation(db)).toHaveLength(1);
+  });
+
+  it("retries the confirmation on a later run without uploading again", async () => {
+    /*
+     * The bytes are in storage and only the sentence about them is missing. Re-uploading would spend
+     * a rep's data to say something the server could be told in a hundred bytes.
+     */
+    confirmed.mockResolvedValue({ confirmed: 0, unknown: 1 });
+
+    const started = await audited(1);
+    await uploadPhotos(db, "token", LATER);
+
+    confirmed.mockResolvedValue({ confirmed: 1, unknown: 0 });
+
+    const second = await uploadPhotos(db, "token", LATER);
+
+    expect(put).toHaveBeenCalledTimes(1);
+    expect(second.confirmed).toBe(1);
+    expect(await evidenceComplete(db, started.id)).toBe(true);
+  });
+
+  it("keeps the reason when the confirmation itself will not go through", async () => {
+    /*
+     * The `PUT` goes to storage and this goes to the API; a rep can have one and not the other. The
+     * message is kept for the same reason the upload's is — W11 slice 12c shipped a feature that
+     * could not work because a swallowed error looked exactly like a weak signal.
+     */
+    confirmed.mockRejectedValue(new Error("Failed to fetch"));
+
+    await audited(1);
+
+    const result = await uploadPhotos(db, "token", LATER);
+
+    expect(result.uploaded).toBe(1);
+    expect(result.awaitingConfirmation).toBe(1);
+    expect((await awaitingConfirmation(db))[0].lastFailure).toBe("Failed to fetch");
+  });
+
+  it("treats an already-confirmed key as settled", async () => {
+    // What a retry gets: the server knew, and said so by confirming nothing. Leaving the row
+    // unacknowledged on that answer would make it retry for as long as the device lives.
+    confirmed.mockResolvedValue({ confirmed: 0, unknown: 0 });
+
+    const started = await audited(1);
+
+    const result = await uploadPhotos(db, "token", LATER);
+
+    expect(result.confirmed).toBe(1);
+    expect(await evidenceComplete(db, started.id)).toBe(true);
+  });
+});
+
+describe("what a rep is told is outstanding", () => {
+  it("counts a sealed audit's unacknowledged photographs", async () => {
+    confirmed.mockResolvedValue({ confirmed: 0, unknown: 1 });
+
+    await audited(2);
+    await uploadPhotos(db, "token", LATER);
+
+    expect(await outstandingPhotographs(db)).toBe(2);
+  });
+
+  it("ignores a draft's, however many the rep has taken", async () => {
+    /*
+     * <b>The difference between a useful count and one a rep stops reading.</b> A draft's
+     * photographs are deliberately never uploaded, so counting them would leave the indicator saying
+     * *photos still to send* for as long as an audit is open — which is most of a working day.
+     */
+    await audited(3, { sealed: false });
+
+    expect(await outstandingPhotographs(db)).toBe(0);
+  });
+
+  it("is zero once everything has been acknowledged", async () => {
+    await audited(2);
+
+    await uploadPhotos(db, "token", LATER);
+
+    expect(await outstandingPhotographs(db)).toBe(0);
   });
 });

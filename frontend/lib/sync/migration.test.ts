@@ -387,6 +387,29 @@ async function openVersionSixteen(name: string): Promise<Dexie> {
   return sixteenth;
 }
 
+/**
+ * The schema as W11 slice 12c shipped it — photographs know why they are stuck, and nothing knows
+ * whether the *server* was told they arrived.
+ *
+ * Built on the sixteenth, for the reason every helper here gives: a device arrives at the current
+ * version through the versions that existed, not through a shortcut this file invented.
+ */
+async function openVersionSeventeen(name: string): Promise<Dexie> {
+  const legacy = await openVersionSixteen(name);
+  legacy.close();
+
+  const seventeenth = new Dexie(name);
+  seventeenth.version(16).stores({ blobs: "objectKey, auditId, uploadedAtUtc" });
+  seventeenth.version(17).stores({}).upgrade(async (tx) => {
+    await tx.table("blobs").toCollection().modify((blob: Record<string, unknown>) => {
+      blob.lastFailure ??= "";
+    });
+  });
+  await seventeenth.open();
+
+  return seventeenth;
+}
+
 function outletRow(id: string, rowVersion: number) {
   return {
     id,
@@ -454,7 +477,7 @@ describe("upgrading a device that has unsent work", () => {
     // rows. Without this the whole file could be passing against databases that never existed at
     // v1. The number moves with every schema version, which is the point — a device that skipped
     // one still has to arrive at the latest.
-    expect(upgraded.verno).toBe(17);
+    expect(upgraded.verno).toBe(18);
     expect(await upgraded.outbox.count()).toBe(3);
 
     // Still in capture order, which is what the drain depends on — and now read through the new
@@ -735,7 +758,7 @@ describe("upgrading a device whose outlets predate the geofence radius", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(17);
+    expect(upgraded.verno).toBe(18);
     expect(await watermark(upgraded, OUTLETS)).toBe(0);
     expect(await watermark(upgraded, PRODUCTS)).toBe(41);
 
@@ -770,7 +793,7 @@ describe("upgrading a device that predates the visits store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(17);
+    expect(upgraded.verno).toBe(18);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
 
     // The new store exists and is empty, which is the only correct starting state: there were no
@@ -806,7 +829,7 @@ describe("upgrading a device that predates the audit's reference stores", () => 
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(17);
+    expect(upgraded.verno).toBe(18);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
     expect(await upgraded.visits.count()).toBe(1);
 
@@ -882,7 +905,7 @@ describe("upgrading a device to the order store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(17);
+    expect(upgraded.verno).toBe(18);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // The store arrives empty on an upgraded device, which is the state a fresh install is in — so
@@ -931,7 +954,7 @@ describe("upgrading a device whose prices are floats", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(17);
+    expect(upgraded.verno).toBe(18);
 
     // The two that carried money go back to zero, so the next pull resends every row.
     expect(await watermark(upgraded, PRICE_LINES)).toBe(0);
@@ -972,7 +995,7 @@ describe("upgrading a device that has never held a tax rate", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(17);
+    expect(upgraded.verno).toBe(18);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // Empty on arrival, like every other new reference store: the next pull fills it, because the
@@ -1030,7 +1053,7 @@ describe("upgrading a device whose outlets have no country", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(17);
+    expect(upgraded.verno).toBe(18);
 
     expect(await watermark(upgraded, OUTLETS)).toBe(0);
 
@@ -1070,7 +1093,7 @@ describe("upgrading a device that has never held an order minimum", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(17);
+    expect(upgraded.verno).toBe(18);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // Empty on arrival, which for this store means every order passes — `BR-ORD-5` applies a minimum
@@ -1138,7 +1161,7 @@ describe("upgrading a device that predates the audit store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(17);
+    expect(upgraded.verno).toBe(18);
     expect(await upgraded.outbox.count()).toBe(1);
     expect(await upgraded.audits.count()).toBe(0);
 
@@ -1189,7 +1212,7 @@ describe("upgrading a device holding an audit from before the numbers", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(17);
+    expect(upgraded.verno).toBe(18);
 
     const audit = (await upgraded.audits.get("audit-1"))!;
 
@@ -1243,7 +1266,7 @@ describe("upgrading a device holding an audit from before the questionnaire", ()
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(17);
+    expect(upgraded.verno).toBe(18);
 
     const audit = (await upgraded.audits.get("audit-1"))!;
 
@@ -1293,7 +1316,7 @@ describe("upgrading a device that has never held a photograph", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(17);
+    expect(upgraded.verno).toBe(18);
 
     const audit = (await upgraded.audits.get("audit-1"))!;
 
@@ -1350,7 +1373,7 @@ describe("upgrading a device whose photographs never said why they were stuck", 
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(17);
+    expect(upgraded.verno).toBe(18);
 
     const carried = await upgraded.blobs.get("audits/audit-1/photo-1.jpg");
 
@@ -1404,7 +1427,7 @@ describe("upgrading a device holding photographs nothing has uploaded", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(17);
+    expect(upgraded.verno).toBe(18);
 
     const carried = await upgraded.blobs.get("audits/audit-1/photo-1.jpg");
 
@@ -1431,7 +1454,7 @@ describe("the schema itself", () => {
 
     await db.open();
 
-    expect(db.verno).toBe(17);
+    expect(db.verno).toBe(18);
 
     // The outbox is still keyed by the mutation id, which is the property the server's ledger
     // depends on: a re-send has to arrive under the id it was captured with.
@@ -1444,3 +1467,91 @@ describe("the schema itself", () => {
 
 
 
+
+describe("upgrading a device that never told the server its photographs arrived", () => {
+  it("leaves a waiting photograph waiting, and writes off one already uploaded", async () => {
+    /*
+     * `OFF-13` for version 18 (W11 slice 13b). The field exists because uploading and being *known*
+     * to have uploaded are different facts: the bytes go to storage on a URL the server never sees
+     * used, so an upload that succeeded and an acknowledgement that never got through look identical
+     * from the back office.
+     *
+     * <b>Two rows, because they get opposite treatment and the difference is a decision.</b> One
+     * still waiting can be confirmed the ordinary way once it goes. One *already uploaded* cannot,
+     * ever: its key came back from a presign nobody kept, the tenant prefix is not this device's to
+     * rebuild, and there is nothing to send. Marking it confirmed is a small lie told deliberately —
+     * the alternative is a row retrying a call it has no arguments for on every sync, forever.
+     *
+     * What that costs is worth stating: the server reads those references as missing once they are a
+     * week old, which is the honest outcome for a photograph it was never told about.
+     */
+    const name = `migration:${crypto.randomUUID()}`;
+
+    const legacy = await openVersionSeventeen(name);
+
+    await legacy.table("blobs").bulkAdd([
+      {
+        objectKey: "audits/audit-1/waiting.jpg",
+        auditId: "audit-1",
+        section: "General",
+        image: new Blob([new Uint8Array(8)], { type: "image/jpeg" }),
+        bytes: 8,
+        capturedAtUtc: "2026-03-17T10:05:00.000Z",
+        uploadedAtUtc: "",
+        attempts: 2,
+        lastFailure: "Failed to fetch",
+      },
+      {
+        objectKey: "audits/audit-1/gone.jpg",
+        auditId: "audit-1",
+        section: "General",
+        image: new Blob([new Uint8Array(8)], { type: "image/jpeg" }),
+        bytes: 8,
+        capturedAtUtc: "2026-03-17T10:06:00.000Z",
+        uploadedAtUtc: "2026-03-17T11:00:00.000Z",
+        attempts: 0,
+        lastFailure: "",
+      },
+    ]);
+
+    legacy.close();
+
+    const upgraded = new FieldKitDatabase(name);
+    await upgraded.open();
+
+    expect(upgraded.verno).toBe(18);
+
+    const stillWaiting = await upgraded.blobs.get("audits/audit-1/waiting.jpg");
+    const alreadyGone = await upgraded.blobs.get("audits/audit-1/gone.jpg");
+
+    expect(stillWaiting?.storedKey).toBe("");
+    expect(stillWaiting?.confirmedAtUtc).toBe(WAITING);
+
+    expect(alreadyGone?.storedKey).toBe("");
+    expect(alreadyGone?.confirmedAtUtc).toBe("2026-03-17T11:00:00.000Z");
+
+    // What each row already knew is untouched — the reason a rep would be looking at the first one
+    // at all, and the upload time on the second.
+    expect(stillWaiting?.attempts).toBe(2);
+    expect(stillWaiting?.lastFailure).toBe("Failed to fetch");
+    expect(alreadyGone?.uploadedAtUtc).toBe("2026-03-17T11:00:00.000Z");
+
+    upgraded.close();
+  });
+
+  it("indexes the answer, so the confirm pass is a seek rather than a scan", async () => {
+    // The same reason version 16 indexed `uploadedAtUtc`: this question is asked on every sync run,
+    // and without the index it reads every JPEG on the device to look at one field.
+    const name = `migration:${crypto.randomUUID()}`;
+
+    const legacy = await openVersionSeventeen(name);
+    legacy.close();
+
+    const upgraded = new FieldKitDatabase(name);
+    await upgraded.open();
+
+    expect(upgraded.blobs.schema.indexes.map((index) => index.name)).toContain("confirmedAtUtc");
+
+    upgraded.close();
+  });
+});

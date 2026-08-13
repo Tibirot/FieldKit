@@ -1288,8 +1288,10 @@
     "syncNow": "Sync now",
     "signInAgain": "Sign in again to sync",
     "rebind": "Register this device again to sync",
+    "photosPending": "{count, plural, one {# photo still to send} other {# photos still to send}}",
     "itemPending": "Not synced",
     "itemFailed": "Needs attention",
+    "itemPhotosPending": "Photos sending",
     "needsAttention": "{count, plural, one {# item needs attention — it was refused and will not retry} other {# items need attention — they were refused and will not retry}}"
   },
   "Field": {

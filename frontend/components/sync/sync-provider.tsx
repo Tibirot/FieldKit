@@ -6,6 +6,7 @@ import { useAuth } from "@/components/auth-provider";
 import { openDatabase, type FieldKitDatabase } from "@/lib/sync/db";
 import { useLive } from "@/lib/sync/live";
 import { startSync, type SyncManager, type SyncResult } from "@/lib/sync/manager";
+import { outstandingPhotographs } from "@/lib/photos/upload";
 import { failedCount, pendingCount } from "@/lib/sync/outbox";
 
 export type SyncContextValue = {
@@ -21,6 +22,15 @@ export type SyncContextValue = {
    * refused order "Everything synced".
    */
   failed: number;
+  /**
+   * Photographs from sealed audits the back office does not have (`OFF-08`) — W11 slice 13b.
+   *
+   * Separate from {@link pending} because they travel on a different transport and fail for
+   * different reasons: pending is the outbox, this is the upload and its acknowledgement. Together
+   * they are what "everything is in" has to mean — counting only the first is how a rep gets told
+   * their day is safe while a photograph is still on the phone.
+   */
+  photographs: number;
   /** Whether a run is in flight, so the button can say so rather than looking ignored. */
   running: boolean;
   /** How the last run ended. `undefined` means it finished, `null` means none has run yet. */
@@ -116,6 +126,7 @@ export function SyncProvider({
 
   const pending = useLive(() => pendingCount(db), 0, [db]);
   const failed = useLive(() => failedCount(db), 0, [db]);
+  const photographs = useLive(() => outstandingPhotographs(db), 0, [db]);
 
   const syncNow = useCallback(async () => {
     if (!manager) return;
@@ -136,8 +147,8 @@ export function SyncProvider({
   }, [manager]);
 
   const value = useMemo<SyncContextValue>(
-    () => ({ db, pending, failed, running, outcome, syncNow }),
-    [db, pending, failed, running, outcome, syncNow],
+    () => ({ db, pending, failed, photographs, running, outcome, syncNow }),
+    [db, pending, failed, photographs, running, outcome, syncNow],
   );
 
   return <SyncContext value={value}>{children}</SyncContext>;
