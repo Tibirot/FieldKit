@@ -609,6 +609,22 @@ sequenceDiagram
   Note over SM,API: audit record already synced; photo attaches when it lands
 ```
 
+**What W11 slice 12a built, and the one thing it deliberately does not do:**
+
+- **`POST /api/sync/photos/presign`** takes the key the device minted — `audits/{auditId}/{photoId}.jpg`
+  — and returns a URL that may **write that one blob** for fifteen minutes. Not the container: a
+  container-scoped URL would let a device that obtained one overwrite an audit already filed. Not
+  readable: a phone has no business fetching evidence back out of storage.
+- **The tenant prefix is the server's to write.** The device never sends one and does not know its
+  tenant id; the API stores under `{tenantId}/audits/…` from the validated token. That is the whole
+  of the isolation — there is no request a rep can craft that reaches another tenant's prefix.
+- **It does not check that the audit exists**, and that is the point of the split. Either transport
+  can win, so refusing a photograph whose audit has not landed would fail the case this design
+  exists to support: a rep who sealed an audit on a dead connection and found signal an hour later.
+  The cost is bounded and worth naming — a rep can obtain a URL for an audit id they invented and
+  write a JPEG nothing references, in their own tenant, one blob, fifteen minutes, no read, no delete.
+- **The `confirm` step above, and the missing-blob flag, are not built yet** (W11 slice 12b/13).
+
 Photos ([B5](../product/decisions-and-assumptions.md#b5--photo--binary-sync)) upload
 **independently** of the JSON push and can lag it; the audit references the object key, resolved
 when the upload confirms. Failures retry without blocking data sync. **Terminal case:** if a device

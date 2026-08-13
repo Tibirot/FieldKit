@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Hosting;
+using Testcontainers.Azurite;
 using Testcontainers.Keycloak;
 using Testcontainers.PostgreSql;
 
@@ -80,6 +81,32 @@ public sealed class ServerFixture : IAsyncLifetime
             new FileInfo("realms/fieldkit-dev-b-realm.json"), "/opt/keycloak/data/import/")
         .Build();
 
+    /*
+     * Object storage, because a presigned URL cannot be proved against a fake (, W11 12a).
+     *
+     * A third container is a real cost on every test in this collection, and it buys the one thing a
+     * stub cannot: that the URL the API mints is actually accepted by a Blob service for a PUT and
+     * refused for a GET. Signing is the whole feature, and a hand-rolled double would only ever
+     * confirm the shape of a string.
+     */
+    private readonly AzuriteContainer _azurite = new AzuriteBuilder("mcr.microsoft.com/azure-storage/azurite:3.35.0")
+        /*
+         * <b>`--skipApiVersionCheck`, and it belongs here rather than in the client.</b>
+         *
+         * `Azure.Storage.Blobs` 12.28 speaks REST API version `2026-04-06`; Azurite 3.35 knows nothing
+         * past its own release and answers `400 The API version … is not supported`. The alternative
+         * fix — pinning `BlobClientOptions.ServiceVersion` down to what the emulator understands —
+         * would slow the *shipped* client to the emulator's pace, which is the tail wagging the dog:
+         * the real service supports the newer version, and development would be dictating production.
+         *
+         * So the emulator is told to stop checking. What that costs is honest and worth stating: a
+         * feature the newer API adds and Azurite has not implemented would fail here differently than
+         * it does in Azure. Nothing this slice uses is in that gap — a block-blob PUT and a SAS are
+         * as old as the service.
+         */
+        .WithCommand("--skipApiVersionCheck")
+        .Build();
+
     private WebApplicationFactory<Program> _factory = null!;
 
     /// <summary>An unauthenticated client — every request is anonymous.</summary>
@@ -111,10 +138,14 @@ public sealed class ServerFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        await Task.WhenAll(_postgres.StartAsync(), _keycloak.StartAsync());
+        await Task.WhenAll(_postgres.StartAsync(), _keycloak.StartAsync(), _azurite.StartAsync());
 
         // Aspire injects these at runtime; here we supply them before the host reads its config.
         Environment.SetEnvironmentVariable("ConnectionStrings__fieldkitdb", _postgres.GetConnectionString());
+
+        // The same key the AppHost's `WithReference(photos)` writes. Its presence is what makes the
+        // host register the blob client and the presign endpoint at all — see `SyncModule`.
+        Environment.SetEnvironmentVariable("ConnectionStrings__photos", _azurite.GetConnectionString());
 
         // No `ConnectionStrings__cache`. There was one — `localhost:6379,abortConnect=false`, a Redis
         // that has never run in CI — because the app registered a Redis-backed output cache. That
@@ -201,9 +232,13 @@ public sealed class ServerFixture : IAsyncLifetime
     {
         Client.Dispose();
         await _factory.DisposeAsync();
-        await Task.WhenAll(_postgres.DisposeAsync().AsTask(), _keycloak.DisposeAsync().AsTask());
+        await Task.WhenAll(
+            _postgres.DisposeAsync().AsTask(),
+            _keycloak.DisposeAsync().AsTask(),
+            _azurite.DisposeAsync().AsTask());
         Environment.SetEnvironmentVariable("ConnectionStrings__fieldkitdb", null);
         Environment.SetEnvironmentVariable("ConnectionStrings__cache", null);
+        Environment.SetEnvironmentVariable("ConnectionStrings__photos", null);
         Environment.SetEnvironmentVariable("services__keycloak__http__0", null);
     }
 }
