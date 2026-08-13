@@ -57,6 +57,11 @@ Per [B8](../product/decisions-and-assumptions.md#b8--privacy--gdpr-posture):
   rather than through this app, so a policy that omits it refuses every upload *silently*. It did,
   for a slice. The origin comes from configuration and is allowed for `connect-src` only — never
   `script-src`, where a service that accepts writes could then serve script to this origin.
+- **The storage account's CORS rule is the narrowest that works**, and the API sets it at startup
+  rather than leaving it to a runbook. `PUT` and `OPTIONS` from the one configured front-end origin;
+  no `GET`, because a rule that let a browser read would undo the presigned URL being write-only
+  without touching the signature that makes it so. It is replaced on each start, not appended, so a
+  retired deployment's origin does not stay allowed by accident.
 - **Accessibility:** the field app targets **WCAG 2.2 AA** — genuinely earned by a one-handed,
   gloved, bright-sunlight in-store context (contrast, touch-target size, no color-only state).
 

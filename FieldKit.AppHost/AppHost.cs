@@ -312,6 +312,30 @@ if (builder.ExecutionContext.IsPublishMode)
     keycloak.WithEnvironment("FIELDKIT_WEB_ORIGIN", frontend.GetEndpoint("http"));
 
 /*
+ * The same origin, to the API — because object storage has to be told to accept a browser
+ * (`OFF-08`, W11 slice 12c).
+ *
+ * <b>A presigned `PUT` from a page is a cross-origin request, and a preflighted one.</b> The upload
+ * carries `x-ms-blob-type`, which makes it non-simple, so the browser sends `OPTIONS` first and the
+ * storage account answers it only if a CORS rule names the calling origin. Without that rule the
+ * upload fails after the CSP allows it — which is exactly what a browser check found, one layer
+ * further down than the last one.
+ *
+ * The API applies the rule at startup (`PhotoStorageCors`) rather than an operator setting it by
+ * hand, because a deployment that forgets it looks identical to a network problem on every device.
+ *
+ * <b>The literal in development, the endpoint when published</b>, mirroring Keycloak above: the dev
+ * port is pinned to 3000 a few lines up, and asking the API for the front end's address while the
+ * front end waits for the API is the cycle that line already avoids.
+ */
+if (builder.ExecutionContext.IsPublishMode)
+    server.WithEnvironment("FIELDKIT_WEB_ORIGIN", frontend.GetEndpoint("http"));
+else
+    // Two statements rather than one conditional: the endpoint and the literal take different
+    // `WithEnvironment` overloads, and a ternary has no type both branches fit.
+    server.WithEnvironment("FIELDKIT_WEB_ORIGIN", "http://localhost:3000");
+
+/*
  * Keycloak's **browser-facing** address, which is not the one service discovery hands out.
  *
  * `WithReference(keycloak)` injects `services__keycloak__http__0`, and in a container app that is

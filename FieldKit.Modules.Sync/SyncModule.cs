@@ -57,6 +57,11 @@ public sealed class SyncModule : IModule
         if (configuration.GetConnectionString("photos") is not null)
         {
             services.AddSingleton<IPhotoStorage, BlobPhotoStorage>();
+
+            // And tell storage to accept a browser, which it does not by default — see
+            // `PhotoStorageCors`. Registered beside the client because the two are the same feature:
+            // a presigned URL a browser is refused at is not an upload path.
+            services.AddHostedService<PhotoStorageCors>();
         }
     }
 

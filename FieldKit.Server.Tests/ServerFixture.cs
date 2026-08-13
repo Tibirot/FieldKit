@@ -82,7 +82,7 @@ public sealed class ServerFixture : IAsyncLifetime
         .Build();
 
     /*
-     * Object storage, because a presigned URL cannot be proved against a fake (, W11 12a).
+     * Object storage, because a presigned URL cannot be proved against a fake (`OFF-08`, W11 12a).
      *
      * A third container is a real cost on every test in this collection, and it buys the one thing a
      * stub cannot: that the URL the API mints is actually accepted by a Blob service for a PUT and
@@ -146,6 +146,10 @@ public sealed class ServerFixture : IAsyncLifetime
         // The same key the AppHost's `WithReference(photos)` writes. Its presence is what makes the
         // host register the blob client and the presign endpoint at all — see `SyncModule`.
         Environment.SetEnvironmentVariable("ConnectionStrings__photos", _azurite.GetConnectionString());
+
+        // What the AppHost sets, and what the CORS rule the API applies at startup is cut from — the
+        // browser upload is refused without it, one layer past the Content Security Policy.
+        Environment.SetEnvironmentVariable("FIELDKIT_WEB_ORIGIN", "http://localhost:3000");
 
         // No `ConnectionStrings__cache`. There was one — `localhost:6379,abortConnect=false`, a Redis
         // that has never run in CI — because the app registered a Redis-backed output cache. That
