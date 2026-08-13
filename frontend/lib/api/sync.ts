@@ -139,3 +139,32 @@ export function push(
     signal,
   );
 }
+
+/** Where one photograph may be written, and until when (`OFF-08`, `B5`, W11 slice 12a). */
+export type PresignedUpload = {
+  url: string;
+  /** The full path, tenant prefix included — the server's, not the device's. */
+  objectKey: string;
+  expiresAtUtc: string;
+};
+
+/**
+ * Asks for somewhere to put one photograph.
+ *
+ * <b>The key sent is the device's own</b>, `audits/{auditId}/{photoId}.jpg`, without a tenant — the
+ * device does not know its tenant id and the server writes the prefix from the token. The key that
+ * comes *back* is the full one, which is what the audit's reference resolves to.
+ */
+export function presignPhoto(
+  accessToken: string,
+  objectKey: string,
+  signal?: AbortSignal,
+): Promise<PresignedUpload> {
+  return apiSend<PresignedUpload>(
+    "POST",
+    "/api/sync/photos/presign",
+    accessToken,
+    { objectKey },
+    signal,
+  );
+}
