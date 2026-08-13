@@ -17,9 +17,16 @@ import {
   putCategoryFacings,
   putFacings,
   putPrice,
+  scoreInputsFor,
   seal as sealAudit,
   unanswered,
 } from "@/lib/audits/local-audit";
+import {
+  computeScore,
+  SCORE_PILLARS,
+  type PillarScore,
+  type ScorePillar,
+} from "@/lib/audits/score";
 import { expectedPrices } from "@/lib/orders/pricing";
 import { looksLikeAnAmount } from "@/lib/api/price-lists";
 import type { ResolvedPrice } from "@/lib/pricing/price-resolver";
@@ -36,6 +43,7 @@ import {
   assortmentFor,
   currentScoreWeightSet,
   outlet as heldOutlet,
+  scoreWeightSet,
   surveyForms,
 } from "@/lib/sync/reference";
 import { visit as heldVisit } from "@/lib/visits/local-visit";
@@ -238,6 +246,8 @@ export function Audit({ visitId }: { visitId: string }) {
         editable={!sealed}
         queued={queued}
       />
+
+      {held ? <Score audit={held} /> : null}
 
       {!sealed && held ? (
         <Seal
@@ -570,7 +580,23 @@ function Seal({
      * the store's so a double-tap cannot seal past a screen that is a moment behind. What they must
      * not do is disagree about which audits are empty.
      */
-    if (!measured(audit)) {
+    /*
+     * <b>Read fresh, not from the prop.</b> `audit` is the last value the live query emitted, and the
+     * first tap on a shelf is *two* writes — the draft, then the answer. Between them the screen holds
+     * a real audit that has measured nothing, and the Finish button is already on it. A rep who
+     * answered and tapped straight through was told to check a product they had just checked, and had
+     * to tap again for a seal the store would have taken.
+     *
+     * It surfaced as a suite flake rather than in a browser: under load the second emission lags far
+     * enough that the test's own click lands inside the gap. A phone under load is the same machine.
+     *
+     * Two layers still refuse an empty audit — this one so the rep is told *why*, and the store's
+     * inside the transaction. What they must not do is disagree about which audits are empty, and a
+     * snapshot one render old is exactly how they came to.
+     */
+    const current = (await auditFor(db, visitId)) ?? audit;
+
+    if (!measured(current)) {
       setRefused("empty");
 
       return;
@@ -578,7 +604,7 @@ function Seal({
 
     // `BR-AUD-7`. Checked at the seal rather than as each answer is given: a rep works a form out of
     // order, and refusing an answer because an earlier one is missing is the screen arguing with them.
-    if (outstanding.length > 0) {
+    if (unanswered(current, questions).length > 0) {
       setRefused("mandatory");
 
       return;
@@ -671,6 +697,124 @@ async function mustStock(
   return products
     .filter((product): product is ReferenceProduct => product !== undefined)
     .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+/**
+ * What this audit scores, while the rep is still standing there (`AUD-06`, `BR-AUD-4`) — W11 slice 10.
+ *
+ * <b>The point of showing it here is that the rep can still act on it.</b> A perfect-store score that
+ * first appears in a report next week tells somebody else how the shop was; a score at the shelf tells
+ * the rep which pillar is short while they can still count the facing they skipped or fetch the case
+ * from the back.
+ *
+ * <b>Scored against the weighting the audit names, never the newest</b> (`BR-AUD-8`). The version is
+ * fixed when the draft starts, and a re-weighting that syncs mid-round must not restate what the rep
+ * was shown — nor disagree with the number the server will store against that same version.
+ *
+ * <b>Skipped is not zero, and it says so.</b> `BR-AUD-2`'s renormalisation is invisible in a total, so
+ * a rep seeing 80 has no way to know whether share-of-shelf was excellent or never measured. The
+ * pillar rows carry that, which is the same breakdown `AUD-09` shows a supervisor.
+ */
+function Score({ audit }: { audit: LocalAudit }) {
+  const t = useTranslations("Field.audit");
+  const { db } = useSync();
+
+  /*
+   * By version, not "the newest" — `scoreWeightSet` rather than `currentScoreWeightSet`.
+   *
+   * `undefined` while reading and null when the device does not hold that version, which is a real
+   * state rather than an error: a draft started before the weights arrived carries version 0, and a
+   * device can hold an audit whose weight set was never pulled. Both are "no score yet", said rather
+   * than rendered as a confident zero.
+   */
+  const weights = useLive(
+    async () => (await scoreWeightSet(db, audit.weightSetVersion)) ?? null,
+    undefined,
+    [db, audit.weightSetVersion],
+  );
+
+  if (weights === undefined) return null;
+
+  // A weighting naming a pillar this build cannot compute is treated exactly like one the device does
+  // not hold — see `scorable`.
+  const scorable = weights === null ? null : scorableWeights(weights.weights);
+
+  if (scorable === null) {
+    return (
+      <section className="flex flex-col gap-1 rounded-xl border border-border p-3" role="status">
+        <h2 className="text-sm font-medium">{t("score.title")}</h2>
+        <p className="text-sm text-muted-foreground">{t("score.noWeighting")}</p>
+      </section>
+    );
+  }
+
+  const result = computeScore(scoreInputsFor(audit, scorable));
+
+  return (
+    <section className="flex flex-col gap-2 rounded-xl border border-border p-3" role="status">
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-sm font-medium">{t("score.title")}</h2>
+        <p className="text-2xl font-medium tabular-nums" aria-label={t("score.title")}>
+          {/*
+            Null is "nothing scoreable yet", not nought. An audit whose every pillar was skipped has
+            no weighted mean to take, and printing 0 would tell a rep they had failed a shop they have
+            not finished measuring.
+          */}
+          {result.score === null ? t("score.none") : t("score.value", { score: result.score.toFixed(2) })}
+        </p>
+      </div>
+
+      <ul className="flex flex-col gap-1" aria-label={t("score.pillars")}>
+        {result.pillars.map((pillar) => (
+          <Pillar key={pillar.pillar} pillar={pillar} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * The weighting narrowed to the pillars this build can compute, or **null if it names any it cannot**.
+ *
+ * `ReferenceScoreWeight.pillar` is a `string` on purpose — the device stores what the server
+ * published, including a pillar added after this build shipped. `ScorePillar` is a closed set, so
+ * something has to give at this boundary, and the choice is between showing a number and showing
+ * nothing.
+ *
+ * <b>Nothing wins.</b> Dropping an unknown pillar would change the denominator the weighted mean is
+ * taken over, so the device would show a confident score the server then contradicts — and `BR-AUD-5`
+ * exists precisely to stop the two disagreeing. A rep told "this cannot be scored on your phone" is
+ * told something true; a rep told "72%" when the back office will say 61% is not.
+ */
+function scorableWeights(weights: readonly { pillar: string; percentage: string }[]) {
+  const known = (pillar: string): pillar is ScorePillar =>
+    (SCORE_PILLARS as readonly string[]).includes(pillar);
+
+  if (!weights.every((weight) => known(weight.pillar))) return null;
+
+  return weights.map((weight) => ({
+    pillar: weight.pillar as ScorePillar,
+    percentage: weight.percentage,
+  }));
+}
+
+/** One pillar's row: what it scored, or that it was not measured, and what it is worth. */
+function Pillar({ pillar }: { pillar: PillarScore }) {
+  const t = useTranslations("Field.audit");
+
+  return (
+    <li className="flex items-baseline justify-between gap-2 text-sm">
+      <span className="text-muted-foreground">{t(`score.pillar.${pillar.pillar as ScorePillar}`)}</span>
+      <span className="tabular-nums">
+        {pillar.percentage === null
+          ? t("score.skipped")
+          : t("score.pillarValue", {
+              percentage: pillar.percentage.toFixed(2),
+              weight: pillar.weight.toFixed(0),
+            })}
+      </span>
+    </li>
+  );
 }
 
 /**
