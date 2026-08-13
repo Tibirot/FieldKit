@@ -566,9 +566,52 @@ export type LocalAudit = {
   /** The weighting this audit is scored against (`BR-AUD-8`), fixed when the draft is started. */
   weightSetVersion: number;
   availability: LocalAvailabilityLine[];
+  facings: LocalFacingsLine[];
+  /**
+   * The **total** facings in the category, own SKUs and competitors' alike (`BR-AUD-2`) — W11 9b.
+   *
+   * The denominator, and it is captured rather than derived: summing the facings above would always
+   * produce ~100% share-of-shelf, which is the arithmetic `BR-AUD-2` exists to forbid.
+   *
+   * **Null is a real answer and the default.** Without a total the share-of-shelf pillar is
+   * *skipped*, not faked — the score renormalises over the pillars that were measured (W10 slice 0).
+   * A rep who could not count the shelf has said something true by leaving it empty.
+   */
+  categoryFacings: number | null;
+  prices: LocalPriceCheck[];
   /** When the rep sealed it. Null while it is a draft, and never when the push arrived. */
   capturedAtUtc: string | null;
   updatedAtUtc: string;
+};
+
+/**
+ * Facings counted for one product (`AUD-02`) — the numerator of share-of-shelf.
+ *
+ * A whole number, because a facing is one product's front on a shelf and there is no half of one.
+ * Stored as a `number` rather than a decimal string for that reason — the rule `BR-PRD-8` protects
+ * is about *money*, and a count that cannot be fractional cannot be wrong by a hundredth.
+ */
+export type LocalFacingsLine = { productId: string; facings: number };
+
+/**
+ * A shelf price the rep read, and the one the device says to expect (`AUD-03`, `BR-AUD-3`) — W11 9b.
+ *
+ * <b>Both amounts are decimal strings here and integer minor units on the wire.</b> That is the
+ * server's shape (`CapturedPrice.ObservedMinorUnits`), and the conversion happens once, at the seal,
+ * for the reason `local-order.ts` gives: the rep types a decimal, arithmetic stays in `decimal.js`,
+ * and the value crosses `Number` exactly once at a magnitude where it is exact.
+ *
+ * <b>`expected` is what the device resolved, and null when it could resolve none.</b> An unpriced
+ * product is not a compliance failure — scoring it as one would punish a rep for a gap in the price
+ * list. It is stored rather than re-resolved on arrival, because the server asking Pricing what the
+ * price is *today* would judge a completed audit against a list republished since.
+ */
+export type LocalPriceCheck = {
+  productId: string;
+  observed: string;
+  expected: string | null;
+  /** ISO-4217, from the list that priced it. One currency across the audit (`CurrencyMismatch`). */
+  currencyCode: string;
 };
 
 /** Where an audit has got to on the device. `BR-AUD-6` makes `sealed` final. */
@@ -1001,6 +1044,39 @@ export class FieldKitDatabase extends Dexie {
     this.version(12).stores({
       audits: "id, visitId, status",
     });
+
+    /*
+     * Version 13 — the numbers on the shelf (`AUD-02`, `AUD-03`, W11 slice 9b).
+     *
+     * <b>The first `upgrade()` on a store this device *authors*</b>, and that is why it exists at all
+     * when versions 5, 7, 9, 11 and 12 needed none. Those added tables; this adds three fields to
+     * rows that are already there — and unlike every `ref_*` table, an audit draft cannot be
+     * re-fetched. A rep halfway down an aisle when the app updates has the only copy.
+     *
+     * Adding a field normally needs no version: Dexie stores the object whole, and a reader can
+     * default what is missing. What makes it worth one here is `captured()` — `CapturedAudit` takes
+     * `facings` and `prices` as *required* lists, so a draft sealed with them `undefined` would send
+     * JSON missing two properties and be refused as a 400 that retries forever. Normalising once, on
+     * open, means every later read can trust the shape rather than each remembering to.
+     *
+     * `categoryFacings` becomes null rather than 0, which is `BR-AUD-2`'s distinction: null skips the
+     * share-of-shelf pillar, and a zero would score the shop as having none of the category.
+     *
+     * No `stores()` change — none of the three is indexed, and none will be. They are read with the
+     * row that carries them.
+     */
+    this.version(13)
+      .stores({})
+      .upgrade(async (tx) => {
+        await tx
+          .table("audits")
+          .toCollection()
+          .modify((audit: Partial<LocalAudit>) => {
+            audit.facings ??= [];
+            audit.prices ??= [];
+            audit.categoryFacings ??= null;
+          });
+      });
 
     this.outlets = this.table("ref_outlets");
     this.plannedVisits = this.table("ref_planned_visits");

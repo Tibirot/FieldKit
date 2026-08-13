@@ -1553,7 +1553,15 @@
       "noWeights": {
         "title": "Punctajul nu este configurat",
         "body": "Un audit este punctat după ponderile perfect-store ale companiei, iar acestea nu au fost publicate. Anunță-ți supervizorul — un audit făcut acum nu ar putea fi punctat."
-      }
+      },
+      "facings": "Fronturi",
+      "facingsFor": "Fronturi pentru {product}",
+      "shelfPrice": "Preț la raft",
+      "shelfPriceFor": "Preț la raft pentru {product}",
+      "expected": "Așteptat {amount}",
+      "noExpected": "Fără preț așteptat",
+      "categoryFacings": "Total fronturi în categorie",
+      "categoryFacingsHint": "Toate fronturile de pe raft, ale tale și ale concurenței. Lasă gol dacă nu ai putut număra — cota de raft este atunci omisă, nu punctată cu zero."
     }
   },
   "Guard": {

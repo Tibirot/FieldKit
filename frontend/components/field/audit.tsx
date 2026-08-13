@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { useSync } from "@/components/sync/sync-provider";
 import { Button } from "@/components/ui/button";
@@ -10,9 +10,16 @@ import {
   auditFor,
   clearAvailability,
   draftFor,
+  measured,
   putAvailability,
+  putCategoryFacings,
+  putFacings,
+  putPrice,
   seal as sealAudit,
 } from "@/lib/audits/local-audit";
+import { expectedPrices } from "@/lib/orders/pricing";
+import { looksLikeAnAmount } from "@/lib/api/price-lists";
+import type { ResolvedPrice } from "@/lib/pricing/price-resolver";
 import type {
   FieldKitDatabase,
   LocalAudit,
@@ -94,6 +101,29 @@ export function Audit({ visitId }: { visitId: string }) {
     [db],
   );
 
+  /*
+   * The day the audit is *for*, from the device's own clock (W11 slice 9b).
+   *
+   * `BR-AUD-3` resolves the expected price for the outlet **and the date**, and the order screen
+   * takes the same reading with the same caveat: `OutletSnapshot` carries no timezone, so this is
+   * the device's day, which is the shop's for as long as the rep is standing in it.
+   */
+  const on = businessDay(new Date());
+
+  /*
+   * What each product is *meant* to cost, resolved once and stored with each observation.
+   *
+   * Read here rather than at the seal because `BR-AUD-3` judges against the price resolved for that
+   * outlet and date — a list republished between the rep reading a shelf edge and finishing the
+   * audit would otherwise move the number they are measured by, after the fact.
+   */
+  const expected = useLive(
+    async () =>
+      shop ? await expectedPrices(db, shop.id, on, products.map((product) => product.id)) : new Map(),
+    new Map<string, ResolvedPrice>(),
+    [db, shop?.id, on, products.length],
+  );
+
   if (visit === undefined || weights === undefined) return <Waiting message={t("opening")} />;
 
   if (visit === null) {
@@ -127,6 +157,14 @@ export function Audit({ visitId }: { visitId: string }) {
         visitId={visitId}
         outletId={visit.outletId}
         weightSetVersion={weights?.version ?? held?.weightSetVersion ?? 0}
+        expected={expected}
+        /*
+          The currency an observation is filed under when no list covers the product. Taken from a
+          list that *did* price something here, so the audit stays in one currency — the server
+          refuses a mix (`CurrencyMismatch`), and a hard-coded fallback would be this device
+          inventing one.
+        */
+        currency={[...expected.values()][0]?.currency ?? ""}
         editable={!sealed}
       />
 
@@ -160,6 +198,8 @@ function Shelf({
   visitId,
   outletId,
   weightSetVersion,
+  expected,
+  currency,
   editable,
 }: {
   audit: LocalAudit | null;
@@ -167,12 +207,47 @@ function Shelf({
   visitId: string;
   outletId: string;
   weightSetVersion: number;
+  expected: Map<string, ResolvedPrice>;
+  /** What to file an observation under when no list covers the product. */
+  currency: string;
   editable: boolean;
 }) {
   const t = useTranslations("Field.audit");
   const { db } = useSync();
 
   const answered = new Map(audit?.availability.map((line) => [line.productId, line.status]) ?? []);
+  const counted = new Map(audit?.facings.map((line) => [line.productId, line.facings]) ?? []);
+  const read = new Map(audit?.prices.map((line) => [line.productId, line.observed]) ?? []);
+
+  /*
+   * Every write goes through one queue, and the numeric fields are why.
+   *
+   * A tap is one write and cannot race itself. A *typed* field fires on every keystroke — `4.79` is
+   * four writes — and each one opens its own Dexie transaction, so they can complete out of order:
+   * the screen test caught `4.7` landing after `4.79` and standing as the rep's reading.
+   *
+   * The alternative was to hold the in-progress text in React state and write on blur, which is what
+   * the order screen does with a quantity. It is rejected here because this screen promises
+   * something the order screen does not: `OFF-01b`, every measurement durable as it is made, so a
+   * phone that dies halfway down an aisle loses nothing. Chaining keeps both — each keystroke is
+   * still written, and the last one still wins.
+   */
+  const writes = useRef<Promise<unknown>>(Promise.resolve());
+
+  const queued = (work: () => Promise<unknown>) => {
+    // Both arms, so one failed write does not wedge the chain for the rest of the audit.
+    writes.current = writes.current.then(work, work);
+
+    return writes.current;
+  };
+
+  /** The total facings on the shelf — blank means *not counted*, which skips the pillar. */
+  async function countCategory(raw: string) {
+    const now = new Date();
+    const current = audit ?? (await draftFor(db, { visitId, outletId, weightSetVersion, now }));
+
+    await putCategoryFacings(db, current.id, wholeOrNull(raw), now);
+  }
 
   /*
    * The draft is created by the first answer, not by opening the screen.
@@ -193,6 +268,65 @@ function Shelf({
     }
 
     await putAvailability(db, current.id, productId, status, now);
+  }
+
+  /**
+   * Counts facings for one product (`AUD-02`) — blank removes the count.
+   *
+   * Starts the draft on its own, like an availability answer: a rep may work the shelf by counting
+   * first and ticking afterwards, and either order has to be the beginning of an audit.
+   */
+  async function count(productId: string, raw: string) {
+    const now = new Date();
+    const current = audit ?? (await draftFor(db, { visitId, outletId, weightSetVersion, now }));
+
+    await putFacings(db, current.id, productId, wholeOrNull(raw), now);
+  }
+
+  /**
+   * Records a shelf price against what the device expected (`AUD-03`).
+   *
+   * The expected price and its currency come from `expected`, resolved once when the screen loaded —
+   * `BR-AUD-3` compares against the price for *that outlet and date*, and re-resolving at the seal
+   * would judge the rep by a list republished since. A product no list covers still takes an
+   * observation; it is not a compliance failure, and the reading is evidence of the gap.
+   */
+  async function readPrice(productId: string, raw: string) {
+    const now = new Date();
+    const current = audit ?? (await draftFor(db, { visitId, outletId, weightSetVersion, now }));
+    const trimmed = raw.trim();
+
+    /*
+     * Emptying the box removes the reading. A value that is merely *not yet* an amount leaves what
+     * is stored alone.
+     *
+     * The distinction matters because this fires on every keystroke: typing `4.79` passes through
+     * `4.` on the way, which is not a decimal — treating that as "clear" made a rep wipe their own
+     * reading mid-word, and it is what the screen test caught. Only an empty box is an instruction.
+     */
+    if (trimmed === "") {
+      await putPrice(db, current.id, { productId, observed: null }, now);
+
+      return;
+    }
+
+    if (!looksLikeAnAmount(trimmed)) return;
+
+    const price = expected.get(productId) ?? null;
+
+    await putPrice(
+      db,
+      current.id,
+      {
+        productId,
+        observed: trimmed,
+        expected: price?.amount ?? null,
+        // The currency of the list that priced it; the shop's own when nothing did, so the audit
+        // stays in one currency and the server's `CurrencyMismatch` never fires on our own doing.
+        currencyCode: price?.currency ?? currency,
+      },
+      now,
+    );
   }
 
   if (products.length === 0) {
@@ -237,16 +371,80 @@ function Shelf({
                     */
                     aria-pressed={chosen}
                     aria-label={t(`answer.${status}For`, { product: product.name })}
-                    onClick={() => void answer(product.id, status)}
+                    onClick={() => void queued(() => answer(product.id, status))}
                   >
                     {t(`answer.${status}`)}
                   </Button>
                 );
               })}
             </div>
+
+            {/*
+              The numbers sit under the answer because that is the order a rep works a shelf in:
+              look, then count, then read the label. Both are optional — `BR-AUD-2` and `BR-AUD-3`
+              are pillars in their own right, and the score renormalises over what was measured.
+            */}
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2">
+                <span className="text-muted-foreground">{t("facings")}</span>
+                <input
+                  inputMode="numeric"
+                  className="w-20 rounded-md border border-border px-2 py-1 text-right"
+                  disabled={!editable}
+                  defaultValue={counted.get(product.id) ?? ""}
+                  aria-label={t("facingsFor", { product: product.name })}
+                  onChange={(event) => { const value = event.target.value; void queued(() => count(product.id, value)); }}
+                />
+              </label>
+
+              <label className="flex items-center gap-2">
+                <span className="text-muted-foreground">{t("shelfPrice")}</span>
+                <input
+                  // `inputMode`, never `type="number"` — a numeric input hands back a `number` on
+                  // some browsers, and this value becomes minor units the server compares exactly.
+                  inputMode="decimal"
+                  className="w-24 rounded-md border border-border px-2 py-1 text-right"
+                  disabled={!editable}
+                  defaultValue={read.get(product.id) ?? ""}
+                  aria-label={t("shelfPriceFor", { product: product.name })}
+                  onChange={(event) => { const value = event.target.value; void queued(() => readPrice(product.id, value)); }}
+                />
+              </label>
+
+              {/*
+                What the device says it should cost, shown beside the box rather than pre-filled
+                into it. Pre-filling would make "the rep confirmed the expected price" and "the rep
+                did not look" the same record, on the one field `BR-AUD-3` judges compliance from.
+              */}
+              <span className="text-xs text-muted-foreground">
+                {expected.has(product.id)
+                  ? t("expected", {
+                      amount: `${expected.get(product.id)!.amount} ${expected.get(product.id)!.currency}`,
+                    })
+                  : t("noExpected")}
+              </span>
+            </div>
           </li>
         ))}
       </ul>
+
+      {/*
+        The denominator, and its own row because it is a fact about the *shelf* rather than about any
+        product on it (`BR-AUD-2`). Left blank the share-of-shelf pillar is skipped, not scored zero —
+        which is why the hint says so rather than treating the box as one a rep forgot.
+      */}
+      <label className="flex flex-col gap-1 rounded-xl border border-border p-3 text-sm">
+        <span>{t("categoryFacings")}</span>
+        <span className="text-xs text-muted-foreground">{t("categoryFacingsHint")}</span>
+        <input
+          inputMode="numeric"
+          className="mt-1 w-24 rounded-md border border-border px-2 py-1 text-right"
+          disabled={!editable}
+          defaultValue={audit?.categoryFacings ?? ""}
+          aria-label={t("categoryFacings")}
+          onChange={(event) => { const value = event.target.value; void queued(() => countCategory(value)); }}
+        />
+      </label>
     </section>
   );
 }
@@ -275,7 +473,18 @@ function Seal({ audit, visitId }: { audit: LocalAudit; visitId: string }) {
   const seal = async () => {
     setRefused(null);
 
-    if (audit.availability.length === 0) {
+    /*
+     * <b>The store's rule, imported rather than repeated.</b> This used to read
+     * `audit.availability.length === 0`, which was right when availability was all this screen
+     * captured — and stayed behind when 9b widened `measured()` to count facings and prices too. A
+     * rep who counted the shelf and read the labels was told to check a product for an audit the
+     * store would have taken, and the browser is where that showed.
+     *
+     * Two layers still refuse an empty audit, deliberately: this one so the rep is told *why*, and
+     * the store's so a double-tap cannot seal past a screen that is a moment behind. What they must
+     * not do is disagree about which audits are empty.
+     */
+    if (!measured(audit)) {
       setRefused("empty");
 
       return;
@@ -337,6 +546,36 @@ async function mustStock(
   return products
     .filter((product): product is ReferenceProduct => product !== undefined)
     .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+/**
+ * A whole non-negative count, or null for "not measured".
+ *
+ * <b>Blank is null and not zero</b>, which is the distinction both `BR-AUD-2` and the facings lines
+ * turn on: zero facings is a measurement, and no answer is the absence of one. Anything else a rep
+ * can type — a decimal, a minus, letters — is also null, so a half-typed value never lands as a
+ * count; the store refuses those again on its own terms.
+ */
+function wholeOrNull(raw: string): number | null {
+  const trimmed = raw.trim();
+
+  if (!/^\d+$/.test(trimmed)) return null;
+
+  return Number(trimmed);
+}
+
+/**
+ * The device's day as `YYYY-MM-DD`.
+ *
+ * The same shape and the same caveat the order screen carries: `BR-AUD-3` wants the *outlet's* day
+ * and `OutletSnapshot` has no timezone, so this is the device's — the shop's for as long as the rep
+ * is standing in it, and wrong only for a phone that has crossed a border or a rep working within an
+ * hour of midnight. `timeZoneId` is the field this snapshot still wants.
+ */
+function businessDay(now: Date): string {
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+
+  return local.toISOString().slice(0, 10);
 }
 
 function Waiting({ message }: { message: string }) {

@@ -1,6 +1,10 @@
 import { priceLine } from "@/lib/pricing/line";
 import { Decimal, Money } from "@/lib/pricing/money";
-import { resolvePrice, type PriceCandidate } from "@/lib/pricing/price-resolver";
+import {
+  resolvePrice,
+  type PriceCandidate,
+  type ResolvedPrice,
+} from "@/lib/pricing/price-resolver";
 import {
   resolvePromotion,
   type PromotionCandidate,
@@ -255,6 +259,41 @@ async function pricesFor(
   }
 
   return byProduct;
+}
+
+/**
+ * What each product is *meant* to cost at this shop on this date (`PRD-04`, `BR-AUD-3`) — W11 9b.
+ *
+ * <b>Exported so the audit's price check does not gather candidates a second time.</b> `AUD-03`
+ * compares a shelf price against "the expected price resolved for that outlet/date", which is the
+ * same question `priceOrder` asks one line at a time — and a second gatherer would be a second set
+ * of half-open window comparisons to keep in step with `resolvePrice.covers`.
+ *
+ * <b>Absent, not null, for a product no list covers.</b> The caller has to tell "the device says
+ * 4.50" from "the device has no opinion": an unpriced product is not a compliance failure, and
+ * scoring it as one would punish a rep for a gap in the price list.
+ *
+ * @param on The **audit's** date as `YYYY-MM-DD`, not today's — a device syncs a week of work.
+ */
+export async function expectedPrices(
+  db: FieldKitDatabase,
+  outletId: string,
+  on: string,
+  productIds: readonly string[],
+): Promise<Map<string, ResolvedPrice>> {
+  const shop = await db.outlets.get(outletId);
+  if (!shop) return new Map();
+
+  const candidates = await pricesFor(db, outletId, shop.channelId, on, [...new Set(productIds)]);
+  const resolved = new Map<string, ResolvedPrice>();
+
+  for (const [productId, forProduct] of candidates) {
+    const price = resolvePrice(forProduct, on);
+
+    if (price !== null) resolved.set(productId, price);
+  }
+
+  return resolved;
 }
 
 /**

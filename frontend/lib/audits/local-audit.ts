@@ -1,8 +1,9 @@
+import { Decimal, Money } from "@/lib/pricing/money";
 import type {
   FieldKitDatabase,
   LocalAudit,
-  LocalAvailabilityLine,
   LocalAvailabilityStatus,
+  LocalPriceCheck,
 } from "@/lib/sync/db";
 
 /**
@@ -57,6 +58,11 @@ export async function draftFor(
       status: "draft",
       weightSetVersion: request.weightSetVersion,
       availability: [],
+      facings: [],
+      // Null, not zero. `BR-AUD-2` skips the share-of-shelf pillar without a total; a zero would
+      // score the shop as having none of the category, which is a different and much worse claim.
+      categoryFacings: null,
+      prices: [],
       capturedAtUtc: null,
       updatedAtUtc: request.now.toISOString(),
     };
@@ -117,7 +123,7 @@ export async function putAvailability(
 
     const others = current.availability.filter((line) => line.productId !== productId);
 
-    return save(db, current, [...others, { productId, status }], now);
+    return save(db, current, { availability: [...others, { productId, status }] }, now);
   });
 }
 
@@ -141,7 +147,7 @@ export async function clearAvailability(
     return save(
       db,
       current,
-      current.availability.filter((line) => line.productId !== productId),
+      { availability: current.availability.filter((line) => line.productId !== productId) },
       now,
     );
   });
@@ -166,9 +172,7 @@ export async function seal(
 ): Promise<LocalAudit | undefined> {
   return db.transaction("rw", db.audits, db.outbox, async () => {
     const current = await db.audits.get(auditId);
-    if (!current || current.status !== "draft" || current.availability.length === 0) {
-      return undefined;
-    }
+    if (!current || current.status !== "draft" || !measured(current)) return undefined;
 
     const sealed: LocalAudit = {
       ...current,
@@ -195,15 +199,105 @@ export async function seal(
   });
 }
 
+/**
+ * Records how many facings one product has, or removes the count (`AUD-02`) — W11 slice 9b.
+ *
+ * <b>Upsert, and `null` removes.</b> A rep who counted and then recounted has corrected themselves,
+ * and one who typed into the wrong row needs a way back to having counted nothing — the same shape
+ * `putAvailability` and `clearAvailability` have, folded into one call because a facings count has a
+ * natural empty and a status does not.
+ *
+ * <b>Zero is a count, not an absence.</b> A product with no facings on the shelf is a real
+ * measurement and the numerator `BR-AUD-2` wants; leaving the box blank is the one that means
+ * *not measured*. The server refuses a negative (`NegativeCount`) and this refuses it too.
+ */
+export async function putFacings(
+  db: FieldKitDatabase,
+  auditId: string,
+  productId: string,
+  facings: number | null,
+  now: Date,
+): Promise<LocalAudit | undefined> {
+  return db.transaction("rw", db.audits, async () => {
+    const current = await db.audits.get(auditId);
+    if (!current || current.status !== "draft") return undefined;
+    if (facings !== null && (!Number.isInteger(facings) || facings < 0)) return undefined;
+
+    const others = current.facings.filter((line) => line.productId !== productId);
+
+    return save(db, current, {
+      facings: facings === null ? others : [...others, { productId, facings }],
+    }, now);
+  });
+}
+
+/**
+ * Records the total facings in the category — share-of-shelf's denominator (`BR-AUD-2`).
+ *
+ * <b>One number for the whole audit, and `null` is its default.</b> Without it the pillar is skipped
+ * rather than faked: the score renormalises over what *was* measured, so a rep who could not count
+ * the shelf has said something true. Setting it back to null is how they take that back.
+ */
+export async function putCategoryFacings(
+  db: FieldKitDatabase,
+  auditId: string,
+  categoryFacings: number | null,
+  now: Date,
+): Promise<LocalAudit | undefined> {
+  return db.transaction("rw", db.audits, async () => {
+    const current = await db.audits.get(auditId);
+    if (!current || current.status !== "draft") return undefined;
+
+    if (categoryFacings !== null
+        && (!Number.isInteger(categoryFacings) || categoryFacings < 0)) {
+      return undefined;
+    }
+
+    return save(db, current, { categoryFacings }, now);
+  });
+}
+
+/**
+ * Records the shelf price the rep read, against what the device expected (`AUD-03`) — W11 9b.
+ *
+ * <b>`expected` and `currencyCode` come from the caller, resolved once when the screen loaded.</b>
+ * They are stored beside the observation rather than re-derived at the seal, because `BR-AUD-3`
+ * compares against the price resolved *for that outlet and date* — and a list republished between
+ * the rep reading the shelf edge and sealing would otherwise move the number they were judged by.
+ *
+ * <b>An observation with no expected price is still worth storing.</b> It is not a compliance
+ * failure — the server takes a null expected and scores nothing — but it is a real reading, and
+ * throwing it away would lose the one piece of evidence that the list has a gap.
+ */
+export async function putPrice(
+  db: FieldKitDatabase,
+  auditId: string,
+  check: LocalPriceCheck | { productId: string; observed: null },
+  now: Date,
+): Promise<LocalAudit | undefined> {
+  return db.transaction("rw", db.audits, async () => {
+    const current = await db.audits.get(auditId);
+    if (!current || current.status !== "draft") return undefined;
+
+    const others = current.prices.filter((line) => line.productId !== check.productId);
+
+    return save(db, current, {
+      prices: check.observed === null ? others : [...others, check as LocalPriceCheck],
+    }, now);
+  });
+}
+
 async function save(
   db: FieldKitDatabase,
   current: LocalAudit,
-  availability: LocalAvailabilityLine[],
+  change: Partial<
+    Pick<LocalAudit, "availability" | "facings" | "categoryFacings" | "prices">
+  >,
   now: Date,
 ): Promise<LocalAudit> {
   const updated: LocalAudit = {
     ...current,
-    availability,
+    ...change,
     updatedAtUtc: now.toISOString(),
   };
 
@@ -233,12 +327,57 @@ function captured(audit: LocalAudit): Record<string, unknown> {
     visitId: audit.visitId,
     capturedAtUtc: audit.capturedAtUtc,
     weightSetVersion: audit.weightSetVersion,
-    categoryFacings: null,
+    categoryFacings: audit.categoryFacings,
     availability: audit.availability.map((line) => ({
       productId: line.productId,
       status: line.status,
     })),
-    facings: [],
-    prices: [],
+    facings: audit.facings.map((line) => ({
+      productId: line.productId,
+      facings: line.facings,
+    })),
+    prices: audit.prices.map((line) => ({
+      productId: line.productId,
+      observedMinorUnits: minorUnits(line.observed, line.currencyCode),
+      expectedMinorUnits:
+        line.expected === null ? null : minorUnits(line.expected, line.currencyCode),
+      currency: line.currencyCode,
+    })),
   };
+}
+
+/**
+ * A decimal amount as whole minor units — the shape `CapturedPrice` takes.
+ *
+ * <b>The only place in this module a decimal becomes a number, deliberately.</b> `local-order.ts`
+ * makes the same argument about its own conversion: every arithmetic the rep sees happens in
+ * `decimal.js`, and the value crosses `Number` exactly once, already scaled to an integer, at a
+ * magnitude where the conversion is exact.
+ *
+ * <b>Rounded to the currency's minor units first, half-up.</b> `Money.round` is `BR-PRD-9`'s policy,
+ * and going straight to `times(100)` would turn a stray third decimal into a fractional minor unit —
+ * which `long` on the server truncates silently and in the shop's favour.
+ */
+function minorUnits(amount: string, currencyCode: string): number {
+  const money = Money.of(amount, currencyCode).round();
+
+  return money.amount.times(new Decimal(10).pow(money.minorUnits)).toNumber();
+}
+
+/**
+ * Whether the audit measured anything at all.
+ *
+ * <b>Any of the three counts, which is wider than 9a's availability-only check.</b> The server's
+ * `Empty` refusal is about an audit that recorded nothing, and a rep who counted facings and read
+ * prices without ticking a single availability line has done real work — `BR-AUD-2` and `BR-AUD-3`
+ * are pillars in their own right, and the score renormalises over the ones that were measured.
+ *
+ * <b>A category total alone does not count.</b> It is a denominator: without facings above it there
+ * is no share to compute, and an audit carrying nothing but "the shelf has 40 facings on it" has
+ * measured nothing about *this tenant's* products.
+ */
+export function measured(audit: LocalAudit): boolean {
+  return (
+    audit.availability.length > 0 || audit.facings.length > 0 || audit.prices.length > 0
+  );
 }

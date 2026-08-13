@@ -8,6 +8,9 @@ import {
   draft,
   draftFor,
   putAvailability,
+  putCategoryFacings,
+  putFacings,
+  putPrice,
   seal,
 } from "@/lib/audits/local-audit";
 import { closeDatabase, FieldKitDatabase } from "@/lib/sync/db";
@@ -100,6 +103,113 @@ describe("answering for a product", () => {
   });
 });
 
+describe("counting facings", () => {
+  it("keeps zero as a measurement and blank as the absence of one", async () => {
+    /*
+     * `BR-AUD-2`'s numerator. A product with no facings on the shelf is a real reading — it is what
+     * an availability gap looks like in the share-of-shelf pillar — while an untouched box means the
+     * rep did not count. Collapsing the two would turn every unvisited row into a zero.
+     */
+    const started = await draftFor(db, REQUEST);
+
+    const counted = await putFacings(db, started.id, "p-1", 0, NOW);
+    expect(counted?.facings).toEqual([{ productId: "p-1", facings: 0 }]);
+
+    const cleared = await putFacings(db, started.id, "p-1", null, LATER);
+    expect(cleared?.facings).toEqual([]);
+  });
+
+  it("replaces a count rather than appending", async () => {
+    // The server refuses a product measured twice in one section (`DuplicateProduct`), so a rep who
+    // recounts must overwrite — the same rule availability answers follow.
+    const started = await draftFor(db, REQUEST);
+
+    await putFacings(db, started.id, "p-1", 4, NOW);
+    const recounted = await putFacings(db, started.id, "p-1", 6, LATER);
+
+    expect(recounted?.facings).toEqual([{ productId: "p-1", facings: 6 }]);
+  });
+
+  it("refuses a negative or fractional count", async () => {
+    // `NegativeCount` server-side, and a facing is one product's front on a shelf — there is no half
+    // of one. Refused here so the audit cannot be built into a shape that will be rejected.
+    const started = await draftFor(db, REQUEST);
+
+    expect(await putFacings(db, started.id, "p-1", -1, NOW)).toBeUndefined();
+    expect(await putFacings(db, started.id, "p-1", 2.5, NOW)).toBeUndefined();
+    expect((await auditFor(db, "visit-1"))?.facings).toEqual([]);
+  });
+
+  it("keeps the category total null until it is counted", async () => {
+    /*
+     * `BR-AUD-2`'s denominator, and the distinction W10 slice 0 settled: without it share-of-shelf is
+     * *skipped* and the score renormalises over what was measured. A zero would say the shop has none
+     * of the category, which is a different claim and a much worse one.
+     */
+    const started = await draftFor(db, REQUEST);
+    expect(started.categoryFacings).toBeNull();
+
+    const counted = await putCategoryFacings(db, started.id, 40, NOW);
+    expect(counted?.categoryFacings).toBe(40);
+
+    const uncounted = await putCategoryFacings(db, started.id, null, LATER);
+    expect(uncounted?.categoryFacings).toBeNull();
+  });
+});
+
+describe("reading a shelf price", () => {
+  it("stores the expected price beside the observation rather than re-deriving it", async () => {
+    /*
+     * `BR-AUD-3` compares against the price resolved for that outlet *and date*. Storing what the
+     * device resolved is what stops a list republished between the shelf and the seal from moving
+     * the number the rep is judged by — the same as-of-capture reasoning the server applies when it
+     * refuses to re-resolve on arrival.
+     */
+    const started = await draftFor(db, REQUEST);
+
+    const read = await putPrice(
+      db,
+      started.id,
+      { productId: "p-1", observed: "4.79", expected: "4.50", currencyCode: "RON" },
+      NOW,
+    );
+
+    expect(read?.prices).toEqual([
+      { productId: "p-1", observed: "4.79", expected: "4.50", currencyCode: "RON" },
+    ]);
+  });
+
+  it("keeps an observation for a product no list covers", async () => {
+    // Not a compliance failure — the server scores nothing against a null expected — but a real
+    // reading, and the only evidence that the price list has a gap here.
+    const started = await draftFor(db, REQUEST);
+
+    const read = await putPrice(
+      db,
+      started.id,
+      { productId: "p-1", observed: "4.79", expected: null, currencyCode: "RON" },
+      NOW,
+    );
+
+    expect(read?.prices[0].expected).toBeNull();
+  });
+
+  it("removes the reading when the rep clears the box", async () => {
+    const started = await draftFor(db, REQUEST);
+
+    await putPrice(
+      db,
+      started.id,
+      { productId: "p-1", observed: "4.79", expected: "4.50", currencyCode: "RON" },
+      NOW,
+    );
+
+    const cleared = await putPrice(db, started.id, { productId: "p-1", observed: null }, LATER);
+
+    expect(cleared?.prices).toEqual([]);
+  });
+});
+
 describe("sealing", () => {
   it("writes the audit and its outbox row in one transaction", async () => {
     /*
@@ -145,6 +255,79 @@ describe("sealing", () => {
       facings: [],
       prices: [],
     });
+  });
+
+  it("sends prices as whole minor units, rounded half-up first", async () => {
+    /*
+     * `CapturedPrice` takes `long` minor units, not a decimal — the discipline `BR-PRD-8`/`BR-PRD-9`
+     * already impose, applied to the one field `BR-AUD-3` judges compliance from.
+     *
+     * `4.795` is the case worth pinning: rounded half-up to the currency's minor units it is `4.80`
+     * and therefore `480`. Multiplying first would give `479.5`, which `long` truncates to `479` —
+     * silently, and in the shop's favour.
+     */
+    const started = await draftFor(db, REQUEST);
+
+    await putPrice(
+      db,
+      started.id,
+      { productId: "p-1", observed: "4.795", expected: "4.50", currencyCode: "RON" },
+      NOW,
+    );
+
+    await seal(db, started.id, LATER);
+
+    expect((await db.outbox.toArray())[0].payload).toMatchObject({
+      prices: [
+        {
+          productId: "p-1",
+          observedMinorUnits: 480,
+          expectedMinorUnits: 450,
+          currency: "RON",
+        },
+      ],
+    });
+  });
+
+  it("sends the category total it was given, including none", async () => {
+    // `BR-AUD-2`: null reaches the server as *not captured*, and the share-of-shelf pillar is
+    // skipped rather than scored zero.
+    const started = await draftFor(db, REQUEST);
+    await putFacings(db, started.id, "p-1", 6, NOW);
+    await putCategoryFacings(db, started.id, 40, NOW);
+
+    await seal(db, started.id, LATER);
+
+    expect((await db.outbox.toArray())[0].payload).toMatchObject({
+      categoryFacings: 40,
+      facings: [{ productId: "p-1", facings: 6 }],
+    });
+  });
+
+  it("seals an audit that only counted facings", async () => {
+    /*
+     * 9a refused anything without an availability answer, which was right when availability was the
+     * only thing this screen captured. `BR-AUD-2` and `BR-AUD-3` are pillars in their own right, so
+     * a rep who counted the shelf and read the labels without ticking a row has done real work — and
+     * the score renormalises over the pillars that were measured.
+     */
+    const started = await draftFor(db, REQUEST);
+    await putFacings(db, started.id, "p-1", 6, NOW);
+
+    const sealed = await seal(db, started.id, LATER);
+
+    expect(sealed?.status).toBe("sealed");
+    expect(await db.outbox.count()).toBe(1);
+  });
+
+  it("still refuses one that carries only a category total", async () => {
+    // A denominator with no numerator above it. There is no share to compute, and an audit saying
+    // only "the shelf has 40 facings" has measured nothing about this tenant's products.
+    const started = await draftFor(db, REQUEST);
+    await putCategoryFacings(db, started.id, 40, NOW);
+
+    expect(await seal(db, started.id, LATER)).toBeUndefined();
+    expect(await db.outbox.count()).toBe(0);
   });
 
   it("refuses an audit that measured nothing", async () => {
