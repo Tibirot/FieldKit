@@ -313,6 +313,32 @@ A weight's percentage crosses the wire and is stored on the device as a **string
 the two scores match exactly, `decimal.js` reads a string, and `JSON.parse` would turn a bare
 `33.34` into a float before the device's scorer ever saw it.
 
+### The questionnaire at the shelf (W11 slice 9c)
+
+`BR-AUD-7` is enforced here and nowhere else, so the shape of the enforcement is worth stating.
+
+- **The gate reads the form the screen is presenting, not the one the audit names.** An audit names no
+  form until the rep answers something, so gating on `SurveyFormId` excuses exactly the rep the rule
+  is about: the one who scrolled past the questionnaire and answered nothing at all. The two callers
+  — the section that renders the questions and the seal that gates on them — resolve the form through
+  one function, because a rule enforced against a different set than the one on screen either chases a
+  question the rep was never asked or waves through the ones they were.
+- **The outstanding questions are named, not counted.** "2 still needed" sends a rep back through a
+  form hunting for which two. The button stays pressable, for the reason the order minimum's does: a
+  control that cannot be pressed says nothing about why.
+- **Checked at the seal, not as each answer is given.** A rep works a form out of order — the fridge
+  before the shelf — and refusing an answer because an earlier one is missing is the screen arguing
+  with them mid-audit.
+- **Which form applies is the rep's call, and that is a gap in the model rather than a preference.** A
+  visit workflow's step carries a type and a label and no form id, and `ISurveyForms` is tenant-wide.
+  With one form the device uses it without asking; with several it asks; with none it shows nothing,
+  which is the ordinary case and a legitimate audit. Until the rep picks, `BR-AUD-7` has nothing to
+  gate on — the honest reading of a model that cannot say which questionnaire this shop was owed. A
+  **form-per-channel configuration** would close it, and it is a Configuration change, not a device one.
+- **Every answer is a string, and the form is sent both-or-neither.** `surveyFormId` and `answers`
+  travel together or not at all: `CapturedAudit` takes `answers` as a required list, so a draft that
+  reached the outbox with it missing would be refused as a 400 that retries forever.
+
 ## 7. Offline behavior
 
 Audits run **fully offline** inside a visit. Templates, MSL, and expected prices are synced

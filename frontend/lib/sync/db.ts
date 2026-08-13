@@ -579,10 +579,39 @@ export type LocalAudit = {
    */
   categoryFacings: number | null;
   prices: LocalPriceCheck[];
+  /**
+   * Which questionnaire the rep worked, or null when this audit has no survey (`AUD-04`) — W11 9c.
+   *
+   * <b>Null is the ordinary case</b>, not a gap: most audits are a shelf and no form, and the server
+   * takes a null form with no answers as an audit that simply had no survey step.
+   *
+   * <b>Nothing in the model says which form applies here</b>, which is why the rep chooses. A visit
+   * workflow's step carries a type and a label and no form id, and `ISurveyForms` is tenant-wide —
+   * so with one form the screen uses it and with several it asks. A form-per-channel would be
+   * Configuration's to own, and inventing it on the device would be a rule no administrator could
+   * see.
+   */
+  surveyFormId: string | null;
+  answers: LocalAnswer[];
   /** When the rep sealed it. Null while it is a draft, and never when the push arrived. */
   capturedAtUtc: string | null;
   updatedAtUtc: string;
 };
+
+/**
+ * One survey answer, as the rep gave it (`AUD-04`) — W11 slice 9c.
+ *
+ * <b>It carries the question's text, not just its key</b>, which is the server's shape and its
+ * argument: a key alone needs the form re-read to mean anything, and the form may have been reworded
+ * — or the question dropped — between the rep answering and the push arriving.
+ *
+ * <b>`value` is a string whatever the question's type was.</b> A number question's answer is `"12"`,
+ * a boolean's is `"true"`, a multi-choice's is its chosen options joined. That is a real loss of
+ * typing and it is the server's: the alternative is five nullable columns of which four are always
+ * null, and a sixth the day a type is added. The type lives on the question, where a reader can find
+ * it.
+ */
+export type LocalAnswer = { questionKey: string; questionText: string; value: string };
 
 /**
  * Facings counted for one product (`AUD-02`) — the numerator of share-of-shelf.
@@ -1075,6 +1104,30 @@ export class FieldKitDatabase extends Dexie {
             audit.facings ??= [];
             audit.prices ??= [];
             audit.categoryFacings ??= null;
+          });
+      });
+
+    /*
+     * Version 14 — the questionnaire at the shelf (`AUD-04`, W11 slice 9c).
+     *
+     * The same shape as version 13 and for the same reason: two fields added to rows a rep may be
+     * halfway through, and `captured()` cannot send `undefined` where the wire expects a value.
+     * `answers` is normalised to `[]` because `CapturedAudit` reads a null answer list as *no
+     * survey* — which is true here, and would stop being true the moment a reader defaulted it
+     * somewhere else instead.
+     *
+     * `surveyFormId` becomes null, which is the ordinary state rather than a missing one: most
+     * audits are a shelf and no form.
+     */
+    this.version(14)
+      .stores({})
+      .upgrade(async (tx) => {
+        await tx
+          .table("audits")
+          .toCollection()
+          .modify((audit: Partial<LocalAudit>) => {
+            audit.answers ??= [];
+            audit.surveyFormId ??= null;
           });
       });
 

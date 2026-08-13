@@ -4,9 +4,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   auditFor,
+  chooseSurvey,
   clearAvailability,
   draft,
   draftFor,
+  putAnswer,
+  unanswered,
   putAvailability,
   putCategoryFacings,
   putFacings,
@@ -210,6 +213,126 @@ describe("reading a shelf price", () => {
   });
 });
 
+describe("the questionnaire", () => {
+  const QUESTIONS = [
+    { key: "chiller", text: "Is the chiller working?", mandatory: true },
+    { key: "notes", text: "Anything else?", mandatory: false },
+  ];
+
+  it("refuses an answer that names no form", async () => {
+    // `MalformedAnswers` server-side: an answer with no questionnaire behind it is uninterpretable,
+    // so it is refused here rather than built into an audit that cannot be sent.
+    const started = await draftFor(db, REQUEST);
+
+    expect(
+      await putAnswer(
+        db,
+        started.id,
+        { questionKey: "chiller", questionText: "Is the chiller working?", value: "true" },
+        NOW,
+      ),
+    ).toBeUndefined();
+  });
+
+  it("replaces an answer rather than appending, and an empty value removes it", async () => {
+    /*
+     * Two answers under one key is `MalformedAnswers` too — and an empty string is not an answer,
+     * so storing one would let a mandatory question pass `BR-AUD-7`'s gate while saying nothing.
+     */
+    const started = await draftFor(db, REQUEST);
+    await chooseSurvey(db, started.id, "form-1", NOW);
+
+    await putAnswer(db, started.id, { questionKey: "chiller", questionText: "Q", value: "true" }, NOW);
+    const changed = await putAnswer(
+      db,
+      started.id,
+      { questionKey: "chiller", questionText: "Q", value: "false" },
+      LATER,
+    );
+
+    expect(changed?.answers).toEqual([
+      { questionKey: "chiller", questionText: "Q", value: "false" },
+    ]);
+
+    const cleared = await putAnswer(
+      db,
+      started.id,
+      { questionKey: "chiller", questionText: "Q", value: "  " },
+      LATER,
+    );
+
+    expect(cleared?.answers).toEqual([]);
+  });
+
+  it("discards the answers when the form changes", async () => {
+    /*
+     * An answer is filed under a question *key*, and two forms can use the same key for different
+     * questions. Carrying them across would attach a rep's answer to a question they never read.
+     */
+    const started = await draftFor(db, REQUEST);
+    await chooseSurvey(db, started.id, "form-1", NOW);
+    await putAnswer(db, started.id, { questionKey: "chiller", questionText: "Q", value: "true" }, NOW);
+
+    const moved = await chooseSurvey(db, started.id, "form-2", LATER);
+
+    expect(moved?.surveyFormId).toBe("form-2");
+    expect(moved?.answers).toEqual([]);
+  });
+
+  it("keeps the answers when the same form is chosen again", async () => {
+    // A screen re-asserting the form it already set must not wipe a rep's work — and the screen does
+    // exactly that when it chooses the tenant's only form on the rep's behalf.
+    const started = await draftFor(db, REQUEST);
+    await chooseSurvey(db, started.id, "form-1", NOW);
+    await putAnswer(db, started.id, { questionKey: "chiller", questionText: "Q", value: "true" }, NOW);
+
+    const again = await chooseSurvey(db, started.id, "form-1", LATER);
+
+    expect(again?.answers).toHaveLength(1);
+  });
+
+  it("names the mandatory questions still unanswered (BR-AUD-7)", async () => {
+    /*
+     * Enforced on the device and deliberately not on the server: `IAuditIngest` would test the
+     * answers against the questionnaire as it reads *today*, so a form that gained a mandatory
+     * question after the rep answered would refuse an audit for a question that did not exist.
+     *
+     * Named rather than counted — "2 still needed" sends a rep back through a form hunting.
+     */
+    const started = await draftFor(db, REQUEST);
+    await chooseSurvey(db, started.id, "form-1", NOW);
+
+    expect(unanswered((await auditFor(db, "visit-1"))!, QUESTIONS)).toEqual([
+      "Is the chiller working?",
+    ]);
+
+    await putAnswer(db, started.id, { questionKey: "chiller", questionText: "Q", value: "true" }, NOW);
+
+    expect(unanswered((await auditFor(db, "visit-1"))!, QUESTIONS)).toEqual([]);
+  });
+
+  it("asks nothing of an audit with no questionnaire", async () => {
+    // Most audits are a shelf and no form. `BR-AUD-7` has nothing to say about them, and a gate that
+    // fired anyway would make every audit need a survey. "No questionnaire" is no questions — the
+    // caller's call, because only the caller knows which form the rep is looking at.
+    const started = await draftFor(db, REQUEST);
+
+    expect(unanswered(started, [])).toEqual([]);
+  });
+
+  it("owes the mandatory questions even before the rep has named a form", async () => {
+    /*
+     * The hole this closes: an audit names no form until the first answer lands, and the rule used to
+     * skip an audit whose `surveyFormId` was null. So the one rep it excused — the one who scrolled
+     * past the questionnaire and answered nothing at all — was exactly the one `BR-AUD-7` is about.
+     */
+    const started = await draftFor(db, REQUEST);
+
+    expect(started.surveyFormId).toBeNull();
+    expect(unanswered(started, QUESTIONS)).toEqual(["Is the chiller working?"]);
+  });
+});
+
 describe("sealing", () => {
   it("writes the audit and its outbox row in one transaction", async () => {
     /*
@@ -254,6 +377,10 @@ describe("sealing", () => {
       availability: [{ productId: "p-1", status: "OutOfStock" }],
       facings: [],
       prices: [],
+      // Both null: `CapturedAudit` reads a null form with null answers as an audit that had no
+      // survey step, and the server refuses answers naming no form (`MalformedAnswers`).
+      surveyFormId: null,
+      answers: null,
     });
   });
 
@@ -318,6 +445,42 @@ describe("sealing", () => {
 
     expect(sealed?.status).toBe("sealed");
     expect(await db.outbox.count()).toBe(1);
+  });
+
+  it("sends the form and the answers, or a pair of nulls", async () => {
+    /*
+     * Both or neither. `CapturedAudit` reads a null form with null answers as an audit that had no
+     * survey step, and the server refuses answers naming no form — so an audit with a form and no
+     * answers must not become a form id with an empty list, which would claim the rep opened a
+     * questionnaire and answered nothing.
+     */
+    const started = await draftFor(db, REQUEST);
+    await chooseSurvey(db, started.id, "form-1", NOW);
+    await putAnswer(
+      db,
+      started.id,
+      { questionKey: "chiller", questionText: "Is the chiller working?", value: "true" },
+      NOW,
+    );
+
+    await seal(db, started.id, LATER);
+
+    expect((await db.outbox.toArray())[0].payload).toMatchObject({
+      surveyFormId: "form-1",
+      answers: [
+        { questionKey: "chiller", questionText: "Is the chiller working?", value: "true" },
+      ],
+    });
+  });
+
+  it("seals an audit that is only a questionnaire", async () => {
+    // `AUD-04` is a section of the audit in its own right: a shop with nothing on the shelf can
+    // still have a form filled in about the display, the fridge and the signage.
+    const started = await draftFor(db, REQUEST);
+    await chooseSurvey(db, started.id, "form-1", NOW);
+    await putAnswer(db, started.id, { questionKey: "chiller", questionText: "Q", value: "true" }, NOW);
+
+    expect((await seal(db, started.id, LATER))?.status).toBe("sealed");
   });
 
   it("still refuses one that carries only a category total", async () => {

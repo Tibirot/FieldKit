@@ -1,6 +1,7 @@
 import { Decimal, Money } from "@/lib/pricing/money";
 import type {
   FieldKitDatabase,
+  LocalAnswer,
   LocalAudit,
   LocalAvailabilityStatus,
   LocalPriceCheck,
@@ -63,6 +64,8 @@ export async function draftFor(
       // score the shop as having none of the category, which is a different and much worse claim.
       categoryFacings: null,
       prices: [],
+      surveyFormId: null,
+      answers: [],
       capturedAtUtc: null,
       updatedAtUtc: request.now.toISOString(),
     };
@@ -287,11 +290,102 @@ export async function putPrice(
   });
 }
 
+/**
+ * Says which questionnaire this audit is working (`AUD-04`) — W11 slice 9c.
+ *
+ * <b>Changing form discards the answers, and that is the honest behaviour.</b> An answer is filed
+ * under a question *key*, and two forms can use the same key for different questions — carrying them
+ * across would attach a rep's answer to a question they never read. `null` clears the survey
+ * entirely, which is what a rep who opened the wrong form needs.
+ */
+export async function chooseSurvey(
+  db: FieldKitDatabase,
+  auditId: string,
+  surveyFormId: string | null,
+  now: Date,
+): Promise<LocalAudit | undefined> {
+  return db.transaction("rw", db.audits, async () => {
+    const current = await db.audits.get(auditId);
+    if (!current || current.status !== "draft") return undefined;
+    if (current.surveyFormId === surveyFormId) return current;
+
+    return save(db, current, { surveyFormId, answers: [] }, now);
+  });
+}
+
+/**
+ * Records one answer, replacing any earlier one for that question (`AUD-04`).
+ *
+ * <b>The question's text is stored with it</b>, not looked up at the seal: the form may be reworded
+ * or the question dropped between the rep answering and the push landing, and an answer that needs
+ * the form re-read to mean anything is one a reader cannot trust. The server makes the same call.
+ *
+ * <b>An empty value removes the answer.</b> A rep who typed into the wrong box needs a way back to
+ * having answered nothing — and for `BR-AUD-7` an empty string is not an answer, so storing one
+ * would let a mandatory question pass its own gate.
+ */
+export async function putAnswer(
+  db: FieldKitDatabase,
+  auditId: string,
+  answer: LocalAnswer,
+  now: Date,
+): Promise<LocalAudit | undefined> {
+  return db.transaction("rw", db.audits, async () => {
+    const current = await db.audits.get(auditId);
+    if (!current || current.status !== "draft") return undefined;
+
+    // An answer with no form is uninterpretable — `MalformedAnswers` server-side — so it is refused
+    // here rather than built into an audit that cannot be sent.
+    if (current.surveyFormId === null) return undefined;
+
+    const others = current.answers.filter((line) => line.questionKey !== answer.questionKey);
+    const value = answer.value.trim();
+
+    return save(
+      db,
+      current,
+      { answers: value === "" ? others : [...others, { ...answer, value }] },
+      now,
+    );
+  });
+}
+
+/**
+ * The mandatory questions this audit has not answered (`BR-AUD-7`) — W11 slice 9c.
+ *
+ * <b>Enforced here and deliberately not on the server.</b> "Mandatory survey questions must be
+ * answered before the audit step completes" is a rule about *completing a step*, which happens with
+ * the rep looking at the form. Re-checking on arrival would test the answers against the
+ * questionnaire as it reads **today** — so a form that gained a mandatory question after the rep
+ * answered would refuse an audit for a question that did not exist when they worked the shelf, and
+ * one that dropped a question would refuse an audit for an answer that was mandatory at the time.
+ * `IAuditIngest` says exactly this.
+ *
+ * <b>Takes the questions rather than reading them</b>, so the rule stays pure: the caller holds the
+ * form the rep is looking at, which is the one the answers belong to. An audit with no questionnaire
+ * is a caller passing no questions — and *not* a check on `surveyFormId`, which is how this first
+ * went wrong: an audit names no form until the rep answers something, so skipping the rule for a
+ * null form skipped it for precisely the rep who had answered nothing.
+ */
+export function unanswered(
+  audit: LocalAudit,
+  questions: readonly { key: string; text: string; mandatory: boolean }[],
+): string[] {
+  const answered = new Set(audit.answers.map((answer) => answer.questionKey));
+
+  return questions
+    .filter((question) => question.mandatory && !answered.has(question.key))
+    .map((question) => question.text);
+}
+
 async function save(
   db: FieldKitDatabase,
   current: LocalAudit,
   change: Partial<
-    Pick<LocalAudit, "availability" | "facings" | "categoryFacings" | "prices">
+    Pick<
+      LocalAudit,
+      "availability" | "facings" | "categoryFacings" | "prices" | "surveyFormId" | "answers"
+    >
   >,
   now: Date,
 ): Promise<LocalAudit> {
@@ -343,6 +437,20 @@ function captured(audit: LocalAudit): Record<string, unknown> {
         line.expected === null ? null : minorUnits(line.expected, line.currencyCode),
       currency: line.currencyCode,
     })),
+    /*
+     * Both or neither. `CapturedAudit` defaults them to null and the server refuses answers that
+     * name no form (`MalformedAnswers`), so an audit with no survey sends nulls rather than a form
+     * id with an empty list — which would claim the rep opened a questionnaire and answered nothing.
+     */
+    surveyFormId: audit.surveyFormId,
+    answers:
+      audit.surveyFormId === null
+        ? null
+        : audit.answers.map((answer) => ({
+            questionKey: answer.questionKey,
+            questionText: answer.questionText,
+            value: answer.value,
+          })),
   };
 }
 
@@ -378,6 +486,12 @@ function minorUnits(amount: string, currencyCode: string): number {
  */
 export function measured(audit: LocalAudit): boolean {
   return (
-    audit.availability.length > 0 || audit.facings.length > 0 || audit.prices.length > 0
+    audit.availability.length > 0 ||
+    audit.facings.length > 0 ||
+    audit.prices.length > 0 ||
+    // A questionnaire the rep worked is a measurement too (W11 slice 9c) — `AUD-04` is a whole
+    // section of the audit, and a shop with nothing on the shelf can still have a form filled in
+    // about the display, the fridge and the signage.
+    audit.answers.length > 0
   );
 }

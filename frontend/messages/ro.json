@@ -1536,7 +1536,8 @@
       "sealing": "Se încheie…",
       "refusal": {
         "empty": "Verifică cel puțin un produs înainte de a încheia.",
-        "unexpected": "Nu s-a putut încheia. Încearcă din nou și anunță-ți supervizorul dacă se repetă."
+        "unexpected": "Nu s-a putut încheia. Încearcă din nou și anunță-ți supervizorul dacă se repetă.",
+        "mandatory": "Răspunde la întrebările de mai sus înainte de a încheia."
       },
       "sent": {
         "title": "Auditul este în așteptare.",
@@ -1561,7 +1562,21 @@
       "expected": "Așteptat {amount}",
       "noExpected": "Fără preț așteptat",
       "categoryFacings": "Total fronturi în categorie",
-      "categoryFacingsHint": "Toate fronturile de pe raft, ale tale și ale concurenței. Lasă gol dacă nu ai putut număra — cota de raft este atunci omisă, nu punctată cu zero."
+      "categoryFacingsHint": "Toate fronturile de pe raft, ale tale și ale concurenței. Lasă gol dacă nu ai putut număra — cota de raft este atunci omisă, nu punctată cu zero.",
+      "survey": "Chestionar",
+      "chooseSurvey": "Care chestionar",
+      "noSurvey": "Niciunul",
+      "questions": "Întrebări",
+      "required": "(obligatoriu)",
+      "answerTo": "Răspuns la {question}",
+      "yes": "Da",
+      "no": "Nu",
+      "yesTo": "Da la {question}",
+      "noTo": "Nu la {question}",
+      "noAnswer": "Fără răspuns",
+      "optionOf": "{option} pentru {question}",
+      "photoLater": "Întrebările cu fotografie nu pot fi completate încă pe acest dispozitiv.",
+      "stillNeeded": "Acestea au nevoie de un răspuns înainte de a încheia:"
     }
   },
   "Guard": {

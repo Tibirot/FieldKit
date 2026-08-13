@@ -189,6 +189,47 @@ async function openVersionTwelve(name: string): Promise<Dexie> {
   return twelfth;
 }
 
+/**
+ * The schema as W11 slice 9b shipped it — the audit carries its numbers, and no questionnaire.
+ *
+ * Replays the earlier versions for the reason every helper above gives, and replays **13's
+ * `upgrade()` too**: that one back-fills the three number fields, and a fixture that declared version
+ * 13 without it would hand version 14 rows no real device has.
+ */
+async function openVersionThirteen(name: string): Promise<Dexie> {
+  const legacy = await openVersionTwelve(name);
+  legacy.close();
+
+  const thirteenth = new Dexie(name);
+  thirteenth.version(1).stores(VERSION_1_STORES);
+  thirteenth.version(2).stores({
+    outbox: "mutationId, status, createdAt, subjectId, [status+createdAt]",
+  });
+  thirteenth.version(3).stores({}).upgrade((tx) => tx.table("watermarks").delete("outlets"));
+  thirteenth.version(4).stores({}).upgrade((tx) => tx.table("watermarks").delete("outlets"));
+  thirteenth.version(5).stores({ visits: "id, status, outletId" });
+  thirteenth.version(6).stores({ ref_surveys: "id, name" });
+  thirteenth.version(7).stores({ orders: "id, visitId, status" });
+  thirteenth.version(8).stores({}).upgrade(async (tx) => {
+    await tx.table("watermarks").delete("priceLines");
+    await tx.table("watermarks").delete("promotions");
+  });
+  thirteenth.version(9).stores({ ref_tax_rates: "id, [countryCode+taxClassId]" });
+  thirteenth.version(10).stores({}).upgrade((tx) => tx.table("watermarks").delete("outlets"));
+  thirteenth.version(11).stores({ ref_order_minimums: "id, channelId, outletId" });
+  thirteenth.version(12).stores({ audits: "id, visitId, status" });
+  thirteenth.version(13).stores({}).upgrade(async (tx) => {
+    await tx.table("audits").toCollection().modify((audit: Record<string, unknown>) => {
+      audit.facings ??= [];
+      audit.prices ??= [];
+      audit.categoryFacings ??= null;
+    });
+  });
+  await thirteenth.open();
+
+  return thirteenth;
+}
+
 function outletRow(id: string, rowVersion: number) {
   return {
     id,
@@ -256,7 +297,7 @@ describe("upgrading a device that has unsent work", () => {
     // rows. Without this the whole file could be passing against databases that never existed at
     // v1. The number moves with every schema version, which is the point — a device that skipped
     // one still has to arrive at the latest.
-    expect(upgraded.verno).toBe(13);
+    expect(upgraded.verno).toBe(14);
     expect(await upgraded.outbox.count()).toBe(3);
 
     // Still in capture order, which is what the drain depends on — and now read through the new
@@ -537,7 +578,7 @@ describe("upgrading a device whose outlets predate the geofence radius", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(13);
+    expect(upgraded.verno).toBe(14);
     expect(await watermark(upgraded, OUTLETS)).toBe(0);
     expect(await watermark(upgraded, PRODUCTS)).toBe(41);
 
@@ -572,7 +613,7 @@ describe("upgrading a device that predates the visits store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(13);
+    expect(upgraded.verno).toBe(14);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
 
     // The new store exists and is empty, which is the only correct starting state: there were no
@@ -608,7 +649,7 @@ describe("upgrading a device that predates the audit's reference stores", () => 
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(13);
+    expect(upgraded.verno).toBe(14);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
     expect(await upgraded.visits.count()).toBe(1);
 
@@ -684,7 +725,7 @@ describe("upgrading a device to the order store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(13);
+    expect(upgraded.verno).toBe(14);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // The store arrives empty on an upgraded device, which is the state a fresh install is in — so
@@ -733,7 +774,7 @@ describe("upgrading a device whose prices are floats", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(13);
+    expect(upgraded.verno).toBe(14);
 
     // The two that carried money go back to zero, so the next pull resends every row.
     expect(await watermark(upgraded, PRICE_LINES)).toBe(0);
@@ -774,7 +815,7 @@ describe("upgrading a device that has never held a tax rate", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(13);
+    expect(upgraded.verno).toBe(14);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // Empty on arrival, like every other new reference store: the next pull fills it, because the
@@ -832,7 +873,7 @@ describe("upgrading a device whose outlets have no country", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(13);
+    expect(upgraded.verno).toBe(14);
 
     expect(await watermark(upgraded, OUTLETS)).toBe(0);
 
@@ -872,7 +913,7 @@ describe("upgrading a device that has never held an order minimum", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(13);
+    expect(upgraded.verno).toBe(14);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // Empty on arrival, which for this store means every order passes — `BR-ORD-5` applies a minimum
@@ -940,7 +981,7 @@ describe("upgrading a device that predates the audit store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(13);
+    expect(upgraded.verno).toBe(14);
     expect(await upgraded.outbox.count()).toBe(1);
     expect(await upgraded.audits.count()).toBe(0);
 
@@ -991,7 +1032,7 @@ describe("upgrading a device holding an audit from before the numbers", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(13);
+    expect(upgraded.verno).toBe(14);
 
     const audit = (await upgraded.audits.get("audit-1"))!;
 
@@ -1009,6 +1050,58 @@ describe("upgrading a device holding an audit from before the numbers", () => {
   });
 });
 
+describe("upgrading a device holding an audit from before the questionnaire", () => {
+  it("gives it no survey and no answers, without disturbing what was measured", async () => {
+    /*
+     * `OFF-13` for version 14 (W11 slice 9c). The same argument version 13 makes, with one
+     * difference worth stating: `surveyFormId` becomes **null**, which is the ordinary state of an
+     * audit rather than a missing one. Most audits are a shelf and no form.
+     *
+     * What makes it a version rather than a reader's default is `captured()`. It sends the form and
+     * the answers both-or-neither, and `undefined` on a v13 row would serialise to a `CapturedAudit`
+     * missing `answers` — refused as a 400 that retries forever, which on a sealed audit is a rep's
+     * only copy stuck in the outbox.
+     *
+     * Written through the *old* shape deliberately: a v13 row is what a rep halfway down an aisle has
+     * when the app updates under them.
+     */
+    const name = `migration:${crypto.randomUUID()}`;
+
+    const legacy = await openVersionThirteen(name);
+    await legacy.table("audits").add({
+      id: "audit-1",
+      visitId: "visit-1",
+      outletId: "outlet-1",
+      status: "draft",
+      weightSetVersion: 3,
+      availability: [{ productId: "p-1", status: "Present" }],
+      facings: [{ productId: "p-1", facings: 4 }],
+      prices: [],
+      categoryFacings: 20,
+      capturedAtUtc: null,
+      updatedAtUtc: "2026-03-17T10:00:00.000Z",
+    });
+    legacy.close();
+
+    const upgraded = new FieldKitDatabase(name);
+    await upgraded.open();
+
+    expect(upgraded.verno).toBe(14);
+
+    const audit = (await upgraded.audits.get("audit-1"))!;
+
+    expect(audit.answers).toEqual([]);
+    expect(audit.surveyFormId).toBeNull();
+
+    // The shelf the rep worked is untouched, which is the whole point of the exercise.
+    expect(audit.availability).toEqual([{ productId: "p-1", status: "Present" }]);
+    expect(audit.facings).toEqual([{ productId: "p-1", facings: 4 }]);
+    expect(audit.categoryFacings).toBe(20);
+
+    upgraded.close();
+  });
+});
+
 describe("the schema itself", () => {
   it("declares every version, so a device that skipped one still arrives", async () => {
     // Dexie replays versions in order to bring an existing database forward. Deleting version 1
@@ -1019,7 +1112,7 @@ describe("the schema itself", () => {
 
     await db.open();
 
-    expect(db.verno).toBe(13);
+    expect(db.verno).toBe(14);
 
     // The outbox is still keyed by the mutation id, which is the property the server's ledger
     // depends on: a re-send has to arrive under the id it was captured with.
