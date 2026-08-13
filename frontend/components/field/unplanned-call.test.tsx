@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UnplannedCall } from "@/components/field/unplanned-call";
 import type { SyncContextValue } from "@/components/sync/sync-provider";
 import { closeDatabase, FieldKitDatabase, type ReferenceOutlet } from "@/lib/sync/db";
+import { enqueue, markRejected } from "@/lib/sync/outbox";
 import { eventually } from "@/test/eventually";
 import { render } from "@/test/render";
 
@@ -131,6 +132,57 @@ describe("<UnplannedCall>", () => {
 
     expect(await screen.findByText("Kiosk 1 Mai")).toBeTruthy();
     await eventually(() => expect(screen.queryByText("Corner Shop")).toBeNull());
+  });
+
+  it("says why a call here was refused — the only place it can be seen (W11½ R5)", async () => {
+    /*
+     * An unplanned call is queued under the *shop's* id, and the round has no row for a shop it
+     * never planned — so this list is the only surface that can carry the answer.
+     *
+     * The refusal used here is the one regression F9 hit in a browser: the server takes an unplanned
+     * call only onto a published round covering the day, and the dev rep had none. Before R5 that
+     * reached the rep as an unexplained pending count.
+     */
+    const entry = await enqueue(db, {
+      type: "UnplannedCall",
+      subjectId: "outlet-1",
+      payload: { outletId: "outlet-1", date: TODAY },
+    });
+
+    await markRejected(
+      db,
+      entry.mutationId,
+      "journey.plan.noneForDate",
+      "You have no published round covering that day.",
+    );
+
+    render(<UnplannedCall date={TODAY} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Calling somewhere else?" }));
+
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "You have no published round covering that day.",
+    );
+  });
+
+  it("keeps one shop's refusal off another shop's row", async () => {
+    // Both are queued under an outlet id, so a reader that took the first failure in the outbox
+    // would blame whichever shop happened to be rendered first.
+    const entry = await enqueue(db, {
+      type: "UnplannedCall",
+      subjectId: "outlet-1",
+      payload: { outletId: "outlet-1", date: TODAY },
+    });
+
+    await markRejected(db, entry.mutationId, "journey.plan.noneForDate", "No round covers that day.");
+
+    render(<UnplannedCall date={TODAY} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Calling somewhere else?" }));
+    await screen.findByRole("alert");
+
+    // One row explains itself; the other three say nothing.
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
   });
 
   it("says so when there is nothing to call at", async () => {

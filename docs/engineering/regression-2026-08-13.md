@@ -103,6 +103,21 @@ fallback at all.
 This is the same shape as `lastFailure` before W11 slice 12c, where a swallowed reason hid a broken
 feature for a whole slice.
 
+**Fixed in W11½ R5**, as wiring rather than new machinery: a `refusalOf` reader, a `storedRefusalText`
+translator beside `refusalText`, and a `RefusedReason` beside every `SyncBadge`. The catalogue did not
+have to grow — ADR-0012's English fallback carries every push-time code.
+
+**One thing the fix had to discover.** `refusalText` is safe because it passes the server's `args`
+through; `markRejected` never stored any, and `t.has` cannot tell an entry with placeholders from one
+without. **`next-intl` does not throw on a missing ICU value** — it reports the error and returns the
+key path — so the obvious guard is not one, and a rep would have been shown
+`Refusals.journey.plan.windowTooLong`, which is precisely the failure ADR-0012 exists to prevent. The
+template is inspected for a brace instead.
+
+This is ADR-0012 stage 4's gap seen from a new angle: the ADR asked for a test walking the codes the
+server can emit, and the reason it matters is not only that a code may be missing from the catalogue
+— it is that a code *present* in the catalogue can be unrenderable from what the device kept.
+
 **Fix:** wire `refusalText` into the badge or the visit/order screen. Small; the data and the
 translator both exist.
 

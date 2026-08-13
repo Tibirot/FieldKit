@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
+import { RefusedReason } from "@/components/sync/refused-reason";
 import { useSync } from "@/components/sync/sync-provider";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
@@ -99,6 +100,16 @@ export function UnplannedCall({ date }: { date: string }) {
                 <span className="truncate font-medium">{outlet.name}</span>
                 <span className="font-mono text-xs text-muted-foreground">{outlet.code}</span>
               </Link>
+
+              {/*
+                Why the back office refused a call already made here (`OFF-09`) — W11½ R5.
+
+                The **only** place this refusal can be seen: an unplanned call is queued under the
+                shop's id, and the round has no row for a shop it never planned. Without it the most
+                likely refusal in the whole app — `journey.plan.noneForDate`, when no published round
+                covers today (regression F9) — reaches the rep as an unexplained pending count.
+              */}
+              <RefusedReason subjectId={outlet.id} />
             </li>
           ))}
         </ul>

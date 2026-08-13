@@ -32,6 +32,47 @@ export function refusalText(t: RefusalTranslator, problem: FieldProblem): string
   return t(code, problem.args ?? {});
 }
 
+/**
+ * A refusal the device stored rather than one it just received — W11½ R5.
+ *
+ * <b>The same rule as {@link refusalText}, over a different shape.</b> An HTTP refusal arrives as a
+ * `FieldProblem` and is read once; a *sync* refusal is written to the outbox by `markRejected` and
+ * read minutes or hours later, by which time the request is long gone. Only the code and the
+ * server's sentence survive, and that turns out to be exactly what is needed.
+ *
+ * <b>No `args`, and that is the honest limitation.</b> `markRejected` never stored them, so a
+ * catalogue entry naming a placeholder has nothing to fill it with — and `t.has` cannot tell the two
+ * kinds of entry apart. **`next-intl` does not throw on a missing value**, which is the trap: it
+ * reports the error and returns *the key path*, so the guard cannot be a `try`/`catch` and a screen
+ * that trusted `t.has` would print `Refusals.journey.plan.windowTooLong` at a rep — the exact failure
+ * [ADR-0012](../../../docs/architecture/adr/0012-server-message-localization.md) exists to prevent.
+ *
+ * So the template is inspected instead. An entry with no placeholder is safe to format; anything
+ * else falls back to the server's English, which is ADR-0012's design rather than a shortfall — a
+ * correct sentence a rep can act on beats `journey.plan.noneForDate`.
+ *
+ * Returns `undefined` when there is nothing to say, so a caller renders no empty box.
+ */
+export function storedRefusalText(
+  t: RefusalTranslator,
+  refusal: { code?: string; detail?: string },
+): string | undefined {
+  // Cast because the key is a string the *server* chose, and TypeScript can only accept the
+  // catalogue's literal names — the same shape `refusalText` uses above.
+  const code = refusal.code as RefusalKey | undefined;
+
+  if (code && t.has(code)) {
+    const template: unknown = t.raw(code);
+
+    // A brace is enough: ICU placeholders, plurals and selects all open with one, and every entry
+    // that has none formats to itself. Erring towards the server's sentence costs a translation;
+    // erring the other way prints a dotted key.
+    if (typeof template === "string" && !template.includes("{")) return t(code);
+  }
+
+  return refusal.detail || undefined;
+}
+
 /** Every refusal in an error, in the reader's language, in the order the API listed them. */
 export function refusalTexts(
   t: RefusalTranslator,

@@ -178,3 +178,45 @@ export async function statusOf(
   // what the rep has to be told, whatever else is queued behind it.
   return entries.some((entry) => entry.status === "failed") ? "failed" : entries[0].status;
 }
+
+/** What the server said when it refused, as `markRejected` stored it (`OFF-09`, `ADR-0012`). */
+export type StoredRefusal = { code?: string; detail?: string };
+
+/**
+ * Why this entity's work was refused, if it was — W11½ R5.
+ *
+ * <b>`markRejected` has written this since W8 and nothing has ever read it</b> (regression F1). The
+ * comment above it said "the UI translates" the code and the UI did not exist, so a rep whose order
+ * or annotation the server refused saw *Needs attention* and had no way to find out why — on the one
+ * surface where it matters most, because the work is already done and only a person can unstick it.
+ *
+ * Keyed by the entity rather than the mutation, matching {@link statusOf}: a screen has a visit id,
+ * not a mutation id, and the two answer the same question from either side.
+ *
+ * <b>The oldest failure, not the newest.</b> A rep with two refusals against one entity is looking
+ * at a chain — the first refusal is usually why the rest followed, and the newest is the least
+ * explanatory thing on the list.
+ */
+export async function refusalOf(
+  db: FieldKitDatabase,
+  subjectId: string,
+): Promise<StoredRefusal | undefined> {
+  const failed = (await db.outbox.where("subjectId").equals(subjectId).toArray())
+    .filter((entry) => entry.status === "failed")
+    .sort((left, right) => left.createdAt - right.createdAt);
+
+  const first = failed.at(0);
+  if (!first) return undefined;
+
+  /*
+   * `undefined` for an entry with neither, rather than an empty refusal.
+   *
+   * A transport failure marks nothing — only a refusal on the merits carries a code — but the two
+   * fields are optional and a device holding a row written before this existed has neither. The
+   * caller renders a sentence or renders nothing, and "failed, and I cannot say why" is what the
+   * badge alone already communicates.
+   */
+  if (!first.errorCode && !first.errorDetail) return undefined;
+
+  return { code: first.errorCode, detail: first.errorDetail };
+}

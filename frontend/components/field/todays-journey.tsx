@@ -4,6 +4,7 @@ import { useFormatter, useTranslations } from "next-intl";
 
 import { UnplannedCall } from "@/components/field/unplanned-call";
 import { useSync } from "@/components/sync/sync-provider";
+import { RefusedReason } from "@/components/sync/refused-reason";
 import { SyncBadge } from "@/components/sync/sync-badge";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "@/i18n/navigation";
@@ -138,6 +139,14 @@ function StopRow({ stop }: { stop: Stop }) {
       {stop.progress === "notVisited" && stop.notVisitedReason ? (
         <p className="text-sm text-muted-foreground">{stop.notVisitedReason}</p>
       ) : null}
+
+      {/*
+        And the back office's sentence, when it refused (`OFF-09`) — W11½ R5. Under the row rather
+        than in the badge, and keyed by the same two subjects the badges above are: a rep who is told
+        *Needs attention* and nothing else has been given a problem with no handle on it.
+      */}
+      {stop.visit ? <RefusedReason subjectId={stop.visit.id} /> : null}
+      {!stop.visit && stop.reportedHere ? <RefusedReason subjectId={stop.plannedVisitId} /> : null}
     </li>
   );
 }
