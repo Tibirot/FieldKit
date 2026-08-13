@@ -57,6 +57,14 @@ Per [B8](../product/decisions-and-assumptions.md#b8--privacy--gdpr-posture):
   rather than through this app, so a policy that omits it refuses every upload *silently*. It did,
   for a slice. The origin comes from configuration and is allowed for `connect-src` only — never
   `script-src`, where a service that accepts writes could then serve script to this origin.
+- **The container is declared by the deploy, not made by the app.** It used to be created on the
+  first presign, which meant the identity that mints write-only URLs also had to be allowed to create
+  containers — a right that endpoint has no use for. It is now infrastructure the AppHost declares.
+- **The front end holds no role on the storage account.** It is given the storage *origin* as a
+  string, for `connect-src`, and nothing more; nothing in the front end opens a connection to storage
+  — the browser does, with a signature the API scopes to one blob. Passing the resource rather than
+  the value silently earned it Blob, Table and Queue Data Contributor over the whole account for a
+  slice, which the deploy-manifest check now refuses.
 - **The storage account's CORS rule is the narrowest that works**, and the API sets it at startup
   rather than leaving it to a runbook. `PUT` and `OPTIONS` from the one configured front-end origin;
   no `GET`, because a rule that let a browser read would undo the presigned URL being write-only

@@ -671,6 +671,21 @@ to rules that nothing on the server or in a mocked `fetch` can see.
   `lastFailure` now keeps the reason (local store version 17) — and it is what slice 13 needs before
   it can tell a rep anything true.
 
+**What W11 slice 12d changed — who is allowed to do what:**
+
+- **The container is declared, not created on first use.** `CreateIfNotExists` ran on every presign,
+  which meant the identity that signs write-only URLs also had to hold the right to create
+  containers, and paid a round trip before signing anything. The AppHost declares it — bicep when
+  published, the emulator hook in development. The trade: a container deleted in production no longer
+  heals itself, it comes back on the next deploy.
+- **The front end holds the storage origin, and no access to storage.** Slice 12c handed it the
+  origin by passing the resource, which reads as harmless and is not: a reference earns Aspire's
+  default grant, and the published front-end identity came away with Blob, Table and Queue Data
+  Contributor over the account. It now takes the bicep output and declares an empty role set.
+- **Both are held by the deploy-manifest check**, not by a test — the container's name must match
+  `BlobPhotoStorage.ContainerName`, which the AppHost cannot reference, and the front end's role
+  module must grant nothing.
+
 Photos ([B5](../product/decisions-and-assumptions.md#b5--photo--binary-sync)) upload
 **independently** of the JSON push and can lag it; the audit references the object key, resolved
 when the upload confirms. Failures retry without blocking data sync. **Terminal case:** if a device

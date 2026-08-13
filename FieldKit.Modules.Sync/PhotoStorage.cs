@@ -62,7 +62,15 @@ public interface IPhotoStorage
 /// </remarks>
 public sealed class BlobPhotoStorage(BlobServiceClient blobs, IClock clock) : IPhotoStorage
 {
-    /// <summary>The container the AppHost creates. One, with the tenant in the object's path.</summary>
+    /// <summary>
+    /// The container the AppHost declares. One, with the tenant in the object's path.
+    /// </summary>
+    /// <remarks>
+    /// The name is duplicated in <c>AppHost.cs</c>, which cannot reference this assembly — the deploy
+    /// manifest check asserts the published container carries this name, so the two cannot drift
+    /// silently. Until W11 slice 12d the comment here claimed the AppHost created it and nothing did:
+    /// the container was made lazily, on the first presign, by the code below.
+    /// </remarks>
     public const string ContainerName = "photos";
 
     public async Task<PresignedUpload> PresignUploadAsync(
@@ -70,13 +78,18 @@ public sealed class BlobPhotoStorage(BlobServiceClient blobs, IClock clock) : IP
         TimeSpan lifetime,
         CancellationToken ct)
     {
-        var container = blobs.GetBlobContainerClient(ContainerName);
-
-        // Created on demand rather than assumed: the emulator starts empty, and a deployment whose
-        // container was removed should heal rather than fail every upload until somebody notices.
-        await container.CreateIfNotExistsAsync(cancellationToken: ct);
-
-        var blob = container.GetBlobClient(objectKey);
+        /*
+         * Assumed to exist, and no longer created here (W11 slice 12d).
+         *
+         * `CreateIfNotExists` on every presign meant the identity that signs write-only URLs also had
+         * to be allowed to create containers — a right this endpoint has no use for — and paid a round
+         * trip before signing anything. The container is infrastructure; the AppHost declares it.
+         *
+         * If it is missing the upload fails at the `PUT` rather than here. That is survivable now in a
+         * way it was not before 12c: the device keeps the reason on the blob, so the failure is
+         * legible instead of looking like a bad signal forever.
+         */
+        var blob = blobs.GetBlobContainerClient(ContainerName).GetBlobClient(objectKey);
         // The injected clock, never static time — the architecture gate banned this line's first
         // draft, and it was right to: an expiry is a decision about *when*, and a test that cannot
         // move the clock cannot check that a lapsed URL stops working.
