@@ -44,6 +44,16 @@ public sealed class OrderLine : ITenantOwned
     /// <summary>What the device made of the line after any promotion it applied.</summary>
     public decimal LineTotal { get; private set; }
 
+    /// <summary>
+    /// The tax the device worked out, on top of <see cref="LineTotal"/> (<c>ORD-02</c>) — W11 14.
+    /// </summary>
+    /// <remarks>
+    /// The field the wire was missing. <see cref="LineTotal"/> is net, so until this existed the back
+    /// office received every order short of its VAT — and the server's recomputation, which is gross,
+    /// had nothing like-for-like to be compared against.
+    /// </remarks>
+    public decimal TaxAmount { get; private set; }
+
     public TenantId TenantId { get; set; }
 
     private OrderLine() { } // EF
@@ -59,6 +69,7 @@ public sealed class OrderLine : ITenantOwned
         PackSize = captured.PackSize,
         UnitPrice = captured.UnitPrice,
         LineTotal = captured.LineTotal,
+        TaxAmount = captured.TaxAmount,
     };
 }
 
@@ -306,6 +317,65 @@ public sealed class Order : AggregateRoot, ITenantOwned, IAuditable
     /// <summary>The device's order total.</summary>
     public decimal Total { get; private set; }
 
+    /// <summary>The device's tax total, beside <see cref="Total"/>'s net — W11 slice 14.</summary>
+    public decimal TaxTotal { get; private set; }
+
+    /// <summary>
+    /// The reference data the device priced against, or null if it did not say (<c>ORD-08</c>).
+    /// </summary>
+    /// <remarks>
+    /// Null for every order captured before W11 slice 14, and for any device that has not been
+    /// updated. Recorded as absence rather than as zeros: a device that never sent cursors and one
+    /// that had pulled nothing are different, and only the second means "priced against an empty
+    /// catalogue".
+    /// </remarks>
+    public PricingSnapshot? CapturedAgainst { get; private set; }
+
+    /// <summary>
+    /// What this server made of the same order, and when (<c>BR-ORD-6</c>) — W11 slice 14.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Beside the device's numbers, never over them.</b> An order's prices are what a human being
+    /// agreed to buy at; overwriting them would change the commercial fact the rep and the shopkeeper
+    /// settled on. So the device wins the record and the server wins the annotation — the opposite of
+    /// <c>BR-AUD-8</c>, where a recomputed score replaces the device's, because a score is a
+    /// measurement and a price is an agreement.
+    /// </para>
+    /// <para>
+    /// Null while an order has not been re-priced — which includes every order stored before this
+    /// slice, and any whose outlet the pricing service could not resolve.
+    /// </para>
+    /// </remarks>
+    public decimal? ServerTotal { get; private set; }
+
+    /// <summary>The server's tax, beside <see cref="ServerTotal"/>'s net.</summary>
+    public decimal? ServerTaxTotal { get; private set; }
+
+    /// <summary>
+    /// When the server re-priced, which is also what names the data it used.
+    /// </summary>
+    /// <remarks>
+    /// The server's own snapshot is not stored as cursors the way the device's is: it re-prices from
+    /// its current tables, so "what it used" *is* the database at this instant, and six more columns
+    /// would restate the timestamp less precisely.
+    /// </remarks>
+    public DateTimeOffset? RepricedAtUtc { get; private set; }
+
+    /// <summary>
+    /// Whether the two agree — derived, never stored (<c>BR-ORD-6</c>).
+    /// </summary>
+    /// <remarks>
+    /// Derived because a stored flag can disagree with the numbers beside it, and then a reader has
+    /// to decide which to believe. Exact comparison rather than a tolerance: both sides run the same
+    /// rounding policy on the same decimals (<c>BR-PRD-8</c>, <c>BR-PRD-9</c>), so any difference is
+    /// a real difference in inputs — which is the thing worth surfacing.
+    /// </remarks>
+    public PriceAgreement Agreement =>
+        ServerTotal is null || ServerTaxTotal is null ? PriceAgreement.NotRepriced
+        : ServerTotal == Total && ServerTaxTotal == TaxTotal ? PriceAgreement.Agrees
+        : PriceAgreement.Differs;
+
     /// <summary>When the rep sealed it, from the device's clock.</summary>
     /// <remarks>
     /// The device's, not the server's, and the difference is the whole point of an offline product:
@@ -355,7 +425,9 @@ public sealed class Order : AggregateRoot, ITenantOwned, IAuditable
             Status = OrderStatus.Submitted,
             CurrencyCode = captured.CurrencyCode.Trim().ToUpperInvariant(),
             Total = captured.Total,
+            TaxTotal = captured.TaxTotal,
             CapturedAtUtc = captured.CapturedAtUtc,
+            CapturedAgainst = captured.CapturedAgainst,
         };
 
         var position = 1;
@@ -392,6 +464,29 @@ public sealed class Order : AggregateRoot, ITenantOwned, IAuditable
             order.CapturedAtUtc));
 
         return (order, OrderRefusal.None);
+    }
+
+    /// <summary>
+    /// Records what this server made of the same order (<c>BR-ORD-6</c>, <c>ORD-08</c>) — W11 14.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It writes only the annotation.</b> <see cref="Total"/>, <see cref="TaxTotal"/> and every
+    /// line are untouched, because they are what a rep and a shopkeeper agreed to. Nothing here can
+    /// change a price; the strongest thing it can do is make <see cref="Agreement"/> say they differ.
+    /// </para>
+    /// <para>
+    /// <b>Once, on the way in.</b> Re-pricing an old order later would compare it against today's
+    /// price list and manufacture a disagreement out of an ordinary price change — the numbers are
+    /// only comparable as of the day the order was taken, which is why the pricing service takes that
+    /// date rather than reading a clock.
+    /// </para>
+    /// </remarks>
+    internal void RecordServerPrice(decimal net, decimal tax, DateTimeOffset at)
+    {
+        ServerTotal = net;
+        ServerTaxTotal = tax;
+        RepricedAtUtc = at;
     }
 
     /// <summary>

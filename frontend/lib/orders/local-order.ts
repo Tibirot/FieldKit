@@ -3,7 +3,17 @@ import type {
   FieldKitDatabase,
   LocalOrder,
   LocalOrderLine,
+  LocalPricingSnapshot,
 } from "@/lib/sync/db";
+import {
+  PRICE_ASSIGNMENTS,
+  PRICE_LINES,
+  PRICE_LISTS,
+  PROMOTION_ASSIGNMENTS,
+  PROMOTIONS,
+  TAX_RATES,
+  watermark,
+} from "@/lib/sync/reference";
 
 /**
  * The order a rep builds at a counter, and the moment they seal it (`ORD-01`, `ORD-05`, `ORD-07`) —
@@ -36,6 +46,8 @@ export type LineRequest = {
   packSize: number | null;
   unitPrice: string;
   lineTotal: string;
+  /** The tax on top of it, which the screen already prices (`ORD-02`) — W11 slice 14. */
+  taxAmount: string;
   now: Date;
 };
 
@@ -62,6 +74,8 @@ export async function draftFor(
       status: "draft",
       currencyCode: request.currencyCode,
       total: "0",
+      taxTotal: "0",
+      capturedAgainst: null,
       lines: [],
       capturedAtUtc: null,
       updatedAtUtc: request.now.toISOString(),
@@ -128,6 +142,7 @@ export async function putLine(
       packSize: request.packSize,
       unitPrice: request.unitPrice,
       lineTotal: request.lineTotal,
+      taxAmount: request.taxAmount,
     };
 
     const lines = [
@@ -172,7 +187,7 @@ export async function submit(
   orderId: string,
   now: Date,
 ): Promise<LocalOrder | undefined> {
-  return db.transaction("rw", db.orders, db.outbox, async () => {
+  return db.transaction("rw", db.orders, db.outbox, db.watermarks, async () => {
     const current = await db.orders.get(orderId);
     if (!current || current.status !== "draft" || current.lines.length === 0) return undefined;
 
@@ -181,6 +196,14 @@ export async function submit(
       status: "submitted",
       capturedAtUtc: now.toISOString(),
       updatedAtUtc: now.toISOString(),
+      /*
+       * What the device had pulled at the moment the rep stopped editing (`ORD-08`).
+       *
+       * Read here rather than when the first line was added: a rep can price a line, sync, and price
+       * another, and the numbers that travel are the ones from the seal. Inside the transaction, so
+       * a sync landing mid-submit cannot move a cursor between the read and the write.
+       */
+      capturedAgainst: await pricingSnapshot(db),
     };
 
     await db.orders.put(sealed);
@@ -205,6 +228,28 @@ export async function submit(
 }
 
 /**
+ * The six watermarks that decided this order's prices (`ORD-08`) — W11 slice 14.
+ *
+ * <b>Six, because pricing has six inputs and they advance independently.</b> The sync engine calls
+ * its own snapshot "a patchwork, not a point in time"; a single number would summarise something with
+ * no single value, and the point of recording this is to be able to say *which* input was stale when
+ * the server disagrees.
+ */
+async function pricingSnapshot(db: FieldKitDatabase): Promise<LocalPricingSnapshot> {
+  const [priceLists, priceLines, priceAssignments, promotions, promotionAssignments, taxRates] =
+    await Promise.all([
+      watermark(db, PRICE_LISTS),
+      watermark(db, PRICE_LINES),
+      watermark(db, PRICE_ASSIGNMENTS),
+      watermark(db, PROMOTIONS),
+      watermark(db, PROMOTION_ASSIGNMENTS),
+      watermark(db, TAX_RATES),
+    ]);
+
+  return { priceLists, priceLines, priceAssignments, promotions, promotionAssignments, taxRates };
+}
+
+/**
  * Recomputes the total and stores the draft.
  *
  * <b>A sum of the stored line totals, never a re-derivation.</b> Each `lineTotal` is already rounded
@@ -223,10 +268,18 @@ async function save(
     Money.zero(current.currencyCode),
   );
 
+  // Summed the same way and for the same reason: each line's tax is already rounded to the minor
+  // unit, and re-deriving it from a rate here would round a second time (`BR-PRD-9`).
+  const tax = lines.reduce(
+    (running, line) => running.add(Money.of(line.taxAmount, current.currencyCode)),
+    Money.zero(current.currencyCode),
+  );
+
   const updated: LocalOrder = {
     ...current,
     lines,
     total: total.amount.toString(),
+    taxTotal: tax.amount.toString(),
     updatedAtUtc: now.toISOString(),
   };
 
@@ -261,7 +314,11 @@ function captured(order: LocalOrder): Record<string, unknown> {
     visitId: order.visitId,
     currencyCode: order.currencyCode,
     total: Number(order.total),
+    taxTotal: Number(order.taxTotal),
     capturedAtUtc: order.capturedAtUtc,
+    // What the device priced against (`ORD-08`). Numbers, not strings: these are row versions
+    // rather than money, so none of `Money`'s reasoning applies to them.
+    capturedAgainst: order.capturedAgainst,
     lines: order.lines.map((line) => ({
       productId: line.productId,
       quantity: Number(line.quantity),
@@ -269,6 +326,7 @@ function captured(order: LocalOrder): Record<string, unknown> {
       packSize: line.packSize,
       unitPrice: Number(line.unitPrice),
       lineTotal: Number(line.lineTotal),
+      taxAmount: Number(line.taxAmount),
     })),
   };
 }

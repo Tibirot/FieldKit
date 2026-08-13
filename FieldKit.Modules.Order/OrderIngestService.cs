@@ -30,7 +30,11 @@ namespace FieldKit.Modules.Order;
 /// </para>
 /// </remarks>
 internal sealed class OrderIngestService(
-    OrderDbContext db, IVisitContext visits, IAssortmentService assortment, IClock clock)
+    OrderDbContext db,
+    IVisitContext visits,
+    IAssortmentService assortment,
+    IPricingService pricing,
+    IClock clock)
     : IOrderIngest
 {
     public async Task<OrderIngestResult> IngestAsync(
@@ -157,9 +161,57 @@ internal sealed class OrderIngestService(
 
         await GateOnAssortmentAsync(order!, visit.OutletId, cancellationToken);
 
+        await RepriceAsync(order!, visit.OutletId, cancellationToken);
+
         await db.SaveChangesAsync(cancellationToken);
 
         return OrderIngestResult.Ok();
+    }
+
+    /// <summary>
+    /// Prices the order again here and records what came out (<c>BR-ORD-6</c>, <c>ORD-08</c>) —
+    /// W11 slice 14.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>As of the day it was captured, never today.</b> An order taken on Tuesday and pushed on
+    /// Thursday must resolve against Tuesday's price list, or an ordinary mid-week price change would
+    /// be reported as the device getting it wrong. <c>IPricingService</c> takes the date for exactly
+    /// this reason and refuses to read a clock.
+    /// </para>
+    /// <para>
+    /// <b>The device's date, in the device's day.</b> <c>CapturedAtUtc</c> is an instant; a price list
+    /// runs by calendar day, and an outlet in Bucharest changes day six hours before one in London
+    /// (<c>BR-PRD-6</c>). Taking the UTC date is a known simplification and is recorded as such — the
+    /// outlet's time zone is not on the snapshot this module can see, and the same gap is already
+    /// written down against <c>OutletSnapshot</c>.
+    /// </para>
+    /// <para>
+    /// <b>It never refuses.</b> A pricing service that cannot answer — an outlet it does not know, a
+    /// product nothing prices — leaves the annotation null, and <see cref="Order.Agreement"/> says
+    /// *not re-priced* rather than *differs*. An order is a commercial fact that has already happened;
+    /// the server failing to check it is the server's problem, not the rep's.
+    /// </para>
+    /// </remarks>
+    private async Task RepriceAsync(Order order, Guid outletId, CancellationToken cancellationToken)
+    {
+        var priced = await pricing.PriceAsync(
+            outletId,
+            DateOnly.FromDateTime(order.CapturedAtUtc.UtcDateTime),
+            [.. order.Lines.Select(line => new LineToPrice(line.ProductId, line.Quantity))],
+            cancellationToken);
+
+        /*
+         * Nothing recorded when the outlet is unknown, and nothing recorded when a line is unpriced.
+         *
+         * `Unpriced` means the tenant has no price for that product at that shop — a configuration
+         * gap, not a disagreement. Totalling around it would compare the device's whole order against
+         * the server's partial one and report a difference the size of the missing line, which reads
+         * as "the rep charged too much" and is nothing of the kind.
+         */
+        if (priced is null || priced.Unpriced.Count > 0) return;
+
+        order.RecordServerPrice(priced.Net.Amount, priced.Tax.Amount, clock.UtcNow);
     }
 
     /// <summary>
