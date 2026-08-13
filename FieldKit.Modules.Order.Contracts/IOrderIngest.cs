@@ -13,6 +13,25 @@ namespace FieldKit.Modules.Order.Contracts;
 /// store for no gain; a rejected order re-opening (<c>BR-ORD-9</c>) needs the word too.
 /// </remarks>
 [JsonConverter(typeof(JsonStringEnumConverter<OrderStatus>))]
+/// <summary>
+/// Whether the server's recomputation matched the device's (<c>BR-ORD-6</c>) — W11 slice 14.
+/// </summary>
+/// <remarks>
+/// Three values because "we have not looked" is not the same as "we looked and agreed", and telling a
+/// supervisor an unpriced order agrees would be the worst of the three answers.
+/// </remarks>
+public enum PriceAgreement
+{
+    /// <summary>Not re-priced — before this slice, or an outlet the pricing service could not resolve.</summary>
+    NotRepriced = 0,
+
+    /// <summary>The server got the same net and the same tax.</summary>
+    Agrees = 1,
+
+    /// <summary>The server got something else. Flagged, never applied.</summary>
+    Differs = 2,
+}
+
 public enum OrderStatus
 {
     /// <summary>Editable, on the device. Never ingested — see the note above.</summary>
@@ -59,13 +78,58 @@ public enum OrderStatus
 /// and a server that recomputed it into the same field would erase the disagreement it is supposed to
 /// flag.
 /// </param>
+/// <param name="TaxAmount">
+/// The tax the device worked out on this line, on top of <see cref="LineTotal"/> (<c>ORD-02</c>,
+/// <c>PRD-07</c>) — W11 slice 14.
+/// <para>
+/// <b>Added because the wire had nowhere to put it, which was found building the capture screen and
+/// recorded rather than fixed then.</b> The device prices tax and shows the rep a gross;
+/// <see cref="LineTotal"/> is the net, so before this field the back office received every order
+/// short of its VAT. Putting the gross in <see cref="LineTotal"/> instead would have been worse — the
+/// server sums that column, so the two sides would then disagree by exactly the tax on every order.
+/// </para>
+/// <para>
+/// Zero is a real answer: an exempt product, or a shop in a country with no rate for its class. Null
+/// is not available, because "no tax" and "nobody said" are the same to a total.
+/// </para>
+/// </param>
 public sealed record CapturedOrderLine(
     Guid ProductId,
     decimal Quantity,
     string UnitOfMeasure,
     int? PackSize,
     decimal UnitPrice,
-    decimal LineTotal);
+    decimal LineTotal,
+    decimal TaxAmount = 0m);
+
+/// <summary>
+/// The reference data a device priced against, as watermarks (<c>ORD-08</c>) — W11 slice 14.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The device's own cursors, not a label.</b> <c>BR-ORD-6</c> asks an order to record the snapshot
+/// of pricing it was captured against, and the pull's <c>SnapshotVersion</c> cannot serve: it names a
+/// timestamp and the outlet cursor, and its own comment says the device must not parse it. These are
+/// what the device actually held, so a disagreement can say *which* input was stale rather than only
+/// that one was — which is the difference between an alert and an explanation.
+/// </para>
+/// <para>
+/// Six numbers because pricing has six inputs and they advance independently: the sync engine calls
+/// its snapshot "a patchwork, not a point in time", and a single figure would be a summary of a thing
+/// that has no single value.
+/// </para>
+/// <para>
+/// Zero means "this device has never pulled that entity", which is a legitimate state for a tenant
+/// that has authored no promotions — and is why these are not nullable.
+/// </para>
+/// </remarks>
+public sealed record PricingSnapshot(
+    long PriceLists,
+    long PriceLines,
+    long PriceAssignments,
+    long Promotions,
+    long PromotionAssignments,
+    long TaxRates);
 
 /// <summary>
 /// An order a rep captured offline, as it arrives over <c>/sync/push</c>.
@@ -82,13 +146,29 @@ public sealed record CapturedOrderLine(
 /// <param name="Total">The device's order total, for the reason each <see cref="CapturedOrderLine.LineTotal"/> is carried.</param>
 /// <param name="CapturedAtUtc">When the rep sealed it, from the device's clock.</param>
 /// <param name="Lines">At least one. An order for nothing is not an order.</param>
+/// <param name="TaxTotal">
+/// The device's tax total, beside <paramref name="Total"/>'s net — W11 slice 14.
+/// <para>
+/// Carried rather than summed from the lines on arrival, for the reason <paramref name="Total"/> is:
+/// what the rep and the shopkeeper settled on is the record, and a server that recomputed it into the
+/// same field would erase the disagreement it exists to flag. That the two agree is then something
+/// worth checking rather than something guaranteed by construction.
+/// </para>
+/// </param>
+/// <param name="CapturedAgainst">
+/// The reference data the device priced with (<c>ORD-08</c>). Optional on the wire so a device that
+/// has not been updated still submits — its orders simply cannot say what they were priced against,
+/// which is the honest reading of a payload that does not carry it.
+/// </param>
 public sealed record CapturedOrder(
     Guid OrderId,
     Guid VisitId,
     string CurrencyCode,
     decimal Total,
     DateTimeOffset CapturedAtUtc,
-    IReadOnlyList<CapturedOrderLine> Lines);
+    IReadOnlyList<CapturedOrderLine> Lines,
+    decimal TaxTotal = 0m,
+    PricingSnapshot? CapturedAgainst = null);
 
 /// <summary>Why an ingest was refused. <see cref="None"/> means it was not.</summary>
 /// <remarks>

@@ -217,7 +217,7 @@
     },
     {
       "name": "an order taken at a counter",
-      "why": "`CapturedOrder` becomes real on the wire (W11 slice 5), having been this file's *unsupported* placeholder until W11 slice 0 moved that job to `CapturedReturn`.\n\nWhat the payload does not carry is the interesting half. No **outlet**, because that comes from the visit — a device that could name one could name a different shop from the one the rep stood in, and 'which shop was this' would have two answers. No **status**, because `B4` puts `Draft` on the device and the first status this server writes is `Submitted`; there is no create-a-draft path to describe. And no **recomputed money**: `unitPrice` and `lineTotal` are the device's, which `BR-ORD-6` makes the record because they are what the rep and the shopkeeper agreed — the server's arithmetic sits beside them, never over them.\n\nThe `mutationId` matters more here than for any other kind. Every other mutation is idempotent on its own subject, so a repeat is recognisable from the payload; an order is not, because the same `orderId` arrives both when a device retries and when a rep corrects a rejection (`BR-ORD-9`). Only the mutation id tells those apart, which is why this is the one arm that hands it to the module it calls.",
+      "why": "`CapturedOrder` becomes real on the wire (W11 slice 5), having been this file's *unsupported* placeholder until W11 slice 0 moved that job to `CapturedReturn`.\n\nWhat the payload does not carry is the interesting half. No **outlet**, because that comes from the visit — a device that could name one could name a different shop from the one the rep stood in, and 'which shop was this' would have two answers. No **status**, because `B4` puts `Draft` on the device and the first status this server writes is `Submitted`; there is no create-a-draft path to describe. And no **recomputed money**: `unitPrice` and `lineTotal` are the device's, which `BR-ORD-6` makes the record because they are what the rep and the shopkeeper agreed — the server's arithmetic sits beside them, never over them.\n\nThe `mutationId` matters more here than for any other kind. Every other mutation is idempotent on its own subject, so a repeat is recognisable from the payload; an order is not, because the same `orderId` arrives both when a device retries and when a rep corrects a rejection (`BR-ORD-9`). Only the mutation id tells those apart, which is why this is the one arm that hands it to the module it calls.\n\n**W11 slice 14 added the three fields the shape was missing.** `taxAmount` on each line and `taxTotal` on the order close a gap found while building the capture screen and left recorded for three slices: the device priced tax under `ORD-02` and had nowhere to put it, so every order reached the back office net of VAT — and the server's recomputation, which includes tax, had nothing like-for-like to be compared against. `capturedAgainst` is `ORD-08`: the six watermarks the device actually priced from, so a server that disagrees can say *which* input was stale rather than only that one was. All three are optional on the wire, because a device that has not been updated must still submit — its orders simply cannot say what they were priced against, which is the honest reading of a payload that does not carry it.",
       "outbox": {
         "type": "CapturedOrder",
         "payload": {
@@ -225,7 +225,16 @@
           "visitId": "0195e7c4-0000-7000-8000-00000000b001",
           "currencyCode": "RON",
           "total": 58.50,
+          "taxTotal": 11.12,
           "capturedAtUtc": "2026-04-06T09:45:00+00:00",
+          "capturedAgainst": {
+            "priceLists": 41,
+            "priceLines": 118,
+            "priceAssignments": 27,
+            "promotions": 9,
+            "promotionAssignments": 14,
+            "taxRates": 6
+          },
           "lines": [
             {
               "productId": "0195e7c4-0000-7000-8000-00000000d001",
@@ -233,7 +242,8 @@
               "unitOfMeasure": "case",
               "packSize": 12,
               "unitPrice": 4.50,
-              "lineTotal": 27.00
+              "lineTotal": 27.00,
+              "taxAmount": 5.13
             },
             {
               "productId": "0195e7c4-0000-7000-8000-00000000d002",
@@ -241,7 +251,8 @@
               "unitOfMeasure": "bottle",
               "packSize": null,
               "unitPrice": 6.30,
-              "lineTotal": 31.50
+              "lineTotal": 31.50,
+              "taxAmount": 5.99
             }
           ]
         }
@@ -254,7 +265,16 @@
           "visitId": "0195e7c4-0000-7000-8000-00000000b001",
           "currencyCode": "RON",
           "total": 58.50,
+          "taxTotal": 11.12,
           "capturedAtUtc": "2026-04-06T09:45:00+00:00",
+          "capturedAgainst": {
+            "priceLists": 41,
+            "priceLines": 118,
+            "priceAssignments": 27,
+            "promotions": 9,
+            "promotionAssignments": 14,
+            "taxRates": 6
+          },
           "lines": [
             {
               "productId": "0195e7c4-0000-7000-8000-00000000d001",
@@ -262,7 +282,8 @@
               "unitOfMeasure": "case",
               "packSize": 12,
               "unitPrice": 4.50,
-              "lineTotal": 27.00
+              "lineTotal": 27.00,
+              "taxAmount": 5.13
             },
             {
               "productId": "0195e7c4-0000-7000-8000-00000000d002",
@@ -270,7 +291,8 @@
               "unitOfMeasure": "bottle",
               "packSize": null,
               "unitPrice": 6.30,
-              "lineTotal": 31.50
+              "lineTotal": 31.50,
+              "taxAmount": 5.99
             }
           ]
         }

@@ -4195,6 +4195,15 @@ Content-Type: application/json
 # Needs a visit of the rep's own and products the shop is assorted (`BR-ORD-1`) — run the check-in
 # and assortment requests above first, or the order lands stored and `Rejected` with the line flagged,
 # which is itself worth seeing once.
+#
+# **W11 slice 14 added `taxAmount`, `taxTotal` and `capturedAgainst`.** The first two close a gap the
+# shape carried for three slices: `lineTotal` is the net, so the back office was receiving every order
+# short of its VAT. `capturedAgainst` is `ORD-08` — the six watermarks the device priced from.
+#
+# **The server re-prices on arrival and stores what it got beside the device's numbers, never over
+# them** (`BR-ORD-6`). Read the order back with `GET /api/orders/by-visit/{id}` after this: if the two
+# agree you see the same figures twice, and if they do not you see both. Nothing is corrected — an
+# order's prices are what a rep and a shopkeeper agreed to, which is not the server's to change.
 
 ### An order taken at a counter. Answers `accepted` — and note what "accepted" means: the push
 ### applied. If a line is off-assortment the order is still stored, and comes back `Rejected` from
@@ -4214,7 +4223,16 @@ Content-Type: application/json
         "visitId": "{{visit.response.body.visit.id}}",
         "currencyCode": "RON",
         "total": 58.50,
+        "taxTotal": 5.13,
         "capturedAtUtc": "2026-04-06T09:45:00+00:00",
+        "capturedAgainst": {
+          "priceLists": 41,
+          "priceLines": 118,
+          "priceAssignments": 27,
+          "promotions": 9,
+          "promotionAssignments": 14,
+          "taxRates": 6
+        },
         "lines": [
           {
             "productId": "{{product.response.body.id}}",
@@ -4222,7 +4240,8 @@ Content-Type: application/json
             "unitOfMeasure": "case",
             "packSize": 12,
             "unitPrice": 4.50,
-            "lineTotal": 27.00
+            "lineTotal": 27.00,
+            "taxAmount": 5.13
           }
         ]
       }

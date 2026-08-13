@@ -57,6 +57,32 @@ public sealed class OrderDbContext(DbContextOptions<OrderDbContext> options, ITe
             // because a unit price can legitimately carry them — BR-PRD-8 rounds at the line, not at
             // the price — and a column that truncated would round twice.
             order.Property(o => o.Total).HasPrecision(18, 4);
+            order.Property(o => o.TaxTotal).HasPrecision(18, 4);
+
+            // Nullable, and that is the schema saying "not looked at" rather than "agreed" — the
+            // distinction `PriceAgreement` is built on (W11 slice 14).
+            order.Property(o => o.ServerTotal).HasPrecision(18, 4);
+            order.Property(o => o.ServerTaxTotal).HasPrecision(18, 4);
+
+            /*
+             * The device's pricing cursors, as an owned type (`ORD-08`).
+             *
+             * Owned rather than six loose columns because they are one fact — what the device had
+             * pulled — and a reader that saw them separately would have to know they travel together.
+             * `IsRequired(false)` on the whole thing keeps "the device did not say" representable:
+             * every column is null for an order captured before this slice.
+             */
+            order.OwnsOne(o => o.CapturedAgainst, snapshot =>
+            {
+                snapshot.Property(s => s.PriceLists).HasColumnName("captured_against_price_lists");
+                snapshot.Property(s => s.PriceLines).HasColumnName("captured_against_price_lines");
+                snapshot.Property(s => s.PriceAssignments)
+                    .HasColumnName("captured_against_price_assignments");
+                snapshot.Property(s => s.Promotions).HasColumnName("captured_against_promotions");
+                snapshot.Property(s => s.PromotionAssignments)
+                    .HasColumnName("captured_against_promotion_assignments");
+                snapshot.Property(s => s.TaxRates).HasColumnName("captured_against_tax_rates");
+            });
 
             // One order per visit, in the schema as well as the aggregate. See Order's remarks for
             // why that is a decision rather than an obvious constraint.
@@ -113,6 +139,7 @@ public sealed class OrderDbContext(DbContextOptions<OrderDbContext> options, ITe
             line.Property(l => l.Quantity).HasPrecision(18, 4);
             line.Property(l => l.UnitPrice).HasPrecision(18, 4);
             line.Property(l => l.LineTotal).HasPrecision(18, 4);
+            line.Property(l => l.TaxAmount).HasPrecision(18, 4);
 
             // One line per product, enforced where two of them would actually collide. The aggregate
             // refuses this too; the index is what holds if two pushes of the same order ever raced.

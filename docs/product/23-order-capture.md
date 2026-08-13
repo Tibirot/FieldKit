@@ -135,6 +135,11 @@ Lifecycle and mechanics per [B4](decisions-and-assumptions.md#b4--order-lifecycl
   BR-ORD-4, and it guarantees rejected work is never stranded ([B4](decisions-and-assumptions.md#b4--order-lifecycle),
   [sync engine §4](../architecture/12-offline-sync-engine.md#4-push-protocol-device-owned-mutations)).
 
+> ✅ **Closed in W11 slice 14** — `taxAmount` on the captured line and `taxTotal` on the order, and
+> the reason it waited is the reason it was worth waiting for: the field only earns its keep beside
+> the comparison that needs it. The note below is kept as written, because the argument it makes about
+> `lineTotal` is still the argument for not putting the gross there.
+>
 > **The captured order has nowhere to put tax** (found building the capture screen, W11 slice 7).
 > `CapturedOrderLine` carries `unitPrice` and `lineTotal` and nothing else; `OrderLine.LineTotal` is
 > *"what the device made of the line after any promotion it applied"* — the **net** — and the order's
@@ -157,6 +162,15 @@ is recorded. A flag alone says something was wrong without saying what, and the 
 next — by how much, and on which line — would need a recomputation that no longer has the inputs. So
 the order keeps **the device's totals as the record**, and the server's recomputation is stored
 **beside** them with the snapshot version each was produced under.
+
+> **Built in W11 slice 14.** `ServerTotal`, `ServerTaxTotal` and `RepricedAtUtc` sit beside the
+> device's `Total` and `TaxTotal`; the agreement itself is **derived, not stored**, because a stored
+> flag can disagree with the numbers next to it and then a reader has to decide which to believe.
+> Comparison is exact — both sides run the same rounding policy on the same decimals, so any
+> difference is a real difference in inputs. `CapturedAgainst` records the six pricing watermarks the
+> device used (`ORD-08`), which is what lets a disagreement say *which* input was stale. The server's
+> own snapshot is not stored as cursors: it re-prices from its current tables, so `RepricedAtUtc`
+> names what it used more precisely than six columns would.
 
 That is the opposite of what an audit does, and the contrast is the point. `BR-AUD-8` has the server's
 recomputed score *replace* the device's, because a score is a derived measurement and the server's is

@@ -439,13 +439,12 @@ function Lines({
 /**
  * The four numbers a shopkeeper is told.
  *
- * <b>Tax is shown and is not sent</b>, and that is a gap in the model rather than in this screen.
- * `CapturedOrderLine` carries `unitPrice` and `lineTotal` and nothing else, and `OrderLine.LineTotal`
- * is documented as "what the device made of the line **after any promotion it applied**" — so the
- * order that reaches the server is net of tax, and the gross the rep read out to the shopkeeper has
- * nowhere to travel. `ORD-02` asks the device to price tax, `BR-ORD-6` makes the device's totals the
- * record, and between them there is no field. Recorded in the delivery plan as the next thing the
- * captured shape needs.
+ * <b>Tax is shown and is now sent</b> (W11 slice 14). It was not, for three slices: `CapturedOrderLine`
+ * carried `unitPrice` and `lineTotal` and nothing else, so the order that reached the server was net
+ * of tax and the gross the rep read out to the shopkeeper had nowhere to travel. `taxAmount` on the
+ * line and `taxTotal` on the order are that field — and they are what makes `BR-ORD-6`'s comparison
+ * mean anything, since the server's recomputation includes tax and would otherwise have been measured
+ * against a number that never did.
  */
 function Totals({ priced }: { priced: PricedOrder | null }) {
   const t = useTranslations("Field.order");
@@ -587,6 +586,10 @@ function Catalogue({
        * reintroduced from the other end.
        */
       lineTotal: line.net.amount.toString(),
+
+      // And the tax beside it, which W11 slice 14 gave the captured shape somewhere to put. Until
+      // then this number was shown to the shopkeeper and thrown away.
+      taxAmount: line.tax.amount.toString(),
       now: new Date(),
     });
 

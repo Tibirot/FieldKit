@@ -4,6 +4,14 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { draft, draftFor, order, putLine, removeLine, submit } from "@/lib/orders/local-order";
 import { closeDatabase, openDatabase, type FieldKitDatabase } from "@/lib/sync/db";
+import {
+  PRICE_ASSIGNMENTS,
+  PRICE_LINES,
+  PRICE_LISTS,
+  PROMOTION_ASSIGNMENTS,
+  PROMOTIONS,
+  TAX_RATES,
+} from "@/lib/sync/reference";
 
 /**
  * The device's order store (`ORD-05`, `OFF-01b`) — W11 slice 6.
@@ -37,7 +45,7 @@ function start() {
   return draftFor(db, { visitId: VISIT, outletId: OUTLET, currencyCode: "RON", now: NOW });
 }
 
-function line(productId: string, quantity: string, lineTotal: string) {
+function line(productId: string, quantity: string, lineTotal: string, taxAmount = "0") {
   return {
     productId,
     quantity,
@@ -45,6 +53,7 @@ function line(productId: string, quantity: string, lineTotal: string) {
     packSize: 12,
     unitPrice: "4.50",
     lineTotal,
+    taxAmount,
     now: NOW,
   };
 }
@@ -199,5 +208,96 @@ describe("the device's order store", () => {
     await submit(db, started.id, NOW);
 
     expect(await draft(db, VISIT)).toBeUndefined();
+  });
+});
+
+describe("what an order says it was priced against", () => {
+  it("sends the tax the screen worked out, on the line and on the order", async () => {
+    /*
+     * <b>The field the wire was missing for three slices.</b> `lineTotal` is the net, so before
+     * `taxAmount` existed the back office received every order short of its VAT — and the server's
+     * recomputation, which includes tax, had nothing like-for-like to be compared against.
+     */
+    const started = await start();
+    await putLine(db, started.id, line(PRODUCT, "6", "27.00", "5.13"));
+    await putLine(db, started.id, line(OTHER, "5", "31.50", "5.99"));
+
+    await submit(db, started.id, NOW);
+
+    const payload = (await db.outbox.toArray())[0].payload as Record<string, unknown>;
+    const lines = payload.lines as Record<string, unknown>[];
+
+    expect(lines[0].taxAmount).toBe(5.13);
+    expect(lines[1].taxAmount).toBe(5.99);
+
+    // Summed the same way the net is: from the rounded lines, never re-derived from a rate.
+    expect(payload.taxTotal).toBe(11.12);
+  });
+
+  it("records the watermarks it priced from, at the moment of the seal", async () => {
+    /*
+     * `ORD-08`. Six numbers rather than one, because pricing has six inputs that advance
+     * independently — and the point of keeping them is that a server which disagrees can say *which*
+     * one was stale rather than only that one was.
+     */
+    await db.watermarks.bulkPut([
+      { entity: PRICE_LISTS, cursor: 41 },
+      { entity: PRICE_LINES, cursor: 118 },
+      { entity: PRICE_ASSIGNMENTS, cursor: 27 },
+      { entity: PROMOTIONS, cursor: 9 },
+      { entity: PROMOTION_ASSIGNMENTS, cursor: 14 },
+      { entity: TAX_RATES, cursor: 6 },
+    ]);
+
+    const started = await start();
+    await putLine(db, started.id, line(PRODUCT, "6", "27.00"));
+
+    await submit(db, started.id, NOW);
+
+    const payload = (await db.outbox.toArray())[0].payload as Record<string, unknown>;
+
+    expect(payload.capturedAgainst).toEqual({
+      priceLists: 41,
+      priceLines: 118,
+      priceAssignments: 27,
+      promotions: 9,
+      promotionAssignments: 14,
+      taxRates: 6,
+    });
+  });
+
+  it("reads the watermarks at the seal, not when the first line was added", async () => {
+    /*
+     * A rep can price a line, sync, and price another — which is an ordinary morning. The numbers
+     * that travel have to be the ones from the moment they stopped editing, or the order would claim
+     * to have been priced against data that arrived after some of it was.
+     */
+    await db.watermarks.put({ entity: PRICE_LINES, cursor: 100 });
+
+    const started = await start();
+    await putLine(db, started.id, line(PRODUCT, "6", "27.00"));
+
+    // A sync lands between the line and the seal.
+    await db.watermarks.put({ entity: PRICE_LINES, cursor: 175 });
+
+    await submit(db, started.id, NOW);
+
+    const payload = (await db.outbox.toArray())[0].payload as Record<string, unknown>;
+    const against = payload.capturedAgainst as Record<string, number>;
+
+    expect(against.priceLines).toBe(175);
+  });
+
+  it("says zero for an entity this device has never pulled", async () => {
+    // A legitimate state — a tenant that has authored no promotions — and the reason these are not
+    // nullable. "Never pulled" and "pulled an empty set" are the same thing to a price.
+    const started = await start();
+    await putLine(db, started.id, line(PRODUCT, "6", "27.00"));
+
+    await submit(db, started.id, NOW);
+
+    const payload = (await db.outbox.toArray())[0].payload as Record<string, unknown>;
+
+    expect((payload.capturedAgainst as Record<string, number>).promotions).toBe(0);
   });
 });

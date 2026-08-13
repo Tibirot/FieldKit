@@ -461,6 +461,31 @@ export type LocalOrderLine = {
   unitPrice: string;
   /** What the device made of the line after any promotion it applied. */
   lineTotal: string;
+  /**
+   * The tax on top of {@link lineTotal} (`ORD-02`, `PRD-07`) — W11 slice 14.
+   *
+   * <b>The field the captured shape was missing.</b> The screen priced tax from slice 7 and had
+   * nowhere to put it, so every order reached the back office net of VAT — and the server's
+   * recomputation, which includes tax, had nothing like-for-like to be compared against.
+   */
+  taxAmount: string;
+};
+
+/**
+ * What the device had pulled when it priced an order (`ORD-08`) — W11 slice 14.
+ *
+ * <b>The device's own cursors, because a disagreement should explain itself.</b> `BR-ORD-6` asks an
+ * order to record the pricing snapshot it was captured against; these are the six watermarks that
+ * actually decided the numbers, so a server that gets a different total can say *which* input was
+ * stale rather than only that one was.
+ */
+export type LocalPricingSnapshot = {
+  priceLists: number;
+  priceLines: number;
+  priceAssignments: number;
+  promotions: number;
+  promotionAssignments: number;
+  taxRates: number;
 };
 
 /**
@@ -497,6 +522,15 @@ export type LocalOrder = {
   currencyCode: string;
   /** The order's total as a decimal string — the sum of the rounded lines, never re-derived. */
   total: string;
+  /** The tax total, beside {@link total}'s net — W11 slice 14. */
+  taxTotal: string;
+  /**
+   * What the device had pulled when the rep sealed this (`ORD-08`), or null while it is a draft.
+   *
+   * Recorded at the seal rather than at the first line, because a rep can add a line, sync, and add
+   * another — the numbers that reach the server are the ones from the moment they stopped editing.
+   */
+  capturedAgainst: LocalPricingSnapshot | null;
   lines: LocalOrderLine[];
   /**
    * When the rep sealed it. Null while it is a draft.
@@ -1340,6 +1374,33 @@ export class FieldKitDatabase extends Dexie {
           .modify((blob: Partial<LocalPhotoBlob>) => {
             blob.storedKey ??= "";
             blob.confirmedAtUtc ??= blob.uploadedAtUtc ?? WAITING;
+          });
+      });
+
+    /*
+     * 19: an order carries its tax, and what it was priced against (`ORD-08`) — W11 slice 14.
+     *
+     * No new index — nothing looks orders up by either — so this is a back-fill only.
+     *
+     * <b>Existing orders get zero tax and a null snapshot, and those are two different admissions.</b>
+     * Zero is wrong in the sense that the tax existed; it is right in the sense that this device never
+     * recorded it and cannot reconstruct it — the rate came from reference data that has since moved.
+     * Null for the snapshot says the same thing without pretending: the device did not note what it
+     * priced against, which is not the same as having priced against nothing.
+     */
+    this.version(19)
+      .stores({})
+      .upgrade(async (tx) => {
+        await tx
+          .table("orders")
+          .toCollection()
+          .modify((order: Partial<LocalOrder>) => {
+            order.taxTotal ??= "0";
+            order.capturedAgainst ??= null;
+
+            for (const line of order.lines ?? []) {
+              line.taxAmount ??= "0";
+            }
           });
       });
 

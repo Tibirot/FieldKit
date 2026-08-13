@@ -995,7 +995,16 @@ describe("<Audit> and photographs", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Finish the audit" }));
     await waitFor(async () => expect(await db.outbox.count()).toBe(1), { timeout: 10_000 });
 
-    expect(screen.queryByLabelText("Take a photo")).toBeNull();
+    /*
+     * Waited for rather than asserted flat, and W11 slice 14 is where that was found — in CI, on a
+     * change that touches none of this.
+     *
+     * The seal and the outbox row are one transaction, so the count reaching 1 says the *store* is
+     * updated. The camera going away is a live query re-rendering afterwards, which is a separate
+     * moment: asserting between them passed on a fast machine and failed on a slower one.
+     */
+    await waitFor(() => expect(screen.queryByLabelText("Take a photo")).toBeNull());
+
     expect(screen.queryByRole("button", { name: "Remove" })).toBeNull();
     expect(await db.blobs.count()).toBe(1);
   }, 15_000);
