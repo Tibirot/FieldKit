@@ -1,4 +1,4 @@
-import { presignPhoto } from "@/lib/api/sync";
+import { confirmPhoto, presignPhoto } from "@/lib/api/sync";
 import { type FieldKitDatabase, type LocalPhotoBlob, WAITING } from "@/lib/sync/db";
 
 /**
@@ -23,6 +23,16 @@ export type UploadResult = {
   failed: number;
   /** Photographs skipped because they have failed too often — see {@link GIVE_UP_AFTER}. */
   abandoned: number;
+  /** Photographs the server acknowledged this run (`OFF-08`) — W11 slice 13b. */
+  confirmed: number;
+  /**
+   * Photographs in storage the server has not acknowledged yet.
+   *
+   * Counted separately from {@link failed} because it is a different state and a different fix: the
+   * bytes are safe, and what is outstanding is a sentence about them. Usually it means the audit has
+   * not been pushed yet, which the next run resolves on its own.
+   */
+  awaitingConfirmation: number;
 };
 
 /**
@@ -33,6 +43,23 @@ export type UploadResult = {
  */
 export function waiting(db: FieldKitDatabase): Promise<LocalPhotoBlob[]> {
   return db.blobs.where("uploadedAtUtc").equals(WAITING).sortBy("capturedAtUtc");
+}
+
+/**
+ * Every photograph in storage the server has not been told about (`OFF-08`) — W11 slice 13b.
+ *
+ * Indexed for the same reason {@link waiting} is: it is asked on every sync run.
+ *
+ * The `storedKey` filter is in JavaScript rather than the index because it excludes almost nothing —
+ * a row uploaded before version 18, which no device that keeps working will hold for long — and a
+ * compound index for it would be machinery for the empty case.
+ */
+export function awaitingConfirmation(db: FieldKitDatabase): Promise<LocalPhotoBlob[]> {
+  return db.blobs
+    .where("confirmedAtUtc")
+    .equals(WAITING)
+    .filter((photo) => photo.uploadedAtUtc !== WAITING && photo.storedKey !== "")
+    .sortBy("capturedAtUtc");
 }
 
 /**
@@ -55,7 +82,13 @@ export async function uploadPhotos(
   now: Date,
   signal?: AbortSignal,
 ): Promise<UploadResult> {
-  const result: UploadResult = { uploaded: 0, failed: 0, abandoned: 0 };
+  const result: UploadResult = {
+    uploaded: 0,
+    failed: 0,
+    abandoned: 0,
+    confirmed: 0,
+    awaitingConfirmation: 0,
+  };
 
   for (const photo of await waiting(db)) {
     if (signal?.aborted) return result;
@@ -98,6 +131,9 @@ export async function uploadPhotos(
         uploadedAtUtc: now.toISOString(),
         attempts: 0,
         lastFailure: "",
+        // The server's key, kept because confirming needs it and this device cannot rebuild one —
+        // the tenant prefix is not ours to know (W11 slice 13b).
+        storedKey: presigned.objectKey,
       });
       result.uploaded += 1;
     } catch (error) {
@@ -122,17 +158,80 @@ export async function uploadPhotos(
     }
   }
 
+  /*
+   * Then tell the server about everything in storage it has not acknowledged (`OFF-08`) — W11 13b.
+   *
+   * <b>A separate pass, not a step inside the upload.</b> Confirming can fail on its own — the `PUT`
+   * went to storage and this goes to the API, and a rep can have signal for one and not the other —
+   * so a photograph whose upload succeeded and whose confirmation did not has to be picked up by a
+   * later run. Walking the unacknowledged rows covers that and the ones just uploaded with one loop.
+   */
+  for (const photo of await awaitingConfirmation(db)) {
+    if (signal?.aborted) return result;
+
+    try {
+      const outcome = await confirmPhoto(accessToken, photo.storedKey, signal);
+
+      /*
+       * `unknown` means the audit has not landed yet, which is ordinary: the two transports are
+       * independent and the upload can win. Left unconfirmed so the next run asks again, and *not*
+       * counted as a failure — nothing is wrong and there is nothing for a rep to do.
+       *
+       * Zero confirmed with zero unknown is the server saying it already knew, which is the answer a
+       * retry gets and is just as good as the first one.
+       */
+      if (outcome.unknown > 0) {
+        result.awaitingConfirmation += 1;
+        continue;
+      }
+
+      await db.blobs.update(photo.objectKey, { confirmedAtUtc: now.toISOString() });
+      result.confirmed += 1;
+    } catch (error) {
+      // The reason goes on the row for the same purpose it does above: a confirmation that never
+      // gets through is otherwise indistinguishable from one nobody tried.
+      await db.blobs.update(photo.objectKey, {
+        lastFailure: error instanceof Error ? error.message : String(error),
+      });
+      result.awaitingConfirmation += 1;
+    }
+  }
+
   return result;
 }
 
 /**
- * Whether every photograph one audit took has reached storage.
+ * How many photographs the back office does not have (`OFF-05`, `OFF-08`) — W11 slice 13b.
  *
- * The question slice 13 asks to tell *synced* from *uploaded* — an audit whose JSON the back office
- * has, whose pictures it does not, is a real and ordinary state rather than a half-failure.
+ * <b>Sealed audits only, and that is not a detail.</b> A draft's photographs are deliberately never
+ * uploaded — the rep can still remove them — so counting one would leave the indicator saying
+ * *photographs still to send* for as long as a rep has an audit open, which is most of their day.
+ * The count has to mean work that is genuinely outstanding or a rep stops reading it.
  */
-export async function fullyUploaded(db: FieldKitDatabase, auditId: string): Promise<boolean> {
+export async function outstandingPhotographs(db: FieldKitDatabase): Promise<number> {
+  const unconfirmed = await db.blobs.where("confirmedAtUtc").equals(WAITING).toArray();
+
+  if (unconfirmed.length === 0) return 0;
+
+  // The drafts, not the sealed ones: an audit this device has never heard of cannot be a draft, and
+  // reading the smaller set keeps a rep mid-round from paying for a scan of the whole table.
+  const drafts = new Set(await db.audits.where("status").equals("draft").primaryKeys());
+
+  return unconfirmed.filter((photo) => !drafts.has(photo.auditId)).length;
+}
+
+/**
+ * Whether the back office has every photograph one audit took (`OFF-05`, `OFF-08`) — W11 slice 13b.
+ *
+ * <b>Confirmed, not merely uploaded, and the difference is the whole slice.</b> An audit whose JSON
+ * the back office has and whose pictures it does not is a real and ordinary state rather than a
+ * half-failure — but so is one whose bytes reached storage while the acknowledgement did not, and
+ * from a supervisor's chair those two look the same. The rep is told the truth the *server* holds.
+ *
+ * An audit with no photographs is complete, which is what `every` on an empty list already says.
+ */
+export async function evidenceComplete(db: FieldKitDatabase, auditId: string): Promise<boolean> {
   const photos = await db.blobs.where("auditId").equals(auditId).toArray();
 
-  return photos.every((photo) => photo.uploadedAtUtc !== WAITING);
+  return photos.every((photo) => photo.confirmedAtUtc !== WAITING);
 }

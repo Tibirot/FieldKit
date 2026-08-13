@@ -105,7 +105,7 @@ let db: FieldKitDatabase;
 
 beforeEach(async () => {
   db = new FieldKitDatabase(`order:${crypto.randomUUID()}`);
-  sync.current = { db, pending: 0, failed: 0, running: false, outcome: null, syncNow: vi.fn() };
+  sync.current = { db, pending: 0, failed: 0, photographs: 0, running: false, outcome: null, syncNow: vi.fn() };
 
   await db.outlets.add(SHOP);
   await db.visits.add(visit());

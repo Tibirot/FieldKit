@@ -689,6 +689,30 @@ export type LocalPhotoBlob = {
    * reads the store when a photograph will not go, and both want a sentence.
    */
   lastFailure: string;
+  /**
+   * The full key the server minted, tenant prefix included — empty until the upload succeeds
+   * (`OFF-08`) — W11 slice 13b.
+   *
+   * <b>Kept because confirming needs it and the device cannot rebuild it.</b> {@link objectKey} is
+   * the device's own, `audits/{auditId}/{photoId}.jpg`; the server prefixes the tenant, which this
+   * device does not know and must not be told. Holding the answer to a presign is the only way to
+   * name the same object twice.
+   */
+  storedKey: string;
+  /**
+   * When the server acknowledged the upload, or {@link WAITING} while it has not (`OFF-08`) —
+   * W11 slice 13b.
+   *
+   * <b>A second state, because uploading and being *known* to have uploaded are different facts.</b>
+   * The bytes reach storage on a presigned URL the server never sees used, so an upload that
+   * succeeded and a confirmation that never got through look identical from the back office. This is
+   * what the device retries on, and it is what stops a visit reading as finished while the server
+   * still believes a photograph is on its way.
+   *
+   * Empty rather than null for the same reason {@link uploadedAtUtc} is: it is indexed, and the
+   * confirm pass asks "what is still unacknowledged" on every run.
+   */
+  confirmedAtUtc: string;
 };
 
 /**
@@ -1291,6 +1315,31 @@ export class FieldKitDatabase extends Dexie {
           .toCollection()
           .modify((blob: Partial<LocalPhotoBlob>) => {
             blob.lastFailure ??= "";
+          });
+      });
+
+    /*
+     * 18: the device tracks whether the *server* knows a photograph arrived (`OFF-08`) — W11 13b.
+     *
+     * `confirmedAtUtc` is indexed because the confirm pass asks for it on every sync run, and
+     * `storedKey` is not: it is read from a row already in hand, never searched for.
+     *
+     * <b>Photographs uploaded before this version are marked confirmed, and that is a small lie
+     * told deliberately.</b> They have no `storedKey` — the tenant-prefixed key came back from a
+     * presign nobody kept — and the device cannot rebuild one, so they can never be confirmed. The
+     * alternative is a row that retries a call it has no arguments for on every sync, forever. What
+     * it costs is stated: the server will read those references as missing once they are a week old,
+     * which is the honest outcome for a photograph it was never told about.
+     */
+    this.version(18)
+      .stores({ blobs: "objectKey, auditId, uploadedAtUtc, confirmedAtUtc" })
+      .upgrade(async (tx) => {
+        await tx
+          .table("blobs")
+          .toCollection()
+          .modify((blob: Partial<LocalPhotoBlob>) => {
+            blob.storedKey ??= "";
+            blob.confirmedAtUtc ??= blob.uploadedAtUtc ?? WAITING;
           });
       });
 

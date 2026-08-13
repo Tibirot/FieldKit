@@ -95,6 +95,7 @@ beforeEach(() => {
   db = new FieldKitDatabase(`journey:${crypto.randomUUID()}`);
   sync.current = {
     db,
+    photographs: 0,
     pending: 0,
     failed: 0,
     running: false,

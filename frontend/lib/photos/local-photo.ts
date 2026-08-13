@@ -72,6 +72,9 @@ export async function attachPhoto(
       uploadedAtUtc: WAITING,
       attempts: 0,
       lastFailure: "",
+      // No key from the server yet, and nothing for it to acknowledge (W11 slice 13b).
+      storedKey: "",
+      confirmedAtUtc: WAITING,
     };
 
     await db.blobs.put(blob);

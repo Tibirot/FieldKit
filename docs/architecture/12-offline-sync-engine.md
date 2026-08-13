@@ -663,8 +663,28 @@ sequenceDiagram
   job to set it and a second rule to un-set it when a rep finds signal on Monday for Friday's
   photograph — and that rep is exactly who this has to work for.
 
-- **The rep-facing half is not here** (W11 slice 13b). The device does not yet call `confirm`, and
-  nothing on a rep's screen distinguishes *synced* from *uploaded*.
+**What W11 slice 13b added — the device's side, and what a rep sees:**
+
+- **The confirm pass runs after the uploads, not inside them.** A `PUT` goes to storage and a confirm
+  goes to the API, and a rep can have signal for one and not the other — so a photograph whose upload
+  succeeded and whose acknowledgement did not is picked up by a later run. Walking the unacknowledged
+  rows covers that and the ones just uploaded in one loop.
+- **One key per call, though the endpoint takes a list.** The reply is counts, so a batch with one
+  `unknown` cannot say which — and since an already-confirmed key also answers `confirmed: 0`, such a
+  batch could never settle and would re-confirm every photograph in it forever. A hundred-byte `POST`
+  after a 200 KB `PUT` is not what costs the rep.
+- **The device keeps the server's key** (`storedKey`, local store version 18). The tenant prefix comes
+  back from presign and is not the device's to rebuild, so confirming needs the answer kept.
+- **`unknown` is not a failure.** It means the audit has not been pushed yet, which the next run
+  resolves; counting it as failed would put *needs attention* in front of a rep for nothing.
+- **Three states became one number for the rep.** Failed, given up on, and in-storage-but-unconfirmed
+  are three things to the uploader and one fact to a rep: a picture their supervisor cannot see.
+- **The indicator ranks photographs below unsent work and above "everything synced"** — below because
+  a queued visit is the work itself, above because an empty outbox said nothing about a photograph
+  still on the phone, and the chip read *Everything synced* over it.
+- **The badge answers per visit**, and only once the mutations are in: while a visit is still pending
+  or refused, that is what a rep needs to know and a photograph behind it changes nothing they would
+  do.
 
 **What W11 slice 12c fixed — two walls a browser puts between the device and storage:**
 

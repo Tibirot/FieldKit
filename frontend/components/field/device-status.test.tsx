@@ -38,7 +38,7 @@ let db: FieldKitDatabase;
 
 beforeEach(() => {
   db = new FieldKitDatabase(`device:${crypto.randomUUID()}`);
-  sync.current = { db, pending: 0, failed: 0, running: false, outcome: null, syncNow: vi.fn() };
+  sync.current = { db, pending: 0, failed: 0, photographs: 0, running: false, outcome: null, syncNow: vi.fn() };
 
   // Chromium fires `beforeinstallprompt`; jsdom never does, so the install offer stays absent here
   // and has its own file.
