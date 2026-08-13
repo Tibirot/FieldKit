@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it } from "vitest";
 
 import { Money } from "@/lib/pricing/money";
@@ -5,20 +8,21 @@ import {
   checkOrderMinimum,
   resolveOrderMinimum,
   type OrderMinimumCandidate,
+  type OrderMinimumVerdict,
+  type ResolvedOrderMinimum,
 } from "@/lib/pricing/order-minimum";
 
 /**
  * The order-minimum rule on the device (`ORD-06`, `BR-ORD-5`) — W11 slice 8b-ii.
  *
- * **Hand-written rather than vector-driven, and that is a gap this slice names rather than hides.**
- * The three resolvers beside this one are checked by `vectors/pricing/*.json`, read by both languages,
- * because a rule implemented twice drifts. This one is implemented twice too — `OrderMinimumResolver`
- * on the server resolves the same candidates — so it wants the same corpus, which is its own slice
- * (the C# reader is a class of its own, and this file would become a second reader of it).
+ * **The gap this file used to name is closed** (W11½ R7, regression F3): `vectors/pricing/order-minimum.v1.json`
+ * is read at the bottom of this file and by `OrderMinimumVectorTests` on the server. It found a real
+ * divergence on its first run — see the note there.
  *
- * Until then the cases below deliberately mirror the C# resolver's documented behaviour clause by
- * clause: outlet beats channel, the tie is broken by lower-cased id, a mismatched currency reports
- * rather than compares, and an unparseable amount is its own answer.
+ * The hand-written cases below stay, and are not redundant with it. They mirror the C# resolver's
+ * documented behaviour clause by clause and they exercise shapes the file cannot carry — a `null`
+ * total, which the C# signature has no way to express and the device needs for an order whose lines
+ * have not priced.
  */
 function candidate(overrides: Partial<OrderMinimumCandidate> = {}): OrderMinimumCandidate {
   return {
@@ -132,4 +136,113 @@ describe("checkOrderMinimum", () => {
       expect(checkOrderMinimum(minimum, Money.of("9999.00", "RON"))).toBe("Unreadable");
     }
   });
+});
+
+/**
+ * The shared corpus, read from the same file the C# engine reads (`PRD-08`) — W11½ R7.
+ *
+ * The gap named at the top of this file, closed. `BR-ORD-5` is the only rule in the module with **no
+ * server-side gate** — the device refuses the submission, because that is where a rep can still add
+ * a line — so nothing downstream would ever notice the two engines disagreeing.
+ *
+ * **Writing the file found a disagreement**, which is the only evidence a vector file is worth
+ * anything. `.NET` parses the stored amount with `AllowDecimalPoint | AllowLeadingSign`, which
+ * excludes exponents and hexadecimal; `decimal.js` reads `"1e2"` as 100 and `"0x10"` as 16. So a
+ * phone would have called an order **Met** against a minimum the server cannot read at all.
+ */
+type ResolutionVector = {
+  name: string;
+  candidates: OrderMinimumCandidate[];
+  expected: ResolvedOrderMinimum | null;
+};
+
+type CheckVector = {
+  name: string;
+  minimum: { currencyCode: string; amount: string } | null;
+  total: { amount: string; currency: string };
+  expected: OrderMinimumVerdict;
+};
+
+type OrderMinimumFile = {
+  version: number;
+  resolution: ResolutionVector[];
+  check: CheckVector[];
+};
+
+const vectors = JSON.parse(
+  readFileSync(
+    fileURLToPath(new URL("../../../vectors/pricing/order-minimum.v1.json", import.meta.url)),
+    "utf8",
+  ),
+) as OrderMinimumFile;
+
+describe("the shared order-minimum vectors", () => {
+  it("loads the file the C# engine reads", () => {
+    // Guards the wiring, not the engine. If the path breaks or the file empties, the `it.each`
+    // blocks below silently become zero tests — a green suite that checked nothing.
+    expect(vectors.version).toBe(1);
+    expect(vectors.resolution.length).toBeGreaterThanOrEqual(5);
+    expect(vectors.check.length).toBeGreaterThanOrEqual(10);
+  });
+
+  it("carries every amount as a string, never a JSON number", () => {
+    /*
+     * The format rule `vectors/README.md` states, enforced here because this is the language it
+     * exists to protect: `JSON.parse` turns a bare `500.00` into an IEEE-754 double before the
+     * engine under test sees it.
+     *
+     * It matters twice over in this file. Several cases carry amounts that are *deliberately* not
+     * numbers — `"1e2"`, `"0x10"`, `"1,500"` — and a JSON number would be the one thing that could
+     * not express them.
+     */
+    const amounts = [
+      ...vectors.resolution.flatMap((vector) => [
+        ...vector.candidates.map((candidate) => candidate.amount as unknown),
+        ...(vector.expected ? [vector.expected.amount as unknown] : []),
+      ]),
+      ...vectors.check.flatMap((vector) => [
+        ...(vector.minimum ? [vector.minimum.amount as unknown] : []),
+        vector.total.amount as unknown,
+      ]),
+    ];
+
+    for (const amount of amounts) expect(typeof amount).toBe("string");
+  });
+
+  it.each(vectors.resolution.map((vector) => [vector.name, vector] as const))(
+    "resolution: %s",
+    (_name, vector) => {
+      const resolved = resolveOrderMinimum(vector.candidates);
+
+      // "No minimum" is an answer rather than an absence — a file of positive cases only would let
+      // a resolver that always returns something pass.
+      if (vector.expected === null) {
+        expect(resolved).toBeNull();
+        return;
+      }
+
+      expect(resolved).toEqual(vector.expected);
+    },
+  );
+
+  it.each(vectors.check.map((vector) => [vector.name, vector] as const))(
+    "check: %s",
+    (_name, vector) => {
+      const minimum: ResolvedOrderMinimum | null =
+        vector.minimum === null
+          ? null
+          : {
+              // The id and scope play no part in the check, so the file does not carry them here —
+              // a case that named them would imply they mattered.
+              orderMinimumId: "00000000-0000-0000-0000-000000000000",
+              scope: "Outlet",
+              currencyCode: vector.minimum.currencyCode,
+              amount: vector.minimum.amount,
+            };
+
+      const total = Money.of(vector.total.amount, vector.total.currency);
+
+      expect(checkOrderMinimum(minimum, total)).toBe(vector.expected);
+    },
+  );
 });

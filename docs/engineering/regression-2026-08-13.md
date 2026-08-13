@@ -159,6 +159,23 @@ the reverse — with no test in either language that could fail.
 **Fix:** a `vectors/pricing/order-minimum.v1.json` and a reader on each side, matching the existing
 five.
 
+**Fixed in W11½ R7 — and the file found a real divergence on its first run.**
+
+The two engines agreed about everything the rule is *about*: precedence, ties, the comparison, the
+currency refusal. They disagreed about **what counts as a number**. `OrderMinimumResolver.Check`
+parses with `NumberStyles.AllowDecimalPoint | AllowLeadingSign`, which excludes exponents and
+hexadecimal; `decimal.js` reads `"1e2"` as 100 and `"0x10"` as 16. A device would have reported an
+order **Met** against a minimum the server cannot read at all — and since `BR-ORD-5` has no
+server-side gate, nothing downstream would ever have said so.
+
+**It is unreachable today.** `OrderMinimumEndpoints` validates with the identical styles, so no such
+amount can be stored. That is the point rather than a mitigation: the agreement was inherited from
+two validators that happen to match, and nothing recorded it. The device now refuses the same shapes
+explicitly and takes the stricter side — `Unreadable` stops a submission, `Met` lets one through.
+
+**Worth carrying forward:** every hand-written case about the rule itself passed on both sides
+first time. What diverged was the handling of input the rule was never meant to receive.
+
 ---
 
 ### F4 — Three latent test flakes of a shape that already cost a CI run

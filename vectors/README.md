@@ -56,6 +56,26 @@ them, which is why they live here rather than inside either project.
 > pair of errors, or a different rounding point that happens to cancel. The breakdown is also what
 > `AUD-09` renders, so it is part of the contract rather than working out.
 
+> **`pricing/order-minimum.v1.json` is the file that found something on its first run** (W11½ R7).
+> It was added because `BR-ORD-5` is the only rule in the Order module with **no server-side gate** —
+> the device refuses the submission, because that is where a rep can still add a line — so a
+> divergence would not be caught late, it would not be caught at all.
+>
+> The two engines agreed about precedence, ties and comparison. They disagreed about **what counts as
+> a number**. .NET parses the stored amount with `AllowDecimalPoint | AllowLeadingSign`, which
+> excludes exponents and hexadecimal; `decimal.js` reads `"1e2"` as 100 and `"0x10"` as 16. So a
+> phone would have called an order *Met* against a minimum the server cannot read.
+>
+> **It was unreachable.** The write path parses with the identical styles and refuses the row, so no
+> such amount can be stored today. That is exactly why it is worth pinning: the agreement was
+> inherited from two validators that happen to match, and nothing said so. The device now refuses the
+> same shapes explicitly, and takes the stricter side on purpose — `Unreadable` stops a submission,
+> `Met` lets one through.
+>
+> A lesson for the next file: **the interesting cases were the malformed ones.** Every hand-written
+> case about the rule itself passed on both sides at the first attempt. What diverged was the
+> handling of input the rule was never supposed to receive.
+
 ## Why a file rather than a shared test suite
 
 The two engines cannot share code — one is .NET on a server, the other is TypeScript on a phone
@@ -182,6 +202,7 @@ from what the strings say. Each hand-written file carries that exact pair.
 | [`pricing/price-resolution.generated.v1.json`](pricing/price-resolution.generated.v1.json) | the same rules, swept rather than chosen | `GeneratedVectorTests` (C#); the device mirror (W7) |
 | [`pricing/promotion-resolution.generated.v1.json`](pricing/promotion-resolution.generated.v1.json) | ditto | `GeneratedVectorTests` (C#); the device mirror (W7) |
 | [`pricing/tax-application.generated.v1.json`](pricing/tax-application.generated.v1.json) | ditto | `GeneratedVectorTests` (C#); the device mirror (W7) |
+| [`pricing/order-minimum.v1.json`](pricing/order-minimum.v1.json) | `ORD-06` / `BR-ORD-5` — which minimum applies to an outlet, and whether an order meets it | `OrderMinimumVectorTests` (C#); `lib/pricing/order-minimum.test.ts` (TypeScript) |
 
 **A mirror consumes all six.** The generated three are the same format and the same reader — that is
 the whole point of having settled the format against real engine code — so "read the vectors" means
