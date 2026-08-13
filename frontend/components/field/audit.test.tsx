@@ -115,6 +115,28 @@ beforeEach(async () => {
     { id: "a-3", channelId: "channel-1", productId: "p-3", isMustStock: false, rowVersion: 1 },
   ]);
 
+  // A channel list in effect from long ago and never ending, so the only reason a product has no
+  // expected price is the test that removes it (`BR-AUD-3`, W11 slice 9b).
+  await db.priceLists.add({
+    id: "list-1",
+    name: "Standard",
+    currency: "RON",
+    effectiveFrom: "2020-01-01",
+    effectiveTo: null,
+    rowVersion: 1,
+  });
+  await db.priceAssignments.add({
+    id: "assign-1",
+    priceListId: "list-1",
+    channelId: "channel-1",
+    outletId: null,
+    rowVersion: 1,
+  });
+  await db.priceLines.bulkAdd([
+    { id: "pl-1", priceListId: "list-1", productId: "p-1", amount: "4.50", rowVersion: 1 },
+    { id: "pl-2", priceListId: "list-1", productId: "p-2", amount: "6.30", rowVersion: 1 },
+  ]);
+
   await db.scoreWeights.add({
     id: "w-3",
     version: 3,
@@ -234,6 +256,114 @@ describe("<Audit> and the shelf", () => {
   });
 });
 
+describe("<Audit> and the numbers", () => {
+  it("counts facings against the product, and the category total against the shelf", async () => {
+    // `BR-AUD-2`'s two halves. The numerator belongs to a product; the denominator is a fact about
+    // the shelf, which is why it is one box rather than a column.
+    render(<Audit visitId="visit-1" />);
+
+    await userEvent.type(await screen.findByLabelText("Facings of Cola 500ml"), "6");
+    await userEvent.type(screen.getByLabelText("Total facings in the category"), "40");
+
+    await waitFor(async () => {
+      const held = await auditFor(db, "visit-1");
+
+      expect(held?.facings).toEqual([{ productId: "p-1", facings: 6 }]);
+      expect(held?.categoryFacings).toBe(40);
+    });
+  });
+
+  it("goes back to uncounted rather than zero when the total is cleared", async () => {
+    /*
+     * The distinction the whole pillar rests on: without a total, share-of-shelf is *skipped* and the
+     * score renormalises over what was measured. A zero would say the shop stocks none of the
+     * category, which is a claim nobody made.
+     *
+     * <b>Typed and then cleared, not merely untouched.</b> Asserting the draft's default proves only
+     * that the initial value is null — a sabotage pass collapsing `null` into `0` on the *write* left
+     * that version of this test green, because it never wrote.
+     */
+    render(<Audit visitId="visit-1" />);
+
+    const total = await screen.findByLabelText("Total facings in the category");
+
+    await userEvent.type(total, "40");
+    await waitFor(async () => expect((await auditFor(db, "visit-1"))?.categoryFacings).toBe(40));
+
+    await userEvent.clear(total);
+    await waitFor(async () => expect((await auditFor(db, "visit-1"))?.categoryFacings).toBeNull());
+  });
+
+  it("shows what the device expects a product to cost, without pre-filling the box", async () => {
+    /*
+     * `BR-AUD-3` judges compliance from what the rep *read*. Pre-filling the expected price would
+     * make "the rep confirmed it" and "the rep did not look" the same record, on that exact field.
+     */
+    render(<Audit visitId="visit-1" />);
+
+    expect(await screen.findByText("Expected 4.50 RON")).toBeTruthy();
+    expect((screen.getByLabelText("Shelf price of Cola 500ml") as HTMLInputElement).value).toBe("");
+  });
+
+  it("stores a shelf price with the expected price it was read against", async () => {
+    // Stored beside the observation rather than re-derived at the seal — a list republished in
+    // between would otherwise move the number the rep is measured by, after the fact.
+    render(<Audit visitId="visit-1" />);
+
+    await userEvent.type(await screen.findByLabelText("Shelf price of Cola 500ml"), "4.79");
+
+    await waitFor(async () =>
+      expect((await auditFor(db, "visit-1"))?.prices).toEqual([
+        { productId: "p-1", observed: "4.79", expected: "4.50", currencyCode: "RON" },
+      ]),
+    );
+  });
+
+  it("says so when no list prices a product, and still takes the reading", async () => {
+    // An unpriced product is not a compliance failure — but the reading is the only evidence that
+    // the price list has a gap here, so it is kept.
+    // Only Cola's price is removed — both must-stock rows would otherwise say the same thing, and
+    // the assertion would pass without proving it is *this* product's row that changed.
+    await db.priceLines.delete("pl-1");
+
+    render(<Audit visitId="visit-1" />);
+
+    const row = async (product: string) =>
+      within((await screen.findByLabelText(`Shelf price of ${product}`)).closest("li")!);
+
+    /*
+     * `findByText` on the priced row **first**, and that ordering is the fix for a flake this test
+     * had. The rows render as soon as the MSL loads; the expected prices arrive on a second live
+     * query a tick later, so the unpriced row reads "No expected price" before anything has been
+     * resolved — asserting it first passed two runs in three for the wrong reason.
+     */
+    expect(await (await row("Water 2L")).findByText("Expected 6.30 RON")).toBeTruthy();
+    expect((await row("Cola 500ml")).getByText("No expected price")).toBeTruthy();
+
+    await userEvent.type(screen.getByLabelText("Shelf price of Cola 500ml"), "4.79");
+
+    await waitFor(async () =>
+      expect((await auditFor(db, "visit-1"))?.prices[0]).toMatchObject({
+        observed: "4.79",
+        expected: null,
+      }),
+    );
+  });
+
+  it("starts the audit from a count, not only from an availability answer", async () => {
+    // A rep may work a shelf by counting first and ticking afterwards. Either order has to be the
+    // beginning of an audit, or the first thing they do is silently discarded.
+    render(<Audit visitId="visit-1" />);
+
+    await screen.findByLabelText("Facings of Cola 500ml");
+    expect(await db.audits.count()).toBe(0);
+
+    await userEvent.type(screen.getByLabelText("Facings of Cola 500ml"), "6");
+
+    await waitFor(async () => expect(await db.audits.count()).toBe(1));
+  });
+});
+
 describe("<Audit> and finishing it", () => {
   it("seals the audit and queues it in one go", async () => {
     render(<Audit visitId="visit-1" />);
@@ -243,13 +373,41 @@ describe("<Audit> and finishing it", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Finish the audit" }));
 
-    await waitFor(async () => expect(await db.outbox.count()).toBe(1));
+    // Longer than the 1s `waitFor` default: sealing is a two-store transaction and a router
+    // replace, and under the whole suite this went red about one run in three. A flaky test is a
+    // test people learn to re-run.
+    await waitFor(async () => expect(await db.outbox.count()).toBe(1), { timeout: 10_000 });
 
     const sent = await auditFor(db, "visit-1");
 
     expect(sent?.status).toBe("sealed");
     expect(sent?.capturedAtUtc).not.toBeNull();
     expect((await db.outbox.toArray())[0].type).toBe("CapturedAudit");
+  });
+
+  it("finishes an audit that only measured numbers", async () => {
+    /*
+     * <b>Regression, found in a browser.</b> 9b widened what counts as measured — facings and prices
+     * are pillars in their own right — and the store was widened while the *screen* kept refusing
+     * anything without an availability answer. A rep who counted the shelf and read the labels was
+     * told to "check at least one product" for an audit the store would have taken.
+     *
+     * The unit test for the widening called `seal()` directly, so it passed; every screen test ticked
+     * availability first, so none of them went near it. Two layers of the same rule, and only one
+     * moved.
+     */
+    render(<Audit visitId="visit-1" />);
+
+    await userEvent.type(await screen.findByLabelText("Facings of Cola 500ml"), "6");
+    await waitFor(async () => expect(await db.audits.count()).toBe(1));
+
+    await userEvent.click(screen.getByRole("button", { name: "Finish the audit" }));
+
+    // Longer than the 1s `waitFor` default: sealing is a two-store transaction and a router
+    // replace, and under the whole suite this went red about one run in three. A flaky test is a
+    // test people learn to re-run.
+    await waitFor(async () => expect(await db.outbox.count()).toBe(1), { timeout: 10_000 });
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("stops offering to change a sealed audit (BR-AUD-6)", async () => {

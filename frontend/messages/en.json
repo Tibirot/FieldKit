@@ -1553,7 +1553,15 @@
       "noWeights": {
         "title": "No scoring set up yet",
         "body": "An audit is scored against your tenant’s perfect-store weights, and none have been published. Tell your supervisor — an audit taken now could not be scored."
-      }
+      },
+      "facings": "Facings",
+      "facingsFor": "Facings of {product}",
+      "shelfPrice": "Shelf price",
+      "shelfPriceFor": "Shelf price of {product}",
+      "expected": "Expected {amount}",
+      "noExpected": "No expected price",
+      "categoryFacings": "Total facings in the category",
+      "categoryFacingsHint": "Every facing on the shelf, yours and competitors’. Leave blank if you could not count it — share of shelf is then skipped rather than scored zero."
     }
   },
   "Guard": {
