@@ -643,9 +643,28 @@ sequenceDiagram
   they photographed, and the upload path is write-only so the device is the only copy they can reach.
   Pruning is `OFF-11`'s question, not this slice's.
 
-- **The `confirm` step above, and the missing-blob flag, are still not built** (W11 slice 13). The
-  device knows what it has uploaded; the server is not yet told, and nothing reconciles a reference
-  whose object never arrives.
+**What W11 slice 13a built — the `confirm` step above:**
+
+- **`POST /api/sync/photos/confirm`** takes the full keys presign returned and records, on each
+  reference, *when* the object arrived. The server never sees the `PUT` — that goes browser to
+  storage on a signature it minted and forgot — so without this call a photograph still on a phone
+  and one that is never coming are the same row, forever.
+- **Counts, never refusals.** A key naming no reference yet is reported as `unknown` and the batch
+  succeeds: the upload can beat the push, so confirming a photograph whose audit is still in the
+  device's own outbox is the case this split exists for. The count is what tells the device to
+  confirm it again after the next push rather than dropping it.
+- **The first confirmation wins.** A repeat answers `confirmed: 0` and leaves the timestamp alone, so
+  a device that loses an answer and asks again does not make the evidence look like it arrived later.
+- **Sync owns the endpoint, Audit owns the state**, through `IPhotoEvidence` — the same shape the
+  push already has. Nothing in the payload is trusted: a key naming another tenant's object matches
+  no row, because every query in Audit runs under the tenant filter.
+- **Missing is derived, not stored** (`PhotoLine.ExpectedWithin`, a week). An unconfirmed reference
+  reads as *expected* until the audit is old enough, then as *missing*. A stored flag would need a
+  job to set it and a second rule to un-set it when a rep finds signal on Monday for Friday's
+  photograph — and that rep is exactly who this has to work for.
+
+- **The rep-facing half is not here** (W11 slice 13b). The device does not yet call `confirm`, and
+  nothing on a rep's screen distinguishes *synced* from *uploaded*.
 
 **What W11 slice 12c fixed — two walls a browser puts between the device and storage:**
 

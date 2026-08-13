@@ -4703,3 +4703,60 @@ Content-Type: application/json
 ### sends the bytes with `x-ms-blob-type: BlockBlob` — see `PhotoPresignTests`, which does exactly
 ### that against a real Blob service, because a presigned URL that does not work is the one failure
 ### this endpoint exists to avoid.
+
+# ---------------------------------------------------------------------------------------------
+# Photo upload — confirming it landed (`OFF-08`, `B5`, W11 slice 13a)
+# ---------------------------------------------------------------------------------------------
+#
+# **The server never sees the `PUT`.** It signs a URL and forgets; the bytes go browser to storage.
+# So without this call, a reference to a photograph still sitting on a phone and a reference to one
+# that is never coming are the same row forever — which is what made *synced* and *uploaded*
+# impossible to tell apart on a rep's screen.
+#
+# The keys are the **full** ones presign returned, tenant prefix included. Nothing here is trusted:
+# a key naming another tenant's object matches no row, because every query in Audit runs under the
+# tenant filter.
+
+### The device says the bytes are there. Answers with how many references moved.
+POST {{host}}/api/sync/photos/confirm
+Authorization: Bearer {{repToken.response.body.access_token}}
+Content-Type: application/json
+
+{
+  "objectKeys": [
+    "00000000-0000-0000-0000-000000000001/audits/019ff9ee-0de7-7ed9-8854-88e457c80f25/019ff9ee-0de7-7ed9-8854-88e457c80f26.jpg"
+  ]
+}
+
+### A key no audit claims is **`unknown`, not an error** — 200 with `{"confirmed":0,"unknown":1}`.
+### The upload can beat the push, so a photograph whose audit is still in the device's own outbox is
+### exactly the case this design exists for; the count tells the device to confirm again later.
+POST {{host}}/api/sync/photos/confirm
+Authorization: Bearer {{repToken.response.body.access_token}}
+Content-Type: application/json
+
+{
+  "objectKeys": ["00000000-0000-0000-0000-000000000001/audits/019ff9ee-0de7-7ed9-8854-88e457c80f27/019ff9ee-0de7-7ed9-8854-88e457c80f28.jpg"]
+}
+
+### Confirming the same key twice is **`{"confirmed":0,"unknown":0}`** — run the first request again
+### to see it. The retry is ordinary, and the stored time keeps meaning when the photograph landed
+### rather than when the device got around to saying so.
+
+### Naming nothing is a **400**. An empty list is a device bug, and answering "0 confirmed" to it
+### would let that bug run forever looking like success.
+POST {{host}}/api/sync/photos/confirm
+Authorization: Bearer {{repToken.response.body.access_token}}
+Content-Type: application/json
+
+{
+  "objectKeys": []
+}
+
+### Anonymous is a **401**. Which photographs a tenant is still waiting on is that tenant's business.
+POST {{host}}/api/sync/photos/confirm
+Content-Type: application/json
+
+{
+  "objectKeys": ["00000000-0000-0000-0000-000000000001/audits/019ff9ee-0de7-7ed9-8854-88e457c80f25/019ff9ee-0de7-7ed9-8854-88e457c80f26.jpg"]
+}

@@ -199,9 +199,45 @@ public sealed class PhotoEntry : ITenantOwned
     /// </remarks>
     public string ObjectKey { get; private set; } = null!;
 
+    /// <summary>
+    /// When the object was confirmed to be in storage, or null while it is still expected
+    /// (<c>OFF-08</c>, <c>B5</c>) — W11 slice 13a.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Null is the ordinary state, not an error.</b> The JSON push and the upload are independent
+    /// transports and the push usually wins, so a freshly filed audit has references to objects that
+    /// are still on a phone. What this makes possible is telling that apart from a photograph that is
+    /// never coming — which nothing could do while the two looked identical.
+    /// </para>
+    /// <para>
+    /// <b>Nothing here decides when "still expected" becomes "missing".</b> That is a reader's
+    /// question and it is answered on read, against the audit's own age, rather than stored: a stored
+    /// flag needs a job to set it and a second rule to un-set it when a late confirmation arrives, and
+    /// a rep who finds signal on Monday for Friday's photograph is exactly the case that must work.
+    /// </para>
+    /// </remarks>
+    public DateTimeOffset? UploadedAtUtc { get; private set; }
+
     public TenantId TenantId { get; set; }
 
     private PhotoEntry() { } // EF
+
+    /// <summary>
+    /// Records that the bytes arrived, the first time it is told.
+    /// </summary>
+    /// <returns>
+    /// <c>true</c> if this call is what changed it. A repeat answers <c>false</c> and leaves the
+    /// original timestamp: the device retries a confirmation whose answer it lost, and the time that
+    /// matters is when the photograph landed rather than when the retry did.
+    /// </returns>
+    internal bool Confirm(DateTimeOffset now)
+    {
+        if (UploadedAtUtc is not null) return false;
+
+        UploadedAtUtc = now;
+        return true;
+    }
 
     internal static PhotoEntry Create(Guid auditId, AuditSection section, string objectKey) => new()
     {
@@ -498,7 +534,10 @@ public sealed class Audit : AggregateRoot, ITenantOwned, IAuditable
          * exactly what `IAuditQuery` will hand a reader — one shape, one arithmetic, and no way for
          * "what was scored" to drift from "what is shown".
          */
-        var described = audit.Describe();
+        // The audit's own capture time, because the score does not read photo evidence — every
+        // reference here was created a line ago and is `Expected` under any clock. Passing a real
+        // "now" would suggest this path cares about the difference, and it does not.
+        var described = audit.Describe(audit.CapturedAtUtc);
 
         var scored = PerfectStoreScore.Compute(new ScoreInputs(
             described.Availability,
@@ -659,8 +698,15 @@ public sealed class Audit : AggregateRoot, ITenantOwned, IAuditable
         return all.Distinct().Count() != all.Count;
     }
 
-    /// <summary>This audit as a reader sees it.</summary>
-    public AuditRecord Describe() => new(
+    /// <summary>
+    /// This audit as a reader sees it, at <paramref name="now"/>.
+    /// </summary>
+    /// <param name="now">
+    /// Only photo evidence depends on it: whether a reference that has not been confirmed is still
+    /// expected or has stopped coming is a question about elapsed time, and answering it on read is
+    /// what keeps a late confirmation from needing a second rule to undo a stored flag (W11 13a).
+    /// </param>
+    public AuditRecord Describe(DateTimeOffset now) => new(
         Id,
         VisitId,
         OutletId,
@@ -677,7 +723,11 @@ public sealed class Audit : AggregateRoot, ITenantOwned, IAuditable
             .OrderBy(entry => entry.Order)
             .Select(entry => new AnswerLine(
                 entry.Order, entry.QuestionKey, entry.QuestionText, entry.Value))],
-        [.. _photos.Select(entry => new PhotoLine(entry.Section, entry.ObjectKey))],
+        [.. _photos.Select(entry => new PhotoLine(
+            entry.Section,
+            entry.ObjectKey,
+            entry.UploadedAtUtc,
+            PhotoLine.StateOf(entry.UploadedAtUtc, CapturedAtUtc, now)))],
         Score,
         [.. _scoredPillars
             .OrderBy(entry => entry.Pillar)

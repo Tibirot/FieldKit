@@ -13,13 +13,66 @@ public sealed record PriceLine(
 /// <summary>One survey answer, as stored, with the question as it was asked (<c>AUD-04</c>).</summary>
 public sealed record AnswerLine(int Order, string QuestionKey, string QuestionText, string Value);
 
+/// <summary>
+/// Whether the bytes behind a photo reference have actually arrived (<c>OFF-08</c>, <c>B5</c>).
+/// </summary>
+/// <remarks>
+/// Three states rather than a bool, because "not here" is two different facts to whoever is looking
+/// at a shop: a photograph still on a rep's phone is ordinary and needs no one's attention, and one
+/// that stopped coming a fortnight ago is a gap in the evidence somebody may have to act on. A bool
+/// makes those indistinguishable, which is the thing this slice exists to fix.
+/// </remarks>
+public enum PhotoEvidenceState
+{
+    /// <summary>Uploading, or waiting for signal. The normal state of a fresh audit's photographs.</summary>
+    Expected,
+
+    /// <summary>Confirmed in storage.</summary>
+    Arrived,
+
+    /// <summary>Old enough that it is not coming — see <see cref="PhotoLine.ExpectedWithin"/>.</summary>
+    Missing,
+}
+
 /// <summary>One photo reference, as stored (<c>AUD-05</c>).</summary>
 /// <param name="ObjectKey">
 /// Where the image is in object storage — or will be. The upload is separate from this record and
 /// may not have finished, or happened at all (<c>B5</c>); a reader should show a gap rather than an
 /// error.
 /// </param>
-public sealed record PhotoLine(AuditSection Section, string ObjectKey);
+/// <param name="UploadedAtUtc">
+/// When the device confirmed the object was in storage, or null while it is still expected — W11
+/// slice 13a.
+/// </param>
+/// <param name="State">
+/// <paramref name="UploadedAtUtc"/> read against the audit's age. Derived here rather than stored, so
+/// there is no flag to set with a job and no second rule to un-set it when a rep finds signal on
+/// Monday for Friday's photograph.
+/// </param>
+public sealed record PhotoLine(
+    AuditSection Section,
+    string ObjectKey,
+    DateTimeOffset? UploadedAtUtc,
+    PhotoEvidenceState State)
+{
+    /// <summary>
+    /// How long a photograph may be merely late before it reads as missing.
+    /// </summary>
+    /// <remarks>
+    /// A working week. A rep can be out of signal for a long weekend and a device that has given up
+    /// after eight attempts still gets every reconnect after that; past a week, an upload that was
+    /// going to happen has had many chances. Erring long is the cheaper mistake — calling a
+    /// photograph lost while it is still on a phone sends somebody chasing a rep for nothing.
+    /// </remarks>
+    public static readonly TimeSpan ExpectedWithin = TimeSpan.FromDays(7);
+
+    /// <summary>The state of a reference, given when the audit was captured and what time it is now.</summary>
+    public static PhotoEvidenceState StateOf(
+        DateTimeOffset? uploadedAtUtc, DateTimeOffset capturedAtUtc, DateTimeOffset now) =>
+        uploadedAtUtc is not null ? PhotoEvidenceState.Arrived
+        : now - capturedAtUtc > ExpectedWithin ? PhotoEvidenceState.Missing
+        : PhotoEvidenceState.Expected;
+}
 
 /// <summary>One pillar's contribution to the score, as stored (<c>AUD-06</c>, <c>AUD-09</c>).</summary>
 /// <param name="Pillar">
