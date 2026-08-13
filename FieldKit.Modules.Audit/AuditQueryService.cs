@@ -1,4 +1,5 @@
 using FieldKit.Modules.Audit.Contracts;
+using FieldKit.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
 namespace FieldKit.Modules.Audit;
@@ -9,7 +10,12 @@ namespace FieldKit.Modules.Audit;
 /// reader asked — and the alternative is one query per section per audit. It reads only Audit's own
 /// schema (AT-1); resolving a product id to a name is the caller's job, through Products' contracts.
 /// </remarks>
-internal sealed class AuditQueryService(AuditDbContext db) : IAuditQuery
+/// <remarks>
+/// The clock is here because one thing a reader sees is not stored: whether a photograph that has
+/// not been confirmed is still expected or has stopped coming (W11 slice 13a). Injected rather than
+/// read statically, so a test can age an audit past the threshold without waiting a week.
+/// </remarks>
+internal sealed class AuditQueryService(AuditDbContext db, IClock clock) : IAuditQuery
 {
     /// <summary>The most audits one outlet read will return, however large a limit is asked for.</summary>
     /// <remarks>
@@ -24,7 +30,7 @@ internal sealed class AuditQueryService(AuditDbContext db) : IAuditQuery
     {
         var audit = await Query().SingleOrDefaultAsync(row => row.VisitId == visitId, cancellationToken);
 
-        return audit?.Describe();
+        return audit?.Describe(clock.UtcNow);
     }
 
     public async Task<IReadOnlyList<AuditRecord>> ForOutletAsync(
@@ -40,7 +46,7 @@ internal sealed class AuditQueryService(AuditDbContext db) : IAuditQuery
             .Take(Math.Clamp(limit, 1, MaximumOutletAudits))
             .ToListAsync(cancellationToken);
 
-        return [.. audits.Select(audit => audit.Describe())];
+        return [.. audits.Select(audit => audit.Describe(clock.UtcNow))];
     }
 
     private IQueryable<Audit> Query() => db.Audits

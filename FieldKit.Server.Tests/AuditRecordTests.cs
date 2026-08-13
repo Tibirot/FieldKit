@@ -531,7 +531,7 @@ public class AuditRecordTests
             answers: [Answer("chiller_lit")],
             photos: [new CapturedPhoto(AuditSection.General, "tenant-a/audits/x/1.jpg")]));
 
-        var described = audit!.Describe();
+        var described = audit!.Describe(Captured);
 
         Assert.Equal(audit.Id, described.AuditId);
         Assert.Equal(Visit, described.VisitId);

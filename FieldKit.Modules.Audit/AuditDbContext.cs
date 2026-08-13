@@ -24,6 +24,17 @@ public sealed class AuditDbContext(DbContextOptions<AuditDbContext> options, ITe
 
     public DbSet<Audit> Audits => Set<Audit>();
 
+    /// <summary>
+    /// Photo references on their own, for confirming an upload by key (W11 slice 13a).
+    /// </summary>
+    /// <remarks>
+    /// The only section exposed outside its aggregate, and only because a confirmation arrives naming
+    /// a key rather than an audit — loading the audits to reach them would fetch five collections to
+    /// write one timestamp. Still tenant-filtered: <see cref="PhotoEntry"/> is
+    /// <see cref="ITenantOwned"/>, so the global filter applies here exactly as it does everywhere.
+    /// </remarks>
+    public DbSet<PhotoEntry> Photos => Set<PhotoEntry>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

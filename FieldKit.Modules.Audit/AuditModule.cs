@@ -72,6 +72,11 @@ public sealed class AuditModule : IModule
 
         // …and reporting reads them through this (AUD-09).
         services.AddScoped<IAuditQuery, AuditQueryService>();
+
+        // The upload's other end: Sync tells an audit that a photograph it references has arrived
+        // (`OFF-08`, W11 slice 13a). Separate from ingest so a caller that only wants to say "the
+        // bytes are there" does not acquire the ability to file audits.
+        services.AddScoped<IPhotoEvidence, PhotoEvidenceService>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints) => endpoints.MapAuditEndpoints();
