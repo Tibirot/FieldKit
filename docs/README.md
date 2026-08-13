@@ -64,7 +64,8 @@ docs/
 │  ├─ pull-requests.md           ← PR rules for humans & agents (small · tested · docs-in-lockstep)
 │  ├─ frontend-toolchain.md      ← Node/npm pinning + why the lockfile is generated on Linux
 │  ├─ deploying.md               ← the ACA runbook: prerequisites, what gets created, what to check
-│  └─ phase-2-demo.md            ← the offline field round, scripted: what to show and what it proves
+│  ├─ phase-2-demo.md            ← the offline field round, scripted: what to show and what it proves
+│  └─ regression-2026-08-13.md   ← the post-W11 whole-app pass: every gate, and the six gaps it found
 │
 ├─ ux/                           ← wireframes & design direction
 │  ├─ README.md                  ← screen inventory + spec traceability + Artifact link
