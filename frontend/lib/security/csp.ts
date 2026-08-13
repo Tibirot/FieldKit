@@ -27,6 +27,18 @@ export type CspOrigins = {
    * normal during `next build`.
    */
   keycloak: string | null;
+  /**
+   * Where photographs are uploaded (`OFF-08`, `B5`) — W11 slice 12c.
+   *
+   * <b>Needed because the upload does not go through this app.</b> `B5` sends the bytes straight to
+   * object storage on a presigned URL, precisely so a rep's day of work is not held behind a picture
+   * — and that makes the destination a different origin, which `connect-src` has to name or the
+   * browser refuses the request before it leaves the device.
+   *
+   * Null when no storage is configured, which is a real state: a deployment without photo storage,
+   * and every `next build`.
+   */
+  photoStorage: string | null;
 };
 
 export type CspOptions = CspOrigins & {
@@ -53,11 +65,38 @@ export function originOf(url: string | null | undefined): string | null {
 }
 
 /**
+ * The same loopback origin spelled the other way, or null when it is not loopback.
+ *
+ * <b>Because the storage emulator answers to two names and the two halves disagree about which.</b>
+ * Aspire renders its endpoint as `http://localhost:{port}`; the Azure SDK signs a SAS for
+ * `http://127.0.0.1:{port}`, because that is what the emulator's connection string says. A CSP source
+ * matches the **host as written** — `localhost` is not `127.0.0.1` — so naming one and being sent the
+ * other blocks every upload, which is exactly what happened after the first attempt at this fix.
+ *
+ * <b>Development only</b>, and deliberately not a general widening: in production the account has one
+ * name and both halves use it, so nothing here applies. A reader who finds this in a production
+ * policy should treat it as a bug.
+ */
+function loopbackSibling(origin: string | null): string | null {
+  if (!origin) return null;
+
+  if (origin.includes("//localhost")) return origin.replace("//localhost", "//127.0.0.1");
+  if (origin.includes("//127.0.0.1")) return origin.replace("//127.0.0.1", "//localhost");
+
+  return null;
+}
+
+/**
  * Builds the policy.
  *
  * @returns a `Content-Security-Policy` header value.
  */
-export function contentSecurityPolicy({ nonce, keycloak, development }: CspOptions): string {
+export function contentSecurityPolicy({
+  nonce,
+  keycloak,
+  photoStorage,
+  development,
+}: CspOptions): string {
   const directives: Record<string, string[]> = {
     // Everything not named below falls back to this one, so an unlisted fetch type is refused
     // rather than allowed — the whole point of naming a default.
@@ -95,7 +134,15 @@ export function contentSecurityPolicy({ nonce, keycloak, development }: CspOptio
 
     // The API is same-origin — it is proxied under `/api/` rather than called cross-origin
     // (next.config.ts) — so `'self'` covers every call the app makes except Keycloak's.
-    "connect-src": ["'self'", ...(keycloak ? [keycloak] : [])],
+    "connect-src": [
+      "'self'",
+      ...(keycloak ? [keycloak] : []),
+      // Object storage, for the photo upload — see `photoStorage` above. Without it the browser
+      // refuses every `PUT` and `OFF-08` cannot work at all, which is exactly how it shipped: the
+      // presign succeeded, the upload never left the device, and the retry made it look like a bad
+      // network forever. Found in a browser, because no test in either suite meets a CSP.
+      ...(photoStorage ? [photoStorage] : []),
+    ],
 
     // The service worker, which is what makes this a PWA at all.
     "worker-src": ["'self'"],
@@ -117,7 +164,13 @@ export function contentSecurityPolicy({ nonce, keycloak, development }: CspOptio
     // refused by the policy above, and neither is present in a production build — which is why this
     // is a branch rather than a permanent widening.
     directives["script-src"] = [...directives["script-src"], "'unsafe-eval'"];
-    directives["connect-src"] = [...directives["connect-src"], "ws:", "wss:"];
+    directives["connect-src"] = [
+      ...directives["connect-src"],
+      "ws:",
+      "wss:",
+      // See `loopbackSibling`. Development only, because only the emulator answers to two names.
+      ...(loopbackSibling(photoStorage) ? [loopbackSibling(photoStorage)!] : []),
+    ];
   }
 
   return Object.entries(directives)

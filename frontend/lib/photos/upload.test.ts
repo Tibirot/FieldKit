@@ -192,6 +192,43 @@ describe("when an upload fails", () => {
     expect((await waiting(db))[0].uploadedAtUtc).toBe(WAITING);
   });
 
+  it("keeps why it failed, because swallowing it hid a bug for a whole slice", async () => {
+    /*
+     * <b>Regression, and the reason this field exists.</b> The uploader recorded only *that* a photo
+     * had failed, so a Content Security Policy refusing every `PUT` was indistinguishable from a bad
+     * signal — and the retry made it look like a bad signal forever. It took a browser console to
+     * find, and nothing on the device could have said.
+     *
+     * A message, not a stack: it is for a rep's "why is this stuck" and for whoever reads the store
+     * when a photograph will not go.
+     */
+    put.mockImplementation(async () => {
+      throw new TypeError("Refused to connect because it violates the document's CSP.");
+    });
+
+    await audited(1);
+    await uploadPhotos(db, "token", LATER);
+
+    expect((await waiting(db))[0].lastFailure).toContain("violates the document's CSP");
+  });
+
+  it("clears the reason once the photograph goes", async () => {
+    // A stale explanation on a row that is fine is worse than none — slice 13 would show a rep a
+    // problem they no longer have.
+    put.mockImplementationOnce(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+
+    const started = await audited(1);
+    await uploadPhotos(db, "token", LATER);
+    await uploadPhotos(db, "token", LATER);
+
+    const stored = await db.blobs.get(`audits/${started.id}/photo-0.jpg`);
+
+    expect(stored?.lastFailure).toBe("");
+    expect(stored?.uploadedAtUtc).not.toBe(WAITING);
+  });
+
   it("stops retrying a photograph that has failed too often, without deleting it", async () => {
     /*
      * A picture that has failed eight times is failing for a reason retrying will not fix, and a rep

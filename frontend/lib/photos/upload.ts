@@ -94,18 +94,30 @@ export async function uploadPhotos(
 
       if (!response.ok) throw new Error(`Upload refused with ${response.status}.`);
 
-      await db.blobs.update(photo.objectKey, { uploadedAtUtc: now.toISOString(), attempts: 0 });
+      await db.blobs.update(photo.objectKey, {
+        uploadedAtUtc: now.toISOString(),
+        attempts: 0,
+        lastFailure: "",
+      });
       result.uploaded += 1;
-    } catch {
+    } catch (error) {
       /*
-       * Counted and left waiting. The failure is almost always the connection, and the only useful
-       * response is to try again later — which the count makes bounded.
+       * Counted, *explained*, and left waiting. The failure is usually the connection, and the only
+       * useful response is to try again later — which the count makes bounded.
+       *
+       * <b>The reason is kept, and that is this slice's second finding.</b> Swallowing it made a
+       * Content Security Policy refusing every `PUT` indistinguishable from a bad signal, and the
+       * retry made it look like a bad signal forever. A message on the row is what lets slice 13 tell
+       * a rep something true, and what would have made this obvious a slice earlier.
        *
        * `attempts` is incremented rather than the row rewritten, because a rep may be photographing
        * another shelf on the same device while this runs: a whole-record `put` would carry a stale
        * image back over a newer one.
        */
-      await db.blobs.update(photo.objectKey, { attempts: photo.attempts + 1 });
+      await db.blobs.update(photo.objectKey, {
+        attempts: photo.attempts + 1,
+        lastFailure: error instanceof Error ? error.message : String(error),
+      });
       result.failed += 1;
     }
   }

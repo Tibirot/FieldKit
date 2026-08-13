@@ -50,7 +50,13 @@ Per [B8](../product/decisions-and-assumptions.md#b8--privacy--gdpr-posture):
   leaving.
 - **Retention:** per-tenant retention policy for visit/audit history.
 - **Photos** live in object storage via short-lived **presigned URLs**, not public buckets
-  ([sync engine](12-offline-sync-engine.md)).
+  ([sync engine](12-offline-sync-engine.md)). The URL is **write-only and scoped to one blob**, so a
+  device that holds one can upload the picture it asked about and nothing else — not read another
+  rep's, not overwrite an audit already filed.
+- **The storage origin is named in `connect-src`**, and has to be: the upload goes browser → storage
+  rather than through this app, so a policy that omits it refuses every upload *silently*. It did,
+  for a slice. The origin comes from configuration and is allowed for `connect-src` only — never
+  `script-src`, where a service that accepts writes could then serve script to this origin.
 - **Accessibility:** the field app targets **WCAG 2.2 AA** — genuinely earned by a one-handed,
   gloved, bright-sunlight in-store context (contrast, touch-target size, no color-only state).
 

@@ -282,6 +282,22 @@ if (builder.ExecutionContext.IsPublishMode)
 if (builder.ExecutionContext.IsRunMode)
     frontend.WithEndpoint("http", endpoint => endpoint.Port = 3000);
 
+/*
+ * The origin the browser is allowed to `PUT` a photograph to (`OFF-08`, W11 slice 12c).
+ *
+ * <b>The front end gets a URL, never the connection string.</b> The server needs
+ * `ConnectionStrings__photos` because it signs with a credential; the browser needs only an origin
+ * for its Content Security Policy, and handing a front end a string containing an account key so it
+ * can parse one substring out of it would be putting a secret somewhere it has no business being.
+ *
+ * <b>Without this the upload does not work at all.</b> `connect-src` names the origins the browser
+ * may reach; object storage is not this app's origin, so every `PUT` was refused before a byte left
+ * the device — presign succeeded, upload never happened, retry made it look like a bad network. It
+ * shipped that way in 12b and a browser check found it, which no test in either suite could: the
+ * device tests mock `fetch` and the server tests upload from .NET, where there is no CSP.
+ */
+frontend.WithEnvironment("PHOTO_STORAGE_URL", storage.GetEndpoint("blob"));
+
 // The address Keycloak will send the browser back to after a login.
 //
 // The realm files carry `${FIELDKIT_WEB_ORIGIN:http://localhost:3000}` wherever an origin appears —

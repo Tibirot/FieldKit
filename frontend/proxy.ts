@@ -34,6 +34,24 @@ function keycloakOrigin(): string | null {
 }
 
 /**
+ * Where the browser is allowed to `PUT` a photograph (`OFF-08`, `B5`) — W11 slice 12c.
+ *
+ * <b>Found in a browser, and it made the feature not work at all.</b> Uploads go straight to object
+ * storage on a presigned URL — that is the whole of `B5`'s second transport — and object storage is
+ * a *different origin* from this app. `connect-src` did not name it, so every upload was refused by
+ * the browser before a byte left the device: the presign succeeded, the `PUT` never happened, and
+ * the uploader's own retry made it look like a flaky network forever.
+ *
+ * <b>Set explicitly rather than derived from a connection string.</b> The server gets
+ * `ConnectionStrings__photos` because it needs a credential; the browser needs only an origin, and
+ * handing the front end a string containing an account key so it can parse one substring out would
+ * be putting a secret where a secret has no business being.
+ */
+function photoStorageOrigin(): string | null {
+  return originOf(process.env.PHOTO_STORAGE_URL);
+}
+
+/**
  * Locale negotiation, plus the security headers every document response carries.
  *
  * The CSP is set on the **request** headers as well as the response. That is not belt-and-braces:
@@ -60,6 +78,7 @@ export default function proxy(request: NextRequest) {
   const policy = contentSecurityPolicy({
     nonce,
     keycloak: keycloakOrigin(),
+    photoStorage: photoStorageOrigin(),
     development: process.env.NODE_ENV !== "production",
   });
 

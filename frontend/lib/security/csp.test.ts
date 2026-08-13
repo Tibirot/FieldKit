@@ -17,6 +17,7 @@ const production = (over: Partial<Parameters<typeof contentSecurityPolicy>[0]> =
     contentSecurityPolicy({
       nonce: "n0nce",
       keycloak: "https://keycloak.example:8443",
+      photoStorage: "https://fieldkit.blob.core.windows.net",
       development: false,
       ...over,
     }),
@@ -51,7 +52,10 @@ describe("contentSecurityPolicy", () => {
   it("names no Keycloak when there is none, rather than an empty source", () => {
     // `next build` runs without the AppHost and `readOidcSettings` answers null there. A stray
     // empty string in the source list is a parse error for the whole directive.
-    const connect = production({ keycloak: null })["connect-src"];
+    //
+    // Photo storage is nulled too, so this stays a claim about *Keycloak* being absent rather than a
+    // claim about the whole directive — which is what made it fail when the storage origin arrived.
+    const connect = production({ keycloak: null, photoStorage: null })["connect-src"];
 
     expect(connect).toEqual(["'self'"]);
   });
@@ -105,5 +109,92 @@ describe("originOf", () => {
     expect(originOf(undefined)).toBeNull();
     expect(originOf("")).toBeNull();
     expect(originOf("not a url")).toBeNull();
+  });
+});
+
+describe("the photo upload's origin", () => {
+  /*
+   * <b>Regression, found in a browser and not by any suite.</b> `B5` sends photographs straight to
+   * object storage on a presigned URL — that is the whole point of the second transport — and object
+   * storage is not this app's origin. `connect-src` did not name it, so the browser refused every
+   * `PUT` before a byte left the device: the presign succeeded, the upload never happened, and the
+   * uploader's retry made it look like a bad network forever.
+   *
+   * Neither suite could have caught it. The device tests mock `fetch`; the server tests upload from
+   * .NET, where there is no CSP at all.
+   */
+  it("is allowed to be connected to", () => {
+    expect(production()["connect-src"]).toContain("https://fieldkit.blob.core.windows.net");
+  });
+
+  it("is absent when no storage is configured, rather than widening to everything", () => {
+    // A deployment without photo storage — and every `next build`. The failure mode of a CSP is
+    // silent in the permissive direction, so "unset" must narrow rather than open.
+    const connect = production({ photoStorage: null })["connect-src"];
+
+    expect(connect).toEqual(["'self'", "https://keycloak.example:8443"]);
+  });
+
+  it("does not let object storage do anything but be connected to", () => {
+    /*
+     * A storage origin in `script-src` would let an attacker who can write a blob — which is what a
+     * presigned URL grants, narrowly — serve script to this origin. The upload needs `connect-src`
+     * and nothing else.
+     */
+    const policy = production();
+
+    expect(policy["script-src"]).not.toContain("https://fieldkit.blob.core.windows.net");
+    expect(policy["default-src"]).not.toContain("https://fieldkit.blob.core.windows.net");
+    expect(policy["frame-src"]).toEqual(["'none'"]);
+  });
+});
+
+describe("the storage emulator's two names", () => {
+  const development = (photoStorage: string | null) =>
+    directives(
+      contentSecurityPolicy({
+        nonce: "n0nce",
+        keycloak: "https://keycloak.example:8443",
+        photoStorage,
+        development: true,
+      }),
+    );
+
+  it("allows both spellings of loopback in development", () => {
+    /*
+     * <b>The second half of the same bug, and it survived the first fix.</b> Aspire renders the
+     * emulator's endpoint as `localhost`; the Azure SDK signs the SAS for `127.0.0.1`, because that
+     * is what the emulator's connection string says. A CSP source matches the host **as written**, so
+     * naming one and being sent the other blocks every upload — which is what the browser did after
+     * the first attempt, with the port matching and nothing else.
+     */
+    const connect = development("http://localhost:10000")["connect-src"];
+
+    expect(connect).toContain("http://localhost:10000");
+    expect(connect).toContain("http://127.0.0.1:10000");
+  });
+
+  it("works whichever way round the configured origin is spelled", () => {
+    const connect = development("http://127.0.0.1:10000")["connect-src"];
+
+    expect(connect).toContain("http://127.0.0.1:10000");
+    expect(connect).toContain("http://localhost:10000");
+  });
+
+  it("does not widen a real storage account, in development or out of it", () => {
+    // The sibling only exists for loopback. A deployed account has one name and both halves use it —
+    // inventing a second host for `fieldkit.blob.core.windows.net` would be naming an origin nobody
+    // serves, which is how a policy quietly stops meaning anything.
+    const connect = development("https://fieldkit.blob.core.windows.net")["connect-src"];
+
+    expect(connect.filter((source) => source.includes("blob.core.windows.net"))).toEqual([
+      "https://fieldkit.blob.core.windows.net",
+    ]);
+  });
+
+  it("adds nothing in production, where the emulator does not exist", () => {
+    expect(production({ photoStorage: "http://localhost:10000" })["connect-src"]).not.toContain(
+      "http://127.0.0.1:10000",
+    );
   });
 });
