@@ -301,6 +301,44 @@ slice that is already at the top of its budget.
 
 ---
 
+### F9 — An unplanned call still needs a published round covering the day
+
+**Where:** `JourneyIngestService.AddUnplannedAsync` — `JourneyIngestRefusal.NoPlanForDate`
+
+Found by walking R4 in a browser, as the dev rep, on a day their plan does not cover. The device
+queued the call, pushed it, and the server refused it:
+
+```
+journey.plan.noneForDate — "You have no published round covering that day."
+```
+
+The server is right: an unplanned call is a row *on a plan*, and there is no plan to put it on. But
+it means **F7's headline claim was only half true**. F7 said the missing entry point was "the only way
+into the field app when a plan is missing"; R4 delivers that half — check-in, the audit and order
+capture are all now reachable with no round — while the journey annotation is refused until a
+published plan covers the day.
+
+**Cost as it stands:** the rep's *visit* is captured and reaches the back office normally. What they
+lose is the call appearing on a round, and — because **F1** is still open — the badge says *Needs
+attention* with no reason, while the outbox holds `errorCode: "journey.plan.noneForDate"` and the
+sentence above, unread. This is F1's exact shape, observed live rather than reasoned about.
+
+**Not obviously a defect.** Three readings, and the choice belongs with the journey spec rather than
+with a slice:
+
+1. *Correct as designed* — coverage is measured against a plan, and a call outside every plan is not
+   a fact about anybody's round. Then R5 is the whole fix: say why.
+2. *The device should not offer what the server will refuse* — the picker could hide the section when
+   no round covers today. Cheap, and it would have hidden the entry point in exactly the state that
+   motivated the slice.
+3. *An unplanned call should create the round it needs.* The largest change and the only one that
+   makes "a call you can start anywhere" literally true.
+
+**Recommended:** ship **R5** first — it turns this from a silent failure into a sentence a rep can act
+on — and take the question to the journey spec afterwards.
+
+---
+
 ## 3. Debts confirmed still open
 
 Carried from earlier slices, re-checked and still true. None is a defect; each is a decision with a
