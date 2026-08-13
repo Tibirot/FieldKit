@@ -7,7 +7,7 @@ import { NotVisited } from "@/components/field/not-visited";
 import { useSync } from "@/components/sync/sync-provider";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "@/i18n/navigation";
-import type { ReferenceOutlet } from "@/lib/sync/db";
+import type { ReferenceOutlet, ReferenceVisitWorkflow } from "@/lib/sync/db";
 import { useLive } from "@/lib/sync/live";
 import { outlet as heldOutlet, workflowFor } from "@/lib/sync/reference";
 import { assess, type GeofenceAssessment } from "@/lib/visits/geofencing";
@@ -58,9 +58,26 @@ export function CheckIn({
 
   const open = useLive(async () => (await inProgress(db)) ?? null, undefined, [db]);
 
-  const workflow = useLive(
-    async () => (outlet ? ((await workflowFor(db, outlet.channelId)) ?? null) : null),
-    null,
+  /*
+   * `undefined` while the answer is outstanding, `null` once it is known to be nothing — W11½ R2.
+   *
+   * <b>The two used to be one value, and a rep could check in during the gap.</b> `useLive` returns
+   * its initial value until the first result arrives, so a `null` initial made "not loaded yet"
+   * indistinguishable from "this channel has no workflow". `start` passed `workflow ?? undefined`,
+   * `checkIn` took that as *no steps*, and the visit was snapshotted empty — which quietly disables
+   * `BR-VIS-3`'s mandatory-step gate, because a visit with no steps has no open ones to refuse a
+   * check-out over. A rep who tapped as soon as the GPS settled could finish a call without doing
+   * the audit it required.
+   *
+   * The same shape as the local store's `uploadedAtUtc`: two states collapsed into one value, and
+   * the collapse is invisible until something races.
+   */
+  const workflow = useLive<ReferenceVisitWorkflow | null | undefined>(
+    // `undefined` for "no outlet to ask about yet" as well as for the initial value — returning
+    // `null` there would resolve the query immediately and put the value back into the state the
+    // three-way split exists to avoid, before the real read has even started.
+    async () => (outlet ? ((await workflowFor(db, outlet.channelId)) ?? null) : undefined),
+    undefined,
     [db, outlet?.channelId],
   );
 
@@ -180,9 +197,15 @@ export function CheckIn({
 
       <Button
         onClick={() => void start()}
-        // Disabled only while a fix is outstanding or a check-in is already going — never because
-        // the rep is outside the fence, which is the refusal `BR-VIS-2` explicitly does not make.
-        disabled={starting || position === undefined}
+        /*
+         * Disabled only while a fix is outstanding, a check-in is already going, or the workflow is
+         * still being read — never because the rep is outside the fence, which is the refusal
+         * `BR-VIS-2` explicitly does not make.
+         *
+         * The workflow condition is W11½ R2's: checking in before it resolves snapshots a visit with
+         * no steps, and a visit with no steps cannot be gated on the ones it should have had.
+         */
+        disabled={starting || position === undefined || workflow === undefined}
       >
         {starting ? t("starting") : t("action")}
       </Button>

@@ -15,6 +15,8 @@ import {
   type ReferenceVisitWorkflow,
 } from "@/lib/sync/db";
 import { enqueue, pending } from "@/lib/sync/outbox";
+import * as reference from "@/lib/sync/reference";
+import { eventually } from "@/test/eventually";
 import { render } from "@/test/render";
 
 /**
@@ -174,9 +176,16 @@ describe("<CheckIn> outside the fence", () => {
 
     const start = await screen.findByRole("button", { name: "Check in and start the visit" });
 
-    // `BR-VIS-2` in one assertion: the button is live while the rep is outside the fence. A disabled
-    // button here would be the block the rule forbids.
-    expect((start as HTMLButtonElement).disabled).toBe(false);
+    /*
+     * `BR-VIS-2` in one assertion: the button is live while the rep is outside the fence. A disabled
+     * button here would be the block the rule forbids.
+     *
+     * Waited for rather than asserted flat, and W11½ R2 is what made that necessary: the button is
+     * now also disabled until the workflow has been read, so "enabled" is something the screen
+     * arrives at rather than something it starts as. `findByRole` waits for the button to exist,
+     * which is a different moment.
+     */
+    await eventually(() => expect((start as HTMLButtonElement).disabled).toBe(false));
 
     await userEvent.click(start);
 
@@ -414,5 +423,62 @@ describe("<CheckIn> reporting a call the rep could not make (W9 slice 9)", () =>
     expect(
       await screen.findByText("Your report was refused. Tell your supervisor."),
     ).toBeTruthy();
+  });
+});
+
+describe("<CheckIn> while the workflow is still being read", () => {
+  it("does not let a rep start a visit that would carry no steps", async () => {
+    /*
+     * <b>A product bug found by a flaky test, on a pull request that touched no front-end code</b>
+     * (W11½ R2). CI is slower than a laptop, and the gap it opened is real on a cold device.
+     *
+     * `useLive` returns its initial value until the first query resolves, so a `null` initial made
+     * *not loaded yet* indistinguishable from *this channel has no workflow*. `start` passed
+     * `workflow ?? undefined`, `checkIn` read that as no steps, and the visit was snapshotted empty.
+     *
+     * A visit with no steps has no open mandatory ones — so `BR-VIS-3`'s gate has nothing to refuse
+     * a check-out over, and a rep who tapped as soon as the GPS settled could finish a call without
+     * doing the audit it required. `BR-VIS-6`'s snapshot rule is what breaks, quietly.
+     *
+     * Staged rather than waited for: the workflow query is held open, which is exactly the window a
+     * fast tap lands in.
+     */
+    let release: (() => void) | undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    const original = reference.workflowFor;
+    const slow = vi.spyOn(reference, "workflowFor").mockImplementation(async (...args) => {
+      await held;
+
+      return original(...args);
+    });
+
+    await db.workflows.add(
+      workflow({ steps: [{ order: 1, type: "Audit", mandatory: true, label: "Shelf audit" }] }),
+    );
+
+    render(<CheckIn outletId="outlet-1" />);
+
+    await screen.findByText(/You are at this shop/);
+
+    const button = (await screen.findByRole("button", {
+      name: "Check in and start the visit",
+    })) as HTMLButtonElement;
+
+    // The whole claim: the tap cannot land while the answer is outstanding.
+    expect(button.disabled).toBe(true);
+
+    release!();
+    await waitFor(() => expect(button.disabled).toBe(false));
+
+    await userEvent.click(button);
+    await waitFor(async () => expect(await db.visits.count()).toBe(1));
+
+    // And the visit it produced carries the step the gate depends on.
+    expect((await db.visits.toArray())[0].steps.map((step) => step.label)).toEqual(["Shelf audit"]);
+
+    slow.mockRestore();
   });
 });
