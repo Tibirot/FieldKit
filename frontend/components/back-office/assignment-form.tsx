@@ -11,7 +11,7 @@ import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api/client";
 import { createAssignment, updateAssignment, type RepAssignment } from "@/lib/api/org";
-import type { User } from "@/lib/api/users";
+import { identifying, type User } from "@/lib/api/users";
 import { useValidationMessages } from "@/lib/forms/use-validation-messages";
 import { cn } from "@/lib/utils";
 
@@ -156,7 +156,7 @@ export function AssignmentForm({
               // wrong one comes back as "No such user in this tenant" — a message that reads like a
               // missing person rather than a mismatched identifier.
               <option key={candidate.subjectId} value={candidate.subjectId}>
-                {candidate.displayName}
+                {identifying(candidate)}
               </option>
             ))}
           </select>

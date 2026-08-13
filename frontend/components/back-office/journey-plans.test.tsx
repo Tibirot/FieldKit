@@ -186,6 +186,47 @@ describe("<JourneyPlans>", () => {
     expect(screen.getByText("1 of 4 calls")).toBeTruthy();
   });
 
+  it("lets a supervisor pick between two reps with the same name", async () => {
+    // The picker showed `displayName` alone, so two people called Maria Ionescu were two identical
+    // rows — and the choice decides whose week gets generated. Selection is by the *visible* label
+    // rather than by subject id, because a value the supervisor cannot read is not a choice.
+    const second: User = {
+      ...USERS[0],
+      id: "u-2",
+      subjectId: "subject-maria-2",
+      email: "m.ionescu@fieldkit.local",
+    };
+
+    fetchUsers.mockResolvedValue([USERS[0], second]);
+    generatePlan.mockResolvedValue({ ...DETAIL, excluded: [] });
+
+    render(<JourneyPlans />);
+
+    const picker = await screen.findByLabelText("Rep");
+    const chosen = await screen.findByRole("option", { name: /m\.ionescu@fieldkit\.local/ });
+
+    // Both are offered, and they read differently — the assertion the old markup failed.
+    expect(screen.getByRole("option", { name: /maria@fieldkit\.local/ })).toBeTruthy();
+    expect(chosen.textContent).not.toBe(
+      screen.getByRole("option", { name: /maria@fieldkit\.local/ }).textContent,
+    );
+
+    await userEvent.selectOptions(picker, chosen);
+    await userEvent.type(screen.getByLabelText("From"), "2028-03-06");
+    await userEvent.type(screen.getByLabelText("To"), "2028-03-12");
+    await userEvent.click(screen.getByRole("button", { name: "Generate" }));
+
+    // The half that makes the label worth having: the second Maria is the one planned for.
+    await waitFor(() =>
+      expect(generatePlan).toHaveBeenCalledWith(
+        expect.anything(),
+        "subject-maria-2",
+        "2028-03-06",
+        "2028-03-12",
+      ),
+    );
+  });
+
   it("shows what was excluded only for the run that reported it", async () => {
     // An exclusion is a fact about the *inputs* — a shut shop, or one with no frequency — so it is
     // returned by generation and stored nowhere. Re-reading a plan cannot show it, and showing the

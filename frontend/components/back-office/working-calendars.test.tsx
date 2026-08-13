@@ -188,15 +188,21 @@ describe("<WorkingCalendars>", () => {
     await userEvent.click(screen.getByRole("button", { name: "Add a calendar" }));
 
     const picker = (await screen.findByLabelText("Rep")) as HTMLSelectElement;
-    const offered = [...picker.options].map((option) => option.textContent);
+    // By subject rather than by label: since W11½ R3 the option reads "Andrei Pop — andrei@…", and
+    // the two exclusions below would otherwise hold for the wrong reason — no option's text is a
+    // bare name any more, offered or not.
+    const offered = [...picker.options].map((option) => option.value);
 
-    expect(offered).toEqual(["Andrei Pop"]);
+    expect(offered).toEqual(["subject-andrei"]);
 
     // Maria already has one — offering her would be an edit disguised as a create. The deactivated
     // rep is refused by the server, and offering a choice only to take it back is worse than not
     // offering it.
-    expect(offered).not.toContain("Maria Ionescu");
-    expect(offered).not.toContain("Departed Rep");
+    expect(offered).not.toContain("subject-maria");
+    expect(offered).not.toContain("subject-gone");
+
+    // The label still carries the name, which is what a person is picked by.
+    expect(picker.options[0].textContent).toContain("Andrei Pop");
   });
 
   it("writes nothing until a new calendar is saved", async () => {

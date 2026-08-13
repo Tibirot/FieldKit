@@ -66,6 +66,28 @@ export function usersIncluding(
   ];
 }
 
+/**
+ * How a person is written in a picker: their name, and their email when there is one.
+ *
+ * **A name is not an identifier.** Two people called Maria Ionescu are two rows a supervisor cannot
+ * choose between, and the choice is not cosmetic — it decides whose week is generated, whose
+ * territory is assigned, whose calendar is configured. The email is already on the same payload;
+ * the picker simply was not reading it.
+ *
+ * Text rather than markup because an `<option>` holds no elements — "email as secondary text" is
+ * not available inside a `<select>`, so the two are joined and the separator does the work.
+ *
+ * Not a translated string. Both catalogues would carry the identical `{name} — {email}`, and a
+ * message key that never differs between locales is a key that will drift out of one of them.
+ * Derived at the point of use, for the same reason as {@link resourceOf}.
+ *
+ * Falls back to the name alone when the email is empty — the shape {@link usersIncluding} builds for
+ * a deactivated rep, who is in the list to be *kept*, not to be told apart from anyone.
+ */
+export function identifying(user: Pick<User, "displayName" | "email">): string {
+  return user.email ? `${user.displayName} — ${user.email}` : user.displayName;
+}
+
 export type UserWrite = {
   subjectId: string;
   email: string;

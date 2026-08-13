@@ -192,6 +192,11 @@ people who share a name.
 
 **Fix:** render the email as secondary text. The data is already on the wire.
 
+**Fixed in W11½ R3**, in three places rather than one — `assignment-form.tsx:159` and
+`working-calendars.tsx:193` carry the same line, and this finding only looked at the journey screen.
+"Secondary text" turned out not to be available: an `<option>` holds no elements, so the label is
+`name — email` as a single string from a shared `identifying` helper.
+
 ---
 
 ### F6 — Re-pricing takes the capture instant as a UTC date
