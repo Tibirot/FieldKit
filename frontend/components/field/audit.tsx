@@ -8,14 +8,17 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "@/i18n/navigation";
 import {
   auditFor,
+  chooseSurvey,
   clearAvailability,
   draftFor,
   measured,
+  putAnswer,
   putAvailability,
   putCategoryFacings,
   putFacings,
   putPrice,
   seal as sealAudit,
+  unanswered,
 } from "@/lib/audits/local-audit";
 import { expectedPrices } from "@/lib/orders/pricing";
 import { looksLikeAnAmount } from "@/lib/api/price-lists";
@@ -25,17 +28,57 @@ import type {
   LocalAudit,
   LocalAvailabilityStatus,
   ReferenceProduct,
+  ReferenceSurveyForm,
+  ReferenceSurveyQuestion,
 } from "@/lib/sync/db";
 import { useLive } from "@/lib/sync/live";
 import {
   assortmentFor,
   currentScoreWeightSet,
   outlet as heldOutlet,
+  surveyForms,
 } from "@/lib/sync/reference";
 import { visit as heldVisit } from "@/lib/visits/local-visit";
 
 /** The three answers, in the order a rep meets them at a shelf. */
 const ANSWERS: readonly LocalAvailabilityStatus[] = ["Present", "Absent", "OutOfStock"];
+
+/**
+ * How a multi-choice answer's options are joined into one string (`AUD-04`).
+ *
+ * A unit separator rather than a comma, because an option may contain one: "Front, centre" and two
+ * chosen options would be the same value otherwise, and the server stores what it is given. Nothing
+ * a rep can type reaches this — the options come from the form.
+ */
+const MULTI_CHOICE_SEPARATOR = "";
+
+/**
+ * One chain for every write this screen makes.
+ *
+ * <b>A typed field fires on every keystroke</b> — `4.79` is four writes, each opening its own Dexie
+ * transaction, and they can complete out of order: a screen test caught `4.7` landing after `4.79`
+ * and standing as the rep's reading. Taps cannot race themselves, but they share the chain so that a
+ * tap and a keystroke cannot either.
+ *
+ * <b>One queue for the whole screen, not one per section.</b> The shelf and the questionnaire write
+ * to the same audit row, so two chains would race each other exactly as the keystrokes did.
+ *
+ * The alternative — hold the in-progress text in React state and write on blur, as the order screen
+ * does with a quantity — is rejected because this screen promises `OFF-01b`: every measurement
+ * durable as it is made, so a phone that dies halfway down an aisle loses nothing.
+ */
+type Queued = (work: () => Promise<unknown>) => Promise<unknown>;
+
+function useWrites(): Queued {
+  const writes = useRef<Promise<unknown>>(Promise.resolve());
+
+  return (work: () => Promise<unknown>) => {
+    // Both arms, so one failed write does not wedge the chain for the rest of the audit.
+    writes.current = writes.current.then(work, work);
+
+    return writes.current;
+  };
+}
 
 /**
  * The audit a rep works at a shelf (`AUD-01`, `BR-AUD-1`, `OFF-01b`) — W11 slice 9a.
@@ -62,6 +105,10 @@ const ANSWERS: readonly LocalAvailabilityStatus[] = ["Present", "Absent", "OutOf
 export function Audit({ visitId }: { visitId: string }) {
   const t = useTranslations("Field.audit");
   const { db } = useSync();
+
+  // One chain for the whole screen — see `useWrites`. Created here and handed down, because the
+  // shelf and the questionnaire write to the same audit row and two chains would race each other.
+  const queued = useWrites();
 
   const visit = useLive(async () => (await heldVisit(db, visitId)) ?? null, undefined, [db, visitId]);
 
@@ -124,6 +171,14 @@ export function Audit({ visitId }: { visitId: string }) {
     [db, shop?.id, on, products.length],
   );
 
+  /*
+   * The tenant's questionnaires (`AUD-04`) — W11 slice 9c.
+   *
+   * All of them, because nothing in the model says which one applies at this shop: a workflow step
+   * carries a type and a label and no form id. With one the screen uses it; with several it asks.
+   */
+  const forms = useLive(async () => await surveyForms(db), [], [db]);
+
   if (visit === undefined || weights === undefined) return <Waiting message={t("opening")} />;
 
   if (visit === null) {
@@ -166,9 +221,38 @@ export function Audit({ visitId }: { visitId: string }) {
         */
         currency={[...expected.values()][0]?.currency ?? ""}
         editable={!sealed}
+        queued={queued}
       />
 
-      {!sealed && held ? <Seal audit={held} visitId={visitId} /> : null}
+      <Survey
+        audit={held}
+        forms={forms}
+        onStart={() =>
+          draftFor(db, {
+            visitId,
+            outletId: visit.outletId,
+            weightSetVersion: weights?.version ?? held?.weightSetVersion ?? 0,
+            now: new Date(),
+          })
+        }
+        editable={!sealed}
+        queued={queued}
+      />
+
+      {!sealed && held ? (
+        <Seal
+          audit={held}
+          visitId={visitId}
+          /*
+            `BR-AUD-7`'s gate needs the questions **as the rep is looking at them**, which is the form
+            this screen is presenting — not the one the audit names. This used to read
+            `held.surveyFormId`, and an audit names no form until the rep answers something: a rep who
+            scrolled past the questionnaire and tapped Finish sealed with every mandatory question
+            unanswered and nothing said.
+          */
+          questions={workingForm(forms, held)?.questions ?? []}
+        />
+      ) : null}
     </div>
   );
 }
@@ -201,6 +285,7 @@ function Shelf({
   expected,
   currency,
   editable,
+  queued,
 }: {
   audit: LocalAudit | null;
   products: ReferenceProduct[];
@@ -211,6 +296,7 @@ function Shelf({
   /** What to file an observation under when no list covers the product. */
   currency: string;
   editable: boolean;
+  queued: Queued;
 }) {
   const t = useTranslations("Field.audit");
   const { db } = useSync();
@@ -219,27 +305,6 @@ function Shelf({
   const counted = new Map(audit?.facings.map((line) => [line.productId, line.facings]) ?? []);
   const read = new Map(audit?.prices.map((line) => [line.productId, line.observed]) ?? []);
 
-  /*
-   * Every write goes through one queue, and the numeric fields are why.
-   *
-   * A tap is one write and cannot race itself. A *typed* field fires on every keystroke — `4.79` is
-   * four writes — and each one opens its own Dexie transaction, so they can complete out of order:
-   * the screen test caught `4.7` landing after `4.79` and standing as the rep's reading.
-   *
-   * The alternative was to hold the in-progress text in React state and write on blur, which is what
-   * the order screen does with a quantity. It is rejected here because this screen promises
-   * something the order screen does not: `OFF-01b`, every measurement durable as it is made, so a
-   * phone that dies halfway down an aisle loses nothing. Chaining keeps both — each keystroke is
-   * still written, and the last one still wins.
-   */
-  const writes = useRef<Promise<unknown>>(Promise.resolve());
-
-  const queued = (work: () => Promise<unknown>) => {
-    // Both arms, so one failed write does not wedge the chain for the rest of the audit.
-    writes.current = writes.current.then(work, work);
-
-    return writes.current;
-  };
 
   /** The total facings on the shelf — blank means *not counted*, which skips the pillar. */
   async function countCategory(raw: string) {
@@ -456,19 +521,40 @@ function Shelf({
  * refuses again (`Empty`). This exists so the rep is told *why* rather than watching a button do
  * nothing — the same three-layer arrangement the order's empty check has.
  *
- * <b>`BR-AUD-7`'s mandatory-question gate is not here</b>, and its absence is a dependency rather
- * than an omission: there is no questionnaire on this screen until 9c. When it arrives, the gate
- * belongs beside this refusal, because the rule is about *completing the step* and the server
+ * <b>`BR-AUD-7`'s mandatory-question gate is here too</b>, and here *only*: the rule is about
+ * completing the step, which happens on this screen with the rep looking at the form, and the server
  * deliberately does not re-check it — a form that gained a mandatory question after the rep answered
  * would otherwise refuse an audit for a question that did not exist when they worked the shelf.
  */
-function Seal({ audit, visitId }: { audit: LocalAudit; visitId: string }) {
+function Seal({
+  audit,
+  visitId,
+  questions,
+}: {
+  audit: LocalAudit;
+  visitId: string;
+  questions: readonly ReferenceSurveyQuestion[];
+}) {
   const t = useTranslations("Field.audit");
   const router = useRouter();
   const { db } = useSync();
 
   const [sealing, setSealing] = useState(false);
-  const [refused, setRefused] = useState<"empty" | "unexpected" | null>(null);
+  const [refused, setRefused] = useState<"empty" | "mandatory" | "unexpected" | null>(null);
+
+  /*
+   * `BR-AUD-7`, and this is the only place it is enforced (W11 slice 9c).
+   *
+   * "Mandatory survey questions must be answered before the audit step completes" is a rule about
+   * *completing a step*, which happens here with the rep looking at the form. `IAuditIngest`
+   * deliberately does not re-check it: the server would test the answers against the questionnaire
+   * as it reads **today**, so a form that gained a mandatory question after the rep answered would
+   * refuse an audit for a question that did not exist when they worked the shelf.
+   *
+   * Named rather than counted, because "2 questions still need answering" sends a rep back through a
+   * form looking for which two.
+   */
+  const outstanding = unanswered(audit, questions);
 
   const seal = async () => {
     setRefused(null);
@@ -490,7 +576,16 @@ function Seal({ audit, visitId }: { audit: LocalAudit; visitId: string }) {
       return;
     }
 
+    // `BR-AUD-7`. Checked at the seal rather than as each answer is given: a rep works a form out of
+    // order, and refusing an answer because an earlier one is missing is the screen arguing with them.
+    if (outstanding.length > 0) {
+      setRefused("mandatory");
+
+      return;
+    }
+
     setSealing(true);
+
 
     const sent = await sealAudit(db, audit.id, new Date());
 
@@ -508,12 +603,42 @@ function Seal({ audit, visitId }: { audit: LocalAudit; visitId: string }) {
     router.replace(`/field/visits/${visitId}`);
   };
 
+  /*
+   * A refusal outlives the tap, but not its cause (found in a browser, W11 slice 9c).
+   *
+   * "Answer the questions listed above before finishing" sat there after the rep answered, pointing
+   * at a list that had just disappeared — the rule was satisfied and the screen still complained.
+   * Both refusals are about a state the rep can leave, so both are re-read rather than remembered;
+   * `unexpected` is not, because nothing on this screen tells us it has passed.
+   */
+  const stale =
+    (refused === "mandatory" && outstanding.length === 0) || (refused === "empty" && measured(audit));
+
   return (
     <section className="flex flex-col gap-2">
-      {refused ? (
+      {refused && !stale ? (
         <p className="text-sm text-destructive" role="alert">
           {t(`refusal.${refused}`)}
         </p>
+      ) : null}
+
+      {/*
+        Shown before the rep taps, and named. `BR-AUD-7` is a rule they can satisfy, so the useful
+        thing is *which* questions — a count sends them back through the form hunting. The button
+        stays pressable for the same reason the order minimum's does: a control that cannot be
+        pressed says nothing about why.
+      */}
+      {outstanding.length > 0 ? (
+        <div className="text-sm text-muted-foreground" role="status">
+          <p>{t("stillNeeded")}</p>
+          {/* Named, because this screen has several live regions and a bare "status" is not one a
+              rep — or a test — can ask for by name. The two lists above it are named the same way. */}
+          <ul className="list-disc pl-5" aria-label={t("stillNeeded")}>
+            {outstanding.map((question) => (
+              <li key={question}>{question}</li>
+            ))}
+          </ul>
+        </div>
       ) : null}
 
       <Button onClick={() => void seal()} disabled={sealing}>
@@ -546,6 +671,268 @@ async function mustStock(
   return products
     .filter((product): product is ReferenceProduct => product !== undefined)
     .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+/**
+ * The questionnaire this screen is putting in front of the rep, or null for none (`AUD-04`).
+ *
+ * <b>One function because two callers must not disagree.</b> `Survey` renders these questions and
+ * `Seal` gates on them (`BR-AUD-7`); a rule enforced against a different set than the one on screen
+ * either refuses a question the rep was never asked, or — the way it failed first — lets a rep who
+ * scrolled past the questionnaire seal with every mandatory question blank.
+ *
+ * <b>Auto-choosing the only form is not a shortcut.</b> Nothing in the model says which form applies
+ * here: a workflow step carries a type and a label and no form id, and `ISurveyForms` is tenant-wide.
+ * With one form there is no choice to make, and a dropdown at every shop offering a single option is
+ * a tap that teaches a rep nothing. With several the device has no basis for choosing and says so by
+ * asking — and until the rep answers, `BR-AUD-7` has nothing to gate on, which is the honest reading
+ * of a model that cannot say which questionnaire this shop was owed. A form-per-channel
+ * configuration is the fix, and it is a Configuration change rather than a device one.
+ */
+function workingForm(
+  forms: ReferenceSurveyForm[],
+  audit: LocalAudit | null,
+): ReferenceSurveyForm | null {
+  const chosen = forms.find((form) => form.id === audit?.surveyFormId) ?? null;
+
+  if (chosen !== null) return chosen;
+
+  // `audit?.surveyFormId ?? null` and not `=== null`: before the first tap there is no audit at all,
+  // and a rep who works the questionnaire first — the fridge before the shelf — would otherwise find
+  // no questions and no way to make any appear.
+  return forms.length === 1 && (audit?.surveyFormId ?? null) === null ? forms[0] : null;
+}
+
+/**
+ * The questionnaire, if this tenant has one (`AUD-04`, `BR-AUD-7`) — W11 slice 9c.
+ *
+ * <b>Which form, and whether to ask, is `workingForm`'s call</b> — see it for why. With none this
+ * renders nothing at all, which is the ordinary case and a legitimate audit: a picker whose only
+ * option is "None" is a control that says nothing.
+ *
+ * <b>Mandatory questions are gated at the seal, not here</b> (`BR-AUD-7`). A rep works a form out of
+ * order — the fridge before the shelf, the photo last — and refusing to record an answer because an
+ * earlier one is missing would be the screen arguing with them mid-audit.
+ */
+function Survey({
+  audit,
+  forms,
+  onStart,
+  editable,
+  queued,
+}: {
+  audit: LocalAudit | null;
+  forms: ReferenceSurveyForm[];
+  onStart: () => Promise<LocalAudit>;
+  editable: boolean;
+  queued: Queued;
+}) {
+  const t = useTranslations("Field.audit");
+  const { db } = useSync();
+
+  if (forms.length === 0) return null;
+
+  const answers = new Map(audit?.answers.map((answer) => [answer.questionKey, answer.value]) ?? []);
+  const working = workingForm(forms, audit);
+
+  async function choose(formId: string | null) {
+    const current = audit ?? (await onStart());
+
+    await chooseSurvey(db, current.id, formId, new Date());
+  }
+
+  async function answer(question: ReferenceSurveyQuestion, value: string) {
+    const current = audit ?? (await onStart());
+
+    // The form is set first when the screen chose it for the rep — an answer with no form is
+    // refused by the store, and by the server as `MalformedAnswers`.
+    if (current.surveyFormId === null && working) {
+      await chooseSurvey(db, current.id, working.id, new Date());
+    }
+
+    await putAnswer(
+      db,
+      current.id,
+      { questionKey: question.key, questionText: question.text, value },
+      new Date(),
+    );
+  }
+
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className="text-sm font-medium">{t("survey")}</h2>
+
+      {forms.length > 1 ? (
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-muted-foreground">{t("chooseSurvey")}</span>
+          <select
+            className="rounded-md border border-border bg-transparent px-2 py-1"
+            disabled={!editable}
+            value={audit?.surveyFormId ?? ""}
+            aria-label={t("chooseSurvey")}
+            onChange={(event) => {
+              const value = event.target.value;
+              void queued(() => choose(value === "" ? null : value));
+            }}
+          >
+            <option value="">{t("noSurvey")}</option>
+            {forms.map((form) => (
+              <option key={form.id} value={form.id}>
+                {form.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+
+      {working === null ? null : (
+        <ul aria-label={t("questions")} className="flex flex-col gap-2">
+          {[...working.questions]
+            .sort((left, right) => left.order - right.order)
+            .map((question) => (
+              <li
+                key={question.key}
+                className="flex flex-col gap-2 rounded-xl border border-border p-3 text-sm"
+              >
+                <span>
+                  {question.text}
+                  {question.mandatory ? (
+                    <span className="text-muted-foreground"> {t("required")}</span>
+                  ) : null}
+                </span>
+
+                <Question
+                  question={question}
+                  value={answers.get(question.key) ?? ""}
+                  editable={editable}
+                  onAnswer={(value) => void queued(() => answer(question, value))}
+                />
+              </li>
+            ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/**
+ * One question's control, by type.
+ *
+ * <b>Every type stores a string</b>, which is the wire's shape and the server's argument: five
+ * nullable columns of which four are always null is the alternative. `Boolean` is `"true"`/`"false"`
+ * and `MultiChoice` joins its options — a reader that cares about the type finds it on the question.
+ *
+ * <b>`Photo` renders as nothing yet</b>, and says so rather than pretending. `OFF-08` is slices
+ * 11–13; a text box under a question asking for a picture would collect prose no report can read,
+ * which is exactly what `SurveyQuestionType.Photo`'s own comment warns against.
+ */
+function Question({
+  question,
+  value,
+  editable,
+  onAnswer,
+}: {
+  question: ReferenceSurveyQuestion;
+  value: string;
+  editable: boolean;
+  onAnswer: (value: string) => void;
+}) {
+  const t = useTranslations("Field.audit");
+  const label = t("answerTo", { question: question.text });
+
+  if (question.type === "Boolean") {
+    return (
+      <div className="flex gap-2">
+        {["true", "false"].map((option) => (
+          <Button
+            key={option}
+            type="button"
+            size="sm"
+            variant={value === option ? "default" : "outline"}
+            disabled={!editable}
+            aria-pressed={value === option}
+            aria-label={t(option === "true" ? "yesTo" : "noTo", { question: question.text })}
+            // Tapping the chosen one again un-answers it, as the shelf's three do — and here it also
+            // matters for `BR-AUD-7`, which counts an unanswered mandatory question.
+            onClick={() => onAnswer(value === option ? "" : option)}
+          >
+            {t(option === "true" ? "yes" : "no")}
+          </Button>
+        ))}
+      </div>
+    );
+  }
+
+  if (question.type === "SingleChoice") {
+    return (
+      <select
+        className="rounded-md border border-border bg-transparent px-2 py-1"
+        disabled={!editable}
+        value={value}
+        aria-label={label}
+        onChange={(event) => onAnswer(event.target.value)}
+      >
+        <option value="">{t("noAnswer")}</option>
+        {question.options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  if (question.type === "MultiChoice") {
+    // Joined with a separator the options themselves cannot contain, so the value round-trips: a
+    // comma would make "Front, centre" indistinguishable from two chosen options.
+    const chosen = value === "" ? [] : value.split(MULTI_CHOICE_SEPARATOR);
+
+    return (
+      <div className="flex flex-col gap-1">
+        {question.options.map((option) => (
+          <label key={option} className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              className="size-4"
+              disabled={!editable}
+              checked={chosen.includes(option)}
+              aria-label={t("optionOf", { option, question: question.text })}
+              onChange={(event) =>
+                onAnswer(
+                  (event.target.checked
+                    ? [...chosen, option]
+                    : chosen.filter((each) => each !== option)
+                  ).join(MULTI_CHOICE_SEPARATOR),
+                )
+              }
+            />
+            {option}
+          </label>
+        ))}
+      </div>
+    );
+  }
+
+  if (question.type === "Photo") {
+    return (
+      <p className="text-xs text-muted-foreground" role="status">
+        {t("photoLater")}
+      </p>
+    );
+  }
+
+  return (
+    <input
+      // `Number` gets a numeric keypad and nothing else: the value crosses as a string either way,
+      // and `type="number"` would hand back a `number` on some browsers.
+      inputMode={question.type === "Number" ? "decimal" : "text"}
+      className="rounded-md border border-border px-2 py-1"
+      disabled={!editable}
+      defaultValue={value}
+      aria-label={label}
+      onChange={(event) => onAnswer(event.target.value)}
+    />
+  );
 }
 
 /**

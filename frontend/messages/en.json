@@ -1536,7 +1536,8 @@
       "sealing": "Finishing…",
       "refusal": {
         "empty": "Check at least one product before finishing.",
-        "unexpected": "That could not be finished. Try again, and tell your supervisor if it keeps happening."
+        "unexpected": "That could not be finished. Try again, and tell your supervisor if it keeps happening.",
+        "mandatory": "Answer the questions listed above before finishing."
       },
       "sent": {
         "title": "This audit is queued.",
@@ -1561,7 +1562,21 @@
       "expected": "Expected {amount}",
       "noExpected": "No expected price",
       "categoryFacings": "Total facings in the category",
-      "categoryFacingsHint": "Every facing on the shelf, yours and competitors’. Leave blank if you could not count it — share of shelf is then skipped rather than scored zero."
+      "categoryFacingsHint": "Every facing on the shelf, yours and competitors’. Leave blank if you could not count it — share of shelf is then skipped rather than scored zero.",
+      "survey": "Questionnaire",
+      "chooseSurvey": "Which questionnaire",
+      "noSurvey": "None",
+      "questions": "Questions",
+      "required": "(required)",
+      "answerTo": "Answer to {question}",
+      "yes": "Yes",
+      "no": "No",
+      "yesTo": "Yes to {question}",
+      "noTo": "No to {question}",
+      "noAnswer": "No answer",
+      "optionOf": "{option} for {question}",
+      "photoLater": "Photo questions cannot be answered on this device yet.",
+      "stillNeeded": "These still need an answer before you can finish:"
     }
   },
   "Guard": {
