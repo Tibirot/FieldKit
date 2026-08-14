@@ -4577,6 +4577,20 @@ Content-Type: application/json
 
 ### The order taken during a visit, or 404. At most one per visit — a rep at one counter on one call
 ### places one order, and two would be a double-tap far more often than an intention.
+#
+# **Read `agreement` here (W12, regression F3).** `total` and `taxTotal` are the device's — what the
+# rep and the shopkeeper settled on, never corrected (`BR-ORD-6`). Beside them `serverTotal` and
+# `serverTaxTotal` are what this server got when it re-priced the order against the day it was
+# captured, and `agreement` is the verdict on the pair:
+#
+#   * `Agrees`      — the two sides match. We looked, and there is nothing to chase.
+#   * `Differs`     — they do not. The order stands as captured; somebody should find out why.
+#   * `NotRepriced` — the server had no opinion, usually a line with no price for this shop.
+#                     Not the same as agreement, and an exception queue that conflates the two
+#                     would skip exactly the orders it exists to catch.
+#
+# The comparison has run on every pushed order since W11 slice 14 and reached no reader until now —
+# `OrderResponse` carried the device's net and stopped there.
 # @name order
 GET {{host}}/api/orders/by-visit/{{visit.response.body.visit.id}}
 Authorization: Bearer {{adminToken.response.body.access_token}}

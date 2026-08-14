@@ -50,9 +50,29 @@ public sealed record OrderRejectionResponse(string Reason, Guid? OffendingProduc
 /// written as one.
 /// </param>
 /// <param name="Total">
-/// <b>The device's total.</b> Not recomputed, and deliberately so — see <c>BR-ORD-6</c> and W11
-/// slice 0. From slice 2 this response gains the server's recomputation <i>beside</i> it; a reader
-/// today is seeing what the rep and the shopkeeper agreed, which is what an order is.
+/// <b>The device's net total.</b> Not recomputed, and deliberately so — see <c>BR-ORD-6</c> and W11
+/// slice 0. A reader is seeing what the rep and the shopkeeper agreed, which is what an order is.
+/// </param>
+/// <param name="TaxTotal">
+/// The device's tax, beside <paramref name="Total"/>'s net.
+/// <para>
+/// W11 slice 14 added this to the aggregate and to the wire the device pushes on, and never to the
+/// way out — so a reader got a net with no tax next to it and no way to reconcile the two.
+/// </para>
+/// </param>
+/// <param name="ServerTotal">What this server made the net when it re-priced, or null if it did not.</param>
+/// <param name="ServerTaxTotal">The server's tax, beside <paramref name="ServerTotal"/>'s net.</param>
+/// <param name="Agreement">
+/// <c>NotRepriced</c>, <c>Agrees</c> or <c>Differs</c> — <c>BR-ORD-2</c>'s promise, as an answer.
+/// <para>
+/// <b>The paragraph above <paramref name="Total"/> promised this in W11 slice 0 — "from slice 2 this
+/// response gains the server's recomputation *beside* it" — and it never arrived</b> (regression F3).
+/// The comparison ran on every pushed order from slice 14 and was legible to two unit tests and
+/// nothing else.
+/// </para>
+/// <para>
+/// A name rather than an ordinal, the same rule <paramref name="Status"/> follows.
+/// </para>
 /// </param>
 public sealed record OrderResponse(
     Guid Id,
@@ -64,7 +84,11 @@ public sealed record OrderResponse(
     decimal Total,
     DateTimeOffset CapturedAtUtc,
     IReadOnlyList<OrderLineResponse> Lines,
-    OrderRejectionResponse? Rejection);
+    OrderRejectionResponse? Rejection,
+    decimal TaxTotal,
+    decimal? ServerTotal,
+    decimal? ServerTaxTotal,
+    string Agreement);
 
 /// <summary>
 /// Reading orders (<c>ORD-01</c>).
@@ -191,5 +215,11 @@ internal static class OrderEndpoints
         order.Rejection is { } rejection
             ? new OrderRejectionResponse(
                 rejection.Reason.ToString(), rejection.OffendingProductId, rejection.Note)
-            : null);
+            : null,
+        order.TaxTotal,
+        order.ServerTotal,
+        order.ServerTaxTotal,
+        // The name, as `Status` above. An ordinal here would be a number a reader has to look up,
+        // and one that moves the day a member is inserted into the middle of the enum.
+        order.Agreement.ToString());
 }

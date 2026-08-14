@@ -114,7 +114,7 @@ R4 and smaller — there is no picker to build.
 
 ---
 
-### F3 — The re-price verdict is computed, stored, and read by nothing
+### F3 — The re-price verdict is computed, stored, and read by nothing — **closed**
 
 **Where:** `FieldKit.Modules.Order/Order.cs:374` (`Agreement`), `OrderEndpoints.cs:57`
 (`OrderResponse`)
@@ -142,6 +142,25 @@ and server drift would have it recorded in the database and surfaced nowhere.
 endpoint that already exists. **Week 12's dashboard does not cover this**: its list is coverage,
 strike rate, perfect-store and order value, all aggregates. Whether a *particular* order disagreed is
 an exception queue, not a KPI, and it should be an explicit W12 decision rather than an assumption.
+
+**Closed — four fields, not three.** `ServerTaxTotal` went with them: `TaxTotal` alone would have
+given a reader the device's tax and no server figure to hold it against, which is half of a
+comparison the code already runs in full (`Flags_a_disagreement_about_the_tax_alone` is the case
+where the nets match and only the tax does not — the one field short of shipping would have made
+that order look like agreement to every reader).
+
+Both `OrderDescriptor` and `OrderResponse` were widened, deliberately and with the module-contract
+question asked rather than assumed. `OrderDescriptor` is a public contract, so the four are
+**defaulted** — no existing consumer is broken, and none exists yet outside this module. The
+alternative considered was a second narrow contract carrying only the verdict; it was rejected
+because a reader who has the verdict and not the numbers cannot act on it, and would go back to the
+same descriptor for the rest.
+
+**The W12 decision, taken:** the surface this feeds is an **exception queue** — a list of the orders
+that disagree — and not a dashboard tile. An aggregate ("3% of orders disagreed") is a number nobody
+can do anything with; the point of `BR-ORD-2` is that a *particular* order needs looking at. It is
+recorded here rather than in the dashboard spec because it is a scoping decision about W12 that came
+out of this sweep, and W12's own list stays as written.
 
 ---
 
@@ -268,6 +287,8 @@ everywhere except at the point where somebody would use it.
 - F1 (this sweep) — order and audit capture: a working screen with no link to it.
 - F2 (this sweep) — reschedule: every layer but the device writer, *again*.
 - F3 (this sweep) — the re-price verdict: computed and stored, absent from its own API response.
+  **Closed**, and the one of the six a reachability check on *screens* would still have missed — the
+  missing edge was between an aggregate and its own DTO, one layer below anything a route graph sees.
 - F4 (this sweep) — refusals for two of five subjects: the component exists and is not mounted.
 - F5 (this sweep) — the rejection loop: both ends built, no path between them.
 
@@ -292,7 +313,7 @@ That is the recommendation this sweep would rather make than a tenth finding of 
 
 1. ~~**F1**~~ — **done.** The largest gap in the smallest change, and the one that was blocking every future manual pass.
 2. ~~**F4**~~ — **done.** Mounted two existing components; the case R5 was written for.
-3. **F3** — three fields on an endpoint that exists, and a W12 decision to take deliberately.
+3. ~~**F3**~~ — **done.** Four fields in the end, and the W12 decision taken: an exception queue.
 4. **F2** — `JRN-06`'s third clause, the same shape as R4 and smaller.
 5. **The reachability gate** (§6) — after F1 and F2, so it lands green and stays that way.
 6. **F5** — orders on the pull feed. Its own slice.

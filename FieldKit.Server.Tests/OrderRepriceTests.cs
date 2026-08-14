@@ -236,6 +236,92 @@ public class OrderRepriceTests(ServerFixture fixture)
         Assert.Null((await StoredAsync(visitId)).CapturedAgainst);
     }
 
+    [Fact]
+    public async Task Tells_a_reader_the_verdict_and_both_sides_arithmetic()
+    {
+        /*
+         * <b>The finding, as a test</b> (regression F3). Every assertion above this one reads the
+         * aggregate out of the DbContext — so the comparison was computed on every pushed order, was
+         * correct, and reached nobody. `OrderResponse` carried the device's net and stopped there.
+         *
+         * The disagreement case, because it is the one with something to say: four numbers and a
+         * word, and a reader who can act on the pair without re-deriving the rule.
+         */
+        var (visitId, productId) = await ShopWithOnePricedProductAsync("10.00");
+
+        await SubmitAsync(visitId, productId, net: 17.50m, tax: 3.33m);
+
+        var order = await Admin().GetFromJsonAsync<OrderReadback>($"/api/orders/by-visit/{visitId}");
+
+        Assert.NotNull(order);
+
+        // What the shop agreed to — the record, and still the first thing the response says.
+        Assert.Equal(17.50m, order.Total);
+        Assert.Equal(3.33m, order.TaxTotal);
+
+        // And beside it, what this server made of it.
+        Assert.Equal(20.00m, order.ServerTotal);
+        Assert.Equal(0m, order.ServerTaxTotal);
+
+        // The name, not the ordinal — `2` here would be a number the reader has to look up, and one
+        // that moves the day a member is inserted into the middle of the enum.
+        Assert.Equal("Differs", order.Agreement);
+    }
+
+    [Fact]
+    public async Task Tells_a_reader_it_did_not_look_rather_than_that_it_agreed()
+    {
+        /*
+         * <b>Three states, not two</b>, and this is the one a boolean would lose. An unpriced line
+         * means the server has no opinion — and a response that reported that as agreement would send
+         * an exception queue past exactly the orders it exists to catch.
+         *
+         * `NotRepriced` is also the default on `OrderDescriptor`, which is what makes this worth
+         * asserting over the wire rather than trusting: a mapping that silently dropped the field
+         * would produce this exact answer for every order in the system.
+         */
+        var channelId = await ChannelAsync();
+        var outletId = await OutletAsync(channelId);
+        var productId = await ProductAsync();
+
+        await AssortAsync(channelId, productId);
+
+        var visitId = await VisitAsync(outletId);
+
+        await SubmitAsync(visitId, productId, net: 20.00m, tax: 3.80m);
+
+        var order = await Admin().GetFromJsonAsync<OrderReadback>($"/api/orders/by-visit/{visitId}");
+
+        Assert.NotNull(order);
+        Assert.Equal("NotRepriced", order.Agreement);
+        Assert.Null(order.ServerTotal);
+        Assert.Null(order.ServerTaxTotal);
+
+        // The device's tax survives the server having no tax of its own to compare it against.
+        Assert.Equal(3.80m, order.TaxTotal);
+    }
+
+    [Fact]
+    public async Task Says_the_same_to_a_reader_listing_a_shop_s_orders()
+    {
+        /*
+         * The list arm shares `Respond`, so this asserts a mapping rather than a second rule — and it
+         * is the arm an exception queue would actually be built on. A reader chasing disagreements
+         * wants every order that has one, not one order they already knew the visit for.
+         */
+        var (visitId, productId) = await ShopWithOnePricedProductAsync("10.00");
+
+        await SubmitAsync(visitId, productId, net: 17.50m, tax: 3.33m);
+
+        var outletId = (await Admin().GetFromJsonAsync<OrderReadback>(
+            $"/api/orders/by-visit/{visitId}"))!.OutletId;
+
+        var orders = await Admin().GetFromJsonAsync<IReadOnlyList<OrderReadback>>(
+            $"/api/orders/by-outlet/{outletId}");
+
+        Assert.Equal("Differs", Assert.Single(orders!).Agreement);
+    }
+
     private async Task<(Guid VisitId, Guid ProductId)> ShopWithOnePricedProductAsync(string amount)
     {
         var channelId = await ChannelAsync();
@@ -389,6 +475,24 @@ public class OrderRepriceTests(ServerFixture fixture)
     }
 
     private static string SubjectOf(string token) => PrincipalOf(token).FindFirst("sub")!.Value;
+
+    /// <summary>
+    /// The order as an HTTP reader sees it — the narrow slice this file is about.
+    /// </summary>
+    /// <remarks>
+    /// A record of its own rather than <c>OrderResponse</c>, the way every other readback in these
+    /// tests is written. Deserialising into the server's own DTO would make the field names move
+    /// together — a rename would rebuild the test alongside the endpoint and stay green while every
+    /// real consumer broke. These names are written out once so that they have to be kept.
+    /// </remarks>
+    private sealed record OrderReadback(
+        Guid Id,
+        Guid OutletId,
+        decimal Total,
+        decimal TaxTotal,
+        decimal? ServerTotal,
+        decimal? ServerTaxTotal,
+        string Agreement);
 
     private static ClaimsPrincipal PrincipalOf(string token)
     {

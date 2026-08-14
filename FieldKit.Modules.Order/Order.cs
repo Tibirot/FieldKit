@@ -669,7 +669,19 @@ public sealed class Order : AggregateRoot, ITenantOwned, IAuditable
         Latest() is { Outcome: SubmissionOutcome.Rejected } rejected
             ? new OrderRejectionDescriptor(
                 rejected.RejectionReason!.Value, rejected.OffendingProductId, rejected.Note)
-            : null);
+            : null,
+        /*
+         * What the re-price made of it (`BR-ORD-2`, `ORD-08`) — W12, regression F3.
+         *
+         * W11 slice 14 computed and stored all four of these and put none of them on the way out, so
+         * the comparison the server performs on every pushed order was readable by two unit tests and
+         * nothing else. `Agreement` travels beside the numbers rather than instead of them: the
+         * verdict is what a caller acts on, and the numbers are how big the gap is.
+         */
+        TaxTotal,
+        ServerTotal,
+        ServerTaxTotal,
+        Agreement);
 }
 
 /// <summary>
