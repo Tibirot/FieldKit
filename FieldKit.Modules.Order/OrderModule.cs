@@ -77,6 +77,10 @@ public sealed class OrderModule : IModule
 
         // …and reporting reads them through this.
         services.AddScoped<IOrderQuery, OrderQueryService>();
+
+        // The one that goes back down: what the back office made of an order, on the pull feed
+        // (`BR-ORD-9`, regression F5) — W12 F5a.
+        services.AddScoped<IOrderVerdictFeed, OrderVerdictFeed>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints) => endpoints.MapOrderEndpoints();

@@ -287,6 +287,7 @@ row is it*, and the answer changes what the feed's interface has to look like:
 | `surveys` | **Nothing** — every device gets every questionnaire ([`ISurveyFormFeed`](../../FieldKit.Modules.Configuration.Contracts/ISurveyFormFeed.cs)) | No |
 | `scoreWeights` | **Nothing** — and **every published version**, not just the newest, because an audit records the one it was scored against (`BR-AUD-8`) | No |
 | `taxRates` | **Nothing** — a rate is a fact about a country and a class, not about a shop ([`ITaxRateChangeFeed`](../../FieldKit.Modules.Products.Contracts/ITaxRateChangeFeed.cs)) | No |
+| `orders` | The rep who **captured** it ([`IOrderVerdictFeed`](../../FieldKit.Modules.Order.Contracts/IOrderVerdictFeed.cs)) — see below | No |
 
 A **baseline** call — "hand me these rows whatever their version" — exists because an outlet can
 enter a rep's territory *without being edited*, carrying a row version far below the device's cursor,
@@ -297,6 +298,28 @@ A planned call has no such gap: it is **born** belonging to one rep, because the
 never changes hands. Membership therefore only ever changes by the row being created, and creation
 stamps a version above every cursor by construction. Journey's feed is one method, and the missing
 second one is a statement rather than an omission.
+
+### `orders` is not reference data, and it is the only one (W12 F5a)
+
+Every entity above is a copy of something this server owns, held so a phone can work with no signal.
+**`orders` travels the other way**: the device *authored* the order, and what comes back is what the
+back office made of it — a status and a rejection, closing `BR-ORD-9`'s loop. Before this the
+rejection endpoint existed, `Order.Resubmit` existed, and no rep could learn they had been refused
+([regression F5](../engineering/regression-2026-08-14.md#f5--br-ord-9s-rejection-loop-cannot-complete-and-the-store-says-so)).
+
+Three things follow from the direction, and each is a decision rather than a consequence:
+
+- **It carries a verdict, not an order.** `BR-ORD-6` makes the device's totals the record and the
+  server's arithmetic an annotation beside them. A snapshot with `total` on it would put the number
+  the rep and the shopkeeper agreed on the wire, aimed at a store that already holds a different copy
+  of it, with no type saying which wins. A verdict cannot be applied wrongly — there is nothing on it
+  to overwrite.
+- **It sends the good news too.** The row-version interceptor stamps on *insert*, so an order appears
+  the moment it is stored, carrying `Submitted`. That looks redundant and is load-bearing: a
+  correction returns an order to `Submitted`, and a feed that carried only rejections could never
+  tell a device to stop showing one.
+- **Membership is the journey argument again**, and here it needs no join: an order names the rep who
+  took it, copied from the visit at capture. A rep who changes territory keeps the orders they sold.
 
 The same question decides the **tombstones**. Outlets need scope tombstones minted by Sync, because a
 shop leaving a territory is not a delete and Outlets has nothing to report. Journey sends none at
