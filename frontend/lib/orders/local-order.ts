@@ -72,6 +72,7 @@ export async function draftFor(
       visitId: request.visitId,
       outletId: request.outletId,
       status: "draft",
+      rejection: null,
       currencyCode: request.currencyCode,
       total: "0",
       taxTotal: "0",
@@ -167,6 +168,44 @@ export async function removeLine(
     const lines = current.lines.filter((line) => line.productId !== productId);
 
     return save(db, current, lines, now);
+  });
+}
+
+/**
+ * Re-opens an order the back office refused, so the rep can fix it (`BR-ORD-9`) — W12 F5b.
+ *
+ * <b>The one exception `BR-ORD-4` names.</b> An order is locked after submit — that lock is what
+ * keeps orders conflict-free on sync (`B7`) — and the rule's own text carves out a server-rejected
+ * order. This is that carve-out and nothing wider: it refuses any status but `rejected`, so there is
+ * no path from here to editing an order nobody objected to.
+ *
+ * <b>The rejection is kept, not cleared.</b> The rep is about to edit the order *because* of it, and
+ * a screen that erased the reason at the moment they started acting on it would take away the only
+ * thing telling them which line to change. It goes when the server says so — a correction comes back
+ * `Submitted` with no rejection, and the verdict clears it.
+ *
+ * <b>Nothing is enqueued.</b> Re-opening is a local act; it is `submit` below that mints the new
+ * mutation id `BR-ORD-9` asks for. A rep who re-opens and thinks better of it has told the server
+ * nothing, which is right — the order is still rejected until they resubmit.
+ */
+export async function reopen(
+  db: FieldKitDatabase,
+  orderId: string,
+  now: Date,
+): Promise<LocalOrder | undefined> {
+  return db.transaction("rw", db.orders, async () => {
+    const current = await db.orders.get(orderId);
+    if (!current || current.status !== "rejected") return undefined;
+
+    const reopened: LocalOrder = {
+      ...current,
+      status: "draft",
+      updatedAtUtc: now.toISOString(),
+    };
+
+    await db.orders.put(reopened);
+
+    return reopened;
   });
 }
 

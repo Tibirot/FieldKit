@@ -200,6 +200,18 @@ placeholder — it means *this call may not be moved*, permanently true of an un
 of every held call until the next pull. The device offers no reschedule instead of guessing a window,
 the same call version 20 made with `""` and a time zone.
 
+**Version 22 drops no watermark at all**, which is the first time an entity has arrived without one
+(W12 F5b, regression F5): `orders` is *new to the feed*, so there is no cursor to be stale — a
+missing key reads as `0` and the device asks for everything by the ordinary path. Versions 20 and 21
+dropped one because a **field** arrived on rows the device already held, which is a different
+problem with the same-looking fix.
+
+Its back-fill is `rejection: null` on held orders, with their status untouched. Null is the true
+answer rather than a placeholder: nothing has been rejected, because until F5a nothing could tell
+this device that it had. A device that inferred `rejected` from a failed outbox entry would be
+conflating "the push did not land" with "the back office said no", which are the two things `OFF-09`
+and `ORD-12` are at pains to keep apart.
+
 **The blob store is not built yet**, deliberately — photo upload is `OFF-08`/W11, and a store with
 no writer is a schema version spent on nothing.
 

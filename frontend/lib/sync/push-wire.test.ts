@@ -61,6 +61,7 @@ function nothingToPull() {
       scoreWeights: empty,
       taxRates: empty,
       orderMinimums: empty,
+      orders: empty,
     },
     snapshotVersion: 1,
   };

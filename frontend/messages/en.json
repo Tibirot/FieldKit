@@ -1415,6 +1415,7 @@
       "stepsLabel": "Visit steps",
       "captureLabel": "What you can record on this call",
       "openOrder": "Take the order",
+      "fixOrder": "Fix the refused order",
       "openAudit": "Open the audit"
     },
     "checkOut": {
@@ -1551,6 +1552,17 @@
       "sent": {
         "title": "This order is queued.",
         "body": "It goes to the back office on the next sync. Nothing here can be changed now."
+      },
+      "refused": {
+        "fix": "Fix and resend",
+        "line": "The line to change: {product}",
+        "reason": {
+          "OffAssortment": "This shop cannot order one of these products.",
+          "OutletClosed": "This shop had closed by the time the order arrived.",
+          "OutletOnHold": "This shop cannot be sold to right now.",
+          "Other": "The back office refused this order.",
+          "unknown": "The back office refused this order."
+        }
       }
     },
     "audit": {

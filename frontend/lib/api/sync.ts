@@ -58,6 +58,34 @@ export type PullCursors = {
   scoreWeights?: number;
   taxRates?: number;
   orderMinimums?: number;
+  orders?: number;
+};
+
+/**
+ * Why the back office refused an order, and which line to look at (`ORD-12`, `F4`) — W12 F5b.
+ *
+ * `reason` is the server's name — `OffAssortment`, `OutletClosed`, `OutletOnHold`, `Other` — because
+ * the device branches on it: half of them point at a line a rep can fix and half do not.
+ */
+export type OrderRejection = {
+  reason: string;
+  offendingProductId: string | null;
+  note: string | null;
+};
+
+/**
+ * What the back office made of an order this device sent (`BR-ORD-9`) — W12 F5b.
+ *
+ * <b>The only thing on the pull feed that is not reference data.</b> Everything else here is a copy
+ * of something the server owns; this is an annotation on work the device authored, coming back down.
+ * It carries no totals on purpose — `BR-ORD-6` makes the device's numbers the record, so there is
+ * deliberately nothing on this type that could overwrite them.
+ */
+export type OrderVerdict = {
+  orderId: string;
+  status: string;
+  rejection: OrderRejection | null;
+  rowVersion: number;
 };
 
 export type PullResponse = {
@@ -77,6 +105,7 @@ export type PullResponse = {
     scoreWeights: EntityChanges<ReferenceScoreWeightSet>;
     taxRates: EntityChanges<ReferenceTaxRate>;
     orderMinimums: EntityChanges<ReferenceOrderMinimum>;
+    orders: EntityChanges<OrderVerdict>;
   };
   snapshotVersion: string;
 };

@@ -1,5 +1,6 @@
 import { ApiError } from "@/lib/api/client";
 import { bindDevice, pull, push, type PushedMutation } from "@/lib/api/sync";
+import { applyOrderVerdicts, ORDERS } from "@/lib/orders/verdicts";
 import { uploadPhotos } from "@/lib/photos/upload";
 
 import { requestPersistentStorage, type FieldKitDatabase, type OutboxEntry } from "./db";
@@ -424,6 +425,7 @@ async function refresh(
     scoreWeights: await watermark(db, SCORE_WEIGHTS),
     taxRates: await watermark(db, TAX_RATES),
     orderMinimums: await watermark(db, ORDER_MINIMUMS),
+    orders: await watermark(db, ORDERS),
   };
 
   let response;
@@ -449,6 +451,7 @@ async function refresh(
     scoreWeights,
     taxRates,
     orderMinimums,
+    orders,
   } = response.changes;
 
   // Two transactions, not one. Failing to store the round must not undo outlets that already
@@ -468,6 +471,13 @@ async function refresh(
   await applyScoreWeightChanges(db, scoreWeights);
   await applyTaxRateChanges(db, taxRates);
   await applyOrderMinimumChanges(db, orderMinimums);
+
+  /*
+   * The one that is not reference data: what the back office made of orders this device sent
+   * (`BR-ORD-9`, regression F5) — W12 F5b. Merged into rows the device already holds rather than
+   * replacing them, which is why it does not live with the others in `reference.ts`.
+   */
+  await applyOrderVerdicts(db, orders);
 
   // After the outlets have landed, because it reads what the device now holds. An outlet that left
   // the rep's territory takes its overrides with it, and the server sends no tombstone for them —

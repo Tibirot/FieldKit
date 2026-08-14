@@ -171,9 +171,16 @@ function Capture({ visit }: { visit: LocalVisit }) {
   return (
     <section className="flex flex-col gap-2" aria-label={t("captureLabel")}>
       <CaptureRow
-        open={open}
+        /*
+         * <b>A refused order re-opens the way in, on a visit that is otherwise shut</b> (`BR-ORD-9`)
+         * — W12 F5b. A rejection arrives after check-out almost by definition — an operator refuses
+         * it minutes or days later — so a link gated on the call being open is a link the rep will
+         * never see at the moment they need it. That is F4's finding, one screen over, and the
+         * order screen admits the same exception on its own guard.
+         */
+        open={open || order?.status === "rejected"}
         href={`/field/visits/${visit.id}/order`}
-        label={t("openOrder")}
+        label={order?.status === "rejected" ? t("fixOrder") : t("openOrder")}
         subjectId={order?.id}
       />
 
