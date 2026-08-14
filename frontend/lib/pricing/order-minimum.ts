@@ -139,10 +139,33 @@ export function checkOrderMinimum(
   }
 
   /*
+   * The shapes `decimal.js` accepts and .NET does not, refused before parsing — W11½ R7.
+   *
+   * <b>Found by the shared vector corpus, not by reasoning.</b> `OrderMinimumResolver.Check` parses
+   * with `NumberStyles.AllowDecimalPoint | AllowLeadingSign`, which excludes exponents and
+   * hexadecimal; `decimal.js` reads `"1e2"` as 100 and `"0x10"` as 16. So this device called an
+   * order **Met** against a minimum the server cannot read at all — and `BR-ORD-5` has no
+   * server-side gate, so nothing downstream would ever have said so.
+   *
+   * Unreachable through today's write path, which parses with the identical styles and refuses the
+   * row. That is precisely the kind of assumption a vector file exists to stop depending on: the
+   * agreement is now pinned rather than inherited from two validators that happen to match.
+   *
+   * <b>The device takes the stricter side deliberately.</b> `Unreadable` stops a submission; `Met`
+   * lets one through. Where the two engines disagree about whether a stored row is even a number,
+   * refusing to answer is the failure a rep can act on.
+   */
+  if (!/^[+-]?(\d+(\.\d*)?|\.\d+)$/.test(minimum.amount)) return "Unreadable";
+
+  /*
    * The same refusal of thousands separators the C# gets, arrived at from the opposite direction:
    * .NET has to *exclude* `NumberStyles.AllowThousands`, while `decimal.js` rejects `"1,500"` by
    * throwing. Either way a minimum a tenant meant as one and a half must not silently become fifteen
    * hundred. `"NaN"` and `"Infinity"` are the pair `decimal.js` accepts and `isFinite` catches.
+   *
+   * Both are now also refused by the pattern above — kept because they are the *reason* the parse is
+   * guarded at all, and because a pattern is a claim about syntax while these are claims about what
+   * the value would mean.
    */
   let threshold: InstanceType<typeof Decimal>;
 

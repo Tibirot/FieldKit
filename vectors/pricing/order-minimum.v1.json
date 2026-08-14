@@ -1,0 +1,237 @@
+{
+  "version": 1,
+  "rule": "ORD-06 / BR-ORD-5",
+  "description": "Which order minimum applies to an outlet, and whether an order meets it. The only business rule in the Order module with no server-side gate — the device is where it can still be acted on, so nothing downstream will catch a divergence between the two engines. Amounts are strings, per ../README.md; the tiebreak is the higher id compared as lowercase canonical strings, per the ordering note there.",
+  "resolution": [
+    {
+      "name": "no candidates is no minimum, and that is an answer",
+      "why": "BR-ORD-5 says a minimum applies *if configured*, and most tenants configure none. A resolver that always returned something would pass a file of positive cases only.",
+      "candidates": [],
+      "expected": null
+    },
+    {
+      "name": "a single channel minimum is the answer",
+      "candidates": [
+        {
+          "orderMinimumId": "0195f100-0000-7000-8000-000000000001",
+          "scope": "Channel",
+          "currencyCode": "RON",
+          "amount": "500.00"
+        }
+      ],
+      "expected": {
+        "orderMinimumId": "0195f100-0000-7000-8000-000000000001",
+        "scope": "Channel",
+        "currencyCode": "RON",
+        "amount": "500.00"
+      }
+    },
+    {
+      "name": "an outlet minimum beats a channel one",
+      "why": "B1's 'per channel/outlet' read the way BR-PRD-2 reads it. The channel row is listed second so a resolver that simply keeps the last candidate fails.",
+      "candidates": [
+        {
+          "orderMinimumId": "0195f100-0000-7000-8000-000000000002",
+          "scope": "Outlet",
+          "currencyCode": "RON",
+          "amount": "250.00"
+        },
+        {
+          "orderMinimumId": "0195f100-0000-7000-8000-000000000003",
+          "scope": "Channel",
+          "currencyCode": "RON",
+          "amount": "500.00"
+        }
+      ],
+      "expected": {
+        "orderMinimumId": "0195f100-0000-7000-8000-000000000002",
+        "scope": "Outlet",
+        "currencyCode": "RON",
+        "amount": "250.00"
+      }
+    },
+    {
+      "name": "the more specific scope wins even when it asks for less",
+      "why": "Specificity, not size. A resolver that took the larger amount would pass the case above by accident, because the outlet row happened to be smaller there too — it is smaller here as well, so this pins the direction rather than the magnitude.",
+      "candidates": [
+        {
+          "orderMinimumId": "0195f100-0000-7000-8000-000000000004",
+          "scope": "Channel",
+          "currencyCode": "RON",
+          "amount": "100.00"
+        },
+        {
+          "orderMinimumId": "0195f100-0000-7000-8000-000000000005",
+          "scope": "Outlet",
+          "currencyCode": "RON",
+          "amount": "900.00"
+        }
+      ],
+      "expected": {
+        "orderMinimumId": "0195f100-0000-7000-8000-000000000005",
+        "scope": "Outlet",
+        "currencyCode": "RON",
+        "amount": "900.00"
+      }
+    },
+    {
+      "name": "a tie at one scope goes to the higher id",
+      "why": "Two minimums at one scope is a data problem no tiebreak makes right. What it buys is that the server and every device refuse the same order — see the ordering note in ../README.md, including the `Guid.ToByteArray()` trap this pair is chosen to catch.",
+      "candidates": [
+        {
+          "orderMinimumId": "00000100-0000-7000-8000-000000000000",
+          "scope": "Outlet",
+          "currencyCode": "RON",
+          "amount": "300.00"
+        },
+        {
+          "orderMinimumId": "00000002-0000-7000-8000-000000000000",
+          "scope": "Outlet",
+          "currencyCode": "RON",
+          "amount": "400.00"
+        }
+      ],
+      "expected": {
+        "orderMinimumId": "00000100-0000-7000-8000-000000000000",
+        "scope": "Outlet",
+        "currencyCode": "RON",
+        "amount": "300.00"
+      }
+    },
+    {
+      "name": "an id in upper case sorts by the same rule as one in lower",
+      "why": "In ASCII 'A'-'F' sort below 'a'-'f', so an implementation comparing raw strings would let the winner depend on how somebody typed a GUID. Both engines lower-case first.",
+      "candidates": [
+        {
+          "orderMinimumId": "0195F100-0000-7000-8000-00000000000B",
+          "scope": "Channel",
+          "currencyCode": "RON",
+          "amount": "700.00"
+        },
+        {
+          "orderMinimumId": "0195f100-0000-7000-8000-00000000000a",
+          "scope": "Channel",
+          "currencyCode": "RON",
+          "amount": "800.00"
+        }
+      ],
+      "expected": {
+        "orderMinimumId": "0195F100-0000-7000-8000-00000000000B",
+        "scope": "Channel",
+        "currencyCode": "RON",
+        "amount": "700.00"
+      }
+    }
+  ],
+  "check": [
+    {
+      "name": "no minimum passes any order",
+      "why": "The ordinary case. Every order was submittable at any value before BR-ORD-5 existed, and still is where nobody configured a minimum.",
+      "minimum": null,
+      "total": { "amount": "10.00", "currency": "RON" },
+      "expected": "None"
+    },
+    {
+      "name": "over the threshold is met",
+      "minimum": { "currencyCode": "RON", "amount": "500.00" },
+      "total": { "amount": "500.01", "currency": "RON" },
+      "expected": "Met"
+    },
+    {
+      "name": "exactly the threshold is met",
+      "why": "`>=`, not `>`. A rep who hits the number exactly has met it, and an off-by-one here refuses an order for a hundredth of a leu.",
+      "minimum": { "currencyCode": "RON", "amount": "500.00" },
+      "total": { "amount": "500.00", "currency": "RON" },
+      "expected": "Met"
+    },
+    {
+      "name": "a hundredth under is not met",
+      "minimum": { "currencyCode": "RON", "amount": "500.00" },
+      "total": { "amount": "499.99", "currency": "RON" },
+      "expected": "NotMet"
+    },
+    {
+      "name": "trailing zeros do not change the comparison",
+      "why": "'500.00' and '500' are the same number and a decimal engine has to say so. A string comparison would call this NotMet.",
+      "minimum": { "currencyCode": "RON", "amount": "500" },
+      "total": { "amount": "500.00", "currency": "RON" },
+      "expected": "Met"
+    },
+    {
+      "name": "different currencies is a refusal to answer, not a refusal of the order",
+      "why": "Comparing 50 EUR against 200 RON by their numbers alone would refuse orders comfortably over the intended threshold and accept ones under it — and it would look like the rule working. A rep told 'your order is too small' about a misconfiguration adds stock nobody asked for and is still refused.",
+      "minimum": { "currencyCode": "EUR", "amount": "50.00" },
+      "total": { "amount": "200.00", "currency": "RON" },
+      "expected": "CurrencyMismatch"
+    },
+    {
+      "name": "currency is matched without regard to case",
+      "why": "The write path upper-cases what it stores, so this can only differ if some other path does not. Pinned because the failure would look like a misconfiguration to whoever hit it.",
+      "minimum": { "currencyCode": "ron", "amount": "100.00" },
+      "total": { "amount": "150.00", "currency": "RON" },
+      "expected": "Met"
+    },
+    {
+      "name": "a stored amount that is not a decimal is a broken row, not a small order",
+      "why": "Its own answer rather than borrowing the currency one: telling a rep their currencies disagree would send them looking for the wrong thing.",
+      "minimum": { "currencyCode": "RON", "amount": "abc" },
+      "total": { "amount": "500.00", "currency": "RON" },
+      "expected": "Unreadable"
+    },
+    {
+      "name": "a thousands separator is unreadable rather than a thousand times larger",
+      "why": "The failure both engines were written to avoid, from opposite directions: .NET has to *exclude* NumberStyles.AllowThousands, and decimal.js throws. A minimum a tenant meant as one and a half must not silently become fifteen hundred.",
+      "minimum": { "currencyCode": "RON", "amount": "1,500" },
+      "total": { "amount": "1000.00", "currency": "RON" },
+      "expected": "Unreadable"
+    },
+    {
+      "name": "exponent notation is unreadable, because the write path would never have stored it",
+      "why": "The case this file was worth writing for. .NET parses with AllowDecimalPoint|AllowLeadingSign, which excludes AllowExponent, so '1e2' is a broken row; decimal.js reads it as 100 and the device would have called a 100-leu order Met against a minimum the server cannot even read. Unreachable through the write path today — which is exactly the kind of assumption a vector file exists to stop depending on.",
+      "minimum": { "currencyCode": "RON", "amount": "1e2" },
+      "total": { "amount": "150.00", "currency": "RON" },
+      "expected": "Unreadable"
+    },
+    {
+      "name": "a hexadecimal amount is unreadable for the same reason",
+      "why": "The second half of the same divergence. decimal.js reads '0x10' as 16; .NET reads it as nothing.",
+      "minimum": { "currencyCode": "RON", "amount": "0x10" },
+      "total": { "amount": "150.00", "currency": "RON" },
+      "expected": "Unreadable"
+    },
+    {
+      "name": "surrounding whitespace is unreadable",
+      "why": "Neither engine trims, and they agree here already. Pinned because trimming is the obvious 'helpful' change somebody makes to one side.",
+      "minimum": { "currencyCode": "RON", "amount": " 100.00 " },
+      "total": { "amount": "150.00", "currency": "RON" },
+      "expected": "Unreadable"
+    },
+    {
+      "name": "a leading plus is an ordinary amount",
+      "why": "The other side of the strictness: AllowLeadingSign is *in* the .NET style, and decimal.js takes it too. A regex written to reject exponents must not reject this.",
+      "minimum": { "currencyCode": "RON", "amount": "+100.00" },
+      "total": { "amount": "150.00", "currency": "RON" },
+      "expected": "Met"
+    },
+    {
+      "name": "an amount with no integer part is an ordinary amount",
+      "why": "'.50' is legal to both engines. Listed for the same reason as the case above — the strictness has a shape, and this is one of its edges.",
+      "minimum": { "currencyCode": "RON", "amount": ".50" },
+      "total": { "amount": "1.00", "currency": "RON" },
+      "expected": "Met"
+    },
+    {
+      "name": "an empty amount is unreadable",
+      "minimum": { "currencyCode": "RON", "amount": "" },
+      "total": { "amount": "150.00", "currency": "RON" },
+      "expected": "Unreadable"
+    },
+    {
+      "name": "a non-finite amount is unreadable",
+      "why": "The pair decimal.js accepts and .NET does not. `isFinite` is what catches it on the device.",
+      "minimum": { "currencyCode": "RON", "amount": "Infinity" },
+      "total": { "amount": "150.00", "currency": "RON" },
+      "expected": "Unreadable"
+    }
+  ]
+}
