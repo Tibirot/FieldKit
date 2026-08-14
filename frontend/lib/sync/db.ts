@@ -35,6 +35,20 @@ export type ReferenceOutlet = {
    * which is the same total a genuine 0% rate produces. The caller keeps the distinction.
    */
   countryCode: string | null;
+  /**
+   * The IANA zone this shop trades in (`BR-PRD-6`, regression F6) — W11½ R6.
+   *
+   * **Which day a price list runs on is a question about the shop, not the phone.** The device used
+   * to date its pricing by the rep's own local day and the server re-priced by the UTC day — two
+   * different rules, so a rep in Bucharest before 03:00 was reported as disagreeing with a server
+   * that had asked a different question. Both sides now ask the shop.
+   *
+   * **Empty means "this row predates R6 and has not been re-pulled yet"**, and is the one value the
+   * server can never send — `Outlet.TimeZoneId` is required and IANA-validated. A caller that cannot
+   * resolve a zone declines to answer rather than guessing UTC, which would reintroduce the defect
+   * for exactly the shops the migration had not reached.
+   */
+  timeZoneId: string;
   latitude: number | null;
   longitude: number | null;
   /**
@@ -1401,6 +1415,43 @@ export class FieldKitDatabase extends Dexie {
             for (const line of order.lines ?? []) {
               line.taxAmount ??= "0";
             }
+          });
+      });
+
+    /*
+     * Version 20 — the outlet says which day it is (`BR-PRD-6`, regression F6, W11½ R6).
+     *
+     * `OutletSnapshot` gained `timeZoneId`. Until now the device dated its pricing by the *rep's
+     * phone* and the server re-priced by the *UTC* day, which are two different rules rather than
+     * one rule rounded twice — so an order taken in Bucharest before 03:00 was flagged as
+     * disagreeing with a server that had asked a different question.
+     *
+     * <b>The outlets watermark is dropped so every row is re-pulled</b>, exactly as version 10 did
+     * when `countryCode` arrived, and for the same reason: a *field was added*, so the rows already
+     * here are the right type and the wrong shape, and a delta pull would fill it in only for the
+     * shops somebody happened to edit afterwards. A shop nobody touches again would price against
+     * the wrong day for the life of the install.
+     *
+     * <b>And unlike version 10, the held rows are backfilled</b> — with `""`, which the server can
+     * never send, because `Outlet.TimeZoneId` is required and IANA-validated. `countryCode` needed
+     * no backfill because *null* was already a meaningful answer there; here there is no meaningful
+     * empty, so writing one keeps the declared type honest for the window between this upgrade and
+     * the next successful pull. A caller reading `""` declines to answer rather than guessing UTC.
+     *
+     * Rows are left in place rather than cleared, as versions 8 and 10 left them: a device that goes
+     * offline between the upgrade and its next sync still shows the rep their round, and the field
+     * that is missing is one nothing could have used an hour ago either.
+     */
+    this.version(20)
+      .stores({})
+      .upgrade(async (tx) => {
+        await tx.table("watermarks").delete("outlets");
+
+        await tx
+          .table("ref_outlets")
+          .toCollection()
+          .modify((outlet: Partial<ReferenceOutlet>) => {
+            outlet.timeZoneId ??= "";
           });
       });
 

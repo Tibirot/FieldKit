@@ -28,6 +28,7 @@ function shop(id: string, code: string, name: string): ReferenceOutlet {
     countryCode: "RO",
     latitude: null,
     longitude: null,
+    timeZoneId: "Europe/Bucharest",
     radiusMetres: 100,
     rowVersion: 1,
   };

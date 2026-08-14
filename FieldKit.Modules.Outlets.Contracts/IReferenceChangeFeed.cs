@@ -47,6 +47,25 @@ namespace FieldKit.Modules.Outlets.Contracts;
 /// <c>TaxRate.CountryCode</c>, which is also upper-cased. The device upper-cases again on lookup —
 /// belt and braces on a comparison whose failure mode is silence.
 /// </para>
+/// <para>
+/// <b><see cref="TimeZoneId"/> is here so the device and the server can agree which day it is</b>
+/// (<c>BR-PRD-6</c>, regression F6) — W11½ R6. A price list runs by calendar day, and a calendar day
+/// starts at a different instant in every place. Until now the device dated its pricing by the
+/// *rep's phone* and the server re-priced by the *UTC* day: two different rules, not one rule
+/// rounded twice, so a rep in Bucharest before 03:00 was reported as disagreeing with a server that
+/// had simply asked a different question.
+/// </para>
+/// <para>
+/// <b>The shop's zone decides, because the shop is the party to the trade that cannot move.</b> A
+/// rep may cross zones during a shift; the counter does not.
+/// </para>
+/// <para>
+/// <b>Required, and an IANA name rather than an offset</b> — <c>Europe/Bucharest</c>, not
+/// <c>+02:00</c>. <see cref="Outlet.TimeZoneId"/> has been required since W1 and says the same
+/// thing: an offset is wrong twice a year, and deriving the zone from the coordinates would make the
+/// answer depend on which device asked. Nothing had ever carried it out of this module, which is the
+/// whole of the gap.
+/// </para>
 /// </remarks>
 public sealed record OutletSnapshot(
     Guid Id,
@@ -59,6 +78,7 @@ public sealed record OutletSnapshot(
     double? Latitude,
     double? Longitude,
     int RadiusMetres,
+    string TimeZoneId,
     long RowVersion);
 
 /// <summary>

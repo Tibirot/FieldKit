@@ -58,6 +58,7 @@ function shop(countryCode: string | null = "RO"): ReferenceOutlet {
     countryCode,
     latitude: null,
     longitude: null,
+    timeZoneId: "Europe/Bucharest",
     radiusMetres: 150,
     rowVersion: 1,
   };

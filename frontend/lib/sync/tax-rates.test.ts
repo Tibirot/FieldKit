@@ -204,6 +204,7 @@ describe("the rate the device charges at a shop", () => {
       countryCode,
       latitude: null,
       longitude: null,
+      timeZoneId: "Europe/Bucharest",
       radiusMetres: 150,
       rowVersion: 1,
     };

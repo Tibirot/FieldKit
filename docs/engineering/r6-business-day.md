@@ -1,8 +1,14 @@
 # W11½ R6 — one answer to "what day is it"
 
-**Status: proposed. Not started.** It needs two decisions that are not mine to take alone — one
-widens a public module contract and one adds a new contract between modules
-([CLAUDE.md](../../CLAUDE.md#opening-a-pull-request--mandatory)).
+**Status: decisions taken; R6a shipped, R6b next.** Both contract questions below were approved as
+recommended — `OutletSnapshot` widens (Decision A), Order gets a new narrow contract returning the
+**date** (Decision B), and an unrecognised zone **declines to answer** rather than falling back to
+UTC.
+
+| | | |
+|---|---|---|
+| **R6a** | the zone reaches the device — contract, feed, local store v20 | **shipped**, no behaviour change |
+| **R6b** | both sides date pricing by it — `IOutletCalendar`, `RepriceAsync`, shared `businessDay`, vectors | next |
 
 Closes regression [F6](regression-2026-08-13.md#f6--re-pricing-takes-the-capture-instant-as-a-utc-date).
 Requirements: `BR-PRD-6`, `ORD-08`, `PRD-04`.
@@ -100,6 +106,14 @@ existing outlets pull; no new endpoint.
 **Wire compatibility:** a device on the old local-store version ignores an unknown property, and one
 on the new version reads `null` until its next pull. Adding a property to a pull payload is
 backwards-compatible in the direction that matters.
+
+> **Approved and shipped as R6a.** One thing the implementation added that this section did not
+> anticipate: **a delta pull would never deliver the zone to a shop nobody edits again.** Local store
+> version 10 hit exactly this when `countryCode` arrived and answered it by dropping the outlets
+> watermark so every row re-pulls; version 20 does the same. It also back-fills the held rows with
+> `""` — which version 10 did not need, because *null* was already a meaningful `countryCode`. There
+> is no meaningful empty zone, so writing one keeps `ReferenceOutlet` honest for the window between
+> the upgrade and the next successful pull, and `""` is the one value the server can never send.
 
 ### Decision B — how the Order module learns an outlet's zone
 
