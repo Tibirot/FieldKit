@@ -247,6 +247,24 @@ describe("the screens inside a section", () => {
     ).toHaveLength(6);
   });
 
+  it("never leaves a screen ungated", () => {
+    /*
+     * `permits` reads an empty requirement as satisfied — `every` over nothing is true — which is
+     * the correct answer for the operator and the wrong one for this model. A screen written with
+     * `requires: []` would be shown to everybody, silently, and look exactly like a screen somebody
+     * had thought about. There is nothing in the back office that everybody may read, so the rule is
+     * simply that the list is never empty.
+     */
+    expect(permits([], holding())).toBe(true);
+
+    for (const screen of screens) {
+      expect(screen.requires.length, `${screen.key} is gated on nothing`).toBeGreaterThan(0);
+      for (const anyOf of screen.requires) {
+        expect(anyOf.length, `${screen.key} has an empty permission group`).toBeGreaterThan(0);
+      }
+    }
+  });
+
   it("reads a group as any-of and the groups as all-of", () => {
     // Territories is the any-of case — either permission opens it, because the page holds sections
     // with different ones.
