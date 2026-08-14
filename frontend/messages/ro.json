@@ -1331,6 +1331,7 @@
         "worked": "Lucrat",
         "notVisited": "Nevizitat"
       },
+      "movedTo": "Ai mutat această vizită pe {date}. Rămâne aici până când supervizorul o primește.",
       "openDevice": "Acest dispozitiv"
     },
     "checkIn": {
@@ -1452,6 +1453,25 @@
       "refusal": {
         "reasonRequired": "Scrie de ce nu a avut loc vizita. Un magazin sărit fără motiv este o lipsă pe care nimeni nu o poate rezolva.",
         "alreadyReported": "Ai raportat deja această vizită."
+      }
+    },
+    "reschedule": {
+      "open": "Revii în altă zi?",
+      "title": "Mută această vizită",
+      "intro": "Vizita își păstrează locul pe traseu și se mută în ziua pe care o alegi. Supervizorul vede că a fost mutată și de pe ce zi.",
+      "action": "Mut-o",
+      "saving": "Se salvează…",
+      "cancel": "Renunță",
+      "moved": "Ai mutat această vizită pe {date}.",
+      "stillHere": "Rămâne pe traseul de azi până când supervizorul o primește.",
+      "failed": "Mutarea a fost refuzată. Anunță-ți supervizorul.",
+      "date": {
+        "label": "În ce zi?",
+        "help": "Orice zi de la {from} până la {to}."
+      },
+      "refusal": {
+        "outsideCycle": "O vizită se poate muta în cadrul ciclului ei. Mutarea în afara lui cere un supervizor.",
+        "alreadyReported": "Ai mutat deja această vizită."
       }
     },
     "unplanned": {

@@ -90,6 +90,14 @@ export function TodaysJourney({ now }: { now?: Date }) {
 function StopRow({ stop }: { stop: Stop }) {
   const t = useTranslations("Field.journey");
 
+  /*
+   * Whether this device has said anything to the back office *about the call itself*, as opposed to
+   * about a visit at the shop. Both annotations are queued under the call's id, so both are answered
+   * by the same badge and the same refusal line — and neither implies a visit, which is why this is
+   * separate from `stop.visit`.
+   */
+  const annotated = stop.reportedHere || stop.movedTo !== null;
+
   return (
     <li className="flex flex-col gap-1 rounded-xl border border-border p-3">
       <div className="flex items-start justify-between gap-3">
@@ -124,12 +132,12 @@ function StopRow({ stop }: { stop: Stop }) {
         <div className="flex shrink-0 items-center gap-2">
           {/*
             The badge answers "has this reached the back office", and a stop nobody has dealt with
-            has not asked the question yet. Two things can ask it, and both are keyed by the subject
-            they were queued under: a visit by its own id, and a not-visited report by the id of the
-            call it annotates (W9 slice 9).
+            has not asked the question yet. Three things can ask it, and all are keyed by the subject
+            they were queued under: a visit by its own id, and a not-visited report (W9 slice 9) or a
+            reschedule (W12 F2b) by the id of the call each annotates.
           */}
           {stop.visit ? <SyncBadge subjectId={stop.visit.id} /> : null}
-          {!stop.visit && stop.reportedHere ? <SyncBadge subjectId={stop.plannedVisitId} /> : null}
+          {!stop.visit && annotated ? <SyncBadge subjectId={stop.plannedVisitId} /> : null}
           <Badge variant={variantOf(stop.progress)}>{t(`progress.${stop.progress}`)}</Badge>
         </div>
       </div>
@@ -141,12 +149,22 @@ function StopRow({ stop }: { stop: Stop }) {
       ) : null}
 
       {/*
+        The move this device has queued (W12 F2b). <b>The stop is still here and still *to do*</b>,
+        because the device does not rewrite the round — the call leaves today when the server agrees
+        and the next pull says so. Until then this line is the only thing that stops a rep driving
+        back to a shop they have already dealt with.
+      */}
+      {stop.movedTo ? (
+        <p className="text-sm text-muted-foreground">{t("movedTo", { date: stop.movedTo })}</p>
+      ) : null}
+
+      {/*
         And the back office's sentence, when it refused (`OFF-09`) — W11½ R5. Under the row rather
         than in the badge, and keyed by the same two subjects the badges above are: a rep who is told
         *Needs attention* and nothing else has been given a problem with no handle on it.
       */}
       {stop.visit ? <RefusedReason subjectId={stop.visit.id} /> : null}
-      {!stop.visit && stop.reportedHere ? <RefusedReason subjectId={stop.plannedVisitId} /> : null}
+      {!stop.visit && annotated ? <RefusedReason subjectId={stop.plannedVisitId} /> : null}
     </li>
   );
 }

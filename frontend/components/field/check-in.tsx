@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
 import { NotVisited } from "@/components/field/not-visited";
+import { Reschedule } from "@/components/field/reschedule";
 import { useSync } from "@/components/sync/sync-provider";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "@/i18n/navigation";
@@ -211,8 +212,17 @@ export function CheckIn({
 
       {/* Beneath check-in, and only for a planned call: reporting that a call could not be made is
           what a rep does when working the shop has failed, and there is no round to annotate for an
-          unplanned visit (W9 slice 9). */}
-      {plannedVisitId ? <NotVisited plannedVisitId={plannedVisitId} /> : null}
+          unplanned visit (W9 slice 9).
+
+          `Reschedule` sits beside it because the two are the alternatives at a closed door — a miss
+          against coverage, or a move (W12 F2b). It renders nothing when the call may not be moved,
+          which is every unplanned call and any held from before local store version 21. */}
+      {plannedVisitId ? (
+        <div className="flex flex-col gap-2">
+          <NotVisited plannedVisitId={plannedVisitId} />
+          <Reschedule plannedVisitId={plannedVisitId} />
+        </div>
+      ) : null}
 
       <Button
         onClick={() => void start()}

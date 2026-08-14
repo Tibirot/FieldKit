@@ -10,6 +10,7 @@ import {
   type ReferencePlannedVisit,
 } from "@/lib/sync/db";
 import { markNotVisited } from "@/lib/visits/not-visited";
+import { reschedule } from "@/lib/visits/reschedule";
 import { today, todayOn } from "@/lib/visits/today";
 
 /**
@@ -305,5 +306,45 @@ describe("a call this device has reported but the server has not heard about", (
 
     expect(stop.reportedHere).toBe(false);
     expect(stop.progress).toBe("todo");
+  });
+});
+
+describe("a call this device has moved to another day", () => {
+  beforeEach(async () => {
+    await db.outlets.add(outlet("outlet-1", "Mega Image", "RO-001"));
+  });
+
+  it("stays on today's round and says where it went", async () => {
+    /*
+     * <b>Both halves matter, and the first is the surprising one.</b> The device does not rewrite
+     * `ref_planned_visits`, so the call is still on today until the server agrees and the next pull
+     * brings back a round that says so. A rep who saw it vanish would have no way to tell a move
+     * that landed from one the server is about to refuse.
+     *
+     * What the move changes is what the row *says*, not what it counts as.
+     */
+    await db.plannedVisits.add(
+      call("call-1", "outlet-1", { movableFrom: TODAY, movableTo: "2026-03-22" }),
+    );
+
+    const held = (await db.plannedVisits.get("call-1"))!;
+    await reschedule(db, held, "2026-03-19");
+
+    const stop = (await today(db, TODAY))[0];
+
+    expect(stop.movedTo).toBe("2026-03-19");
+
+    // Still to do — a call moved to Thursday is a call the rep has not made.
+    expect(stop.progress).toBe("todo");
+  });
+
+  it("does not read a not-visited report as a move", async () => {
+    // Both are queued under the call's id, so the type is the only thing separating them — and a
+    // reader keyed on `subjectId` alone would put "you moved this" under a shop the rep reported
+    // shut.
+    await db.plannedVisits.add(call("call-1", "outlet-1"));
+    await markNotVisited(db, "call-1", "Shutters down at nine");
+
+    expect((await today(db, TODAY))[0].movedTo).toBeNull();
   });
 });

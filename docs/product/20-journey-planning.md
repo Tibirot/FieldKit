@@ -192,6 +192,19 @@ each could reasonably have been done the other way:
   to correct it. The outbox is the record of what the device has said, and the round overlays it
   until the two agree.
 
+**All three have a device writer as of W12** (`markNotVisited` W9 slice 9, `addUnplanned` W11½ R4,
+`reschedule` W12 F2b) — the last of them two years of slices after the requirement, and the reason is
+worth keeping: `BR-JRN-4`'s window could not be evaluated from anything the round carried, so the
+writer was unbuildable rather than forgotten (regression F2).
+
+A moved call is the clearest case of the rule above. It **stays on today's round** with *you moved
+this to Thursday* against it and a sync badge beside it, because the device does not change the date
+it holds. A rep who saw the call vanish would have no way to tell a move the server took from one it
+is about to refuse — and would leave a shop uncalled if it was the second.
+
+Both annotations are queued under the **call's** id rather than a visit's, which is what lets one
+badge and one refusal line answer for either.
+
 **Idempotency differs by kind, and only one of them needed a guard.** Re-marking a call not-visited
 finds the state it wants and answers success, keeping the first reason — what the rep wrote at the
 shop. A reschedule to the day a call is already on is a no-op. An *unplanned* call creates a row, so

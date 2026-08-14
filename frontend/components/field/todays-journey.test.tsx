@@ -227,6 +227,67 @@ describe("<TodaysJourney>", () => {
     await eventually(() => expect(screen.queryByRole("alert")).toBeNull());
   });
 
+  it("says where a moved call went, and leaves it on today's round (W12 F2b)", async () => {
+    /*
+     * <b>Both halves, and the second is the one a reader will want to argue with.</b> The device
+     * does not rewrite `ref_planned_visits`, so a call moved to Thursday is still on Tuesday's round
+     * until the server agrees and a pull says so — and this line is the only thing that stops a rep
+     * driving back to a shop they have already dealt with.
+     *
+     * Still *To do*, deliberately: a call moved to Thursday has not been made, and a rep told
+     * otherwise would leave the shop uncalled if the move is refused.
+     */
+    await db.outlets.add(outlet("outlet-1", "Mega Image", "RO-001"));
+    await db.plannedVisits.add(
+      call("call-1", "outlet-1", { movableFrom: TODAY, movableTo: "2026-03-22" }),
+    );
+
+    await enqueue(db, {
+      type: "RescheduledCall",
+      subjectId: "call-1",
+      payload: { plannedVisitId: "call-1", date: "2026-03-19" },
+    });
+
+    render(<TodaysJourney now={TODAY} />);
+
+    expect(
+      await screen.findByText(
+        "You moved this call to 2026-03-19. It stays here until your supervisor has it.",
+      ),
+    ).toBeTruthy();
+
+    expect(screen.getByText("To do")).toBeTruthy();
+
+    // And the badge, which is the point of keying it to the call: the move is queued under
+    // `call-1`, and there is no visit here for a badge to hang on instead.
+    expect(await screen.findByText("Not synced")).toBeTruthy();
+  });
+
+  it("says why the back office refused a move, on a stop with no visit at all", async () => {
+    /*
+     * The case F4 was about, one mutation type further on. A reschedule is queued under the *call*,
+     * so a stop that carries no visit still has something to badge and something to explain — and a
+     * row keyed only on `stop.visit` or `stop.reportedHere` would have shown neither.
+     */
+    await db.outlets.add(outlet("outlet-1", "Mega Image", "RO-001"));
+    await db.plannedVisits.add(
+      call("call-1", "outlet-1", { movableFrom: TODAY, movableTo: "2026-03-22" }),
+    );
+
+    const entry = await enqueue(db, {
+      type: "RescheduledCall",
+      subjectId: "call-1",
+      payload: { plannedVisitId: "call-1", date: "2026-03-19" },
+    });
+
+    await markRejected(db, entry.mutationId, "journey.visit.unknown", "No such call.");
+
+    render(<TodaysJourney now={TODAY} />);
+
+    expect(await screen.findByText("Needs attention")).toBeTruthy();
+    expect((await screen.findByRole("alert")).textContent).toBe("No such call.");
+  });
+
   it("names a call whose shop this device does not hold rather than showing an id", async () => {
     await db.plannedVisits.add(call("call-1", "gone"));
 

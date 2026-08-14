@@ -55,6 +55,19 @@ export type Stop = {
   reportedHere: boolean;
   /** The queued report was refused and re-sending will not change that (`OFF-09`). */
   reportFailed: boolean;
+  /**
+   * The day this device has queued a move to, or null (`JRN-06`, `BR-JRN-4`) — W12 F2b.
+   *
+   * <b>The stop stays on today's round while this is set</b>, because the device never rewrites
+   * `ref_planned_visits` — moving the date locally would look right until the server refused the
+   * mutation, and a refused annotation changes no row version, so the next pull would send nothing
+   * to correct it.
+   *
+   * It is not part of `progress`, for the reason `reportedHere` is not: the call is still *to do*,
+   * just not today, and a rep who is told otherwise would leave a shop uncalled if the move is
+   * refused. What this changes is what the row **says**, not what it counts as.
+   */
+  movedTo: string | null;
 };
 
 /**
@@ -134,6 +147,12 @@ function stop(
     (entry) => entry.subjectId === call.id && entry.type === "NotVisitedCall",
   );
 
+  // The same read, a different mutation type. Both are annotations this device has queued against
+  // the call; neither is allowed to move the row they annotate.
+  const moved = reported.find(
+    (entry) => entry.subjectId === call.id && entry.type === "RescheduledCall",
+  );
+
   return {
     plannedVisitId: call.id,
     outletId: call.outletId,
@@ -145,6 +164,7 @@ function stop(
     visit,
     reportedHere: report !== undefined,
     reportFailed: report?.status === "failed",
+    movedTo: dateOf(moved),
   };
 }
 
@@ -152,6 +172,12 @@ function reasonOf(entry: OutboxEntry | undefined): string | null {
   const payload = entry?.payload as { reason?: unknown } | undefined;
 
   return typeof payload?.reason === "string" ? payload.reason : null;
+}
+
+function dateOf(entry: OutboxEntry | undefined): string | null {
+  const payload = entry?.payload as { date?: unknown } | undefined;
+
+  return typeof payload?.date === "string" ? payload.date : null;
 }
 
 /**
