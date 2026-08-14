@@ -82,6 +82,25 @@
       "configuration": "Configurare",
       "users": "Utilizatori și roluri"
     },
+    "screens": {
+      "journeyPlans": "Plan de rută",
+      "callFrequency": "Frecvență de vizitare",
+      "workingCalendars": "Calendar de lucru",
+      "outletList": "Toate punctele de vânzare",
+      "channels": "Canale",
+      "customFields": "Câmpuri personalizate",
+      "outletImport": "Import",
+      "catalogue": "Catalog",
+      "classification": "Clasificare",
+      "assortments": "Sortimente",
+      "priceLists": "Liste de prețuri",
+      "promotions": "Promoții",
+      "orderMinimums": "Comenzi minime",
+      "territoryList": "Teritorii",
+      "scoreWeights": "Ponderile magazinului perfect",
+      "surveys": "Chestionare",
+      "userList": "Utilizatori și roluri"
+    },
     "soon": {
       "week5": "S5",
       "week6": "S6",
