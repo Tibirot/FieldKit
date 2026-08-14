@@ -202,6 +202,13 @@ Each looks like a defect and is not.
   `CapturedOrder` stayed `pending` until check-out enqueued `CapturedVisit`, then both went.
 - **No service worker under `next dev`.** Unchanged and still true: the offline shell needs
   `npm run build && npm start` to exercise.
+- **A `high` Dependabot alert on `nanoid` that is not exposure.** Raised against
+  `frontend/package-lock.json` while pushing this sweep, so it is checked here rather than left
+  looking unread. The advisory range is `>= 4.0.0, < 5.1.6`; the lockfile pins **exactly one**
+  `nanoid`, at **3.3.16**, transitively through `postcss`. `npm ls nanoid` confirms a single
+  resolution. **3.x is outside the vulnerable range**, so there is nothing to upgrade and — per
+  [frontend-toolchain.md](frontend-toolchain.md) — nothing that would justify a lockfile churned by a
+  local `npm install`. Worth re-checking if `postcss` ever moves `nanoid` to 4.x.
 
 ---
 
