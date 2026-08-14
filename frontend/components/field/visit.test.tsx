@@ -186,16 +186,49 @@ describe("<Visit> and the sequence it shows", () => {
 
   it("says so when the channel has no steps at all", async () => {
     // Not a misconfiguration: `IVisitWorkflow` returns exactly this for a channel nobody set up, and
-    // check-in copies it faithfully. The rep checks in and checks out.
+    // check-in copies it faithfully.
+    await db.visits.add(visit([]));
+
+    render(<Visit visitId="visit-1" />);
+
+    expect(await screen.findByText(/No steps are set up for this shop/)).toBeTruthy();
+  });
+
+  it("lets a rep order and audit even with no workflow at all (regression F1)", async () => {
+    /*
+     * The finding, as a test. Both screens used to be linked *only* from a workflow step of the
+     * matching type, so a channel with no workflow — the case directly above, which the app treats
+     * as legitimate — could be checked into and offered nothing at all. `ORD-01` and `AUD-01` are
+     * both Musts and both were reachable only through optional configuration.
+     *
+     * The screens were never broken: typing the route by hand gave a working order that priced and
+     * submitted. This asserts the door, which is what was missing.
+     */
     await db.visits.add(visit([]));
 
     render(<Visit visitId="visit-1" />);
 
     expect(
-      await screen.findByText(
-        "No steps are set up for this shop. Do the call and check out when you are done.",
-      ),
-    ).toBeTruthy();
+      (await screen.findByRole("link", { name: "Take the order" })).getAttribute("href"),
+    ).toBe("/field/visits/visit-1/order");
+
+    expect(screen.getByRole("link", { name: "Open the audit" }).getAttribute("href")).toBe(
+      "/field/visits/visit-1/audit",
+    );
+  });
+
+  it("stops offering them once the visit is sealed", async () => {
+    // A sealed visit is a record, not a screen with the buttons disabled — the same call `Sealed`
+    // makes about the steps. `putLine` and `draftFor` would refuse anyway; this is about not
+    // offering an action whose only outcome is a refusal.
+    await db.visits.add(visit([], { status: "checkedOut", checkedOutAtUtc: "2026-03-17T10:00:00.000Z" }));
+
+    render(<Visit visitId="visit-1" />);
+
+    await screen.findByText(/This visit is finished/);
+
+    expect(screen.queryByRole("link", { name: "Take the order" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Open the audit" })).toBeNull();
   });
 });
 

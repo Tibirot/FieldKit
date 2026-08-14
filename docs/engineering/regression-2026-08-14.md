@@ -72,6 +72,18 @@ further and hit the same wall from the other side.
 `BR-VIS-3` gates *completion* on, not what makes the screen reachable. Worth pairing with a decision
 about what a call with no configured workflow is *for*.
 
+**Fixed.** A `Capture` block renders both links whenever the visit is open; the step-level buttons
+stay, because two doors to one room is a shape this app already uses and the step-level one is
+contextual. Neither is gated on there being anything to sell or count — "there is nothing here" and
+"you cannot look" are different facts, and each screen already says the first one well.
+
+The `noSteps` sentence changed with it. *"Do the call and check out when you are done"* was an
+accurate description of a screen that offered nothing; it now names what the rep can do.
+
+**Verified in the reproduction case**: checked into Carrefour Băneasa — a shop on the channel with no
+workflow — and both buttons are there. The audit screen opened for the first time in either sweep,
+showing *"Expected 3.20 EUR"*, which is `BR-AUD-3` resolving against the shop's business day (R6b).
+
 ---
 
 ### F2 — `RescheduledCall` has no device writer, and `JRN-06` names it
@@ -268,7 +280,7 @@ That is the recommendation this sweep would rather make than a tenth finding of 
 
 ## 7. Suggested order
 
-1. **F1** — the largest gap in the smallest change, and the one blocking every future manual pass.
+1. ~~**F1**~~ — **done.** The largest gap in the smallest change, and the one that was blocking every future manual pass.
 2. **F4** — mounts two existing components; the case R5 was written for.
 3. **F3** — three fields on an endpoint that exists, and a W12 decision to take deliberately.
 4. **F2** — `JRN-06`'s third clause, the same shape as R4 and smaller.

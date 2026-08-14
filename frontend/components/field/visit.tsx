@@ -75,7 +75,9 @@ export function Visit({ visitId }: { visitId: string }) {
 
       {visit.steps.length === 0 ? (
         // A channel nobody configured has no steps, and that is a legitimate workflow rather than a
-        // missing one (`IVisitWorkflow` returns exactly this). The rep checks in and checks out.
+        // missing one (`IVisitWorkflow` returns exactly this). Until W12's F1 that also meant the
+        // rep could do *nothing* in the visit — the sentence told them to work the call and the
+        // screen offered no way to. `Capture` below is what they work it with.
         <p className="text-sm text-muted-foreground" role="status">
           {t("noSteps")}
         </p>
@@ -100,10 +102,51 @@ export function Visit({ visitId }: { visitId: string }) {
         </section>
       )}
 
+      {/* What a rep can capture in this call, whatever the workflow says (W12, regression F1). */}
+      {visit.status === "inProgress" ? <Capture visit={visit} /> : null}
+
       {/* Check-out lives below the steps because that is the order the rep works in, and because
           what it refuses is about them (`BR-VIS-3`, W9 slice 8). */}
       {visit.status === "inProgress" ? <CheckOut visit={visit} /> : null}
     </div>
+  );
+}
+
+/**
+ * The two things a rep can capture in any call — an order and a shelf audit (`ORD-01`, `AUD-01`).
+ *
+ * <b>Unconditional, and that is the whole fix</b> (regression F1). Both screens used to be reachable
+ * only from a workflow step of the matching type, so a channel with no workflow — which
+ * `IVisitWorkflow` treats as legitimate, and which the sentence above this block describes — could be
+ * visited and nothing could be done in it. The screens themselves were fine; typing the route by hand
+ * gave a working order that priced and submitted. Only the door was missing, and it was missing for
+ * two requirements that are both **Musts**.
+ *
+ * <b>A step is about *completion*, not about reach.</b> `BR-VIS-3` gates check-out on mandatory steps
+ * being done; nothing in `VIS-03` says the workflow decides what a rep is *allowed* to record. The
+ * step-level buttons stay where they are, beside "Mark done", because they are contextual — a rep
+ * working down a list should not have to hunt for the action the step is named after. Two doors to
+ * one room is a shape this app already uses: the round row and the unplanned picker both open
+ * check-in.
+ *
+ * <b>Not gated on there being anything to sell or count.</b> A shop with no assortment gets an empty
+ * catalogue and a shop with no MSL gets an empty shelf, which is each screen's own answer and a more
+ * useful one than a missing button — "there is nothing here" and "you cannot look" are different
+ * facts, and only one of them is about the rep.
+ */
+function Capture({ visit }: { visit: LocalVisit }) {
+  const t = useTranslations("Field.visit");
+
+  return (
+    <section className="flex flex-wrap gap-2" aria-label={t("captureLabel")}>
+      <LinkButton variant="outline" size="sm" href={`/field/visits/${visit.id}/order`}>
+        {t("openOrder")}
+      </LinkButton>
+
+      <LinkButton variant="outline" size="sm" href={`/field/visits/${visit.id}/audit`}>
+        {t("openAudit")}
+      </LinkButton>
+    </section>
   );
 }
 
