@@ -92,9 +92,30 @@ named: every mutation type the protocol carries has a producer under `lib/`, and
 route is linked from somewhere. It runs as its own CI job for the reason `parity` has one — "a screen
 no rep can reach shipped" is different news from "the frontend job failed".
 
-**It covers two instances of the shape, not the shape**, and the difference matters to anyone reading
-it as assurance. `F3` — a value computed on an aggregate and absent from its own DTO — is an edge one
+**It covers instances of the shape, not the shape**, and the difference matters to anyone reading it
+as assurance. `F3` — a value computed on an aggregate and absent from its own DTO — is an edge one
 layer below any route or mutation, and this gate would have passed the day it was introduced.
+
+**A third instance joined in W12½, and it is a different failure from the other two.** Every
+back-office route must have a navigation item, and every navigation item a route. Nothing in the back
+office was ever *unlinked* — both sweeps confirmed that — so this is not `F1` again. What was missing
+was a **level**: of the seventeen screens deserving a navigation item, six had one, and eleven were
+reachable only by landing on a section index and spotting the right button. A gate for an absent
+*rung* rather than an absent edge.
+
+Two details in it are worth borrowing. It is checked in **both directions**, because `W11½ R1`
+checked one and understated the registry's drift for weeks in the other — a navigation item pointing
+at a deleted page is a live link to a 404, and quieter than a missing item because the nav looks
+whole. And it needs **two rules rather than one**: "every route is under some screen" is satisfied by
+`/products` alone, which is a prefix of all six screens in its own section, so a model containing
+nothing but section indexes would pass while describing precisely the state the check exists to end.
+What holds is that a *static* route is a screen of its own (create forms excepted, by name) and a
+*dynamic* one belongs to the screen above it.
+
+That check is the gate's one exception to being a text scan: `NAVIGATION` is plain data in a module
+with no React in it, so it is imported and read as a model. A regex over `href:` would have worked
+and would have been worse — unable to name the section a missing screen belongs to, and liable to go
+quiet on a reformat.
 
 ## 5. Sync engine tests (the hard part) — property-based
 

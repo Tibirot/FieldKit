@@ -184,11 +184,12 @@ the rail, and a section is visible when *any* of its screens is.
 **The panel holds links, not records.** Putting price lists or outlets in the second column — a
 Miller-column browse — is a bigger idea that this shape leaves open and does not take.
 
-**And it is enforced rather than remembered.** `scripts/check-reachability.mjs` already fails the
-build for a mutation type with no producer or a field route nothing links to; W12½ slice 2 adds the
-third question — a back-office route that is neither a screen in the navigation model nor a child of
-one. That is what makes "every screen has a navigation item" a property of the build, and it lands
-*before* any of the UI, while the model is fresh and the screens that consume it do not exist yet.
+**And it is enforced rather than remembered.** `scripts/check-reachability.mjs` already failed the
+build for a mutation type with no producer or a field route nothing links to; slice 2 added the third
+question — a back-office route that is neither a screen in the navigation model nor a child of one,
+and a navigation item whose route does not exist. That is what makes "every screen has a navigation
+item" a property of the build, and it landed *before* any of the UI, while the model was fresh and
+the screens that consume it did not exist yet.
 
 ## Source
 

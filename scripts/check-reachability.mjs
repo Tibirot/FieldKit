@@ -8,7 +8,8 @@
  * its own tests in all six, because none of them is a bug *in* a unit — they are absences of an
  * **edge** between two things that each work, and a test suite is organised by unit.
  *
- * So this checks the edges, in the two places the regression named:
+ * So this checks the edges, in the two places the regression named and a third the W12½ navigation
+ * audit added:
  *
  *  1. **Every mutation type the protocol carries has a producer on the device.** The server's push
  *     endpoint accepts a closed set; the sync manager routes a closed set; `lib/` enqueues a closed
@@ -19,11 +20,23 @@
  *     only from a workflow step, so a channel with no workflow could be visited and nothing could be
  *     done in it — `ORD-01` and `AUD-01`, both Musts, behind optional configuration (`F1`).
  *
+ *  3. **Every back-office route has a navigation item, and every navigation item a route.** Not the
+ *     same failure as (2): none of the 28 back-office routes was ever *unlinked*, and both regression
+ *     sweeps confirmed it. What was missing was a **level** — of the seventeen screens that deserve a
+ *     navigation item, six had one, and eleven were reachable only by landing on a section index and
+ *     spotting the right button in a row of outline links. Checked in both directions, because
+ *     `W11½ R1` checked one and understated the drift for weeks in the other.
+ *
  * <b>A source scan rather than a runtime crawl</b>, for the reason `check-vector-readers.mjs` gives:
  * a runtime check would need the app to report which edges it exercised, which is more apparatus
  * than the property deserves and would itself need checking. The cost is that this sees *text* — a
  * link assembled from pieces no literal contains would read as missing. That is the failure mode to
  * expect, and it fails loudly rather than silently.
+ *
+ * Check 3 is the exception and reads the navigation **model** rather than text, because there is a
+ * model to read: `NAVIGATION` is plain data in a module with no React in it, so Node's type
+ * stripping imports it as-is. A regex over `href:` would have worked and would have been worse — it
+ * could not name the section a missing screen belongs to, and it would go quiet on a reformat.
  *
  * <b>What it cannot see</b> is worth stating as plainly as what it can. `F3` — a value computed on
  * an aggregate and absent from its own DTO — is an edge one layer below anything here: no route, no
@@ -40,9 +53,12 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { NAVIGATION } from "../frontend/components/back-office/navigation.ts";
+
 const root = fileURLToPath(new URL("..", import.meta.url));
 
 const FIELD_ROUTES = join(root, "frontend", "app", "[locale]", "(field)");
+const BACK_OFFICE_ROUTES = join(root, "frontend", "app", "[locale]", "(back-office)");
 const PUSH_ENDPOINTS = join(root, "FieldKit.Modules.Sync", "PushEndpoints.cs");
 const SYNC_MANAGER = join(root, "frontend", "lib", "sync", "manager.ts");
 const PRODUCERS = join(root, "frontend", "lib");
@@ -232,6 +248,82 @@ if (unlinked.length > 0) {
   });
 }
 
+// ── 3. Every back-office route has a navigation item, and every item a route ─────────────────────
+
+/** A page's route, with its dynamic segments left alone — here they are the thing being classified. */
+function backOfficeRouteOf(page) {
+  const path = relative(BACK_OFFICE_ROUTES, page).split(sep).slice(0, -1);
+
+  return path.length === 0 ? "/" : `/${path.join("/")}`;
+}
+
+function covers(route, pathname) {
+  return pathname === route || pathname.startsWith(`${route}/`);
+}
+
+const backOfficeRoutes = required(
+  walk(BACK_OFFICE_ROUTES, ["page.tsx"]).map(backOfficeRouteOf),
+  "back-office routes",
+  "app/[locale]/(back-office)",
+);
+
+const screens = required(
+  NAVIGATION.flatMap((group) => group.items).flatMap((item) => item.screens ?? []),
+  "navigation screens",
+  "navigation.ts",
+);
+
+/**
+ * Create forms, which are reached from the list they add a row to and are not places.
+ *
+ * <b>Listed rather than matched on a `/new` suffix</b>, for the reason `ENTRY` is named above: the
+ * day a third route earns the exemption, somebody has to write it down. A suffix rule would let a
+ * screen slip past by being called `new`, and the whole point of this check is that a screen cannot
+ * slip past.
+ */
+const CREATE_FORMS = ["/outlets/new", "/configuration/surveys/new"];
+
+/*
+ * Two rules rather than one, because the single-rule version passes vacuously.
+ *
+ * "Every route is under some screen" is satisfied by `/products` alone — it is a prefix of all six
+ * screens in its own section — so a model containing nothing but the six section indexes would pass
+ * while describing exactly the state this check exists to end. What holds instead:
+ *
+ *   • a **static** route is a screen of its own, unless it is a create form;
+ *   • a **dynamic** route is a record detail, and belongs to the screen above it.
+ */
+const unnavigable = backOfficeRoutes.filter((route) => {
+  if (route.includes("[")) return !screens.some((screen) => covers(screen.href, route));
+
+  return !CREATE_FORMS.includes(route) && !screens.some((screen) => screen.href === route);
+});
+
+/*
+ * And the other direction, which is the half `W11½ R1` left out of the module registry and paid for.
+ * A screen whose page has been deleted or moved is a navigation item that renders a live link to a
+ * 404 — quieter than a missing item, because the nav looks complete.
+ */
+const dangling = screens.filter((screen) => !backOfficeRoutes.includes(screen.href));
+
+if (unnavigable.length > 0) {
+  failures.push({
+    title: "Back-office routes with no navigation item",
+    items: unnavigable,
+    why: "A screen reachable only by knowing it is there. This is what the W12½ audit found eleven of.",
+    fix: "Add it to the owning section's `screens` in navigation.ts, with the permissions it needs.",
+  });
+}
+
+if (dangling.length > 0) {
+  failures.push({
+    title: "Navigation items whose route does not exist",
+    items: dangling.map((screen) => `${screen.key} → ${screen.href}`),
+    why: "A live link to a 404, and harder to notice than a missing item because the nav looks whole.",
+    fix: "Restore the page, or drop the screen from navigation.ts.",
+  });
+}
+
 // ── Report ───────────────────────────────────────────────────────────────────────────────────────
 
 if (failures.length > 0) {
@@ -249,5 +341,6 @@ if (failures.length > 0) {
 
 console.log(
   `${accepted.length} mutation type(s), each routed and produced; ` +
-    `${routes.length} field route(s), each linked.`,
+    `${routes.length} field route(s), each linked; ` +
+    `${backOfficeRoutes.length} back-office route(s) across ${screens.length} navigation screen(s).`,
 );
