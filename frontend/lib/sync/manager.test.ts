@@ -108,6 +108,8 @@ function plannedVisitRow(id: string, rowVersion: number, date = "2026-03-17") {
     source: "Generated",
     notVisitedReason: null,
     rowVersion,
+    movableFrom: null,
+    movableTo: null,
   };
 }
 

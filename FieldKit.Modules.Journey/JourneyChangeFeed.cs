@@ -31,25 +31,56 @@ internal sealed class JourneyChangeFeed(JourneyDbContext db) : IJourneyChangeFee
         // `Set<PlannedVisit>()` rather than a `DbSet` property, because there isn't one: a call is
         // reached through its plan everywhere else in this module, and adding a root-level set for
         // one reader would invite the next one to skip the aggregate too.
-        var upserts = await db.Set<PlannedVisit>()
+        /*
+         * The plan's window comes back with each call, which is new in W12 (regression F2).
+         *
+         * `MovableWithin` needs the plan's first and last day, and the reschedule window it returns
+         * is not arithmetic a database should be asked to do — division that has to agree exactly
+         * with `BR-JRN-4`'s C# is the kind of thing that translates until the day it silently does
+         * not. So the page is read with the two dates attached and the rule runs once, in memory,
+         * over at most `limit` rows.
+         */
+        var page = await db.Set<PlannedVisit>()
+            .AsNoTracking()
             .Where(visit => visit.RowVersion > cursor && mine.Contains(visit.JourneyPlanId))
             .OrderBy(visit => visit.RowVersion)
             .Take(limit)
-            .Select(visit => new PlannedVisitSnapshot(
-                visit.Id,
-                visit.OutletId,
-                visit.Date,
-                visit.Status.ToString(),
-                visit.Source.ToString(),
-                visit.NotVisitedReason,
-                visit.RowVersion))
+            .Join(
+                db.JourneyPlans,
+                visit => visit.JourneyPlanId,
+                plan => plan.Id,
+                (visit, plan) => new { Visit = visit, plan.FromDate, plan.ToDate })
             .ToListAsync(cancellationToken);
+
+        var upserts = page
+            // Re-ordered here because the join above is free to lose the ordering the page was cut
+            // by, and the cursor below is the last row's version rather than the highest.
+            .OrderBy(row => row.Visit.RowVersion)
+            .Select(row => Describe(row.Visit, row.FromDate, row.ToDate))
+            .ToList();
 
         // The highest version *in this page*, never the table's maximum — a truncated page must
         // resume rather than skip everything between the last row sent and the high-water mark.
         var highest = upserts.Count > 0 ? Math.Max(cursor, upserts[^1].RowVersion) : cursor;
 
         return new JourneyChangePage(upserts, Tombstones, highest);
+    }
+
+    /// <summary>One call, with the days it may be moved to already worked out (<c>BR-JRN-4</c>).</summary>
+    private static PlannedVisitSnapshot Describe(PlannedVisit visit, DateOnly from, DateOnly to)
+    {
+        var window = visit.MovableWithin(from, to);
+
+        return new PlannedVisitSnapshot(
+            visit.Id,
+            visit.OutletId,
+            visit.Date,
+            visit.Status.ToString(),
+            visit.Source.ToString(),
+            visit.NotVisitedReason,
+            visit.RowVersion,
+            window?.From,
+            window?.To);
     }
 
     /*

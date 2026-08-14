@@ -184,6 +184,22 @@ rather than wrong; the delta cannot repair them, because it carries only outlets
 moved; one watermark is dropped and the rows are left in place. The three bullets above are still the
 whole of it.
 
+**Version 21 is the same move on a different entity for the first time** (W12 F2a, regression F2):
+`PlannedVisitSnapshot` grew `movableFrom`/`movableTo` — the days `BR-JRN-4` lets a rep move a call to
+— so the `journeys` watermark is dropped and the round comes back whole. Two things generalise from
+it that four rounds of outlets could not show:
+
+- **The bullet about *only that entity's watermark* is now load-bearing rather than hypothetical.**
+  Dropping outlets' here would re-download a territory to deliver a field on a round.
+- **It is cheaper than any of the outlet re-baselines**, and for a structural reason: `journeys` has
+  never had a baseline call (§3), so a cursor from zero is the path a fresh install already takes,
+  and a round is one rep's calls over a short horizon rather than a whole territory's shop list.
+
+The rows are left in place and back-filled with `null`, which here is a **real answer** rather than a
+placeholder — it means *this call may not be moved*, permanently true of an unplanned call and true
+of every held call until the next pull. The device offers no reschedule instead of guessing a window,
+the same call version 20 made with `""` and a time zone.
+
 **The blob store is not built yet**, deliberately — photo upload is `OFF-08`/W11, and a store with
 no writer is a schema version spent on nothing.
 

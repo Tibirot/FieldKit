@@ -65,6 +65,8 @@ function call(
     source: "Generated",
     notVisitedReason: null,
     rowVersion: 7,
+    movableFrom: null,
+    movableTo: null,
     ...overrides,
   };
 }

@@ -18,6 +18,38 @@ namespace FieldKit.Modules.Journey.Contracts;
 /// changes when a value is inserted.
 /// </para>
 /// </remarks>
+/// <param name="MovableFrom">
+/// The first day this call may be moved to, or null if it may not be moved (<c>BR-JRN-4</c>) —
+/// W12, regression F2.
+/// </param>
+/// <param name="MovableTo">
+/// The last such day. Together with <paramref name="MovableFrom"/>, an inclusive range: every date
+/// inside it is a reschedule this server will accept, and every date outside it is one it will not.
+/// </param>
+/// <remarks>
+/// <para>
+/// <b>The window, not the arithmetic.</b> The rule is that a call moves inside the cycle its
+/// frequency put it in — which needs the call's stored cycle length and the plan's first day, and
+/// the device holds neither. Sending those two instead would put a second implementation of
+/// <c>BR-JRN-4</c> on the phone, and then the corpus would owe it a parity file; sending the answer
+/// keeps the rule in one place and the device never learns what a cycle is.
+/// </para>
+/// <para>
+/// The same shape <c>IOutletCalendar</c> takes for the business day (W11½ R6b), and the same
+/// argument: a consumer that needs a decision is given the decision.
+/// </para>
+/// <para>
+/// <b>It is the cycle intersected with the plan's window</b>, because both bound a reschedule and a
+/// device offering a day outside either would be offering a refusal. Null when the call belongs to
+/// no cycle — an unplanned call, whose cycle length is zero — which is the whole of "cannot be
+/// moved" as far as a reader is concerned.
+/// </para>
+/// <para>
+/// <b>Two dates rather than a list of days.</b> The rule is a range and nothing inside it is
+/// excluded — a rep's non-working days are the calendar's business at generation, not a reschedule's
+/// (<c>JRN-02</c>), and a list would need re-sending whenever the calendar moved.
+/// </para>
+/// </remarks>
 public sealed record PlannedVisitSnapshot(
     Guid Id,
     Guid OutletId,
@@ -25,7 +57,9 @@ public sealed record PlannedVisitSnapshot(
     string Status,
     string Source,
     string? NotVisitedReason,
-    long RowVersion);
+    long RowVersion,
+    DateOnly? MovableFrom = null,
+    DateOnly? MovableTo = null);
 
 /// <summary>One page of a rep's round: what to upsert, what to drop, and how far it now is.</summary>
 public sealed record JourneyChangePage(

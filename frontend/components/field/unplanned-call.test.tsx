@@ -103,6 +103,8 @@ describe("<UnplannedCall>", () => {
       source: "Generated",
       notVisitedReason: null,
       rowVersion: 1,
+      movableFrom: null,
+      movableTo: null,
     });
 
     render(<UnplannedCall date={TODAY} />);
