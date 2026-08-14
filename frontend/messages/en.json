@@ -1375,7 +1375,7 @@
     "visit": {
       "opening": "Opening this visit…",
       "sealed": "This visit is finished. Nothing here can be changed.",
-      "noSteps": "No steps are set up for this shop. Do the call and check out when you are done.",
+      "noSteps": "No steps are set up for this shop. Take an order or audit the shelf as the call needs, and check out when you are done.",
       "progress": "{done} of {total} steps done",
       "required": "Required",
       "done": "Done",
@@ -1412,6 +1412,7 @@
         "NonProductive": "Nothing came of it"
       },
       "stepsLabel": "Visit steps",
+      "captureLabel": "What you can record on this call",
       "openOrder": "Take the order",
       "openAudit": "Open the audit"
     },

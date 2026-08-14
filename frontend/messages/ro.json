@@ -1375,7 +1375,7 @@
     "visit": {
       "opening": "Se deschide vizita…",
       "sealed": "Vizita este încheiată. Nimic de aici nu mai poate fi modificat.",
-      "noSteps": "Nu sunt pași configurați pentru acest magazin. Fă vizita și încheie când ai terminat.",
+      "noSteps": "Nu sunt pași configurați pentru acest magazin. Ia o comandă sau auditează raftul, după cum cere vizita, și încheie când ai terminat.",
       "progress": "{done} din {total} pași finalizați",
       "required": "Obligatoriu",
       "done": "Finalizat",
@@ -1412,6 +1412,7 @@
         "NonProductive": "Fără rezultat"
       },
       "stepsLabel": "Pașii vizitei",
+      "captureLabel": "Ce poți înregistra la această vizită",
       "openOrder": "Ia comanda",
       "openAudit": "Deschide auditul"
     },
