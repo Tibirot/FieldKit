@@ -4,10 +4,14 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { CheckOut } from "@/components/field/check-out";
+import { RefusedReason } from "@/components/sync/refused-reason";
+import { SyncBadge } from "@/components/sync/sync-badge";
 import { useSync } from "@/components/sync/sync-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LinkButton } from "@/components/ui/link-button";
+import { auditFor } from "@/lib/audits/local-audit";
+import { orderFor } from "@/lib/orders/local-order";
 import type { LocalVisit, LocalVisitStep } from "@/lib/sync/db";
 import { useLive } from "@/lib/sync/live";
 import { outlet as heldOutlet } from "@/lib/sync/reference";
@@ -102,8 +106,13 @@ export function Visit({ visitId }: { visitId: string }) {
         </section>
       )}
 
-      {/* What a rep can capture in this call, whatever the workflow says (W12, regression F1). */}
-      {visit.status === "inProgress" ? <Capture visit={visit} /> : null}
+      {/*
+        What a rep can capture in this call, and what the back office made of it (W12, F1 and F4).
+
+        Not gated on the visit being open — see `Capture`. The *buttons* are; the answer about a
+        refused order is not, because that answer arrives after check-out by construction.
+      */}
+      <Capture visit={visit} />
 
       {/* Check-out lives below the steps because that is the order the rep works in, and because
           what it refuses is about them (`BR-VIS-3`, W9 slice 8). */}
@@ -133,20 +142,88 @@ export function Visit({ visitId }: { visitId: string }) {
  * catalogue and a shop with no MSL gets an empty shelf, which is each screen's own answer and a more
  * useful one than a missing button — "there is nothing here" and "you cannot look" are different
  * facts, and only one of them is about the rep.
+ *
+ * <b>It also says whether the back office took them</b> (regression F4) — W12. An order and an audit
+ * are queued under <i>their own</i> ids, so the badge on the round row, which asks about the visit,
+ * has never covered them: a refused order left a rep with a number in the indicator and no sentence
+ * anywhere, on the work that is hardest to reconstruct from memory.
+ *
+ * <b>The badges outlive the visit, and the buttons do not.</b> That asymmetry is the point rather
+ * than an oversight: an order is refused <i>on push</i>, and a device pushes at check-out — so a
+ * surface that disappeared when the visit sealed would be one no rep could ever see a refusal on.
+ * Gating the whole block on `inProgress` was the obvious shape and would have rebuilt F4 with extra
+ * steps.
  */
 function Capture({ visit }: { visit: LocalVisit }) {
   const t = useTranslations("Field.visit");
+  const { db } = useSync();
+
+  const open = visit.status === "inProgress";
+
+  // `null` for "read, and there is none" — an order or an audit the rep never started, which is the
+  // ordinary case for at least one of the two on most calls.
+  const order = useLive(async () => (await orderFor(db, visit.id)) ?? null, null, [db, visit.id]);
+  const audit = useLive(async () => (await auditFor(db, visit.id)) ?? null, null, [db, visit.id]);
+
+  // A sealed visit with neither captured has nothing to offer and nothing to report.
+  if (!open && !order && !audit) return null;
 
   return (
-    <section className="flex flex-wrap gap-2" aria-label={t("captureLabel")}>
-      <LinkButton variant="outline" size="sm" href={`/field/visits/${visit.id}/order`}>
-        {t("openOrder")}
-      </LinkButton>
+    <section className="flex flex-col gap-2" aria-label={t("captureLabel")}>
+      <CaptureRow
+        open={open}
+        href={`/field/visits/${visit.id}/order`}
+        label={t("openOrder")}
+        subjectId={order?.id}
+      />
 
-      <LinkButton variant="outline" size="sm" href={`/field/visits/${visit.id}/audit`}>
-        {t("openAudit")}
-      </LinkButton>
+      <CaptureRow
+        open={open}
+        href={`/field/visits/${visit.id}/audit`}
+        label={t("openAudit")}
+        subjectId={audit?.id}
+      />
     </section>
+  );
+}
+
+/**
+ * One capturable thing: the way in while the call is open, and what became of it once it is not.
+ *
+ * `subjectId` is the order's or the audit's own id — which is what they were queued under, and the
+ * reason the visit's own badge never answered for them.
+ */
+function CaptureRow({
+  open,
+  href,
+  label,
+  subjectId,
+}: {
+  open: boolean;
+  href: string;
+  label: string;
+  subjectId: string | undefined;
+}) {
+  // Nothing captured and nothing to capture with: the row would be an empty line with a name on it.
+  if (!open && !subjectId) return null;
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-2">
+        {open ? (
+          <LinkButton variant="outline" size="sm" href={href}>
+            {label}
+          </LinkButton>
+        ) : (
+          // Sealed: the name still has to be here, or the sentence below it is about nothing.
+          <span className="text-sm font-medium">{label}</span>
+        )}
+
+        {subjectId ? <SyncBadge subjectId={subjectId} /> : null}
+      </div>
+
+      {subjectId ? <RefusedReason subjectId={subjectId} /> : null}
+    </div>
   );
 }
 

@@ -11,10 +11,12 @@ import type { SyncContextValue } from "@/components/sync/sync-provider";
 import {
   closeDatabase,
   FieldKitDatabase,
+  type LocalOrder,
   type LocalVisit,
   type LocalVisitStep,
   type ReferenceOutlet,
 } from "@/lib/sync/db";
+import { enqueue, markRejected } from "@/lib/sync/outbox";
 import { render } from "@/test/render";
 
 /**
@@ -85,6 +87,24 @@ function visit(steps: LocalVisitStep[], overrides: Partial<LocalVisit> = {}): Lo
     checkOutLongitude: null,
     outcome: null,
     outcomeReason: null,
+    ...overrides,
+  };
+}
+
+/** A submitted order for `visit-1` — enough of one for the badge and the reason to have a subject. */
+function order(overrides: Partial<LocalOrder> = {}): LocalOrder {
+  return {
+    id: "order-1",
+    visitId: "visit-1",
+    outletId: "outlet-1",
+    status: "submitted",
+    currencyCode: "RON",
+    total: "27.00",
+    taxTotal: "0",
+    capturedAgainst: null,
+    lines: [],
+    capturedAtUtc: "2026-03-17T09:30:00.000Z",
+    updatedAtUtc: "2026-03-17T09:30:00.000Z",
     ...overrides,
   };
 }
@@ -229,6 +249,60 @@ describe("<Visit> and the sequence it shows", () => {
 
     expect(screen.queryByRole("link", { name: "Take the order" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Open the audit" })).toBeNull();
+  });
+
+  it("says why the back office refused an order, after the visit is sealed (regression F4)", async () => {
+    /*
+     * **The case F4 is actually about, and the reason the badges outlive the buttons.**
+     *
+     * An order is refused *on push*, and a device pushes at check-out — so by the time there is
+     * anything to say, the visit is sealed. A surface gated on `inProgress`, which is the obvious
+     * shape and the one the buttons use, would have been a refusal nobody could ever be shown.
+     *
+     * It is queued under the *order's* id, which is why the visit's own badge never answered for it:
+     * `statusOf(visitId)` looks for mutations whose subject is the visit.
+     */
+    await db.visits.add(visit([], { status: "checkedOut", checkedOutAtUtc: "2026-03-17T10:00:00.000Z" }));
+    await db.orders.add(order());
+
+    const entry = await enqueue(db, { type: "CapturedOrder", subjectId: "order-1", payload: {} });
+
+    await markRejected(db, entry.mutationId, "order.ingest.visitUnknown", "That visit is not one of yours.");
+
+    render(<Visit visitId="visit-1" />);
+
+    expect(await screen.findByText("Needs attention")).toBeTruthy();
+    expect((await screen.findByRole("alert")).textContent).toBe("That visit is not one of yours.");
+
+    // The label stays even with no button, or the sentence underneath is about nothing.
+    expect(screen.getByText("Take the order")).toBeTruthy();
+  });
+
+  it("says nothing about work the rep never captured", async () => {
+    // A sealed visit with no order and no audit has nothing to report, and a row per thing-not-done
+    // would be two lines of noise on every finished call.
+    await db.visits.add(visit([], { status: "checkedOut", checkedOutAtUtc: "2026-03-17T10:00:00.000Z" }));
+
+    render(<Visit visitId="visit-1" />);
+
+    await screen.findByText(/This visit is finished/);
+
+    expect(screen.queryByText("Take the order")).toBeNull();
+    expect(screen.queryByText("Open the audit")).toBeNull();
+  });
+
+  it("badges an order still on its way while the call is open", async () => {
+    // The pending half, and the one that shows the badge is keyed to the order rather than the
+    // visit: nothing here is queued under `visit-1` at all.
+    await db.visits.add(visit([]));
+    await db.orders.add(order());
+
+    await enqueue(db, { type: "CapturedOrder", subjectId: "order-1", payload: {} });
+
+    render(<Visit visitId="visit-1" />);
+
+    expect(await screen.findByText("Not synced")).toBeTruthy();
+    expect(await screen.findByRole("link", { name: "Take the order" })).toBeTruthy();
   });
 });
 

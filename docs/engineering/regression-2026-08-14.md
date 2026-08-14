@@ -170,6 +170,16 @@ hardest to reconstruct.
 **Fix:** the visit screen is the natural home for both, since a rep reaches an order and an audit
 through it. Small: the components exist and take a `subjectId`.
 
+**Fixed**, on the `Capture` block F1 added — each row now carries a `SyncBadge` and a `RefusedReason`
+keyed by the order's or the audit's own id.
+
+**The part that is not obvious, and that the fix nearly got wrong.** An order is refused *on push*,
+and a device pushes at **check-out** — so by the time there is anything to say, the visit is sealed.
+`Capture` was gated on `inProgress`, which is right for the buttons and would have made this surface
+one no rep could ever see a refusal on. The buttons stay gated; the badges do not, and a sealed visit
+with neither captured renders nothing at all. Sabotaging that split — putting the whole block back
+behind `inProgress` — fails the F4 test and nothing else, which is the split doing its job.
+
 ---
 
 ### F5 — `BR-ORD-9`'s rejection loop cannot complete, and the store says so
@@ -281,7 +291,7 @@ That is the recommendation this sweep would rather make than a tenth finding of 
 ## 7. Suggested order
 
 1. ~~**F1**~~ — **done.** The largest gap in the smallest change, and the one that was blocking every future manual pass.
-2. **F4** — mounts two existing components; the case R5 was written for.
+2. ~~**F4**~~ — **done.** Mounted two existing components; the case R5 was written for.
 3. **F3** — three fields on an endpoint that exists, and a W12 decision to take deliberately.
 4. **F2** — `JRN-06`'s third clause, the same shape as R4 and smaller.
 5. **The reachability gate** (§6) — after F1 and F2, so it lands green and stays that way.
