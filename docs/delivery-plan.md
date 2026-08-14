@@ -1166,6 +1166,21 @@ document explains why so nobody re-opens them.
   This is a `Week 14` E2E concern by the plan, but the gap is worth naming now rather than
   discovering it there.
 
+> **W11½ closed, and re-checked by a second full pass** —
+> [regression-2026-08-14.md](engineering/regression-2026-08-14.md). All seven slices verified,
+> five of them in a browser: the whole rep loop now runs end to end, which it could not the day
+> before. Seven of the previous sweep's nine findings are closed; F8 and F9 stay open by record.
+>
+> **It found five more, and they are all one shape** — something built and reachable only through a
+> door nobody opened. The largest is **F1: order and audit capture are linked only from a workflow
+> step**, so a channel with no workflow can be visited and nothing can be done in it. That is why two
+> consecutive sweeps could not test order capture by hand — R4 removed the first wall and this one
+> stood behind it. `ORD-01` and `AUD-01` are Musts reachable only through optional configuration.
+>
+> The sweep's own recommendation is **not a tenth finding of the same kind but a gate**: a
+> reachability scan over mutation types and field routes, in the shape of R1's registry check and
+> `check-vector-readers.mjs`. Either would have failed on F1 and F2 the day they were written.
+
 ### Week 12 · Dashboards + config-builder UI
 **Goal:** the Phase 3 demo — the full loop, both sides.
 - Supervisor **dashboard** (coverage, strike rate, perfect-store, order value) from module query contracts ([reporting](product/00-product-overview.md#reporting--kpis-cross-cutting-read-side)).
