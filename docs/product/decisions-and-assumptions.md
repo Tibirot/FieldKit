@@ -159,6 +159,19 @@ storage are provided by managed services in prod, containers in dev. → **new [
 > toggle is a later drop-in rather than a token rewrite. **Per-user theme choice is not a decision
 > taken here** — it is unspecified, and is distinct from per-tenant theme tokens (CFG-08), which
 > are. See [ux/README.md](../ux/README.md#design-direction).
+>
+> **Taken in W12½** (2026-08-15), and the drop-in was the drop-in it was predicted to be — the token
+> sets are untouched. **Light is the default**, with **dark** and **system** offered and the choice
+> persisted per user. Three states rather than two: dropping *system* would silently override a
+> preference the person already expressed on their device, and defaulting to *system* would not be
+> the light-first product this decides on. Per-tenant theme tokens (CFG-08) stay separate and
+> unaffected — they choose the hues, this chooses which set is on.
+>
+> What the decision costs is a property that used to be free. Resolving in CSS alone meant a cold
+> offline start could not flash the wrong theme; a stored choice has to be applied by an inline
+> script **before first paint**, and that script has to survive the service worker serving the app
+> shell from cache. That is the whole of the risk, and it is why the slice is 260 lines rather than
+> 60.
 
 ### A8 · Device & sync behavior: one active device, auto background sync
 

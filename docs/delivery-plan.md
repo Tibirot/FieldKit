@@ -1207,6 +1207,77 @@ document explains why so nobody re-opens them.
 
 **Done when:** the dashboard reflects field activity; editing a workflow/weights/form flows to the field app on next sync. **▶ Phase 3 demo — full golden path.**
 
+### Week 12½ · Navigation & theme redesign
+
+**Goal:** every screen has a navigation item, and a person can choose the theme.
+
+**Nothing in the back office is unreachable.** All 28 routes are linked from somewhere; each was
+checked. The problem is **depth**: the sidebar has one level, and of the seventeen screens that
+should be navigation items, six are. Eleven are full workspaces — price lists, promotions,
+assortments, the working calendar, surveys — reachable only by landing on a section index and
+spotting the right button in a row of outline links. The eleven record-detail screens below them
+(promotion tiers, price-list scope, tax rates) have no breadcrumb and are left with the browser's
+back button.
+
+**Done when:** the rail and its section panel reach all seventeen; a back-office route with no
+navigation item fails CI; and the theme is a choice, defaulting to light.
+
+#### The decision this reverses
+
+W10 slice 9b took the opposite view and [ux/README.md](ux/README.md#navigation--the-second-level)
+records it: a **link row** between the two Configuration pages rather than "a second sidebar level
+built for one section with two pages". That was right for one section with two pages. There are now
+nine sections, seventeen screens, five near-identical `*-actions.tsx` rows — and two navigation items
+that point *into* themselves because their sections have no index worth landing on, `Journeys` at
+call frequency and `Configuration` at the weights, each carrying a comment that **a nav item should
+go somewhere real**. Those comments are the missing second level, worked around three times. The
+reversal is recorded rather than performed silently, because the original reasoning was sound and
+what changed is the size of the thing it was reasoning about.
+
+#### The shape chosen
+
+**A 68px icon rail plus a section panel**, one of three prototyped
+([redesign wireframes](https://claude.ai/code/artifact/725d5e98-2292-4639-a9c7-40e015c39628)) — and
+not the one recommended. An
+expanding sidebar is a smaller change and puts the same seventeen screens in the same navigation.
+Both costs that argued against a rail turned out smaller than they looked once measured: the nine
+section icons **already exist** in `sidebar.tsx`'s `ICONS` map, and every sub-screen already has a
+Lucide icon chosen for it in the action row it lives in, so the icon work is re-use rather than a
+design exercise. What remains is 254px of chrome before content — on a 1280px laptop, 1026px for the
+widest table in the app. Slice 3 measures the outlet list against that number rather than slice 6
+discovering it.
+
+#### Decomposition
+
+**Slice 2 lands before any of the UI.** The gate goes in while the model is fresh and the screens
+that will consume it do not exist yet, so the new navigation cannot ship with a gap in it — the same
+ordering argument as W11½'s R1 registry check, and the reason "every screen has a navigation item"
+becomes a property of the build rather than of somebody's memory.
+
+**Slices 7 and 8 are independent of 1–6** and of each other. They are numbered last because the
+navigation is what was asked for, not because anything blocks them.
+
+| # | Slice | Requirements | ~Size |
+|---|---|---|---|
+| 0 | **The decomposition and what it reverses** — this section, the UX direction, the theme decision | — | 200 |
+| 1 | **The navigation model grows a second level** — `NavItem.screens`, and the seventeen move in | — | 250 |
+| | *Pure TypeScript, no visual change: the sidebar goes on rendering the top level and the action rows go on holding the links, so the model can be reviewed as a model. The union in `navigation.ts` already refuses an item that is neither built nor scheduled; this is what lets it refuse a **screen** with no home. Section visibility becomes any-of over its screens' permissions — someone who may read price lists but not promotions still has a reason to see Products.* | | |
+| 2 | **The gate learns about the back office** — a route with no navigation item fails CI | — | 150 |
+| | *`scripts/check-reachability.mjs` checks mutation types and field routes today. It gains a third question: every `(back-office)` route is either a screen in the model or a child of one. Proven by sabotage, as the other two were — and the vacuity guard matters here for the reason it did in R1 and in `check-service-worker.mjs`, since a scan whose input goes quiet passes.* | | |
+| 3 | **The section panel** — the second column, beside the sidebar that still exists | — | 220 |
+| | *Additive on purpose: the action rows stay, briefly duplicating their own links, so nothing in the stack is unreachable between two PRs. Also where the 1026px number is measured against the outlet table rather than assumed.* | | |
+| 4 | **The sidebar becomes the rail** — and the five action rows are deleted | — | 300 |
+| | *The layout switch, and a net-negative diff: five components and their tests go, their links having moved into the model in slice 1. `Journeys` and `Configuration` stop pointing into themselves — the rail selects a section, the panel's first screen is where it lands, and the `section` field that exists only to fix highlighting can go with them.* | | |
+| 5 | **Breadcrumbs** — the eleven detail screens stop being dead ends | — | 120 |
+| 6 | **Responsive** — rail and panel collapse to one drawer under `md` | — | 150 |
+| | *The back office is desktop-first ([ADR-0004](architecture/adr/0004-nextjs-offline-first-frontend.md)), so this is the "does not break" bar rather than a second design. Two columns of chrome is the concept's stated cost and this is where it is paid.* | | |
+| 7 | **The theme is a choice** — light by default, dark and system offered | `CFG-08` (adjacent) | 260 |
+| | *Both token sets already ship and `globals.css` already honours `.dark` / `.light` on `<html>`; nothing sets it. So this is a provider, `localStorage`, and a three-state control — plus **the sharp edge**: the class has to be set by an inline script before first paint, or a cold offline start flashes the wrong theme, and that script has to survive the service worker serving the shell from cache. Per-**tenant** theme tokens stay a separate concern.* | | |
+| 8a | **The field app gets a navigation** — a bottom tab bar | `JRN-05`, `OFF-05` | 180 |
+| | *Six screens today and two links in the header. Everything else is a linear flow leaving through `router.replace`, which serves the golden path and strands anyone who steps off it. Sync earns a permanent place rather than a badge that appears when something is already wrong.* | | |
+| 8b | **`/field/outlets`** — the rep's territory, not just today's list | `JRN-06`, `A4` | 150 |
+| | *Smaller than it reads, and it is the project's recurring shape again: `unplanned-call.tsx` **already** renders a searchable list of every in-scope outlet linking to `/field/outlets/{id}`. It is mounted in one place — inside today's journey, framed as starting an unplanned call — so the capability exists and the only door to it is labelled something else. This promotes it to a route and leaves the unplanned-call framing where it is.* | | |
+
 ---
 
 ## Phase 4 — Production polish

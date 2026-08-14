@@ -11,7 +11,12 @@ the build, without pretending to be final visual design.
 **[▶ Interactive wireframes (Artifact)](https://claude.ai/code/artifact/e97b6c9d-43bb-4631-aae9-3c95104a12d0)**
 — renders light/dark, responsive; every screen is tagged with the spec requirement it realizes.
 
-> The wireframes use a **fictional** tenant (“Veridian”) and data. They are design mockups, not
+**[▶ Navigation redesign (Artifact)](https://claude.ai/code/artifact/725d5e98-2292-4639-a9c7-40e015c39628)**
+— W12½. Three concepts for the second level of navigation, live and wired to each other, plus the
+theme control. It **supersedes the set above on the shell only**: the sidebar, the section
+navigation and the theme. Every screen's own content is still drawn by the original set.
+
+> Both sets use a **fictional** tenant (“Veridian”) and data. They are design mockups, not
 > the running app.
 
 ## Design direction
@@ -21,14 +26,17 @@ the build, without pretending to be final visual design.
 - **Palette:** cool slate neutrals + a **teal** brand accent; semantic colors kept *separate* from
   the accent — emerald = synced/good, amber = pending, rose = rejected — because sync state is the
   product's core story and must read at a glance.
-- **Light & dark:** both palettes ship as token sets and resolve from the **device preference**
-  (`prefers-color-scheme`) — pure CSS, so no theme JS and no flash of the wrong theme on a cold
-  offline start. An explicit `.dark` / `.light` class on `<html>` overrides the preference; that arm
-  is wired but nothing sets it today, so **no in-app theme toggle ships** — per-user theme *choice*
-  is unspecified and deferred, and would plug in as a provider that sets the class. Beyond the root,
-  `.dark` on any element re-themes **its whole subtree** (a forced-dark panel), while `.light` is a
-  root override only — arbitrary nesting isn't expressible in a selector, so it isn't offered.
-  (Per-*tenant* theme tokens are a separate concern —
+- **Light & dark:** both palettes ship as token sets. Until W12½ they resolved from the **device
+  preference** (`prefers-color-scheme`) alone — pure CSS, no theme JS, and no flash of the wrong
+  theme on a cold offline start. **W12½ makes it a choice**: light is the default, dark and *system*
+  are offered, and the choice persists per user (slice 7, [A7](../product/decisions-and-assumptions.md#a7--ui-toolkit-shadcnui--tailwind)).
+  The mechanism was already wired — an explicit `.dark` / `.light` class on `<html>` overrides the
+  preference and nothing set it — so what the slice adds is the thing that sets it, and **the
+  no-flash property becomes something to protect rather than something inherited**: the class has to
+  land before first paint, from an inline script that also has to survive the service worker serving
+  the shell from cache. Beyond the root, `.dark` on any element re-themes **its whole subtree** (a
+  forced-dark panel), while `.light` is a root override only — arbitrary nesting isn't expressible in
+  a selector, so it isn't offered. (Per-*tenant* theme tokens remain a separate concern —
   [CFG-08](../product/14-configuration.md#6-requirements).)
 - **Two experiences, one app:** the **field app** is mobile-first and offline-first; the **back
   office** is desktop-first ([ADR-0004](../architecture/adr/0004-nextjs-offline-first-frontend.md)).
@@ -137,6 +145,50 @@ built for one section with two pages. That is also when a live bug surfaced: the
 which item to highlight with `pathname.startsWith(href)`, and both `Journeys` and `Configuration`
 point at a screen *inside* themselves, so standing on the working calendar or on a survey left the
 section unlit. An item can now name the route prefix it owns separately from the one it opens.
+
+**W12½ reverses that call.** It is kept above rather than rewritten, because the reasoning was sound
+and what changed is the size of the thing it was reasoning about — see the next section.
+
+## Navigation — the second level
+
+> Decided in **W12½**, from the [navigation redesign wireframes](https://claude.ai/code/artifact/725d5e98-2292-4639-a9c7-40e015c39628).
+
+**Nothing in the back office is unreachable.** All 28 routes are linked from somewhere; each was
+checked. What is missing is a level: the sidebar has one, and of the **seventeen** screens that
+should be navigation items, **six** are.
+
+| | |
+|---|---|
+| Screens in the app | 34 — 28 back office, 6 field |
+| Reachable from a navigation item | 6 |
+| Workspaces reachable only from a link row | 11 |
+| Record-detail screens with no breadcrumb | 11 |
+
+The link row was the right answer for one section with two pages. By W12 there are nine sections,
+five near-identical `*-actions.tsx` rows, and **two navigation items that point *into* themselves**
+because their sections have no index worth landing on — each carrying a comment saying that a nav
+item should go somewhere real. Those comments are the missing level, worked around three times.
+
+**The shape:** a 68px **icon rail** for the nine sections plus a **section panel** listing that
+section's screens, which stays visible on the detail screens below them. Chosen from three
+prototypes, and not the one recommended — an expanding sidebar is a smaller change for the same
+result. Both costs that argued against a rail were smaller than they looked once measured: the nine
+section icons already exist in `sidebar.tsx`'s `ICONS` map, and every sub-screen already has a Lucide
+icon chosen for it inside the action row it lives in. What remains is 254px of chrome before content.
+
+**Two rules survive the redesign unchanged**, because they are about honesty rather than layout: an
+**unbuilt** destination renders visibly disabled with the week it arrives, and one the signed-in user
+**may not read** is hidden entirely. Both now apply to a screen in the panel as well as a section on
+the rail, and a section is visible when *any* of its screens is.
+
+**The panel holds links, not records.** Putting price lists or outlets in the second column — a
+Miller-column browse — is a bigger idea that this shape leaves open and does not take.
+
+**And it is enforced rather than remembered.** `scripts/check-reachability.mjs` already fails the
+build for a mutation type with no producer or a field route nothing links to; W12½ slice 2 adds the
+third question — a back-office route that is neither a screen in the navigation model nor a child of
+one. That is what makes "every screen has a navigation item" a property of the build, and it lands
+*before* any of the UI, while the model is fresh and the screens that consume it do not exist yet.
 
 ## Source
 
