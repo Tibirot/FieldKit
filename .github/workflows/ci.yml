@@ -275,6 +275,34 @@ jobs:
             exit 1
           fi
 
+  # ─────────────────────────────────────────────────────────────
+  # Reachability: nothing is built that nobody can reach — W12, the 14 Aug regression's §6.
+  #
+  # Two sweeps found nine defects and six were one shape: a capability that exists everywhere except
+  # at the point where somebody would use it. Every unit passed its own tests in all six, because
+  # none of them is a bug *in* a unit — they are absences of an **edge**, and suites are organised by
+  # unit. So this checks edges: every mutation type has a device producer, every field route is
+  # linked from somewhere.
+  #
+  # Its own job for the reason `parity` has one: "frontend (lint + build) failed" and "a screen no
+  # rep can reach shipped" are different kinds of news, and only one of them is worth a name of its
+  # own on the PR. It is a text scan over checked-out sources — no build, no restore, no npm install
+  # — so the job is a checkout and a node.
+  # ─────────────────────────────────────────────────────────────
+  reachability:
+    name: reachability (nothing built unreachable)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Every mutation type has a producer, every field route a link
+        run: node scripts/check-reachability.mjs
+
 # ─────────────────────────────────────────────────────────────
 # Making the gates real (do this in the GitHub UI once tests exist):
 #   Settings → Branches → Branch protection for `main`:

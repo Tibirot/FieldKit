@@ -75,6 +75,27 @@ no module→module internal references, contracts-only public surface, no entity
 maps-own-schema, **no `IgnoreQueryFilters`/raw tenant-bypass**, `IClock`-only time. These make the
 architecture *self-enforcing* rather than convention.
 
+### 4b. Reachability — the gate for what the pyramid cannot see (W12)
+
+Two full regression sweeps found nine defects and **six were one shape**: a capability that exists
+everywhere except at the point where somebody would use it. A screen with no link to it, a mutation
+type with no producer, a component that is never mounted.
+
+**Every suite above passed in all six**, and not by accident — none of them is a bug *in* a unit.
+They are absences of an **edge** between two things that each work, and every layer of the pyramid is
+organised by unit. Vectors close a different gap (two implementations of one rule), which is why they
+found something the day they landed and could not have found these.
+
+[`scripts/check-reachability.mjs`](../../scripts/check-reachability.mjs) checks edges instead, in the
+two places the [14 Aug regression](../engineering/regression-2026-08-14.md#6-what-this-says-about-the-shape-of-the-gaps)
+named: every mutation type the protocol carries has a producer under `lib/`, and every field-app
+route is linked from somewhere. It runs as its own CI job for the reason `parity` has one — "a screen
+no rep can reach shipped" is different news from "the frontend job failed".
+
+**It covers two instances of the shape, not the shape**, and the difference matters to anyone reading
+it as assurance. `F3` — a value computed on an aggregate and absent from its own DTO — is an edge one
+layer below any route or mutation, and this gate would have passed the day it was introduced.
+
 ## 5. Sync engine tests (the hard part) — property-based
 
 The offline guarantees ([sync engine §9-10](12-offline-sync-engine.md)) get dedicated,
