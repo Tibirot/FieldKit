@@ -91,6 +91,22 @@ public sealed record OrderLineDescriptor(
 /// does.
 /// </para>
 /// </remarks>
+/// <param name="Total">The device's net, as the rep and the shopkeeper settled it.</param>
+/// <param name="TaxTotal">
+/// The device's tax, beside <paramref name="Total"/>'s net.
+/// </param>
+/// <param name="ServerTotal">
+/// What this server made the net when it re-priced the order, or null if it did not (<c>BR-ORD-2</c>).
+/// </param>
+/// <param name="ServerTaxTotal">The server's tax, beside <paramref name="ServerTotal"/>'s net.</param>
+/// <param name="Agreement">
+/// Whether the two sides agree — the rule, computed once, where the data is.
+/// <para>
+/// Derivable from the four numbers above, and sent anyway. A consumer re-deriving it is a second
+/// implementation of a rule this codebase already has one place for, and comparing two decimals is
+/// exactly the sort of thing two implementations get subtly differently.
+/// </para>
+/// </param>
 public sealed record OrderDescriptor(
     Guid Id,
     Guid VisitId,
@@ -101,7 +117,11 @@ public sealed record OrderDescriptor(
     decimal Total,
     DateTimeOffset CapturedAtUtc,
     IReadOnlyList<OrderLineDescriptor> Lines,
-    OrderRejectionDescriptor? Rejection = null);
+    OrderRejectionDescriptor? Rejection = null,
+    decimal TaxTotal = 0m,
+    decimal? ServerTotal = null,
+    decimal? ServerTaxTotal = null,
+    PriceAgreement Agreement = PriceAgreement.NotRepriced);
 
 /// <summary>Reading what was ordered (<c>ORD-01</c>, reporting read-side).</summary>
 public interface IOrderQuery

@@ -172,6 +172,23 @@ the order keeps **the device's totals as the record**, and the server's recomput
 > own snapshot is not stored as cursors: it re-prices from its current tables, so `RepricedAtUtc`
 > names what it used more precisely than six columns would.
 
+> **Readable since W12** (regression F3). For a slice and a half the comparison ran on every pushed
+> order and reached nobody: `OrderResponse` carried the device's net alone. `GET /api/orders/by-visit`
+> and `by-outlet` now send `taxTotal`, `serverTotal`, `serverTaxTotal` and `agreement` — the last as
+> a name (`Agrees` / `Differs` / `NotRepriced`) rather than an ordinal.
+>
+> **Three states, and the third is not a hedge.** `NotRepriced` means the server had no opinion —
+> typically a line with no price for this outlet — and is a different fact from agreement. A reader
+> that collapsed them would pass over exactly the orders `BR-ORD-2` exists to surface.
+>
+> `Agreement` is sent even though it is derivable from the four numbers, because a consumer
+> re-deriving it is a second implementation of a rule this codebase has one place for, and comparing
+> two decimals is the kind of thing two implementations get subtly differently.
+>
+> **The reader is an exception queue, not a dashboard tile** — a W12 scoping decision taken with the
+> fix. "3% of orders disagreed" is a number nobody can act on; `BR-ORD-2` is a promise about a
+> *particular* order needing to be looked at.
+
 That is the opposite of what an audit does, and the contrast is the point. `BR-AUD-8` has the server's
 recomputed score *replace* the device's, because a score is a derived measurement and the server's is
 the more trustworthy one. An order's prices are **what a human being agreed to buy at**. Overwriting
