@@ -174,6 +174,16 @@ jobs:
       - name: Typecheck & build
         run: npm run build --if-present
 
+      # The build has run since the beginning; nothing ever looked at what it produced. `public/sw.js`
+      # exists only here — `next dev` registers no service worker — so the offline shell, the app's
+      # central claim, was the one output no check exercised. Both regression sweeps recorded that.
+      #
+      # It checks the artefact, not the behaviour: running the worker and pulling the plug is a
+      # Playwright job and belongs with the Week 14 E2E work. See scripts/check-service-worker.mjs
+      # for what that division does and does not buy.
+      - name: The offline shell is really in the build
+        run: npm run check:sw --if-present
+
       - name: Unit tests (Vitest)
         run: npm test --if-present
 

@@ -316,6 +316,18 @@ Each looks like a defect and is not.
 - **No service worker under `next dev`.** Unchanged and still true: the offline shell needs
   `npm run build && npm start` to exercise.
 
+  > **The consequence is closed in W12**, though the non-finding stands. CI always ran the
+  > production build; what it never did was look at the output. `check-service-worker.mjs` now reads
+  > `public/sw.js` back after the build and checks that its placeholders were substituted, that its
+  > precache manifest is real and versioned, and that the offline page it promises is in the build.
+  >
+  > **The sabotage is the clearest in the project.** Delete `app/[locale]/offline/page.tsx` and a
+  > clean production build **succeeds**, lint passes, and all 2,854 tests pass — while the worker
+  > goes on promising `/en/offline` to every device and fails to install on all of them, silently.
+  > Only the new check fails.
+  >
+  > Registering the worker and pulling the plug is still `Week 14` E2E.
+
 ---
 
 ## 4. The previous sweep's findings, re-checked
