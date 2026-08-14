@@ -31,6 +31,7 @@ import { downscale } from "@/lib/photos/downscale";
 import { attachPhoto, photosFor, removePhoto } from "@/lib/photos/local-photo";
 import { expectedPrices } from "@/lib/orders/pricing";
 import { looksLikeAnAmount } from "@/lib/api/price-lists";
+import { businessDay } from "@/lib/pricing/business-day";
 import type { ResolvedPrice } from "@/lib/pricing/price-resolver";
 import type {
   FieldKitDatabase,
@@ -161,13 +162,18 @@ export function Audit({ visitId }: { visitId: string }) {
   );
 
   /*
-   * The day the audit is *for*, from the device's own clock (W11 slice 9b).
+   * The day the audit is *for* — the **shop's**, not the phone's (`BR-PRD-6`) — W11½ R6b.
    *
-   * `BR-AUD-3` resolves the expected price for the outlet **and the date**, and the order screen
-   * takes the same reading with the same caveat: `OutletSnapshot` carries no timezone, so this is
-   * the device's day, which is the shop's for as long as the rep is standing in it.
+   * `BR-AUD-3` resolves the expected price for the outlet **and the date**, so this is a pricing
+   * question and takes the same answer the order screen does, from the same shared rule. It read the
+   * device's local day until R6b, which put a rep working near midnight on a different day from the
+   * server that would later judge them (regression F6).
+   *
+   * <b>What this does *not* settle is whether the audit's own date should follow the shop.</b> The
+   * price lookup below plainly should. Whether an audit is a fact about the rep's day or the shop's
+   * is a separate question, recorded in the R6 write-up and left alone here.
    */
-  const on = businessDay(new Date());
+  const on = shop ? businessDay(new Date(), shop.timeZoneId) : null;
 
   /*
    * What each product is *meant* to cost, resolved once and stored with each observation.
@@ -178,7 +184,11 @@ export function Audit({ visitId }: { visitId: string }) {
    */
   const expected = useLive(
     async () =>
-      shop ? await expectedPrices(db, shop.id, on, products.map((product) => product.id)) : new Map(),
+      // `on` joins the guard (W11½ R6b): a shop whose zone has not arrived cannot be priced against
+      // a day, and an expected price resolved from the phone's day is the defect restored.
+      shop && on
+        ? await expectedPrices(db, shop.id, on, products.map((product) => product.id))
+        : new Map(),
     new Map<string, ResolvedPrice>(),
     [db, shop?.id, on, products.length],
   );
@@ -1327,20 +1337,6 @@ function wholeOrNull(raw: string): number | null {
   if (!/^\d+$/.test(trimmed)) return null;
 
   return Number(trimmed);
-}
-
-/**
- * The device's day as `YYYY-MM-DD`.
- *
- * The same shape and the same caveat the order screen carries: `BR-AUD-3` wants the *outlet's* day
- * and `OutletSnapshot` has no timezone, so this is the device's — the shop's for as long as the rep
- * is standing in it, and wrong only for a phone that has crossed a border or a rep working within an
- * hour of midnight. `timeZoneId` is the field this snapshot still wants.
- */
-function businessDay(now: Date): string {
-  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
-
-  return local.toISOString().slice(0, 10);
 }
 
 function Waiting({ message }: { message: string }) {

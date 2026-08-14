@@ -252,7 +252,7 @@ the document a module author trusts when deciding what to depend on.
 |---|---|---|---|---|
 | IAM | `…Modules.Iam` (+ `.Contracts`) | `iam` | **`IUserDirectory`**, **`ITenantRegistry`** | `UserDeactivated` |
 | Organization | `…Modules.Org` (+ `.Contracts`) | `org` | **`ITerritoryDirectory`**, **`IRepScope`**, `IOrgHierarchy` | `RepAssignmentChanged` |
-| Outlets | `…Modules.Outlets` (+ `.Contracts`) | `outlets` | **`IOutletCatalog`**, **`IOutletClassification`**, **`IOutletGeofence`**, **`IReferenceChangeFeed`**, `IOutletProposalIngest` | `OutletChanged`, `OutletClosed` |
+| Outlets | `…Modules.Outlets` (+ `.Contracts`) | `outlets` | **`IOutletCatalog`**, **`IOutletCalendar`**, **`IOutletClassification`**, **`IOutletGeofence`**, **`IReferenceChangeFeed`**, `IOutletProposalIngest` | `OutletChanged`, `OutletClosed` |
 | Products & Pricing | `…Modules.Products` (+ `.Contracts`) | `products` | **`IProductChangeFeed`**, **`IAssortmentChangeFeed`**, **`IPriceChangeFeed`**, **`IPromotionChangeFeed`**, **`ITaxRateChangeFeed`**, **`IOrderMinimumChangeFeed`**, **`IAssortmentService`**, **`IPricingService`**, `IProductCatalog` | `PriceListPublished`, `PromotionActivated` |
 | Configuration | `…Modules.Configuration` (+ `.Contracts`) | `config` | **`IFieldDefinitionCatalog`**, **`IVisitWorkflow`**, **`IVisitWorkflowFeed`**, **`ISurveyForms`**, **`ISurveyFormFeed`**, **`IScoreWeights`**, **`IScoreWeightFeed`** | `ConfigurationPublished` |
 | Journey | `…Modules.Journey` (+ `.Contracts`) | `journey` | **`IJourneyQuery`**, **`IJourneyChangeFeed`**, **`IJourneyIngest`** | `JourneyPublished`, `PlannedVisitMarkedNotVisited` |
@@ -279,6 +279,17 @@ anything is a guess three modules would have to live with.
 > so `CountryCode` was an added property rather than a third Outlets contract or a fourth method.
 > Country qualifies on the same test channel did: something another module *decides with*, not a
 > detail of the outlet.
+>
+> **`IOutletCalendar` is the counter-example, and W11½ R6b added it deliberately as one.** Order needs
+> to know which trading day an instant fell on at a shop (`BR-PRD-6`) — and the obvious move, a
+> `TimeZoneId` on `OutletSummary`, is the one `IOutletCatalog`'s own remarks rule out: a caller
+> needing more "should ask for a contract that says what it needs, not for this one to grow". Every
+> existing consumer of that record would have bound to a field it never asked for.
+>
+> So the test is not "is this a fact about the outlet" but **"do the existing consumers of that
+> record decide with it"**. Channel, country and segment passed it. A time zone did not: only pricing
+> cares. The new contract also returns the **day** rather than the zone, which keeps the conversion in
+> the module that owns the data — Order never learns what a time zone is.
 >
 > **It did not grow its `.Contracts` in W6, as this line used to promise.** W6 built the things those
 > contracts would wrap — assortments (`PRD-02`), price lists (`PRD-03`), price resolution

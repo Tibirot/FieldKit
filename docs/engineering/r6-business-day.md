@@ -1,6 +1,6 @@
 # W11½ R6 — one answer to "what day is it"
 
-**Status: decisions taken; R6a shipped, R6b next.** Both contract questions below were approved as
+**Status: shipped.** R6a and R6b are both done. Both contract questions below were approved as
 recommended — `OutletSnapshot` widens (Decision A), Order gets a new narrow contract returning the
 **date** (Decision B), and an unrecognised zone **declines to answer** rather than falling back to
 UTC.
@@ -8,7 +8,7 @@ UTC.
 | | | |
 |---|---|---|
 | **R6a** | the zone reaches the device — contract, feed, local store v20 | **shipped**, no behaviour change |
-| **R6b** | both sides date pricing by it — `IOutletCalendar`, `RepriceAsync`, shared `businessDay`, vectors | next |
+| **R6b** | both sides date pricing by it — `IOutletCalendar`, `RepriceAsync`, shared `businessDay`, vectors | **shipped** |
 
 Closes regression [F6](regression-2026-08-13.md#f6--re-pricing-takes-the-capture-instant-as-a-utc-date).
 Requirements: `BR-PRD-6`, `ORD-08`, `PRD-04`.

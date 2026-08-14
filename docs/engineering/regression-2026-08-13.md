@@ -258,6 +258,19 @@ that changed prices that day.
 > outlet's zone**", which is `W11½` slice **R6**. `businessDay` is also duplicated across the two
 > screens, and collapses into one function that takes a zone.
 
+**Fixed in W11½ R6**, split into R6a (the zone reaches the device) and R6b (both sides date by it),
+and written up in full first — [r6-business-day.md](r6-business-day.md) — because it needed two
+contract decisions.
+
+Three things reading the code changed. **`Outlet.TimeZoneId` already existed** — required, IANA,
+validated since W1, with a doc comment already naming `BR-PRD-6` — so there was no migration and no
+new admin field, only plumbing. **There are two day-rules, not one**: `todayOn` is the *rep's* day
+and is correct for the round and for R4's unplanned call; only `businessDay` moves. And the two
+"duplicates" this finding named were **not the same implementation** — `order.tsx` used
+`getFullYear`/`getMonth`/`getDate`, `audit.tsx` an offset-shifted `toISOString().slice(0, 10)`. Two
+copies that agreed in result and had already drifted in method, which is the state just before they
+disagree.
+
 ---
 
 ### F7 — A rep cannot add an unplanned visit, and `JRN-06` is a Must

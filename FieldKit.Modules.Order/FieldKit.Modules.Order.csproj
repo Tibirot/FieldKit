@@ -16,6 +16,16 @@
     <ProjectReference Include="..\FieldKit.Modules.Products.Contracts\FieldKit.Modules.Products.Contracts.csproj" />
 
     <!--
+      Outlets, for `IOutletCalendar` alone (BR-PRD-6, W11½ R6b) — which trading day an instant fell
+      on at a shop. Re-pricing takes the *shop's* calendar day; taking Greenwich's flagged an order
+      captured before 03:00 local as disagreeing with a server that had asked a different question.
+
+      The contract returns the day rather than the zone, so this module never learns what a time zone
+      is — the rule stays where the data is.
+    -->
+    <ProjectReference Include="..\FieldKit.Modules.Outlets.Contracts\FieldKit.Modules.Outlets.Contracts.csproj" />
+
+    <!--
       Notably absent, and each for a reason rather than an oversight:
 
       **Products.** BR-ORD-1's assortment gate and BR-ORD-2's re-pricing both live there, and neither

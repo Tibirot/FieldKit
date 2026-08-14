@@ -76,6 +76,26 @@ them, which is why they live here rather than inside either project.
 > case about the rule itself passed on both sides at the first attempt. What diverged was the
 > handling of input the rule was never supposed to receive.
 
+> **`pricing/business-day.v1.json` is the first file whose two engines share no library at all**
+> (W11½ R6b). Money is `decimal` against `decimal.js` — two libraries, one specification. The
+> geofence is arithmetic both languages perform natively. This is `TimeZoneInfo` against `Intl`,
+> resolved through whatever zone database each runtime shipped with, so agreement is inherited from
+> nothing.
+>
+> **It found no divergence**, which is worth recording as plainly as R7's discovery: all fifteen
+> cases agreed at the first run. The value here is the pin, not a catch.
+>
+> Two things it deliberately does *not* pin, because JSON cannot express them — a **null** zone
+> (`ArgumentNullException` in .NET, which the narrow catch does not handle) and an **absent** one
+> (`Intl` silently formats in the *host's* zone, which is the very defect R6 removes). Both are
+> guarded in code and tested on each side separately, and both are noted here so the next reader does
+> not assume the file covers everything.
+>
+> A note on measuring rather than assuming: the empty-string case in this file **throws on both
+> runtimes tested**, so it is caught by each side's `try` and its guard is unfalsifiable there. The
+> guards exist for the neighbouring values that do not throw. Same shape as the haversine clamp
+> above — a defensive line whose stated reason had to be corrected once it was actually measured.
+
 ## Why a file rather than a shared test suite
 
 The two engines cannot share code — one is .NET on a server, the other is TypeScript on a phone
@@ -203,6 +223,7 @@ from what the strings say. Each hand-written file carries that exact pair.
 | [`pricing/promotion-resolution.generated.v1.json`](pricing/promotion-resolution.generated.v1.json) | ditto | `GeneratedVectorTests` (C#); the device mirror (W7) |
 | [`pricing/tax-application.generated.v1.json`](pricing/tax-application.generated.v1.json) | ditto | `GeneratedVectorTests` (C#); the device mirror (W7) |
 | [`pricing/order-minimum.v1.json`](pricing/order-minimum.v1.json) | `ORD-06` / `BR-ORD-5` — which minimum applies to an outlet, and whether an order meets it | `OrderMinimumVectorTests` (C#); `lib/pricing/order-minimum.test.ts` (TypeScript) |
+| [`pricing/business-day.v1.json`](pricing/business-day.v1.json) | `BR-PRD-6` — which calendar day an instant falls on, in a given IANA zone | `BusinessDayVectorTests` (C#); `lib/pricing/business-day.test.ts` (TypeScript) |
 
 **A mirror consumes all six.** The generated three are the same format and the same reader — that is
 the whole point of having settled the format against real engine code — so "read the vectors" means

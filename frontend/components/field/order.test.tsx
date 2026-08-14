@@ -9,6 +9,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Order } from "@/components/field/order";
 import type { SyncContextValue } from "@/components/sync/sync-provider";
 import { draft, orderFor } from "@/lib/orders/local-order";
+import * as pricing from "@/lib/orders/pricing";
+import { businessDay } from "@/lib/pricing/business-day";
 import {
   closeDatabase,
   FieldKitDatabase,
@@ -16,6 +18,7 @@ import {
   type ReferenceOutlet,
   type ReferenceProduct,
 } from "@/lib/sync/db";
+import { eventually } from "@/test/eventually";
 import { render } from "@/test/render";
 
 /**
@@ -309,6 +312,60 @@ describe("<Order> and what a rep can put on it", () => {
 
     // Nothing was written, and no empty draft was left behind for slice 8 to wonder about.
     expect(await draft(db, "visit-1")).toBeUndefined();
+  });
+
+  it("prices against the shop's day, not the phone's (`BR-PRD-6`) — W11½ R6b", async () => {
+    /*
+     * The claim R6b is about, asserted where it lives: the date this screen prices with is the one
+     * the **shop's** zone gives, not the device's.
+     *
+     * <b>Built so it cannot pass by coincidence.</b> The suite runs in `Europe/Bucharest`
+     * (`vitest.config.ts`) and every other fixture here names that zone, so a screen that ignored
+     * `timeZoneId` and read the phone would agree with all of them. Auckland is twelve or thirteen
+     * hours away, so for roughly half of every real day the two answers differ — and the assertion
+     * is against `businessDay` itself rather than a literal, so it is a claim about *which zone was
+     * asked* rather than about when the suite happens to run.
+     *
+     * The day-boundary arithmetic is not re-asserted here. It has cross-language vectors
+     * (`vectors/pricing/business-day.v1.json`), which is where a rule with two implementations
+     * belongs — this is the wiring.
+     */
+    const priceOrder = vi.spyOn(pricing, "priceOrder");
+
+    await db.outlets.put({ ...SHOP, timeZoneId: "Pacific/Auckland" });
+
+    render(<Order visitId="visit-1" />);
+
+    await (await catalogue()).findByText("Cola 500ml");
+
+    await waitFor(() => {
+      expect(priceOrder).toHaveBeenCalledWith(
+        expect.anything(),
+        "outlet-1",
+        businessDay(new Date(), "Pacific/Auckland"),
+        expect.anything(),
+      );
+    });
+
+    priceOrder.mockRestore();
+  });
+
+  it("adds nothing at a shop whose time zone has not arrived yet", async () => {
+    /*
+     * A shop pulled before W11½ R6a holds `""` until its next sync, and `businessDay` declines on it
+     * rather than falling back to the phone — which would be the defect restored, silently, for
+     * exactly the shops nobody had noticed.
+     *
+     * The catalogue is withheld rather than shown with dead controls: there is no day to price
+     * against, so every line a rep added would be refused one at a time.
+     */
+    await db.outlets.put({ ...SHOP, timeZoneId: "" });
+
+    render(<Order visitId="visit-1" />);
+
+    // The screen itself is fine — the shop's name is on it — and only the catalogue is absent.
+    expect(await screen.findByText("Mega Image Dorobanți")).toBeTruthy();
+    await eventually(() => expect(screen.queryByLabelText("How many Cola 500ml")).toBeNull());
   });
 
   it("refuses a product this shop has no price for, rather than adding it at nothing", async () => {
