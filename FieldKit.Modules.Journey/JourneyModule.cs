@@ -45,6 +45,16 @@ public sealed class JourneyModule : IModule
         services.AddModuleDbContext<JourneyDbContext>(connectionString, JourneyDbContext.SchemaName);
         services.AddHostedService<ModuleMigrator<JourneyDbContext>>();
 
+        /*
+         * A round covering today, so a dev environment has a day to work (W12).
+         *
+         * Registered last of the three seeders by dependency rather than by order in this file:
+         * it needs IAM's user row and Organization's territory assignment to already exist, and
+         * hosted services start in registration order across modules. Does nothing unless
+         * configured, which in practice means development.
+         */
+        services.AddHostedService<JourneyRoundSeeder>();
+
         // Registered against the interface, so a consumer takes the promise and never the class
         // behind it (W7 slice 9b).
         services.AddScoped<IJourneyQuery, JourneyQueries>();

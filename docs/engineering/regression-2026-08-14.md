@@ -348,6 +348,19 @@ is **closed** by R6a.
   unplanned call is refused. The previous sweep asked for a seeded plan for *today* and it is still
   the single change that would most improve the next pass.
 
+  > **Built in W12** — [`JourneyRoundSeeder`](../../FieldKit.Modules.Journey/JourneyRoundSeeder.cs).
+  > Asked for by both sweeps and by W12's own F2b verification, which spent its first twenty minutes
+  > generating and publishing a round by hand.
+  >
+  > It runs the **real generator** rather than writing calls into the table, so a break in `JRN-03`
+  > cannot hide from a browser pass — and that decision paid for itself immediately: the first
+  > version produced a published plan with **no calls on it** and logged success, because the window
+  > opened a week back and `JourneyPlanner` reads coverage on the window's *first* day while the rep
+  > assignment starts today. A seeder that wrote rows directly would have worked and taught nothing.
+  >
+  > It is idempotent by **coverage of today** rather than by row existence, so a dev environment left
+  > running re-seeds when the window lapses instead of going quietly empty again.
+
 ---
 
 ## 6. What this says about the shape of the gaps

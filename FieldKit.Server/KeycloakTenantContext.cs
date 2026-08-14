@@ -31,11 +31,29 @@ namespace FieldKit.Server;
 /// (<see cref="AuthenticationExtensions"/>). They are here because "unreachable" and "cannot happen"
 /// are different, and the safe failure for a tenant that cannot be determined is a loud one.
 /// </para>
+/// <para>
+/// <b>A seeding scope wins, and it can only exist where no request does</b>
+/// (<see cref="TenantScope"/>, W12). Startup work that touches tenant-owned data has to name a
+/// tenant, and there is no principal to read one from — so <c>TenantScope.For</c> pushes one for
+/// the duration of a scope and this defers to it.
+/// </para>
+/// <para>
+/// <b>It is not a way in.</b> The ambient identity is set by in-process startup code and by nothing
+/// a request can reach: no header, no claim, no body. It carries an empty permission set, so
+/// everything behind <c>RequirePermission</c> refuses it — the same posture the three private
+/// <c>SeedingIdentity</c> copies it replaces already had. The ordering is nevertheless the nervous
+/// line to read: a request arriving while a seeding scope was open <i>on the same async flow</i>
+/// would take the seed's tenant. No such flow exists — a hosted service is not a request — and the
+/// only way to set it is to be running inside this process already.
+/// </para>
 /// </remarks>
 public sealed class KeycloakTenantContext(IHttpContextAccessor httpContextAccessor) : ITenantContext
 {
-    private readonly Lazy<TenantId> _tenantId = new(() => TenantId.Parse(Claim(httpContextAccessor, "tenant")));
-    private readonly Lazy<string> _userId = new(() => Claim(httpContextAccessor, "sub"));
+    private readonly Lazy<TenantId> _tenantId = new(() =>
+        TenantScope.Ambient?.TenantId ?? TenantId.Parse(Claim(httpContextAccessor, "tenant")));
+
+    private readonly Lazy<string> _userId = new(() =>
+        TenantScope.Ambient?.UserId ?? Claim(httpContextAccessor, "sub"));
 
     private readonly Lazy<FrozenSet<string>> _permissions = new(() =>
         Principal(httpContextAccessor)
