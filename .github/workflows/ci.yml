@@ -292,7 +292,8 @@ jobs:
   # at the point where somebody would use it. Every unit passed its own tests in all six, because
   # none of them is a bug *in* a unit — they are absences of an **edge**, and suites are organised by
   # unit. So this checks edges: every mutation type has a device producer, every field route is
-  # linked from somewhere.
+  # linked from somewhere, and every back-office route has a navigation item (W12½ — where the
+  # failure was never an unlinked route but a missing *level*, eleven screens deep).
   #
   # Its own job for the reason `parity` has one: "frontend (lint + build) failed" and "a screen no
   # rep can reach shipped" are different kinds of news, and only one of them is worth a name of its
@@ -310,7 +311,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Every mutation type has a producer, every field route a link
+      - name: Every mutation type a producer, every route a way in
         run: node scripts/check-reachability.mjs
 
 # ─────────────────────────────────────────────────────────────

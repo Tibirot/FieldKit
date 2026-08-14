@@ -1,5 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
@@ -43,34 +42,6 @@ const holding = (...granted: readonly string[]) => (permission: string) =>
 
 const holdingAllBut = (...withheld: readonly string[]) =>
   holding(...ALL_PERMISSIONS.filter((permission) => !withheld.includes(permission)));
-
-/**
- * Every route the back office serves, as a path — read from the router rather than listed here,
- * because a list maintained beside the thing it describes is a list that drifts.
- *
- * Route groups (`(back-office)`) shape the layout without appearing in the URL, so they are dropped;
- * `[locale]` is supplied by the middleware and never appears in a nav `href`.
- */
-function backOfficeRoutes(): readonly string[] {
-  const root = fileURLToPath(new URL("../../app/[locale]/(back-office)", import.meta.url));
-  const found: string[] = [];
-
-  const walk = (directory: string, path: string) => {
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      if (entry.isDirectory()) {
-        walk(join(directory, entry.name), `${path}/${entry.name}`);
-      } else if (entry.name === "page.tsx") {
-        found.push(path === "" ? "/" : path);
-      }
-    }
-  };
-
-  walk(root, "");
-
-  return found;
-}
-
-const isDynamic = (route: string) => route.includes("[");
 
 describe("back-office navigation", () => {
   it("names every destination the product will have, not just the built ones", () => {
@@ -158,40 +129,18 @@ describe("back-office navigation", () => {
 });
 
 describe("the screens inside a section", () => {
-  it("covers every back-office route the app serves", () => {
-    /*
-     * The whole point of the slice, and the assertion slice 2 promotes into a CI job.
-     *
-     * Two rules rather than one, because the weaker version passes vacuously. "Every route is under
-     * some screen" is satisfied by `/products` alone — it is a prefix of all six screens in its own
-     * section — so forgetting price lists entirely would not fail it. What has to hold is:
-     *
-     *  • a **static** route is a screen of its own, unless it is a `/new` create form, which is
-     *    reached from the list it adds to and is not a place;
-     *  • a **dynamic** route is a record detail and belongs to the screen above it.
-     *
-     * Deleting `priceLists` from the model fails the first; adding a page under a section with no
-     * screen fails the second.
-     */
-    const routes = backOfficeRoutes();
-
-    // The vacuity guard. This walks the filesystem, and a filesystem scan's characteristic failure
-    // is its input going quiet — a moved route group would leave every assertion below passing over
-    // an empty list.
-    expect(routes.length).toBeGreaterThan(20);
-
-    const hrefs = new Set(screens.map((screen) => screen.href));
-
-    for (const route of routes) {
-      if (!isDynamic(route) && !route.endsWith("/new")) {
-        expect(hrefs.has(route), `${route} has no screen in NAVIGATION`).toBe(true);
-        continue;
-      }
-
-      expect(findScreen(route)?.screen.href, `${route} belongs to no screen`).toBeDefined();
-    }
-  });
-
+  /*
+   * **"Covers every back-office route the app serves" used to live here, and moved out in slice 2.**
+   *
+   * It is now `scripts/check-reachability.mjs`, beside the two edge checks it belongs with, and it
+   * is not duplicated back into this file. Two implementations of one rule drift, and they drift
+   * quietly in the direction of agreeing with whichever was edited last — which is the failure this
+   * whole gate exists to catch, arriving through the gate.
+   *
+   * What stays here is everything about the model *itself*: its keys, its catalog, its permissions,
+   * and which screen owns a path. What left is the one assertion about the model's edge with the
+   * router, which is a different question and now has its own name on the PR.
+   */
   it("names every screen in both catalogs", () => {
     // The same hazard `Nav.items` has: a screen added without a translation renders the literal key
     // in the panel, which next-intl returns rather than throwing (the W11½ R5 lesson).
