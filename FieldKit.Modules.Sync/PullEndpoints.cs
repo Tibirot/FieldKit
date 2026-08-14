@@ -1,6 +1,7 @@
 using FieldKit.BuildingBlocks;
 using FieldKit.Modules.Configuration.Contracts;
 using FieldKit.Modules.Journey.Contracts;
+using FieldKit.Modules.Order.Contracts;
 using FieldKit.Modules.Org.Contracts;
 using FieldKit.Modules.Outlets.Contracts;
 using FieldKit.Modules.Products.Contracts;
@@ -46,6 +47,7 @@ public static class PullEndpoints
             IPromotionChangeFeed promotions,
             ITaxRateChangeFeed taxRates,
             IOrderMinimumChangeFeed orderMinimums,
+            IOrderVerdictFeed verdicts,
             ITenantContext tenant,
             IClock clock,
             CancellationToken ct) =>
@@ -237,6 +239,22 @@ public static class PullEndpoints
             var orderMinimumPage = await orderMinimums.GetChangesAsync(
                 request.Cursors?.OrderMinimums ?? 0, PageLimit, ct);
 
+            /*
+             * The rep's own orders, coming back down (`BR-ORD-9`, regression F5) — W12 F5a.
+             *
+             * <b>Scoped by the subject in the token, and that is the whole of the rule.</b> Unlike
+             * outlets there is no territory to resolve: an order names the rep who took it, copied
+             * from the visit at capture, and never changes hands. A rep who moves territory keeps
+             * the orders they sold, which is both what the business means and what makes this a
+             * cursor with no baseline.
+             *
+             * <b>It sends a verdict, not an order.</b> `BR-ORD-6` puts the device's totals beyond
+             * the server's reach, so the wire deliberately has nothing on it that could overwrite
+             * them — see `IOrderVerdictFeed`.
+             */
+            var verdictPage = await verdicts.GetChangesAsync(
+                request.Cursors?.Orders ?? 0, tenant.UserId, PageLimit, ct);
+
             await RecordScopeAsync(
                 db, device.Id, tenant.TenantId, territory.Entering, territory.Leaving, ct);
 
@@ -278,7 +296,9 @@ public static class PullEndpoints
                     new EntityChanges<OrderMinimumSnapshot>(
                         orderMinimumPage.Upserts,
                         orderMinimumPage.Tombstones,
-                        orderMinimumPage.Cursor)),
+                        orderMinimumPage.Cursor),
+                    new EntityChanges<OrderVerdictSnapshot>(
+                        verdictPage.Upserts, verdictPage.Tombstones, verdictPage.Cursor)),
                 // A patchwork, not a point in time: watermarks advance per entity type, and the
                 // device tolerates the skew because captured work records its own inputs
                 // (sync engine §3). The string names the outlet cursor only — it is a label for
@@ -454,7 +474,8 @@ public sealed record PullCursors(
     long? Surveys = null,
     long? ScoreWeights = null,
     long? TaxRates = null,
-    long? OrderMinimums = null);
+    long? OrderMinimums = null,
+    long? Orders = null);
 
 public sealed record EntityChanges<T>(
     IReadOnlyList<T> Upserts, IReadOnlyList<ReferenceTombstone> Tombstones, long Cursor);
@@ -474,6 +495,17 @@ public sealed record PullChanges(
     EntityChanges<SurveyFormSnapshot> Surveys,
     EntityChanges<ScoreWeightSetSnapshot> ScoreWeights,
     EntityChanges<TaxRateSnapshot> TaxRates,
-    EntityChanges<OrderMinimumSnapshot> OrderMinimums);
+    EntityChanges<OrderMinimumSnapshot> OrderMinimums,
+    /// <summary>
+    /// What the back office made of this rep's own orders (<c>BR-ORD-9</c>) — W12 F5a.
+    /// </summary>
+    /// <remarks>
+    /// <b>The one entity here that is not reference data.</b> Every other field on this record is a
+    /// copy of something the server owns and the device holds so it can work offline; this is an
+    /// annotation on work the *device* authored, travelling back down. It carries a status and a
+    /// rejection and no totals, so applying it cannot overwrite what the rep and the shopkeeper
+    /// agreed (<c>BR-ORD-6</c>).
+    /// </remarks>
+    EntityChanges<OrderVerdictSnapshot> Orders);
 
 public sealed record PullResponse(PullChanges Changes, string SnapshotVersion);

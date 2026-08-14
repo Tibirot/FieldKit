@@ -19,24 +19,26 @@ public sealed class OrderDbContext(DbContextOptions<OrderDbContext> options, ITe
     protected override string Schema => SchemaName;
 
     /// <summary>
-    /// No row-version counter yet, and it is scheduled rather than declined.
+    /// A row-version counter, arriving exactly when the debt above said it would (ADR-0013).
     /// </summary>
     /// <remarks>
     /// <para>
     /// Orders are the <b>one transactional record that flows back down</b> (order spec F4): a
-    /// rejected order returns to the rep's device so the work is never stranded. That is exactly the
-    /// question a change sequence answers, so this schema will need one.
+    /// rejected order returns to the rep's device so the work is never stranded. W11 deferred the
+    /// counter on the argument that "a store with no writer is a schema version spent on nothing",
+    /// and noted that unlike <c>Source</c> on <c>Visit</c> this one <i>could</i> arrive later
+    /// without loss — a device that has never pulled an order has no watermark to be wrong about,
+    /// so it takes everything on its first pull whatever the versions say.
     /// </para>
     /// <para>
-    /// It is not here because nothing pulls orders until slice 4 builds the rejection path, and this
-    /// codebase has been burned by the opposite: W8 slice 6 deliberately left the <c>blobs</c> store
-    /// out because "a store with no writer is a schema version spent on nothing". A counter no feed
-    /// reads is the same trade. Unlike <c>Source</c> on <c>Visit</c>, this one <i>can</i> arrive
-    /// later without loss — a device that has never pulled an order has no watermark to be wrong
-    /// about, so it takes everything on its first pull whatever the versions say.
+    /// <b>That is what happened, and the deferral held.</b> W12 F5a turns it on with
+    /// <see cref="Contracts.IOrderVerdictFeed"/> to read it — the reader arriving with the counter
+    /// rather than a fortnight after it. Existing orders back-fill to <c>0</c>, which is below every
+    /// cursor and therefore invisible to a delta; they become visible the moment something rejects
+    /// one, which is the only event this feed is about.
     /// </para>
     /// </remarks>
-    protected override bool TracksSyncChanges => false;
+    protected override bool TracksSyncChanges => true;
 
     public DbSet<Order> Orders => Set<Order>();
 
@@ -91,6 +93,22 @@ public sealed class OrderDbContext(DbContextOptions<OrderDbContext> options, ITe
             // "What has this outlet been ordering" — the read this module exists to serve, and the
             // reason the outlet id is copied onto the order rather than reached through the visit.
             order.HasIndex(o => new { o.TenantId, o.OutletId, o.CapturedAtUtc });
+
+            /*
+             * "What has the back office decided about my orders since I last asked" — the pull feed
+             * (`IOrderVerdictFeed`), W12 F5a.
+             *
+             * <b>The only index here that is not about a read somebody performs deliberately.</b>
+             * The two above answer questions a person asked; this one answers a question every
+             * device asks on every sync, which is the argument for it rather than against. Without
+             * it the feed's `UserId = … AND RowVersion > cursor` finds no useful index — the ones
+             * above lead with `VisitId` and `OutletId` — and reads every order the tenant has ever
+             * taken, per device, per sync, forever. `orders` is the highest-volume table in this
+             * schema by construction: one row per visit, and visits do not stop.
+             *
+             * `RowVersion` last because it is the range and the sort; the two equality columns lead.
+             */
+            order.HasIndex(o => new { o.TenantId, o.UserId, o.RowVersion });
 
             order.HasMany(o => o.Lines)
                 .WithOne()

@@ -4091,12 +4091,26 @@ Content-Type: application/json
 #
 # Try it: reschedule a call to `movableTo` (accepted) and to the day after (`journey.visit.
 # outsideCycle`). The endpoint is under *Journey · rep-side annotations* above.
+#
+# **`orders` is new in W12 F5a, and it is the odd one out.** Every other entity here is reference
+# data — a copy of something this server owns, held so a phone can work with no signal. `orders`
+# carries **what the back office made of work the device itself authored**: a status and a rejection,
+# scoped to the rep in the token, closing `BR-ORD-9`'s loop (regression F5). Until now the rejection
+# endpoint existed and no rep could learn they had been refused.
+#
+# It carries **no totals, deliberately**. `BR-ORD-6` makes the device's numbers the record and the
+# server's arithmetic an annotation beside them — a snapshot with `total` on it would put the figure
+# the rep and the shopkeeper agreed on the wire, aimed at a store that already holds it.
+#
+# Try it: `POST /api/orders/{id}/rejection` below, then pull with the cursor from the previous
+# response — the order comes back `Rejected` with the offending line named. Push a correction and it
+# comes back `Submitted` with `rejection: null`, which is how the device knows to stop saying so.
 
 POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
-{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 0, "journeys": 0, "configuration": 0, "products": 0, "assortment": 0, "outletAssortment": 0, "priceLists": 0, "priceLines": 0, "priceAssignments": 0, "promotions": 0, "promotionAssignments": 0, "surveys": 0, "scoreWeights": 0, "taxRates": 0, "orderMinimums": 0 } }
+{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 0, "journeys": 0, "configuration": 0, "products": 0, "assortment": 0, "outletAssortment": 0, "priceLists": 0, "priceLines": 0, "priceAssignments": 0, "promotions": 0, "promotionAssignments": 0, "surveys": 0, "scoreWeights": 0, "taxRates": 0, "orderMinimums": 0, "orders": 0 } }
 
 ### A second pull at the cursor the first returned. Carries only what changed since —
 ### an unchanged tenant answers with an empty page and the same cursor.
@@ -4104,7 +4118,7 @@ POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
-{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 42, "journeys": 17, "configuration": 3, "products": 812, "assortment": 840, "outletAssortment": 851, "priceLists": 860, "priceLines": 1204, "priceAssignments": 871, "promotions": 903, "promotionAssignments": 910, "surveys": 918, "scoreWeights": 925, "taxRates": 931, "orderMinimums": 938 } }
+{ "deviceId": "{{deviceId}}", "cursors": { "outlets": 42, "journeys": 17, "configuration": 3, "products": 812, "assortment": 840, "outletAssortment": 851, "priceLists": 860, "priceLines": 1204, "priceAssignments": 871, "promotions": 903, "promotionAssignments": 910, "surveys": 918, "scoreWeights": 925, "taxRates": 931, "orderMinimums": 938, "orders": 12 } }
 
 ### A device that was replaced answers 409 `sync.pull.deviceInactive` — the client's job is
 ### to bind again, which re-snapshots from zero.
@@ -4112,7 +4126,7 @@ POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
 Content-Type: application/json
 
-{ "deviceId": "{{revokedDeviceId}}", "cursors": { "outlets": 0, "journeys": 0, "configuration": 0, "products": 0, "assortment": 0, "outletAssortment": 0, "priceLists": 0, "priceLines": 0, "priceAssignments": 0, "promotions": 0, "promotionAssignments": 0, "surveys": 0, "scoreWeights": 0, "taxRates": 0, "orderMinimums": 0 } }
+{ "deviceId": "{{revokedDeviceId}}", "cursors": { "outlets": 0, "journeys": 0, "configuration": 0, "products": 0, "assortment": 0, "outletAssortment": 0, "priceLists": 0, "priceLines": 0, "priceAssignments": 0, "promotions": 0, "promotionAssignments": 0, "surveys": 0, "scoreWeights": 0, "taxRates": 0, "orderMinimums": 0, "orders": 0 } }
 
 ### ── Sync · push (OFF-04) ──────────────────────────────────────────────────
 # The drain. Every mutation carries an id minted on the device, and the ledger answers a

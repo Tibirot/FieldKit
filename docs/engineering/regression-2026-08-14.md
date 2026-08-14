@@ -225,7 +225,7 @@ behind `inProgress` — fails the F4 test and nothing else, which is the split d
 
 ---
 
-### F5 — `BR-ORD-9`'s rejection loop cannot complete, and the store says so
+### F5 — `BR-ORD-9`'s rejection loop cannot complete, and the store says so — **half closed**
 
 **Where:** `frontend/lib/sync/db.ts:564`
 
@@ -245,6 +245,32 @@ bounded today only because nothing rejects orders — there is no back-office sc
 
 **Fix:** orders on the pull feed, which the comment already names as the precondition. Larger than
 the others and probably its own slice.
+
+**Half closed — F5a builds the path; F5b makes the device read it.** `Order` is sync-tracked,
+`IOrderVerdictFeed` is on the pull as a sixteenth entity, and the loop is complete on the wire: reject
+an order and the next pull carries `Rejected` with the offending line; push a correction and it comes
+back `Submitted` with `rejection: null`.
+
+Three decisions the write-up did not have to take, and the first is the one worth arguing with:
+
+- **The wire carries a verdict, not an order.** Orders are the first *device-owned* data this feed has
+  ever sent back — every other entity is a copy of something the server owns. A full snapshot would
+  put `total` on the wire pointed at a store that already holds a different copy of it, and
+  `BR-ORD-6` says the device's number is the record. A verdict has nothing on it to overwrite. There
+  is a test that asserts the payload's field list, because the property is an *absence*.
+- **It sends `Submitted` too, not only rejections.** The interceptor stamps on insert, so every order
+  appears the moment it is stored — redundant-looking, and load-bearing: a correction returns an
+  order to `Submitted`, and a feed carrying only bad news could never tell a device to stop showing
+  a rejection it has since cleared.
+- **An index, which no other sync-tracked entity has.** The feed's `UserId = … AND RowVersion >
+  cursor` finds nothing useful in the existing indexes — they lead with `VisitId` and `OutletId` — so
+  it would read every order the tenant has ever taken, per device, per sync. `orders` is the
+  highest-volume table in the schema by construction.
+
+The deferral itself held, which is worth recording. W11 declined the counter on the argument that "a
+store with no writer is a schema version spent on nothing", and noted this one *could* arrive later
+without loss because a device that has never pulled an order has no watermark to be wrong about.
+That is exactly what happened.
 
 ---
 
@@ -317,7 +343,8 @@ everywhere except at the point where somebody would use it.
   **Closed**, and the one of the six a reachability check on *screens* would still have missed — the
   missing edge was between an aggregate and its own DTO, one layer below anything a route graph sees.
 - F4 (this sweep) — refusals for two of five subjects: the component exists and is not mounted.
-- F5 (this sweep) — the rejection loop: both ends built, no path between them.
+- F5 (this sweep) — the rejection loop: both ends built, no path between them. **The server half is
+  closed** (F5a): the path exists on the wire, and the device has yet to read it.
 
 **Every test suite passes in all six.** They are not bugs in a unit; they are *absences of an edge*
 between two things that each work. The previous sweep concluded that "every defect lived in a gap
@@ -363,7 +390,7 @@ Three things the build settled that the recommendation did not:
 3. ~~**F3**~~ — **done.** Four fields in the end, and the W12 decision taken: an exception queue.
 4. ~~**F2**~~ — **done**, in two: the window had to reach the device before a writer could exist.
 5. ~~**The reachability gate**~~ (§6) — **done**, and it did land green: F1 and F2 were the two things standing between it and a passing run.
-6. **F5** — orders on the pull feed. Its own slice.
+6. **F5** — orders on the pull feed. **F5a done**; the device half (F5b) is what remains.
 7. **F8** — still open from R4, still small.
 
 None blocks Week 12. **F1 is the one that changes what a demo can show**, since the golden path runs

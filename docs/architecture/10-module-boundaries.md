@@ -259,7 +259,7 @@ the document a module author trusts when deciding what to depend on.
 | Visit | `…Modules.Visit` (+ `.Contracts`) | `visit` | **`IVisitIngest`**, **`IVisitContext`**, `IVisitQuery` | `VisitCompleted` |
 | Audit | `…Modules.Audit` (+ `.Contracts`) | `audit` | **`IAuditIngest`**, **`IAuditQuery`**, **`IPhotoEvidence`**, `IPerfectStoreScore` | `AuditCompleted` |
 | | *`IPhotoEvidence` (W11 slice 13a) is Sync telling an audit that a photograph it references reached storage. Kept apart from `IAuditIngest` so a caller that only wants to say "the bytes are there" does not acquire the ability to file audits — the same split `IAuditQuery` already makes on the read side.* | | | |
-| Order | `…Modules.Order` (+ `.Contracts`) | `ordering` | **`IOrderIngest`**, **`IOrderQuery`** | `OrderSubmitted` |
+| Order | `…Modules.Order` (+ `.Contracts`) | `ordering` | **`IOrderIngest`**, **`IOrderQuery`**, **`IOrderVerdictFeed`** | `OrderSubmitted` |
 | | *Gates on `order:reject` (W11 slice 4a) and borrows `visit:read` for reads. There is no `order:write`: nothing writes an order over HTTP, and rejecting is not editing. **Consumes** `IVisitContext` and — from slice 4b — `IAssortmentService`.* | | | |
 | Sync | `…Modules.Sync` | `sync` | ~~`ISyncEndpoints` (pull/push)~~ — none yet; nothing outside the module calls it | ~~`DeviceRegistered`~~ — no subscriber yet |
 

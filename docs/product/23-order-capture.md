@@ -61,6 +61,19 @@ Lifecycle and mechanics per [B4](decisions-and-assumptions.md#b4--order-lifecycl
 - **The rejected order is retained server-side in `Rejected` state and pulls back to the rep's
   active device**, so remediation survives even a **device swap** (it's the rep's own record) — the
   one transactional record that flows *down* by design ([sync engine §7](../architecture/12-offline-sync-engine.md#7-device-lifecycle)).
+
+  > **Built in W12 F5a** (regression F5). `Order` is sync-tracked and
+  > [`IOrderVerdictFeed`](../../FieldKit.Modules.Order.Contracts/IOrderVerdictFeed.cs) puts it on the
+  > pull as `orders`. Until then the rejection endpoint, `Order.Resubmit` and the terminal-mutation
+  > rule all existed and **no rep could begin the loop**, because none could learn they had been
+  > refused. It was bounded only because nothing rejects orders yet — `ORD-09`'s screen is Phase 4.
+  >
+  > **What travels is a verdict, not the order**: a status and the rejection, and no totals.
+  > `BR-ORD-6` makes the device's numbers the record, so a snapshot carrying `total` would put the
+  > figure the rep and the shopkeeper agreed on the wire, aimed at a store that already holds it.
+  >
+  > It also carries `Submitted`, which looks redundant and is not: the correction below returns an
+  > order to that state, and a feed of rejections alone could never say a rejection had been cleared.
 - **When there is nothing to fix** (e.g. `OUTLET_CLOSED`, `OUTLET_ON_HOLD` — no line the rep can
   edit to make it valid), the rep **Cancels** the rejected order (`Rejected → Cancelled`); the
   cancellation syncs like any device-owned mutation. A rejected order left unactioned past a

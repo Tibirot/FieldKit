@@ -275,8 +275,20 @@ public enum OrderRefusal
 /// <c>BR-ORD-9</c> exists to protect.
 /// </para>
 /// </remarks>
-public sealed class Order : AggregateRoot, ITenantOwned, IAuditable
+public sealed class Order : AggregateRoot, ITenantOwned, IAuditable, ISyncTracked
 {
+    /// <summary>
+    /// Set by the row-version interceptor, never here (ADR-0013) — W12 F5a.
+    /// </summary>
+    /// <remarks>
+    /// <b>The one transactional record that flows back down.</b> Every other sync-tracked entity is
+    /// reference data the device holds a copy of; an order is the device's own work, and what the
+    /// version tracks is the back office's verdict on it (<c>IOrderVerdictFeed</c>). Rejecting an
+    /// order is the only thing that moves it, which is why nothing needed this until the rejection
+    /// path had somewhere to go — regression F5, and the debt <c>OrderDbContext</c> recorded.
+    /// </remarks>
+    public long RowVersion { get; set; }
+
     /// <summary>
     /// The most lines one order can carry.
     /// </summary>
