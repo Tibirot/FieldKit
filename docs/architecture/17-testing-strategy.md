@@ -152,3 +152,15 @@ and visual regression beyond a smoke level. Effort concentrates on the correctne
 GitHub Actions on every PR: **build → unit → architecture tests → integration (Testcontainers) →
 E2E (golden path)**. Architecture and tenant-isolation tests are **required checks** — a boundary
 or isolation regression cannot merge ([roadmap Phase 0](../roadmap.md)).
+
+**Two of those steps check their own output, and one used not to.** The frontend job has always run
+the production build; [`check-service-worker.mjs`](../../frontend/scripts/check-service-worker.mjs)
+(W12) is what reads it back — `public/sw.js` exists only in a production build, so before this the
+offline shell was built on every PR and inspected on none. It checks the **artefact**: placeholders
+substituted, a real and versioned precache manifest, and the offline page it promises actually in
+the build. Registering the worker and pulling the plug is §6's Playwright work.
+
+The distinction it draws is the general one for build outputs: *the unit tests cover the function
+that computes the manifest, and the function is pure over the locale list* — so it keeps passing
+when the page those URLs point at is deleted. Checking the product of a build is a different
+question from checking the code that produces it, and only one of them was being asked.

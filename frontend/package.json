@@ -13,7 +13,8 @@
     "build": "next build && node scripts/build-sw.mjs",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check:sw": "node scripts/check-service-worker.mjs"
   },
   "comment:build": "`build` chains the service-worker step because Workbox precaches the hashed output of `next build` — it has to read .next/ after Next writes it. scripts/build-sw.mjs explains why this is a post-build step rather than a bundler plugin (short version: @serwist/next and next-pwa are webpack plugins, and Next 16 builds with Turbopack).",
   "comment:workbox": "Build-time only: esbuild bundles the workbox-* runtime modules into public/sw.js, so none of them reach the app bundle. Keep the workbox-* versions as a matched set — mixing majors across them is unsupported upstream. esbuild is declared explicitly even though vitest already pulls one in: a build step must not depend on another package's transitive resolution.",

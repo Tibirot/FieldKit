@@ -1164,10 +1164,13 @@ document explains why so nobody re-opens them.
   version: the window opened a week back, `JourneyPlanner` reads coverage on the window's *first*
   day, and the rep assignment starts today — so the seeded plan came back with no calls on it and
   logged success.
-- **A production build in the CI loop or the runbook.** `next dev` does not register the service
-  worker, so the offline shell — the app's central claim — is the one thing no local check exercises.
-  This is a `Week 14` E2E concern by the plan, but the gap is worth naming now rather than
-  discovering it there.
+- ~~**A production build in the CI loop or the runbook.**~~ **Done in W12**, and the framing was
+  slightly wrong: CI has run `npm run build` since the beginning, so the production build was never
+  missing — **nothing looked at what it produced**. `scripts/check-service-worker.mjs` inspects the
+  artefact after the build, and the sabotage that justifies it is the clearest in the project:
+  deleting `app/[locale]/offline/page.tsx` leaves a clean build **succeeding**, lint passing and all
+  2,854 tests green, while `public/sw.js` goes on promising `/en/offline` to every device. Running
+  the worker for real is still `Week 14` E2E, and the script says so in its own header.
 
 > **W11½ closed, and re-checked by a second full pass** —
 > [regression-2026-08-14.md](engineering/regression-2026-08-14.md). All seven slices verified,
