@@ -1331,6 +1331,7 @@
         "worked": "Worked",
         "notVisited": "Not visited"
       },
+      "movedTo": "You moved this call to {date}. It stays here until your supervisor has it.",
       "openDevice": "This device"
     },
     "checkIn": {
@@ -1452,6 +1453,25 @@
       "refusal": {
         "reasonRequired": "Say why the call did not happen. A skipped shop with no reason is a gap nobody can act on.",
         "alreadyReported": "You have already reported this call."
+      }
+    },
+    "reschedule": {
+      "open": "Come back another day?",
+      "title": "Move this call",
+      "intro": "The call keeps its place on your round and moves to the day you pick. Your supervisor sees that it moved and what it moved from.",
+      "action": "Move it",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "moved": "You moved this call to {date}.",
+      "stillHere": "It stays on today's round until your supervisor has it.",
+      "failed": "The move was refused. Tell your supervisor.",
+      "date": {
+        "label": "Which day?",
+        "help": "Any day from {from} to {to}."
+      },
+      "refusal": {
+        "outsideCycle": "A call can move within its cycle. Moving it outside needs a supervisor.",
+        "alreadyReported": "You have already moved this call."
       }
     },
     "unplanned": {

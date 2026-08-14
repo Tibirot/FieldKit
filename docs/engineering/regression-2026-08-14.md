@@ -86,7 +86,7 @@ showing *"Expected 3.20 EUR"*, which is `BR-AUD-3` resolving against the shop's 
 
 ---
 
-### F2 — `RescheduledCall` has no device writer, and `JRN-06` names it
+### F2 — `RescheduledCall` has no device writer, and `JRN-06` names it — **closed**
 
 **Where:** the field app has no writer. `frontend/lib/visits/` exports `checkIn`, `checkOut`,
 `completeStep`, `markNotVisited` and now `addUnplanned` — and nothing for a reschedule.
@@ -111,6 +111,30 @@ device had one, then two after R4, and still not three.
 **Fix:** a `reschedule` writer beside `addUnplanned`, and an entry point on the stop row. The journey
 spec already settles the hard part (a call moves only within its cycle), so this is the same shape as
 R4 and smaller — there is no picker to build.
+
+**Closed, and the sizing above was wrong in an instructive way.** *"There is no picker to build"* was
+the reason this looked like the smallest of the five. It needed two PRs, and the reason is in the
+sentence before it: the spec settles the rule, and **the device could not evaluate it**.
+`PlannedVisitSnapshot` carried `id, outletId, date, status, source, notVisitedReason, rowVersion` —
+`BR-JRN-4` needs the call's stored cycle length and the plan's first day, and neither was on the wire.
+The picker was never the hard part; the rule having no way to reach the phone was.
+
+- **F2a** — `PlannedVisitSnapshot` gains `movableFrom`/`movableTo`: the call's own cycle intersected
+  with the plan's window, `null` when it may not be moved. The **window**, not the two inputs —
+  sending those would put a second implementation of `BR-JRN-4` on the device, which `PRD-08` would
+  then owe a vector file. The same shape `IOutletCalendar` takes for the business day (R6b). Local
+  store version 21; `IsSameCycle` was replaced by `MovableWithin` so the feed and the refusal read
+  one function rather than agreeing by coincidence.
+- **F2b** — `reschedule` beside `addUnplanned`, and the entry point **on the shop screen beside
+  *Can't make this call?***, not on the stop row as written above. Those two are what a rep chooses
+  between at a closed door — a miss against coverage, or a move — and `NotVisited`'s own doc already
+  refuses the round for the same reason it would refuse it here: a one-tap *move it* beside every
+  call of the day is a planning screen, which is a supervisor's.
+
+**The lesson for the next sweep is about the write-up, not the fix.** Every layer in the table above
+was checked and every one existed; what was not checked is whether the device had the *data* to use
+them. A findings table of built components is a weaker instrument than it looks — which is the same
+observation §6 makes about reachability, one level down.
 
 ---
 
@@ -285,7 +309,10 @@ everywhere except at the point where somebody would use it.
 
 - F7 (last sweep) — unplanned call: every layer but the device writer.
 - F1 (this sweep) — order and audit capture: a working screen with no link to it.
-- F2 (this sweep) — reschedule: every layer but the device writer, *again*.
+- F2 (this sweep) — reschedule: every layer but the device writer, *again*. **Closed**, and it turned
+  out not to be the same shape after all: the writer was missing because the **rule** could not reach
+  the device, not because somebody forgot to add it. A reachability scan would have flagged the
+  mutation type with no producer and been right for the wrong reason.
 - F3 (this sweep) — the re-price verdict: computed and stored, absent from its own API response.
   **Closed**, and the one of the six a reachability check on *screens* would still have missed — the
   missing edge was between an aggregate and its own DTO, one layer below anything a route graph sees.
@@ -314,7 +341,7 @@ That is the recommendation this sweep would rather make than a tenth finding of 
 1. ~~**F1**~~ — **done.** The largest gap in the smallest change, and the one that was blocking every future manual pass.
 2. ~~**F4**~~ — **done.** Mounted two existing components; the case R5 was written for.
 3. ~~**F3**~~ — **done.** Four fields in the end, and the W12 decision taken: an exception queue.
-4. **F2** — `JRN-06`'s third clause, the same shape as R4 and smaller.
+4. ~~**F2**~~ — **done**, in two: the window had to reach the device before a writer could exist.
 5. **The reachability gate** (§6) — after F1 and F2, so it lands green and stays that way.
 6. **F5** — orders on the pull feed. Its own slice.
 7. **F8** — still open from R4, still small.
