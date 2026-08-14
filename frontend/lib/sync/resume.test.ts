@@ -50,6 +50,7 @@ function outletRow(id: string, rowVersion: number): ReferenceOutlet {
     latitude: null,
     longitude: null,
     countryCode: null,
+    timeZoneId: "Europe/Bucharest",
     radiusMetres: 150,
     rowVersion,
   };

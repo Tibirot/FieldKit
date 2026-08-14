@@ -51,6 +51,9 @@ internal sealed class ReferenceChangeFeed(OutletsDbContext db) : IReferenceChang
                 outlet.Latitude,
                 outlet.Longitude,
                 IOutletGeofence.DefaultRadiusMetres,
+                // Required since W1 and never carried out of this module until now (`BR-PRD-6`,
+                // W11½ R6). The device dates its pricing by it, so both sides answer one question.
+                outlet.TimeZoneId,
                 outlet.RowVersion))
             .ToListAsync(cancellationToken);
 
@@ -108,6 +111,9 @@ internal sealed class ReferenceChangeFeed(OutletsDbContext db) : IReferenceChang
                 outlet.Latitude,
                 outlet.Longitude,
                 IOutletGeofence.DefaultRadiusMetres,
+                // Required since W1 and never carried out of this module until now (`BR-PRD-6`,
+                // W11½ R6). The device dates its pricing by it, so both sides answer one question.
+                outlet.TimeZoneId,
                 outlet.RowVersion))
             .ToListAsync(cancellationToken);
     }

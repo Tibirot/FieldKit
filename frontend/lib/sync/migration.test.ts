@@ -403,9 +403,14 @@ async function openVersionSeventeen(name: string): Promise<Dexie> {
   // `orders` is repeated from version 7 with the same index string — a no-op to the schema, and what
   // lets a caller write a legacy order through this handle. A Dexie instance only knows the tables
   // its own declarations name, and the store existing in the file is not the same as it being open.
+  //
+  // `ref_outlets` and `watermarks` are repeated from version 1 for the same reason, added by W11½ R6
+  // so a caller can seed a shop that predates the time zone.
   seventeenth.version(16).stores({
     blobs: "objectKey, auditId, uploadedAtUtc",
     orders: "id, visitId, status",
+    ref_outlets: "id, name, channelId",
+    watermarks: "entity",
   });
   seventeenth.version(17).stores({}).upgrade(async (tx) => {
     await tx.table("blobs").toCollection().modify((blob: Record<string, unknown>) => {
@@ -428,6 +433,7 @@ function outletRow(id: string, rowVersion: number) {
     latitude: null,
     longitude: null,
     countryCode: null,
+    timeZoneId: "Europe/Bucharest",
     radiusMetres: 150,
     rowVersion,
   };
@@ -484,7 +490,7 @@ describe("upgrading a device that has unsent work", () => {
     // rows. Without this the whole file could be passing against databases that never existed at
     // v1. The number moves with every schema version, which is the point — a device that skipped
     // one still has to arrive at the latest.
-    expect(upgraded.verno).toBe(19);
+    expect(upgraded.verno).toBe(20);
     expect(await upgraded.outbox.count()).toBe(3);
 
     // Still in capture order, which is what the drain depends on — and now read through the new
@@ -765,7 +771,7 @@ describe("upgrading a device whose outlets predate the geofence radius", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(19);
+    expect(upgraded.verno).toBe(20);
     expect(await watermark(upgraded, OUTLETS)).toBe(0);
     expect(await watermark(upgraded, PRODUCTS)).toBe(41);
 
@@ -800,7 +806,7 @@ describe("upgrading a device that predates the visits store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(19);
+    expect(upgraded.verno).toBe(20);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
 
     // The new store exists and is empty, which is the only correct starting state: there were no
@@ -836,7 +842,7 @@ describe("upgrading a device that predates the audit's reference stores", () => 
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(19);
+    expect(upgraded.verno).toBe(20);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
     expect(await upgraded.visits.count()).toBe(1);
 
@@ -912,7 +918,7 @@ describe("upgrading a device to the order store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(19);
+    expect(upgraded.verno).toBe(20);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // The store arrives empty on an upgraded device, which is the state a fresh install is in — so
@@ -961,7 +967,7 @@ describe("upgrading a device whose prices are floats", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(19);
+    expect(upgraded.verno).toBe(20);
 
     // The two that carried money go back to zero, so the next pull resends every row.
     expect(await watermark(upgraded, PRICE_LINES)).toBe(0);
@@ -1002,7 +1008,7 @@ describe("upgrading a device that has never held a tax rate", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(19);
+    expect(upgraded.verno).toBe(20);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // Empty on arrival, like every other new reference store: the next pull fills it, because the
@@ -1060,7 +1066,7 @@ describe("upgrading a device whose outlets have no country", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(19);
+    expect(upgraded.verno).toBe(20);
 
     expect(await watermark(upgraded, OUTLETS)).toBe(0);
 
@@ -1100,7 +1106,7 @@ describe("upgrading a device that has never held an order minimum", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(19);
+    expect(upgraded.verno).toBe(20);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // Empty on arrival, which for this store means every order passes — `BR-ORD-5` applies a minimum
@@ -1168,7 +1174,7 @@ describe("upgrading a device that predates the audit store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(19);
+    expect(upgraded.verno).toBe(20);
     expect(await upgraded.outbox.count()).toBe(1);
     expect(await upgraded.audits.count()).toBe(0);
 
@@ -1219,7 +1225,7 @@ describe("upgrading a device holding an audit from before the numbers", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(19);
+    expect(upgraded.verno).toBe(20);
 
     const audit = (await upgraded.audits.get("audit-1"))!;
 
@@ -1273,7 +1279,7 @@ describe("upgrading a device holding an audit from before the questionnaire", ()
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(19);
+    expect(upgraded.verno).toBe(20);
 
     const audit = (await upgraded.audits.get("audit-1"))!;
 
@@ -1323,7 +1329,7 @@ describe("upgrading a device that has never held a photograph", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(19);
+    expect(upgraded.verno).toBe(20);
 
     const audit = (await upgraded.audits.get("audit-1"))!;
 
@@ -1380,7 +1386,7 @@ describe("upgrading a device whose photographs never said why they were stuck", 
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(19);
+    expect(upgraded.verno).toBe(20);
 
     const carried = await upgraded.blobs.get("audits/audit-1/photo-1.jpg");
 
@@ -1434,7 +1440,7 @@ describe("upgrading a device holding photographs nothing has uploaded", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(19);
+    expect(upgraded.verno).toBe(20);
 
     const carried = await upgraded.blobs.get("audits/audit-1/photo-1.jpg");
 
@@ -1461,7 +1467,7 @@ describe("the schema itself", () => {
 
     await db.open();
 
-    expect(db.verno).toBe(19);
+    expect(db.verno).toBe(20);
 
     // The outbox is still keyed by the mutation id, which is the property the server's ledger
     // depends on: a re-send has to arrive under the id it was captured with.
@@ -1526,7 +1532,7 @@ describe("upgrading a device that never told the server its photographs arrived"
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(19);
+    expect(upgraded.verno).toBe(20);
 
     const stillWaiting = await upgraded.blobs.get("audits/audit-1/waiting.jpg");
     const alreadyGone = await upgraded.blobs.get("audits/audit-1/gone.jpg");
@@ -1605,7 +1611,7 @@ describe("upgrading a device whose orders carried no tax", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(19);
+    expect(upgraded.verno).toBe(20);
 
     const carried = await upgraded.orders.get("0195e7c4-0000-7000-8000-00000000e001");
 
@@ -1617,6 +1623,70 @@ describe("upgrading a device whose orders carried no tax", () => {
     expect(carried?.total).toBe("58.5");
     expect(carried?.lines[0].lineTotal).toBe("27.00");
     expect(carried?.status).toBe("submitted");
+
+    upgraded.close();
+  });
+});
+
+describe("upgrading a device whose outlets carried no time zone", () => {
+  it("re-pulls every shop and keeps the round working in the meantime", async () => {
+    /*
+     * `OFF-13` for version 20 (W11½ R6, regression F6).
+     *
+     * <b>The watermark is dropped so every outlet comes back.</b> A *field was added*, so the rows
+     * already here are the right type and the wrong shape — and a delta pull would fill the zone in
+     * only for shops somebody happened to edit afterwards. A shop nobody touches again would price
+     * against the wrong day for the life of the install. Version 10 did exactly this when
+     * `countryCode` arrived; this is the same move for the same reason.
+     *
+     * <b>And unlike version 10, the held rows are back-filled with `""`.</b> `countryCode` needed no
+     * back-fill because *null* was already a meaningful answer there — "this shop has no address".
+     * There is no meaningful empty zone: `Outlet.TimeZoneId` is required and IANA-validated, so `""`
+     * is a value the server can never send, and writing it keeps the declared type honest for the
+     * window between this upgrade and the next successful pull.
+     *
+     * The shop itself survives, which is the standing promise: a rep who updates the app in a car
+     * park still has their round, and the field that is missing is one nothing could have used an
+     * hour earlier either.
+     */
+    const name = `migration:${crypto.randomUUID()}`;
+
+    const legacy = await openVersionSeventeen(name);
+    await legacy.table("ref_outlets").add({
+      id: "0195e7c4-0000-7000-8000-00000000c001",
+      code: "RO-BUC-0001",
+      name: "Mega Image Dorobanți",
+      channelId: "0195e7c4-0000-7000-8000-000000009001",
+      segment: "A",
+      status: "Active",
+      countryCode: "RO",
+      latitude: 44.4638,
+      longitude: 26.0946,
+      radiusMetres: 150,
+      rowVersion: 4,
+    });
+    await legacy.table("watermarks").put({ entity: "outlets", cursor: 4_100 });
+    legacy.close();
+
+    const upgraded = new FieldKitDatabase(name);
+    await upgraded.open();
+
+    expect(upgraded.verno).toBe(20);
+
+    const held = await upgraded.outlets.get("0195e7c4-0000-7000-8000-00000000c001");
+
+    // Present and empty, rather than absent — the two read the same at a call site and only one of
+    // them keeps `ReferenceOutlet` true.
+    expect(held?.timeZoneId).toBe("");
+    expect(Object.hasOwn(held!, "timeZoneId")).toBe(true);
+
+    // The rep can still work: the shop, its fence and its country are all where they were.
+    expect(held?.name).toBe("Mega Image Dorobanți");
+    expect(held?.radiusMetres).toBe(150);
+    expect(held?.countryCode).toBe("RO");
+
+    // And the next pull asks for everything, so the zone actually arrives.
+    expect(await watermark(upgraded, OUTLETS)).toBe(0);
 
     upgraded.close();
   });

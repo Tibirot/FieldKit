@@ -40,6 +40,7 @@ function outlet(id: string, name: string, code: string): ReferenceOutlet {
     latitude: null,
     longitude: null,
     countryCode: "RO",
+    timeZoneId: "Europe/Bucharest",
     radiusMetres: 150,
     rowVersion: 1,
   };

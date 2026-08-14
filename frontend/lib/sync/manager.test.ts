@@ -69,6 +69,7 @@ function outletRow(id: string, rowVersion: number, name = "Corner Shop") {
     latitude: null,
     longitude: null,
     countryCode: null,
+    timeZoneId: "Europe/Bucharest",
     radiusMetres: 150,
     rowVersion,
   };

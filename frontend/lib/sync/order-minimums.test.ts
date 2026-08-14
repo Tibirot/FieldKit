@@ -27,6 +27,7 @@ const SHOP: ReferenceOutlet = {
   countryCode: "RO",
   latitude: null,
   longitude: null,
+  timeZoneId: "Europe/Bucharest",
   radiusMetres: 150,
   rowVersion: 4,
 };

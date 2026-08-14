@@ -32,6 +32,7 @@ function outlet(id: string, name: string, code: string): ReferenceOutlet {
     latitude: 44.4638,
     longitude: 26.0946,
     countryCode: "RO",
+    timeZoneId: "Europe/Bucharest",
     radiusMetres: 150,
     rowVersion: 4,
   };

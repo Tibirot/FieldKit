@@ -271,6 +271,47 @@ public class SyncPullTests(ServerFixture fixture)
     }
 
     [Fact]
+    public async Task Each_outlet_carries_its_own_time_zone_down_to_the_device()
+    {
+        /*
+         * The shop's trading day, sent so the device and the server can agree which one it is
+         * (`BR-PRD-6`, regression F6) — W11½ R6.
+         *
+         * `Outlet.TimeZoneId` has been required since W1 and nothing ever carried it out of the
+         * Outlets module, so the device dated its pricing by the *rep's phone* while the server
+         * re-priced by the *UTC* day — two different rules, and a rep in Bucharest before 03:00 was
+         * reported as disagreeing with a server that had asked a different question.
+         *
+         * <b>Two shops in two zones, because one shop passes against a feed that sends a constant</b>
+         * — the same trap the country-code test above avoids, and the reason that one has two rows.
+         * The zones are five and a half hours apart with a *non-hour* offset on one side, so an
+         * implementation that reduced a zone to whole hours somewhere in the middle fails here.
+         */
+        using var rep = fixture.CreateAuthenticatedClient(fixture.AccessToken);
+        using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var channelId = await ChannelAsync(admin);
+
+        var here = await OutletAsync(admin, channelId, Unique("RO"), "Corner Shop");
+
+        var afar = await OutletAsync(
+            admin, channelId, Unique("NP"), "Kathmandu Kiosk", timeZoneId: "Asia/Kathmandu");
+
+        await GiveRepTheTerritoryAsync(admin, rep, here, afar);
+
+        var device = await BindDeviceAsync(rep);
+        var pull = await PullAsync(rep, device);
+
+        Assert.Equal(
+            "Europe/Bucharest",
+            Assert.Single(pull.Changes.Outlets.Upserts, outlet => outlet.Id == here).TimeZoneId);
+
+        Assert.Equal(
+            "Asia/Kathmandu",
+            Assert.Single(pull.Changes.Outlets.Upserts, outlet => outlet.Id == afar).TimeZoneId);
+    }
+
+    [Fact]
     public async Task An_address_added_after_a_pull_carries_the_country_down_on_the_next_one()
     {
         /*
@@ -489,11 +530,16 @@ public class SyncPullTests(ServerFixture fixture)
     /// between the two is the thing under test.
     /// </summary>
     private static async Task<Guid> OutletAsync(
-        HttpClient client, Guid channelId, string code, string name, Address? address = null)
+        HttpClient client,
+        Guid channelId,
+        string code,
+        string name,
+        Address? address = null,
+        string timeZoneId = "Europe/Bucharest")
     {
         var response = await client.PostAsJsonAsync(
             "/api/outlets",
-            new CreateOutletRequest(code, name, channelId, "Europe/Bucharest", null, Address: address));
+            new CreateOutletRequest(code, name, channelId, timeZoneId, null, Address: address));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<OutletResponse>())!.Id;
