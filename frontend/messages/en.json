@@ -82,6 +82,25 @@
       "configuration": "Configuration",
       "users": "Users & roles"
     },
+    "screens": {
+      "journeyPlans": "Journey plan",
+      "callFrequency": "Call frequency",
+      "workingCalendars": "Working calendar",
+      "outletList": "All outlets",
+      "channels": "Channels",
+      "customFields": "Custom fields",
+      "outletImport": "Import",
+      "catalogue": "Catalogue",
+      "classification": "Classification",
+      "assortments": "Assortments",
+      "priceLists": "Price lists",
+      "promotions": "Promotions",
+      "orderMinimums": "Order minimums",
+      "territoryList": "Territories",
+      "scoreWeights": "Perfect-store weights",
+      "surveys": "Surveys",
+      "userList": "Users & roles"
+    },
     "soon": {
       "week5": "W5",
       "week6": "W6",

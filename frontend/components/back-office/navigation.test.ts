@@ -1,9 +1,18 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { coversPath, LANDING, NAVIGATION } from "@/components/back-office/navigation";
+import {
+  coversPath,
+  findScreen,
+  isSectionVisible,
+  LANDING,
+  NAVIGATION,
+  permits,
+  visibleScreens,
+} from "@/components/back-office/navigation";
 import { routing } from "@/i18n/routing";
 
 /**
@@ -24,6 +33,44 @@ const catalogs = Object.fromEntries(
 );
 
 const items = NAVIGATION.flatMap((group) => group.items);
+const screens = items.flatMap((item) => item.screens ?? []);
+
+/** Everything, so a `has` predicate can be built from a set of what to withhold. */
+const ALL_PERMISSIONS = [...new Set(screens.flatMap((screen) => screen.requires.flat()))];
+
+const holding = (...granted: readonly string[]) => (permission: string) =>
+  granted.includes(permission);
+
+const holdingAllBut = (...withheld: readonly string[]) =>
+  holding(...ALL_PERMISSIONS.filter((permission) => !withheld.includes(permission)));
+
+/**
+ * Every route the back office serves, as a path — read from the router rather than listed here,
+ * because a list maintained beside the thing it describes is a list that drifts.
+ *
+ * Route groups (`(back-office)`) shape the layout without appearing in the URL, so they are dropped;
+ * `[locale]` is supplied by the middleware and never appears in a nav `href`.
+ */
+function backOfficeRoutes(): readonly string[] {
+  const root = fileURLToPath(new URL("../../app/[locale]/(back-office)", import.meta.url));
+  const found: string[] = [];
+
+  const walk = (directory: string, path: string) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        walk(join(directory, entry.name), `${path}/${entry.name}`);
+      } else if (entry.name === "page.tsx") {
+        found.push(path === "" ? "/" : path);
+      }
+    }
+  };
+
+  walk(root, "");
+
+  return found;
+}
+
+const isDynamic = (route: string) => route.includes("[");
 
 describe("back-office navigation", () => {
   it("names every destination the product will have, not just the built ones", () => {
@@ -107,5 +154,163 @@ describe("back-office navigation", () => {
 
       expect(coversPath(item, item.href), `${item.key}: ${item.section} vs ${item.href}`).toBe(true);
     }
+  });
+});
+
+describe("the screens inside a section", () => {
+  it("covers every back-office route the app serves", () => {
+    /*
+     * The whole point of the slice, and the assertion slice 2 promotes into a CI job.
+     *
+     * Two rules rather than one, because the weaker version passes vacuously. "Every route is under
+     * some screen" is satisfied by `/products` alone — it is a prefix of all six screens in its own
+     * section — so forgetting price lists entirely would not fail it. What has to hold is:
+     *
+     *  • a **static** route is a screen of its own, unless it is a `/new` create form, which is
+     *    reached from the list it adds to and is not a place;
+     *  • a **dynamic** route is a record detail and belongs to the screen above it.
+     *
+     * Deleting `priceLists` from the model fails the first; adding a page under a section with no
+     * screen fails the second.
+     */
+    const routes = backOfficeRoutes();
+
+    // The vacuity guard. This walks the filesystem, and a filesystem scan's characteristic failure
+    // is its input going quiet — a moved route group would leave every assertion below passing over
+    // an empty list.
+    expect(routes.length).toBeGreaterThan(20);
+
+    const hrefs = new Set(screens.map((screen) => screen.href));
+
+    for (const route of routes) {
+      if (!isDynamic(route) && !route.endsWith("/new")) {
+        expect(hrefs.has(route), `${route} has no screen in NAVIGATION`).toBe(true);
+        continue;
+      }
+
+      expect(findScreen(route)?.screen.href, `${route} belongs to no screen`).toBeDefined();
+    }
+  });
+
+  it("names every screen in both catalogs", () => {
+    // The same hazard `Nav.items` has: a screen added without a translation renders the literal key
+    // in the panel, which next-intl returns rather than throwing (the W11½ R5 lesson).
+    for (const locale of routing.locales) {
+      for (const screen of screens) {
+        expect(
+          catalogs[locale].Nav.screens[screen.key],
+          `${locale}: Nav.screens.${screen.key}`,
+        ).toBeTruthy();
+      }
+    }
+  });
+
+  it("gives every screen a distinct key and a distinct route", () => {
+    expect(new Set(screens.map((screen) => screen.key)).size).toBe(screens.length);
+    expect(new Set(screens.map((screen) => screen.href)).size).toBe(screens.length);
+  });
+
+  it("still lands where the item says it does", () => {
+    /*
+     * The invariant that keeps `href` honest until slice 4 derives it. An item's own destination has
+     * to be one of its screens, or the sidebar opens a screen the panel will not list — the failure
+     * mode of moving a link into a model while another copy still points at the old one.
+     */
+    for (const item of items) {
+      if (item.href === undefined) continue;
+
+      expect(
+        item.screens.some((screen) => screen.href === item.href),
+        `${item.key}: ${item.href} is not one of its screens`,
+      ).toBe(true);
+    }
+  });
+
+  it("asks for both permissions where the screen needs both", () => {
+    /*
+     * The finding that decided the shape of `Requirement`, pinned so a later tidy cannot flatten it
+     * back to a list. Assortments and order minimums are organised **by channel**: a reader without
+     * `channel:read` gets a selector with nothing in it and no way to tell why, which is why
+     * `ProductActions` gated them on both.
+     */
+    const products = items.find((item) => item.key === "products")!;
+
+    expect(visibleScreens(products, holding("product:read")).map((screen) => screen.key)).toEqual([
+      "catalogue",
+      "classification",
+      "priceLists",
+      "promotions",
+    ]);
+
+    expect(
+      visibleScreens(products, holding("product:read", "channel:read")).map((screen) => screen.key),
+    ).toHaveLength(6);
+  });
+
+  it("never leaves a screen ungated", () => {
+    /*
+     * `permits` reads an empty requirement as satisfied — `every` over nothing is true — which is
+     * the correct answer for the operator and the wrong one for this model. A screen written with
+     * `requires: []` would be shown to everybody, silently, and look exactly like a screen somebody
+     * had thought about. There is nothing in the back office that everybody may read, so the rule is
+     * simply that the list is never empty.
+     */
+    expect(permits([], holding())).toBe(true);
+
+    for (const screen of screens) {
+      expect(screen.requires.length, `${screen.key} is gated on nothing`).toBeGreaterThan(0);
+      for (const anyOf of screen.requires) {
+        expect(anyOf.length, `${screen.key} has an empty permission group`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("reads a group as any-of and the groups as all-of", () => {
+    // Territories is the any-of case — either permission opens it, because the page holds sections
+    // with different ones.
+    expect(permits([["territory:read", "orgunit:read"]], holding("orgunit:read"))).toBe(true);
+    expect(permits([["product:read"], ["channel:read"]], holding("product:read"))).toBe(false);
+    expect(permits([], holding())).toBe(true);
+  });
+
+  it("hides a section only when every screen in it is hidden", () => {
+    const outlets = items.find((item) => item.key === "outlets")!;
+    const scheduled = items.find((item) => item.soon !== undefined)!;
+
+    // Four screens, four different permissions: holding any one of them is a reason to draw Outlets.
+    expect(isSectionVisible(outlets, holding("channel:read"))).toBe(true);
+    expect(isSectionVisible(outlets, holdingAllBut("outlet:read"))).toBe(true);
+    expect(isSectionVisible(outlets, holding())).toBe(false);
+
+    // A scheduled section is a fact about the product, so it is shown to everyone — the rule the
+    // sidebar already applies one level up, unchanged by having screens below it.
+    expect(isSectionVisible(scheduled, holding())).toBe(true);
+  });
+
+  it("gives a record-detail route to the screen above it, not to the section index", () => {
+    /*
+     * Longest match rather than first, and this is what it buys: `/products` covers every route in
+     * its own section, so a first-match scan answers `catalogue` for all of them and the panel
+     * highlights the wrong row on five screens out of six.
+     */
+    expect(findScreen("/products/price-lists/019ff1e1/scope")?.screen.key).toBe("priceLists");
+    expect(findScreen("/products/promotions/019ff1e1/tiers")?.screen.key).toBe("promotions");
+    expect(findScreen("/products/classification/tax-classes/019ff1e1/rates")?.screen.key).toBe(
+      "classification",
+    );
+    expect(findScreen("/outlets/019ff1e1/assortment")?.screen.key).toBe("outletList");
+    expect(findScreen("/configuration/surveys/new")?.screen.key).toBe("surveys");
+
+    // And a section index still resolves to itself rather than to whichever screen sorts first.
+    expect(findScreen("/products")?.screen.key).toBe("catalogue");
+    expect(findScreen("/outlets")?.screen.key).toBe("outletList");
+  });
+
+  it("answers nothing for a route no section owns", () => {
+    // The field app and the sign-in screen are outside this navigation entirely; a breadcrumb built
+    // on a non-answer here would read "undefined / undefined".
+    expect(findScreen("/field")).toBeUndefined();
+    expect(findScreen("/login")).toBeUndefined();
+    expect(findScreen("/journeys-archive")).toBeUndefined();
   });
 });
