@@ -132,6 +132,18 @@ in-store work. (Not a route optimizer — sequencing is by simple rules, not VRP
   > An **unplanned** call belongs to no cycle and so cannot be moved at all. That is not an omission
   > — `BR-JRN-4` is about moving a call within the cycle its frequency put it in, and a call nobody
   > planned was never in one. A rep who wants it on a different day adds it on that day.
+  >
+  > **The device is sent the window, not the rule** (W12 F2a, regression F2). `PlannedVisitSnapshot`
+  > carries `movableFrom`/`movableTo` — the call's own cycle, clipped to the plan's window,
+  > inclusive, and `null` when the call may not be moved. Until W12 the round carried neither the
+  > cycle length nor the plan's first day, so a phone could not tell a rep which days a reschedule
+  > would be accepted on, and `JRN-06`'s third clause had no device writer at all.
+  >
+  > Sending the two inputs instead would put a second implementation of this rule on the device,
+  > which by `PRD-08` would then owe the parity corpus a vector file. Sending the answer keeps the
+  > rule where the data is — the same call `IOutletCalendar` makes for the business day — and the
+  > server's own refusal reads the identical function, so the window it publishes is the window it
+  > accepts rather than a second opinion about it.
 - **BR-JRN-5** Closed/inactive outlets are excluded from new plans (BR-OUT-4).
 - **BR-JRN-6** Frequency compliance (did the outlet get its required visits this cycle?) is a
   reportable metric.

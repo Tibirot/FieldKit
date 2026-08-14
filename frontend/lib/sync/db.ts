@@ -79,6 +79,21 @@ export type ReferencePlannedVisit = {
   source: string;
   notVisitedReason: string | null;
   rowVersion: number;
+  /**
+   * The first day this call may be moved to, or `null` if it may not be moved (`BR-JRN-4`) —
+   * W12 F2a.
+   *
+   * <b>The server's answer, not its inputs.</b> The rule needs the call's stored cycle length and
+   * the plan's first day; this device holds neither and deliberately still does not. What it holds
+   * is the window they produce, so the picker has a `min` and a `max` and nothing here has to know
+   * what a cycle is.
+   *
+   * `null` for an unplanned call, which belonged to no cycle and so has none to move inside — the
+   * whole of "cannot be moved" as far as this device is concerned.
+   */
+  movableFrom: string | null;
+  /** The last such day, inclusive. `null` exactly when `movableFrom` is. */
+  movableTo: string | null;
 };
 
 /**
@@ -1452,6 +1467,45 @@ export class FieldKitDatabase extends Dexie {
           .toCollection()
           .modify((outlet: Partial<ReferenceOutlet>) => {
             outlet.timeZoneId ??= "";
+          });
+      });
+
+    /*
+     * Version 21 — a call says where it may be moved to (`BR-JRN-4`, regression F2) — W12 F2a.
+     *
+     * `PlannedVisitSnapshot` gained `movableFrom`/`movableTo`. The rule needs the call's cycle
+     * length and the plan's first day; the device was sent neither and could not tell a rep which
+     * days a reschedule would be accepted on — which is why `JRN-06`'s third clause has no device
+     * writer at all.
+     *
+     * <b>The journeys watermark is dropped so every call is re-pulled</b>, the same reason version
+     * 20 dropped outlets': a field was added, so the rows here are the right type and the wrong
+     * shape, and a delta would fill it in only for calls somebody happened to edit afterwards.
+     * A call nobody touches again is exactly the ordinary case.
+     *
+     * <b>Cheaper here than it was for outlets.</b> A round is a rep's own calls over a short
+     * horizon, not a territory's whole shop list, and the journey feed has never carried a baseline
+     * — it is a cursor from zero and always was, so re-pulling is the path the code already takes
+     * on a fresh install. (`pruneJourney` would bring back calls it had dropped; nothing calls it
+     * yet, and when something does it will run again on the next sync.)
+     *
+     * <b>Held rows are backfilled with `null`, which is a real answer rather than a placeholder.</b>
+     * Null means *this call may not be moved* — true of every unplanned call permanently, and true
+     * of every held call for the minute between this upgrade and the next pull. The device declines
+     * to offer a reschedule instead of guessing a window, which is the same call version 20 made
+     * about `""` and a time zone.
+     */
+    this.version(21)
+      .stores({})
+      .upgrade(async (tx) => {
+        await tx.table("watermarks").delete("journeys");
+
+        await tx
+          .table("ref_planned_visits")
+          .toCollection()
+          .modify((call: Partial<ReferencePlannedVisit>) => {
+            call.movableFrom ??= null;
+            call.movableTo ??= null;
           });
       });
 

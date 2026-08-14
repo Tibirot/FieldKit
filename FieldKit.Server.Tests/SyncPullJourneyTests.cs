@@ -243,6 +243,193 @@ public class SyncPullJourneyTests(ServerFixture fixture)
         Assert.True(outletCursorAfter > 0);
     }
 
+    [Fact]
+    public async Task A_call_carries_the_days_it_may_be_moved_to()
+    {
+        /*
+         * <b>W12 F2a, regression F2.</b> `BR-JRN-4` lets a rep move a call inside its own cycle, and
+         * the device could not say which days those were: the rule needs the call's stored cycle
+         * length and the plan's first day, and the round carried neither. So `JRN-06`'s third clause
+         * — reschedule — had every layer built except the one that starts it.
+         *
+         * The window is sent rather than the two inputs. Sending the inputs would put a second
+         * implementation of `BR-JRN-4` on the phone, and by this repository's own rule (`PRD-08`)
+         * a rule with two implementations owes the corpus a parity file.
+         *
+         * The fixture's frequency is one call per seven days over 6–30 April, so a shop is called on
+         * four Mondays and the plan holds four cycles — <b>the last of which the plan's own end date
+         * cuts short</b>. Every call is checked rather than the first, because that fourth window is
+         * the only clipped one and picking a call at random would test it one time in four.
+         */
+        using var rep = fixture.CreateAuthenticatedClient(fixture.AccessToken);
+        using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var subject = await SubjectAsync(rep);
+        await ScenarioAsync(admin, subject, outletCount: 1);
+
+        var planId = await GenerateAsync(admin, subject);
+        await admin.PostAsync($"/api/journey/plans/{planId}/publish", null);
+
+        var device = await BindDeviceAsync(rep);
+        var mine = await CallIdsAsync(admin, planId);
+
+        var calls = Calls(await PullAsync(rep, device))
+            .Where(sent => mine.Contains(sent.GetProperty("id").GetGuid()))
+            .ToList();
+
+        Assert.NotEmpty(calls);
+
+        var clipped = 0;
+
+        foreach (var call in calls)
+        {
+            var date = DateOnly.Parse(call.GetProperty("date").GetString()!);
+
+            // Cycles tile forward from the plan's first day, so a date's window is the seven days
+            // its own cycle spans — never "the seven days around it", which would move with the
+            // call and let a rep walk a call across a boundary a day at a time.
+            var start = From.AddDays((date.DayNumber - From.DayNumber) / 7 * 7);
+            var end = start.AddDays(6);
+
+            if (end > To)
+            {
+                end = To;
+                clipped++;
+            }
+
+            Assert.Equal(start, Movable(call).From);
+            Assert.Equal(end, Movable(call).To);
+
+            // And the window contains the day the call is already on, which is the cheapest sanity
+            // check there is: one that does not is arithmetic gone wrong.
+            Assert.InRange(date, start, end);
+        }
+
+        // The plan is 6–30 April and its cycles are seven days, so the fourth runs past the end.
+        // Asserting the fixture still produces one keeps the loop above from silently becoming
+        // three passes of the same unclipped case.
+        /*
+         * The loop above already checks the clipped value exactly — `end` is `To` for those rows —
+         * so this only has to prove the case *occurs*, or three passes of the unclipped one would
+         * read as full coverage.
+         *
+         * A count rather than an exact number, because the fixture is shared: `ScenarioAsync` adds
+         * an outlet to the rep's territory every time it runs, and generation covers every outlet
+         * the rep holds. So this plan has as many calls as the tests before it left shops — twelve
+         * in a full run, four on its own — and pinning that number would be pinning an accident.
+         */
+        Assert.True(clipped > 0, "the plan's last cycle runs past its end date, so some call must clip");
+    }
+
+    [Fact]
+    public async Task An_unplanned_call_is_offered_no_days_at_all()
+    {
+        /*
+         * <b>Null is the answer, not a gap.</b> An unplanned call belongs to no cycle — the spec is
+         * explicit that `BR-JRN-4` is about moving a call within the cycle its *frequency* put it
+         * in, and a call nobody planned was never in one. A rep who wants it on another day adds it
+         * on that day.
+         *
+         * Worth a test of its own because the device reads null as "no reschedule offered here", so
+         * a feed that quietly sent the containing week instead would put a button on the one call
+         * the server will always refuse to move.
+         */
+        using var rep = fixture.CreateAuthenticatedClient(fixture.AccessToken);
+        using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var subject = await SubjectAsync(rep);
+        var outlets = await ScenarioAsync(admin, subject, outletCount: 1);
+
+        var planId = await GenerateAsync(admin, subject);
+        await admin.PostAsync($"/api/journey/plans/{planId}/publish", null);
+
+        var device = await BindDeviceAsync(rep);
+        var first = await PullAsync(rep, device);
+
+        // A day inside the plan the generator did not use — the calendar is Monday/Wednesday/Friday,
+        // and this is a Tuesday, which is exactly the case an unplanned call exists for.
+        var added = await admin.PostAsJsonAsync(
+            $"/api/journey/plans/{planId}/visits",
+            new UnplannedVisitRequest(outlets[0], new DateOnly(2026, 4, 7)));
+        Assert.Equal(HttpStatusCode.Created, added.StatusCode);
+
+        var sent = Calls(await PullAsync(rep, device, Cursor(first)))
+            .Single(call => call.GetProperty("source").GetString() == "Unplanned");
+
+        Assert.Null(Movable(sent).From);
+        Assert.Null(Movable(sent).To);
+    }
+
+    [Fact]
+    public async Task The_window_it_sends_is_the_window_it_accepts()
+    {
+        /*
+         * <b>The test that makes "one rule" more than a comment.</b> The feed publishes a window and
+         * `TryReschedule` refuses a date; if those were two expressions of `BR-JRN-4` they would
+         * agree today and drift the first time one was edited. They are not — `MovableWithin` is the
+         * rule and the refusal reads it — and this asserts the seam from the outside, where a
+         * reader cannot see which of them is which.
+         *
+         * Both ends of the window, and one day past it. The last day inside is the interesting one:
+         * an off-by-one in the clipping shows up there and nowhere else.
+         */
+        using var rep = fixture.CreateAuthenticatedClient(fixture.AccessToken);
+        using var admin = fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
+
+        var subject = await SubjectAsync(rep);
+        await ScenarioAsync(admin, subject, outletCount: 1);
+
+        var planId = await GenerateAsync(admin, subject);
+        await admin.PostAsync($"/api/journey/plans/{planId}/publish", null);
+
+        var device = await BindDeviceAsync(rep);
+        var first = await PullAsync(rep, device);
+        var mine = await CallIdsAsync(admin, planId);
+
+        var call = Calls(first).First(sent => mine.Contains(sent.GetProperty("id").GetGuid()));
+
+        var id = call.GetProperty("id").GetGuid();
+        var window = Movable(call);
+
+        // The day after the window. Still inside the plan — the first cycle of a 25-day plan is not
+        // its last — so this is the *cycle* bound talking rather than the plan's, which is the
+        // distinction the two refusals are named for.
+        var beyond = await RescheduleAsync(admin, planId, id, window.To!.Value.AddDays(1));
+
+        Assert.Equal(HttpStatusCode.BadRequest, beyond.StatusCode);
+        Assert.Contains("journey.visit.outsideCycle", await beyond.Content.ReadAsStringAsync());
+
+        // The last day inside it. Accepted — and an off-by-one in the clipping shows up here and
+        // nowhere else in this file.
+        var last = await RescheduleAsync(admin, planId, id, window.To!.Value);
+        Assert.Equal(HttpStatusCode.OK, last.StatusCode);
+
+        var moved = Assert.Single(
+            Calls(await PullAsync(rep, device, Cursor(first))),
+            sent => sent.GetProperty("id").GetGuid() == id);
+
+        Assert.Equal(window.To!.Value.ToString("yyyy-MM-dd"), moved.GetProperty("date").GetString());
+
+        // And the window did not move with the call: it belongs to the cycle, not to the day the
+        // call happens to sit on. A rep who moves a call to Friday can still move it back.
+        Assert.Equal(window.From, Movable(moved).From);
+        Assert.Equal(window.To, Movable(moved).To);
+    }
+
+    private static Task<HttpResponseMessage> RescheduleAsync(
+        HttpClient admin, Guid planId, Guid callId, DateOnly date) =>
+        admin.PostAsJsonAsync(
+            $"/api/journey/plans/{planId}/visits/{callId}/reschedule", new RescheduleRequest(date));
+
+    /// <summary>The days a sent call says it may be moved to (<c>BR-JRN-4</c>).</summary>
+    private static (DateOnly? From, DateOnly? To) Movable(JsonElement call) =>
+        (Date(call, "movableFrom"), Date(call, "movableTo"));
+
+    private static DateOnly? Date(JsonElement call, string name) =>
+        call.GetProperty(name).ValueKind == JsonValueKind.Null
+            ? null
+            : DateOnly.Parse(call.GetProperty(name).GetString()!);
+
     private static async Task<string> SubjectAsync(HttpClient client) =>
         (await client.GetFromJsonAsync<WhoAmIResponse>("/api/auth/whoami"))!.Subject;
 

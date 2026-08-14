@@ -144,21 +144,45 @@ public sealed class PlannedVisit : ITenantOwned, ISyncTracked
     }
 
     /// <summary>
-    /// Whether <paramref name="date"/> is in the same cycle this call was planned in
-    /// (<c>BR-JRN-4</c>).
+    /// The days this call may be moved to, or null if it may not be moved (<c>BR-JRN-4</c>).
     /// </summary>
     /// <remarks>
-    /// Cycles tile forward from the plan's first day, so the cycle a date falls in is how many whole
-    /// cycles have passed since then. Moving inside one is the rep's own call; moving across a
-    /// boundary changes which cycle the outlet was covered in, which changes <c>BR-JRN-6</c>
-    /// compliance for two cycles at once — and that is a supervisor's decision, not a rep's.
+    /// <para>
+    /// Cycles tile forward from the plan's first day, so the cycle a call sits in is how many whole
+    /// cycles have passed since then, and its window is that cycle's own span. Moving inside one is
+    /// the rep's own call; moving across a boundary changes which cycle the outlet was covered in,
+    /// which changes <c>BR-JRN-6</c> compliance for two cycles at once — and that is a supervisor's
+    /// decision, not a rep's.
+    /// </para>
+    /// <para>
+    /// <b>Clipped to the plan's window</b>, because a plan whose last cycle is cut short by its end
+    /// date has no days beyond it to offer. <see cref="JourneyPlan.TryReschedule"/> checks that
+    /// bound separately so it can name it in the refusal, and the two agree by construction: this
+    /// returns the range that method accepts.
+    /// </para>
+    /// <para>
+    /// <b>A range rather than a predicate</b>, since W12. The predicate answered one question — *may
+    /// it move here* — and the device needs the other one: *where may it move at all*. Deriving the
+    /// second from the first means trying every date, and deriving it on the phone means a second
+    /// implementation of this rule.
+    /// </para>
     /// </remarks>
-    internal bool IsSameCycle(DateOnly date, DateOnly planStart)
+    internal (DateOnly From, DateOnly To)? MovableWithin(DateOnly planStart, DateOnly planEnd)
     {
-        if (CycleLengthDays < 1) return false;
+        // Zero for an unplanned call, which was never in a cycle and so has none to move inside.
+        if (CycleLengthDays < 1) return null;
 
-        return (Date.DayNumber - planStart.DayNumber) / CycleLengthDays
-            == (date.DayNumber - planStart.DayNumber) / CycleLengthDays;
+        // A call outside its own plan's window is not a state this module can produce; returning
+        // nothing rather than arithmetic on it means a corrupt row offers no days instead of wrong
+        // ones. It also keeps the integer division below on non-negative input, where truncation
+        // toward zero and flooring agree.
+        if (Date < planStart || Date > planEnd) return null;
+
+        var cycle = (Date.DayNumber - planStart.DayNumber) / CycleLengthDays;
+        var from = planStart.AddDays(cycle * CycleLengthDays);
+        var to = from.AddDays(CycleLengthDays - 1);
+
+        return (from, to > planEnd ? planEnd : to);
     }
 
     internal void MoveTo(DateOnly date)
@@ -356,7 +380,22 @@ public sealed class JourneyPlan : AggregateRoot, ITenantOwned, IAuditable
     {
         if (Status != JourneyPlanStatus.Published) return AnnotationRefusal.NotPublished;
         if (date < FromDate || date > ToDate) return AnnotationRefusal.OutsideWindow;
-        if (!visit.IsSameCycle(date, FromDate)) return AnnotationRefusal.OutsideCycle;
+
+        /*
+         * The same window the device was sent (`PlannedVisitSnapshot.MovableFrom`), asked as a
+         * question rather than published as an answer — W12, regression F2.
+         *
+         * Written this way round on purpose. Before, this method held the rule and the device held
+         * nothing; the obvious fix was to compute a window *beside* it for the feed, and then two
+         * expressions of `BR-JRN-4` would sit ten lines apart, agreeing until one of them was
+         * edited. One of them is the rule now, and this is the reader.
+         */
+        if (visit.MovableWithin(FromDate, ToDate) is not { } window
+            || date < window.From
+            || date > window.To)
+        {
+            return AnnotationRefusal.OutsideCycle;
+        }
 
         visit.MoveTo(date);
         ModifiedAtUtc = clock.UtcNow;

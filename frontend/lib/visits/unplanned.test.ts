@@ -134,6 +134,8 @@ describe("the shops a rep can call at", () => {
       source: "Generated",
       notVisitedReason: null,
       rowVersion: 1,
+      movableFrom: null,
+      movableTo: null,
     });
 
     const callable = await callableOutlets(db, TODAY);
@@ -150,6 +152,8 @@ describe("the shops a rep can call at", () => {
       source: "Generated",
       notVisitedReason: null,
       rowVersion: 1,
+      movableFrom: null,
+      movableTo: null,
     });
 
     const callable = await callableOutlets(db, TODAY);

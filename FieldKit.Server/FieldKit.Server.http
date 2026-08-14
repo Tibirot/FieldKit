@@ -4075,6 +4075,22 @@ Content-Type: application/json
 # ids. A device that applied only the upserts would hold both and enforce whichever it ranked
 # first; a device that missed a deletion would go on refusing orders against a threshold its
 # tenant withdrew. Silently, and again looking like the rule working.
+#
+# **Each call in `journeys.upserts` now carries `movableFrom` and `movableTo`** (W12 F2a). They are
+# the days `BR-JRN-4` lets the rep move that call to — the cycle its frequency put it in, clipped
+# to the plan's own window — and they are inclusive.
+#
+# `null` for both means the call may not be moved at all, which is what an **unplanned** call always
+# answers: it belonged to no cycle, so there is none to move it inside. A rep who wants it on
+# another day adds it on that day.
+#
+# **The window, deliberately, rather than the cycle length and the plan's first day.** Sending those
+# two would put a second implementation of `BR-JRN-4` on the phone, and a rule with two
+# implementations owes the parity corpus a file (`PRD-08`). Sending the answer keeps the rule where
+# the data is — the same call `IOutletCalendar` makes for the business day.
+#
+# Try it: reschedule a call to `movableTo` (accepted) and to the day after (`journey.visit.
+# outsideCycle`). The endpoint is under *Journey · rep-side annotations* above.
 
 POST {{host}}/api/sync/pull
 Authorization: Bearer {{repToken}}
