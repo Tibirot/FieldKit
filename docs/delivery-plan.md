@@ -1169,7 +1169,7 @@ document explains why so nobody re-opens them.
 > **W11½ closed, and re-checked by a second full pass** —
 > [regression-2026-08-14.md](engineering/regression-2026-08-14.md). All seven slices verified,
 > five of them in a browser: the whole rep loop now runs end to end, which it could not the day
-> before. Seven of the previous sweep's nine findings are closed; F8 and F9 stay open by record.
+> before. Seven of the previous sweep's nine findings are closed; F8 and F9 stay open by record (**F8 closed in W12**).
 >
 > **It found five more, and they are all one shape** — something built and reachable only through a
 > door nobody opened. The largest is **F1: order and audit capture are linked only from a workflow
@@ -1180,6 +1180,19 @@ document explains why so nobody re-opens them.
 > The sweep's own recommendation is **not a tenth finding of the same kind but a gate**: a
 > reachability scan over mutation types and field routes, in the shape of R1's registry check and
 > `check-vector-readers.mjs`. Either would have failed on F1 and F2 the day they were written.
+>
+> **All five are closed, and so is the gate** — F1, F4, F3, F2 (in two: the rule had to reach the
+> device before a writer could exist), the reachability job, and F5 (in two: the wire, then the
+> device). **F8 went with them**, so both sweeps are now clear apart from F9, which is correct server
+> behaviour recorded as a non-finding.
+>
+> Three of the six turned out not to be the shape the sweep assigned them. **F2** was not a forgotten
+> writer but an unbuildable one — `BR-JRN-4` could not be evaluated from anything the round carried.
+> **F3** was an edge one layer below any route or mutation, which the new gate would have passed.
+> **F8**'s route was covered by a test that asserted the bug. The pattern behind the pattern is that
+> a finding's *stated cause* is the least reliable part of it, and reading the code for the fix is
+> where the real one turns up — which is the argument for building each of these rather than
+> batching them.
 
 ### Week 12 · Dashboards + config-builder UI
 **Goal:** the Phase 3 demo — the full loop, both sides.

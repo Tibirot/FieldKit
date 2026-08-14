@@ -181,9 +181,21 @@ function StopRow({ stop }: { stop: Stop }) {
  * A *finished* visit still goes to check-in, and that is deliberate rather than an omission: the
  * sealed visit is a record, and what a rep at that shop wants next is an unplanned second call
  * (`JRN-06`), not the read-only page.
+ *
+ * <b>And it goes there without the call id, which is what W12 F8 fixes.</b> The paragraph above has
+ * said "an unplanned second call" since W9; the routing carried `?call=` for every stop, worked or
+ * not, so the second call was captured *as the first* — the planned call recorded twice and the
+ * rep's second visit recorded nowhere. Found while building W11½ R4 rather than by the sweep, and
+ * left out of it deliberately: it is a behaviour change to the planned path, and R4 was at budget.
+ *
+ * <b>`worked` only, never `notVisited`.</b> A shop that opened after all *is* the planned call being
+ * made, and carrying the id is exactly what lets the round agree with the annotation — the device's
+ * own report loses to the visit (`today.ts`), and it can only lose to a visit that names the call.
  */
 function destinationOf(stop: Stop): string {
   if (stop.visit?.status === "inProgress") return `/field/visits/${stop.visit.id}`;
+
+  if (stop.progress === "worked") return `/field/outlets/${stop.outletId}`;
 
   return `/field/outlets/${stop.outletId}?call=${stop.plannedVisitId}`;
 }

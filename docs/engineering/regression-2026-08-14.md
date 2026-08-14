@@ -329,7 +329,7 @@ Each looks like a defect and is not.
 | F5 | Picker cannot tell two Marias apart | **closed** (R3) — verified live against eight same-named users |
 | F6 | Re-pricing takes the capture instant as a UTC date | **closed** (R6a/R6b) — all four outlets now carry real zones; the order priced by the shop's day |
 | F7 | No unplanned visit on the device | **closed** (R4) — used as the entry point for this sweep's whole walk |
-| F8 | Second call at a worked shop routed with the planned call id | **open** — recorded during R4, still true |
+| F8 | Second call at a worked shop routed with the planned call id | **closed** (W12 F8) — the test that covered it asserted the bug |
 | F9 | Unplanned call needs a published round | **open by design** — reproduced here; now explained to the rep rather than silent |
 
 **Debts confirmed still open:** photo retention (`OFF-11`), `Photo`-type survey questions
@@ -413,7 +413,7 @@ Three things the build settled that the recommendation did not:
 4. ~~**F2**~~ — **done**, in two: the window had to reach the device before a writer could exist.
 5. ~~**The reachability gate**~~ (§6) — **done**, and it did land green: F1 and F2 were the two things standing between it and a passing run.
 6. ~~**F5**~~ — **done**, in two: the wire (F5a), then the device, the screen and the resubmit (F5b).
-7. **F8** — still open from R4, still small.
+7. ~~**F8**~~ — **done.** Small, as recorded, and the existing test had to be rewritten rather than added to.
 
 None blocks Week 12. **F1 is the one that changes what a demo can show**, since the golden path runs
 through an order.

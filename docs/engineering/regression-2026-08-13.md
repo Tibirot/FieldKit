@@ -344,6 +344,18 @@ opened after all *is* the planned call being made, and carrying the id is what l
 Left out of R4 deliberately: it is a behaviour change to the planned path, with its own tests, in a
 slice that is already at the top of its budget.
 
+**Closed in W12 (F8), as one line and exactly as written above** — `worked` only, `notVisited`
+untouched. Two things about it are worth more than the fix:
+
+- **A test covered this route and asserted the bug.** *"still offers a second call at a shop whose
+  visit is finished"* checked the link against `/field/outlets/outlet-1?call=call-1` and passed for
+  four weeks. The finding lived in the gap between a doc comment and an assertion that agreed with
+  the code instead of the comment — so the work here was rewriting a test, not adding one.
+- **`stringContaining` would have defanged the fix.** `/field/outlets/outlet-1` is a *prefix* of the
+  broken URL, so the obvious edit to that assertion passes on both behaviours. It asserts the parsed
+  `search` is empty now, which is the half that carries the claim. Third time in this project a
+  containment assertion has hidden the thing it was pointed at (R3's picker, F1's badge, this).
+
 ---
 
 ### F9 — An unplanned call still needs a published round covering the day

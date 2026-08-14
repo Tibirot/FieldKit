@@ -328,19 +328,53 @@ describe("<TodaysJourney>", () => {
     );
   });
 
-  it("still offers a second call at a shop whose visit is finished", async () => {
-    // Deliberate rather than an omission: the sealed visit is a record, and what a rep at that shop
-    // wants next is an unplanned call (`JRN-06`), not the read-only page.
+  it("offers a second call at a worked shop as an unplanned one (W12 F8)", async () => {
+    /*
+     * <b>This test asserted the bug.</b> The doc comment on `destinationOf` has said "an unplanned
+     * second call" since W9 and the routing carried `?call=` for every stop, worked or not — so the
+     * second call was captured *as the first*: the planned call recorded twice and the rep's second
+     * visit recorded nowhere. Found while building W11½ R4, fixed here.
+     *
+     * <b>Asserted as the whole URL, not with `stringContaining`.</b> `/field/outlets/outlet-1` is a
+     * prefix of `/field/outlets/outlet-1?call=call-1`, so a containment check passes on the broken
+     * behaviour and on the fixed one alike — which is how this would have been defanged rather than
+     * corrected.
+     */
     await db.outlets.add(outlet("outlet-1", "Mega Image", "RO-001"));
     await db.plannedVisits.add(call("call-1", "outlet-1"));
     await db.visits.add(visit("visit-1", "outlet-1"));
 
     render(<TodaysJourney now={TODAY} />);
 
-    expect(await screen.findByRole("link", { name: "Mega Image" })).toHaveProperty(
-      "href",
-      expect.stringContaining("/field/outlets/outlet-1?call=call-1"),
+    const link = await screen.findByRole("link", { name: "Mega Image" });
+
+    // The path ends where it should — the locale prefix is the router's, not this claim's — and
+    // the query is empty, which is the half that carries the finding.
+    expect(new URL((link as HTMLAnchorElement).href).pathname).toMatch(
+      /\/field\/outlets\/outlet-1$/,
     );
+    expect(new URL((link as HTMLAnchorElement).href).search).toBe("");
+  });
+
+  it("still carries the call id for a shop the rep reported shut", async () => {
+    /*
+     * <b>`worked` only, and this is the case that says why.</b> A shop that opened after all *is*
+     * the planned call being made, so the visit has to name it — `today.ts` lets the device's own
+     * not-visited report lose to a visit, and it can only lose to one that answers this line.
+     *
+     * Dropping the id here would leave the round showing *Not visited* against a shop the rep went
+     * back to and worked, with the second call filed as unplanned beside it.
+     */
+    await db.outlets.add(outlet("outlet-1", "Mega Image", "RO-001"));
+    await db.plannedVisits.add(
+      call("call-1", "outlet-1", { status: "NotVisited", notVisitedReason: "Closed at nine" }),
+    );
+
+    render(<TodaysJourney now={TODAY} />);
+
+    const link = await screen.findByRole("link", { name: "Mega Image" });
+
+    expect(new URL((link as HTMLAnchorElement).href).search).toBe("?call=call-1");
   });
 
   it("does not offer a tap that leads nowhere", async () => {
