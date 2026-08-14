@@ -15,6 +15,7 @@ import {
   submit as submitOrder,
 } from "@/lib/orders/local-order";
 import { priceOrder, type PricedOrder } from "@/lib/orders/pricing";
+import { businessDay } from "@/lib/pricing/business-day";
 import { Decimal } from "@/lib/pricing/money";
 import { checkOrderMinimum, type ResolvedOrderMinimum } from "@/lib/pricing/order-minimum";
 import type { FieldKitDatabase, LocalOrder, ReferenceProduct } from "@/lib/sync/db";
@@ -75,15 +76,20 @@ export function Order({ visitId }: { visitId: string }) {
   );
 
   /*
-   * The day the order is *for*, from the device's own clock.
+   * The day the order is *for* — the **shop's**, not the phone's (`BR-PRD-6`) — W11½ R6b.
    *
-   * `BR-PRD-6` wants the **outlet's** day, and `OutletSnapshot` does not carry a timezone — so this
-   * is the device's, which is the shop's for as long as the rep is standing in it. That covers every
-   * ordinary call; what it does not cover is a phone that has crossed a border without updating, or
-   * a rep working within an hour of midnight where the two disagree. Named rather than papered over:
-   * `timeZoneId` is the next field this snapshot wants, after `countryCode` in slice 7c.
+   * This read the device's local day until R6b, and the server re-priced against the UTC one: two
+   * rules rather than one rounded twice, so an order taken before 03:00 in Bucharest was flagged as
+   * a disagreement the rep did nothing to cause (regression F6). `OutletSnapshot` now carries the
+   * zone, and `businessDay` is the same rule the server runs — held to it by
+   * `vectors/pricing/business-day.v1.json`.
+   *
+   * `null` while the shop is still being read, and `null` for a shop pulled before R6a whose zone
+   * has not arrived. The pricing query below already declines without a shop and declines on this
+   * for the same reason: a price resolved against a guessed day is worse than no price, because it
+   * looks like one.
    */
-  const on = businessDay(new Date());
+  const on = shop ? businessDay(new Date(), shop.timeZoneId) : null;
 
   /*
    * The minimum this shop's order has to meet (`ORD-06`, `BR-ORD-5`) — W11 slice 8b-ii.
@@ -111,7 +117,9 @@ export function Order({ visitId }: { visitId: string }) {
    */
   const priced = useLive(
     async () => {
-      if (!shop) return null;
+      // `on` joins `shop` in the guard (W11½ R6b): a shop whose zone has not arrived cannot be
+      // priced against a day, and pricing it against the phone's would be the defect restored.
+      if (!shop || !on) return null;
 
       const current = await orderFor(db, visitId);
 
@@ -166,7 +174,15 @@ export function Order({ visitId }: { visitId: string }) {
         <Submit order={held} visitId={visitId} minimum={minimum} priced={priced} />
       ) : null}
 
-      {!sealed ? (
+      {/*
+        No catalogue without a day to price against (W11½ R6b).
+
+        Two things produce that, and both are transient: the shop is still being read — in which case
+        `orderable` is empty and the catalogue would render nothing anyway — or its zone has not
+        arrived yet on a device that upgraded before its next sync. Adding a line against a guessed
+        day would price it wrong and look right, which is the failure this whole slice is about.
+      */}
+      {!sealed && on ? (
         <Catalogue
           products={orderable}
           order={editable}
@@ -695,13 +711,6 @@ function isPositiveDecimal(value: string): boolean {
   if (!/^\d+(\.\d+)?$/.test(value)) return false;
 
   return new Decimal(value).greaterThan(0);
-}
-
-/** `YYYY-MM-DD` in the device's own day — see the note at the call site. */
-function businessDay(now: Date): string {
-  const pad = (part: number) => String(part).padStart(2, "0");
-
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
 function Waiting({ message }: { message: string }) {

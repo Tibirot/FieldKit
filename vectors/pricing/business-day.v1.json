@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "rule": "BR-PRD-6",
+  "description": "Which calendar day an instant falls on, in a given IANA zone. The fifth rule this repository implements twice and the first whose two implementations share no library at all — .NET resolves zones through TimeZoneInfo and ICU, the device through Intl. Agreement is inherited from nothing, so every case here is load-bearing. `at` is an RFC-3339 instant with an explicit offset; `expected` is a business day, or null when the runtime cannot resolve the zone. See ../README.md.",
+  "cases": [
+    {
+      "name": "midday in the shop's own zone is the obvious answer",
+      "at": "2026-03-17T12:00:00Z",
+      "timeZoneId": "Europe/Bucharest",
+      "expected": "2026-03-17"
+    },
+    {
+      "name": "half past midnight in Bucharest is still the previous day at Greenwich",
+      "why": "The reported defect (regression F6), as a case. The server took the UTC date and answered 16 March; the rep and the shop were both in 17 March. An engine that ignores the zone fails exactly here and nowhere in the cases above.",
+      "at": "2026-03-16T22:30:00Z",
+      "timeZoneId": "Europe/Bucharest",
+      "expected": "2026-03-17"
+    },
+    {
+      "name": "late evening west of Greenwich is still the same day there",
+      "why": "The mirror of the case above, so the sign is exercised in both directions. An implementation that added an offset where it should subtract passes one of these two and not both.",
+      "at": "2026-03-18T02:00:00Z",
+      "timeZoneId": "America/Sao_Paulo",
+      "expected": "2026-03-17"
+    },
+    {
+      "name": "a zone whose offset is not a whole number of hours",
+      "why": "+05:45. An implementation that reduced a zone to whole hours anywhere in the pipeline — a stored int, a rounded division — is correct everywhere else and wrong here. 18:20 UTC is already past midnight in Kathmandu.",
+      "at": "2026-03-16T18:20:00Z",
+      "timeZoneId": "Asia/Kathmandu",
+      "expected": "2026-03-17"
+    },
+    {
+      "name": "the same instant is two different days in two shops",
+      "why": "The whole reason the rule takes a zone rather than reading a clock. Paired with the case above: one instant, two answers, and a tenant trading across the pair gets both.",
+      "at": "2026-03-16T18:20:00Z",
+      "timeZoneId": "Europe/London",
+      "expected": "2026-03-16"
+    },
+    {
+      "name": "the instant a spring-forward transition begins",
+      "why": "01:00 UTC on the last Sunday in March is when Europe/Bucharest jumps 02:00 to 03:00 (EET to EEST). The day does not change, which is the point: a transition is where an offset-based implementation is at its most confident and most wrong, and the date has to survive it.",
+      "at": "2026-03-29T01:00:00Z",
+      "timeZoneId": "Europe/Bucharest",
+      "expected": "2026-03-29"
+    },
+    {
+      "name": "the last minute of the day in summer time",
+      "why": "EEST is +03:00, so 20:59 UTC is 23:59 local — still the 29th. One minute later is not, which is the case below. Together they pin that the *summer* offset is applied rather than the standard one.",
+      "at": "2026-06-29T20:59:00Z",
+      "timeZoneId": "Europe/Bucharest",
+      "expected": "2026-06-29"
+    },
+    {
+      "name": "one minute later is the next day",
+      "at": "2026-06-29T21:00:00Z",
+      "timeZoneId": "Europe/Bucharest",
+      "expected": "2026-06-30"
+    },
+    {
+      "name": "the same wall-clock minute in winter is still the same day",
+      "why": "EET is +02:00, so 21:00 UTC is 23:00 local in January and the day has not turned. The pair with the case above is what catches an implementation that hard-coded one offset for the zone — it would get one of the two right.",
+      "at": "2026-01-29T21:00:00Z",
+      "timeZoneId": "Europe/Bucharest",
+      "expected": "2026-01-29"
+    },
+    {
+      "name": "a southern-hemisphere zone whose summer is the other half of the year",
+      "why": "Auckland is +13:00 in January and +12:00 in July. Any engine that inferred 'summer time applies in June' from a northern example gets this wrong.",
+      "at": "2026-01-15T11:30:00Z",
+      "timeZoneId": "Pacific/Auckland",
+      "expected": "2026-01-16"
+    },
+    {
+      "name": "UTC itself is a zone like any other",
+      "why": "Not a special case in the code, and pinned so it does not become one.",
+      "at": "2026-03-17T23:59:59Z",
+      "timeZoneId": "UTC",
+      "expected": "2026-03-17"
+    },
+    {
+      "name": "a leap day is a day",
+      "at": "2028-02-29T12:00:00Z",
+      "timeZoneId": "Europe/Bucharest",
+      "expected": "2028-02-29"
+    },
+    {
+      "name": "an instant given with an offset rather than as Z",
+      "why": "The wire carries RFC-3339, and `CapturedAtUtc` arrives as a DateTimeOffset. The rule is about the *instant*, so the notation it was written in must not change the answer: this is the same moment as the Bucharest midnight case above.",
+      "at": "2026-03-17T00:30:00+02:00",
+      "timeZoneId": "Europe/Bucharest",
+      "expected": "2026-03-17"
+    },
+    {
+      "name": "a zone neither runtime has heard of is declined, not guessed",
+      "why": "The decision this rule was escalated for. .NET throws TimeZoneNotFoundException and Intl throws RangeError; both must produce *no answer* rather than a UTC fallback, because falling back reinstates the defect silently for exactly the shops nobody had noticed — and it would look like the rule working.",
+      "at": "2026-03-17T12:00:00Z",
+      "timeZoneId": "Mars/Olympus_Mons",
+      "expected": null
+    },
+    {
+      "name": "an empty zone is declined too, and that is the case a device actually hits",
+      "why": "A shop pulled before W11½ R6a holds `\"\"` until its next sync. Both runtimes treat an absent zone as the *local* one — .NET's FindSystemTimeZoneById on some platforms, Intl.DateTimeFormat always — which would date an order by whatever the server or the phone is set to: the original defect, restored silently. Rejected before either library sees it.",
+      "at": "2026-03-17T12:00:00Z",
+      "timeZoneId": "",
+      "expected": null
+    }
+  ]
+}

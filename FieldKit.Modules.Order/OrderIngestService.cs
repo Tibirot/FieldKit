@@ -1,4 +1,5 @@
 using FieldKit.Modules.Order.Contracts;
+using FieldKit.Modules.Outlets.Contracts;
 using FieldKit.Modules.Products.Contracts;
 using FieldKit.SharedKernel;
 using FieldKit.Modules.Visit.Contracts;
@@ -34,6 +35,7 @@ internal sealed class OrderIngestService(
     IVisitContext visits,
     IAssortmentService assortment,
     IPricingService pricing,
+    IOutletCalendar calendar,
     IClock clock)
     : IOrderIngest
 {
@@ -180,11 +182,18 @@ internal sealed class OrderIngestService(
     /// this reason and refuses to read a clock.
     /// </para>
     /// <para>
-    /// <b>The device's date, in the device's day.</b> <c>CapturedAtUtc</c> is an instant; a price list
-    /// runs by calendar day, and an outlet in Bucharest changes day six hours before one in London
-    /// (<c>BR-PRD-6</c>). Taking the UTC date is a known simplification and is recorded as such — the
-    /// outlet's time zone is not on the snapshot this module can see, and the same gap is already
-    /// written down against <c>OutletSnapshot</c>.
+    /// <b>The shop's day, not Greenwich's</b> (<c>BR-PRD-6</c>) — W11½ R6b. <c>CapturedAtUtc</c> is an
+    /// instant; a price list runs by calendar day, and an outlet in Bucharest changes day six hours
+    /// before one in London. This took the UTC date until R6b, while the device took the *rep's
+    /// phone's* — two different rules rather than one rule rounded twice, so an order captured before
+    /// 03:00 local was flagged as disagreeing with a server that had asked a different question
+    /// (regression F6). <see cref="IOutletCalendar"/> now answers for both.
+    /// </para>
+    /// <para>
+    /// <b>A shop whose day cannot be resolved is not re-priced at all.</b> That is the same answer
+    /// this method already gives an outlet the pricing service does not know, and for the same
+    /// reason: an order is a commercial fact that has already happened, and re-pricing it against a
+    /// day the server had to guess would manufacture a disagreement rather than find one.
     /// </para>
     /// <para>
     /// <b>It never refuses.</b> A pricing service that cannot answer — an outlet it does not know, a
@@ -195,9 +204,16 @@ internal sealed class OrderIngestService(
     /// </remarks>
     private async Task RepriceAsync(Order order, Guid outletId, CancellationToken cancellationToken)
     {
+        var days = await calendar.BusinessDaysAsync([outletId], order.CapturedAtUtc, cancellationToken);
+
+        // Absent rather than defaulted: an unknown outlet, or a zone this runtime does not recognise.
+        // Both mean the server cannot say which day's prices to compare against, and a guess would
+        // report the rep as wrong about a day nobody established.
+        if (!days.TryGetValue(outletId, out var on)) return;
+
         var priced = await pricing.PriceAsync(
             outletId,
-            DateOnly.FromDateTime(order.CapturedAtUtc.UtcDateTime),
+            on,
             [.. order.Lines.Select(line => new LineToPrice(line.ProductId, line.Quantity))],
             cancellationToken);
 

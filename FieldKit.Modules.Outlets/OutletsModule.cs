@@ -41,6 +41,10 @@ public sealed class OutletsModule : IModule
         services.AddScoped<IOutletCatalog, OutletCatalog>();
         services.AddScoped<IOutletClassification, OutletClassifier>();
 
+        // Which trading day an instant fell on, at a shop (BR-PRD-6, W11½ R6b). Its own contract
+        // rather than a wider catalog, for the reason IOutletCatalog's own remarks give.
+        services.AddScoped<IOutletCalendar, OutletCalendar>();
+
         // Where the shop is, for deciding whether a rep is at it (OUT-08, BR-VIS-2).
         services.AddScoped<IOutletGeofence, OutletGeofences>();
 
