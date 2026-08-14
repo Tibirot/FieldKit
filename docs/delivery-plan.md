@@ -1158,9 +1158,12 @@ document explains why so nobody re-opens them.
 
 **Two process items, sized here because they cost the next pass more than they cost now.**
 
-- **A published plan for today in the dev seed.** Half of what the regression's rep-side sweep could
-  not reach was unreachable for want of one, and W12's demo walks the same path. ~60 lines, and it
-  belongs with R4 rather than after it.
+- ~~**A published plan for today in the dev seed.**~~ **Done in W12** — `JourneyRoundSeeder`, and it
+  cost more than the ~60 lines estimated here. It needed a tenant seam (`TenantScope`) before a
+  hosted service could reach `IRepScope` at all, and building it found a real bug in its own first
+  version: the window opened a week back, `JourneyPlanner` reads coverage on the window's *first*
+  day, and the rep assignment starts today — so the seeded plan came back with no calls on it and
+  logged success.
 - **A production build in the CI loop or the runbook.** `next dev` does not register the service
   worker, so the offline shell — the app's central claim — is the one thing no local check exercises.
   This is a `Week 14` E2E concern by the plan, but the gap is worth naming now rather than

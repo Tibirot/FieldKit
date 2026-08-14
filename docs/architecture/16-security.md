@@ -32,6 +32,13 @@ geolocation**. This doc states the model and a lightweight threat model.
   so isolation cannot be switched off — the build fails on the developer's machine rather than in
   review. Test projects are exempt: proving the filter works requires looking past it.
 - Defence in depth: per-module DB roles scoped to their schema ([ADR-0005](adr/0005-postgres-schema-per-module.md)).
+- **Startup code names its tenant explicitly** ([`TenantScope`](../../FieldKit.BuildingBlocks/TenantScope.cs), W12).
+  Seeding runs outside a request, so there is no token to read a tenant from — and the alternative to
+  a named seam is what three seeders already had: a private `SeedingIdentity` each, working only
+  while a seeder touches its own module's tables. The scope is **in-process only** (no header, no
+  claim, no body can set it), carries an **empty permission set** so every `RequirePermission` refuses
+  it, and is restored rather than cleared on dispose. It widens what startup can *see* by one tenant
+  at a time; it grants nothing an administrator could not do.
 
 ## 4. Data protection & privacy (GDPR)
 
