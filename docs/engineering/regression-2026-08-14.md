@@ -334,6 +334,26 @@ the kind already in `scripts/`, and either would have failed on F2 and F1 the da
 
 That is the recommendation this sweep would rather make than a tenth finding of the same kind.
 
+**Built — [`scripts/check-reachability.mjs`](../../scripts/check-reachability.mjs)**, both halves, as
+its own CI job. Four checks, and each was proven to fail by restoring the finding it exists for:
+blanking the reschedule producer reproduces **F2**; unlinking the order screen reproduces **F1**; a
+type the server accepts and `slotOf` does not route, and a type the device produces and the server
+will not apply, are the two directions of drift neither finding happened to take.
+
+Three things the build settled that the recommendation did not:
+
+- **A fifth check, on the scan itself.** W11½ R1's registry gate passed vacuously on its first draft
+  because its input set came back empty. Every set here goes through a `required()` that exits when
+  it is empty — and that guard was sabotaged too, by breaking the pattern that reads `PushEndpoints`.
+  A scan whose input is empty has not checked anything, and looks exactly like a green build.
+- **Producers are read from files that mention the outbox**, not from `enqueue(` calls: `local-visit.ts`
+  writes `db.outbox.add` inline on purpose, so an `enqueue`-anchored scan would have reported
+  `CapturedVisit` as producible by nobody. The capital letter in `type: "([A-Z]\w+)"` was separately
+  doing real work by luck — `manifest.ts` and `oidc.ts` have their own lower-case `type:` fields.
+- **It covers two instances of the shape, not the shape.** `F3` is an edge one layer below any route
+  or mutation, and this gate would have passed the day it was introduced. Written into the script's
+  own header, because the failure mode of a gate is a reader who trusts it for more than it claims.
+
 ---
 
 ## 7. Suggested order
@@ -342,7 +362,7 @@ That is the recommendation this sweep would rather make than a tenth finding of 
 2. ~~**F4**~~ — **done.** Mounted two existing components; the case R5 was written for.
 3. ~~**F3**~~ — **done.** Four fields in the end, and the W12 decision taken: an exception queue.
 4. ~~**F2**~~ — **done**, in two: the window had to reach the device before a writer could exist.
-5. **The reachability gate** (§6) — after F1 and F2, so it lands green and stays that way.
+5. ~~**The reachability gate**~~ (§6) — **done**, and it did land green: F1 and F2 were the two things standing between it and a passing run.
 6. **F5** — orders on the pull feed. Its own slice.
 7. **F8** — still open from R4, still small.
 
