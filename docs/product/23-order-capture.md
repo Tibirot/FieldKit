@@ -58,6 +58,21 @@ Lifecycle and mechanics per [B4](decisions-and-assumptions.md#b4--order-lifecycl
   the post-submit lock). The rep fixes the flagged line(s) and **resubmits under a new mutation
   id** — the original submission's id is terminal, so the push stays idempotent and no work is
   lost. Resolves finding **S1**.
+
+  > **Built in W12 F5b.** `LocalOrderStatus` gains `rejected`, and re-opening is an explicit action
+  > rather than automatic: the order the rep sealed is not silently altered, and the moment they
+  > chose to change it is a thing that happened. `submit` already minted a fresh mutation id, so the
+  > terminal-id rule needed no change.
+  >
+  > **The order screen had to admit a sealed visit**, and that is where the slice found something.
+  > A rejection arrives *after* check-out almost by definition, so the fix lived behind a door that
+  > was already shut. `BR-ORD-4`'s "one exception" above is exactly the carve-out, so this is the
+  > rule being honoured rather than widened.
+  >
+  > **The exception is keyed on the rejection, not the status.** Re-opening makes the order a
+  > `draft` again — a status test admits the rep and then locks them out on the next render. The
+  > rejection survives the re-open on purpose and means *this order is being corrected*; it clears
+  > when the server accepts the correction, and the door closes then.
 - **The rejected order is retained server-side in `Rejected` state and pulls back to the rep's
   active device**, so remediation survives even a **device swap** (it's the rep's own record) — the
   one transactional record that flows *down* by design ([sync engine §7](../architecture/12-offline-sync-engine.md#7-device-lifecycle)).

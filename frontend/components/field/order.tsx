@@ -12,6 +12,7 @@ import {
   orderFor,
   putLine,
   removeLine,
+  reopen,
   submit as submitOrder,
 } from "@/lib/orders/local-order";
 import { priceOrder, type PricedOrder } from "@/lib/orders/pricing";
@@ -143,9 +144,25 @@ export function Order({ visitId }: { visitId: string }) {
     return <Explained title={t("unknownVisit.title")} body={t("unknownVisit.body")} />;
   }
 
-  if (visit.status !== "inProgress") {
-    // `BR-ORD-4` locks an order after submit, and a sealed visit cannot grow one either. Shown as a
-    // statement rather than as a screen of disabled controls, the same call the visit screen makes.
+  /*
+   * <b>A sealed visit closes this screen — unless the back office refused the order</b> (`BR-ORD-9`)
+   * — W12 F5b.
+   *
+   * `BR-ORD-4` locks an order after submit and a sealed visit cannot grow one, and the rule's own
+   * text names the single exception: a server-rejected order. It has to be *this* exception rather
+   * than a looser one, because a rejection almost always arrives **after** check-out — an operator
+   * refuses an order minutes or days later — so a guard that only admitted an open visit would put
+   * the fix behind a door that is already shut. That is F4's lesson, one screen over.
+   *
+   * <b>Keyed on the rejection, not on the status, and the difference is the whole fix.</b> Re-opening
+   * turns the order back into a `draft` — so a status test would admit the rep, then lock them out
+   * again on the very next render, before they had changed a line. The rejection outlives that
+   * transition on purpose (`reopen`), and it is what says *this order is being corrected*. It goes
+   * when the server accepts the correction, and the door closes behind the rep exactly then.
+   */
+  if (visit.status !== "inProgress" && !held?.rejection) {
+    // Shown as a statement rather than as a screen of disabled controls, the same call the visit
+    // screen makes.
     return <Explained title={t("sealed.title")} body={t("sealed.body")} />;
   }
 
@@ -157,8 +174,15 @@ export function Order({ visitId }: { visitId: string }) {
       </header>
 
       {/* A sealed order says so before anything else on the screen. The lines below it are then a
-          record of what went, rather than a list with controls the rep will look for. */}
-      {sealed ? <Sent /> : null}
+          record of what went, rather than a list with controls the rep will look for.
+
+          A *refused* one says that instead, and says it louder — it is the only state on this screen
+          that asks the rep to do something (W12 F5b).
+
+          Shown while the rejection stands, which outlasts the `rejected` status: once the rep taps
+          *fix* the order is a draft again, and the reason is the only thing naming the line they
+          came here to change. It goes when the server accepts the correction. */}
+      {held?.rejection ? <Refused order={held} /> : sealed ? <Sent /> : null}
 
       <Lines order={held} priced={priced} products={orderable} editable={!sealed} />
 
@@ -213,6 +237,95 @@ function Sent() {
     </div>
   );
 }
+
+/**
+ * The back office refused it, and the rep can fix it (`ORD-12`, `BR-ORD-9`) — W12 F5b.
+ *
+ * <b>The reason, the line, and one action.</b> `F4` splits rejections into the kind a rep fixes and
+ * the kind they can only cancel; this offers the fix for all four codes, because *cancel* is a
+ * device-owned mutation the push arm does not carry yet. A rep sent here by `OutletClosed` finds a
+ * screen that lets them edit an order nobody can accept — which is a smaller wrong than no screen at
+ * all, and it is named in the regression rather than left to be discovered.
+ *
+ * <b>`role="alert"`</b>, not `status`: this is the one thing on the screen that asks for something.
+ */
+function Refused({ order }: { order: LocalOrder }) {
+  const t = useTranslations("Field.order");
+  const { db } = useSync();
+
+  const [reopening, setReopening] = useState(false);
+
+  // The catalogue's own name for the line, when this device holds it. A rejection names a product id
+  // and a rep cannot act on one — and an id printed at them is worse than the reason alone.
+  const offending = useLive(
+    async () =>
+      order.rejection?.offendingProductId
+        ? ((await db.products.get(order.rejection.offendingProductId)) ?? null)
+        : null,
+    null,
+    [db, order.rejection?.offendingProductId],
+  );
+
+  const reason = order.rejection?.reason ?? "";
+
+  return (
+    <section className="flex flex-col gap-2 rounded-xl border border-destructive p-3" role="alert">
+      {/*
+        A closed map rather than the code interpolated into a key.
+
+        `t(\`refused.reason.${reason}\`)` is what this wants to be, and next-intl's typed keys refuse
+        it — rightly. The type error is the same hazard W11½ R5 shipped and had to fix: a server that
+        grows a fifth reason would hand a rep the key path itself, because `t` renders a miss as the
+        path rather than throwing. A lookup with an explicit default cannot do that.
+      */}
+      <p className="text-sm font-medium">{t(REASONS[reason] ?? "refused.reason.unknown")}</p>
+
+      {offending ? (
+        <p className="text-sm text-muted-foreground">
+          {t("refused.line", { product: offending.name })}
+        </p>
+      ) : null}
+
+      {/* The operator's own words, when they left any. Never the rejection's meaning — that is the
+          code above — but the only thing that makes `Other` actionable. */}
+      {order.rejection?.note ? (
+        <p className="text-sm text-muted-foreground">{order.rejection.note}</p>
+      ) : null}
+
+      {/* Only while it is still locked. Once the rep has tapped it the order is a draft and the
+          controls below are the way to act; a second *fix* button would do nothing and read as if
+          something had failed. */}
+      {order.status === "rejected" ? (
+        <Button
+          variant="outline"
+          size="sm"
+          className="self-start"
+          disabled={reopening}
+          onClick={() => {
+            setReopening(true);
+            void reopen(db, order.id, new Date()).finally(() => setReopening(false));
+          }}
+        >
+          {t("refused.fix")}
+        </Button>
+      ) : null}
+    </section>
+  );
+}
+
+/**
+ * `OrderRejectionReason`'s four names, as message keys — W12 F5b.
+ *
+ * Written out rather than derived, so a reason the catalogue has no wording for is a compile-time
+ * question here and a rendered fallback at runtime, instead of a key path shown to a rep.
+ */
+const REASONS: Record<string, "refused.reason.OffAssortment" | "refused.reason.OutletClosed"
+  | "refused.reason.OutletOnHold" | "refused.reason.Other"> = {
+  OffAssortment: "refused.reason.OffAssortment",
+  OutletClosed: "refused.reason.OutletClosed",
+  OutletOnHold: "refused.reason.OutletOnHold",
+  Other: "refused.reason.Other",
+};
 
 /**
  * Sealing the order and putting it in the outbox (`ORD-07`) — W11 slice 8a, the minimum in 8b-ii.

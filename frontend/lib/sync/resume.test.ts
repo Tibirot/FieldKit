@@ -72,6 +72,7 @@ const QUIET = {
   scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
   taxRates: { upserts: [], tombstones: [], cursor: 0 },
   orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
+  orders: { upserts: [], tombstones: [], cursor: 0 },
 };
 
 /**

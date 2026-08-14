@@ -2,7 +2,15 @@ import "fake-indexeddb/auto";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { draft, draftFor, order, putLine, removeLine, submit } from "@/lib/orders/local-order";
+import {
+  draft,
+  draftFor,
+  order,
+  putLine,
+  removeLine,
+  reopen,
+  submit,
+} from "@/lib/orders/local-order";
 import { closeDatabase, openDatabase, type FieldKitDatabase } from "@/lib/sync/db";
 import {
   PRICE_ASSIGNMENTS,
@@ -299,5 +307,121 @@ describe("what an order says it was priced against", () => {
     const payload = (await db.outbox.toArray())[0].payload as Record<string, unknown>;
 
     expect((payload.capturedAgainst as Record<string, number>).promotions).toBe(0);
+  });
+});
+
+describe("an order the back office refused", () => {
+  it("re-opens for editing, which is the one exception BR-ORD-4 names", async () => {
+    /*
+     * `BR-ORD-4` locks an order after submit — that lock is what keeps orders conflict-free on sync
+     * (`B7`) — and the rule's own text carves out a server-rejected order. This is that carve-out.
+     */
+    const started = await start();
+    await putLine(db, started.id, line(PRODUCT, "2", "20.00"));
+    await submit(db, started.id, NOW);
+
+    // As the pull feed would leave it.
+    await db.orders.update(started.id, {
+      status: "rejected",
+      rejection: { reason: "OffAssortment", offendingProductId: PRODUCT, note: null },
+    });
+
+    const reopened = await reopen(db, started.id, NOW);
+
+    expect(reopened?.status).toBe("draft");
+
+    // And it is a draft to every reader, not just to this one — `draft()` is what the screen's
+    // editing controls are keyed on.
+    expect((await draft(db, VISIT))?.id).toBe(started.id);
+  });
+
+  it("keeps the reason while the rep is acting on it", async () => {
+    /*
+     * The rep is editing the order *because* of the rejection, and a screen that erased the reason
+     * at the moment they started would take away the only thing naming the line to change. It goes
+     * when the server says so — a correction returns `Submitted` with no rejection, and the verdict
+     * clears it.
+     */
+    const started = await start();
+    await putLine(db, started.id, line(PRODUCT, "2", "20.00"));
+    await submit(db, started.id, NOW);
+    await db.orders.update(started.id, {
+      status: "rejected",
+      rejection: { reason: "OffAssortment", offendingProductId: PRODUCT, note: "Delisted." },
+    });
+
+    expect((await reopen(db, started.id, NOW))?.rejection).toEqual({
+      reason: "OffAssortment",
+      offendingProductId: PRODUCT,
+      note: "Delisted.",
+    });
+  });
+
+  it("tells the server nothing until the rep resubmits", async () => {
+    // Re-opening is a local act. A rep who opens it and thinks better of it has said nothing, which
+    // is right: the order is still rejected until they send a correction.
+    const started = await start();
+    await putLine(db, started.id, line(PRODUCT, "2", "20.00"));
+    await submit(db, started.id, NOW);
+    await db.orders.update(started.id, { status: "rejected", rejection: null });
+
+    const before = await db.outbox.count();
+    await reopen(db, started.id, NOW);
+
+    expect(await db.outbox.count()).toBe(before);
+  });
+
+  it("resubmits under a new mutation id, which is what BR-ORD-9 asks for", async () => {
+    /*
+     * <b>The whole loop, and the assertion the rule is written around.</b> The order keeps its
+     * identity — so "how many orders did this outlet place" counts intent rather than attempts —
+     * and the *submission* is new, so the original id stays terminal and the push stays idempotent.
+     */
+    const started = await start();
+    await putLine(db, started.id, line(PRODUCT, "2", "20.00"));
+    await submit(db, started.id, NOW);
+
+    const first = (await db.outbox.toArray())[0].mutationId;
+
+    await db.orders.update(started.id, { status: "rejected", rejection: null });
+    await reopen(db, started.id, NOW);
+
+    // The rep swaps the flagged line for one the shop may order.
+    await removeLine(db, started.id, PRODUCT, NOW);
+    await putLine(db, started.id, line(OTHER, "3", "27.00"));
+    await submit(db, started.id, NOW);
+
+    const queued = await db.outbox.toArray();
+
+    // Two attempts, two rows: the first stays terminal and the second is the correction.
+    expect(queued).toHaveLength(2);
+
+    /*
+     * Found by what it *says* rather than by position.
+     *
+     * Both submits run on the same fixed clock, so `createdAt` ties and any ordering over it is
+     * arbitrary — which is how the first version of this compared a row against itself and failed
+     * for a reason that had nothing to do with the rule under test.
+     */
+    const second = queued.find(
+      (entry) => (entry.payload as { lines: { productId: string }[] }).lines[0].productId === OTHER,
+    )!;
+
+    expect(second.mutationId).not.toBe(first);
+    expect(second.subjectId).toBe(started.id);
+    expect((second.payload as { lines: { productId: string }[] }).lines).toEqual([
+      expect.objectContaining({ productId: OTHER }),
+    ]);
+  });
+
+  it("refuses to re-open an order nobody objected to", async () => {
+    // The carve-out is exactly one status wide. Any wider and it is a path to editing a submitted
+    // order, which is the lock `B7`'s conflict story rests on.
+    const started = await start();
+    await putLine(db, started.id, line(PRODUCT, "2", "20.00"));
+    await submit(db, started.id, NOW);
+
+    expect(await reopen(db, started.id, NOW)).toBeUndefined();
+    expect((await order(db, started.id))?.status).toBe("submitted");
   });
 });

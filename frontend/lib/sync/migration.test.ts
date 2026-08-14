@@ -493,7 +493,7 @@ describe("upgrading a device that has unsent work", () => {
     // rows. Without this the whole file could be passing against databases that never existed at
     // v1. The number moves with every schema version, which is the point — a device that skipped
     // one still has to arrive at the latest.
-    expect(upgraded.verno).toBe(21);
+    expect(upgraded.verno).toBe(22);
     expect(await upgraded.outbox.count()).toBe(3);
 
     // Still in capture order, which is what the drain depends on — and now read through the new
@@ -774,7 +774,7 @@ describe("upgrading a device whose outlets predate the geofence radius", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(21);
+    expect(upgraded.verno).toBe(22);
     expect(await watermark(upgraded, OUTLETS)).toBe(0);
     expect(await watermark(upgraded, PRODUCTS)).toBe(41);
 
@@ -809,7 +809,7 @@ describe("upgrading a device that predates the visits store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(21);
+    expect(upgraded.verno).toBe(22);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
 
     // The new store exists and is empty, which is the only correct starting state: there were no
@@ -845,7 +845,7 @@ describe("upgrading a device that predates the audit's reference stores", () => 
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(21);
+    expect(upgraded.verno).toBe(22);
     expect((await pending(upgraded)).map((entry) => entry.mutationId)).toEqual(["m-1"]);
     expect(await upgraded.visits.count()).toBe(1);
 
@@ -921,7 +921,7 @@ describe("upgrading a device to the order store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(21);
+    expect(upgraded.verno).toBe(22);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // The store arrives empty on an upgraded device, which is the state a fresh install is in — so
@@ -970,7 +970,7 @@ describe("upgrading a device whose prices are floats", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(21);
+    expect(upgraded.verno).toBe(22);
 
     // The two that carried money go back to zero, so the next pull resends every row.
     expect(await watermark(upgraded, PRICE_LINES)).toBe(0);
@@ -1011,7 +1011,7 @@ describe("upgrading a device that has never held a tax rate", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(21);
+    expect(upgraded.verno).toBe(22);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // Empty on arrival, like every other new reference store: the next pull fills it, because the
@@ -1069,7 +1069,7 @@ describe("upgrading a device whose outlets have no country", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(21);
+    expect(upgraded.verno).toBe(22);
 
     expect(await watermark(upgraded, OUTLETS)).toBe(0);
 
@@ -1109,7 +1109,7 @@ describe("upgrading a device that has never held an order minimum", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(21);
+    expect(upgraded.verno).toBe(22);
     expect(await upgraded.outbox.count()).toBe(1);
 
     // Empty on arrival, which for this store means every order passes — `BR-ORD-5` applies a minimum
@@ -1177,7 +1177,7 @@ describe("upgrading a device that predates the audit store", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(21);
+    expect(upgraded.verno).toBe(22);
     expect(await upgraded.outbox.count()).toBe(1);
     expect(await upgraded.audits.count()).toBe(0);
 
@@ -1228,7 +1228,7 @@ describe("upgrading a device holding an audit from before the numbers", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(21);
+    expect(upgraded.verno).toBe(22);
 
     const audit = (await upgraded.audits.get("audit-1"))!;
 
@@ -1282,7 +1282,7 @@ describe("upgrading a device holding an audit from before the questionnaire", ()
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(21);
+    expect(upgraded.verno).toBe(22);
 
     const audit = (await upgraded.audits.get("audit-1"))!;
 
@@ -1332,7 +1332,7 @@ describe("upgrading a device that has never held a photograph", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(21);
+    expect(upgraded.verno).toBe(22);
 
     const audit = (await upgraded.audits.get("audit-1"))!;
 
@@ -1389,7 +1389,7 @@ describe("upgrading a device whose photographs never said why they were stuck", 
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(21);
+    expect(upgraded.verno).toBe(22);
 
     const carried = await upgraded.blobs.get("audits/audit-1/photo-1.jpg");
 
@@ -1443,7 +1443,7 @@ describe("upgrading a device holding photographs nothing has uploaded", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(21);
+    expect(upgraded.verno).toBe(22);
 
     const carried = await upgraded.blobs.get("audits/audit-1/photo-1.jpg");
 
@@ -1470,7 +1470,7 @@ describe("the schema itself", () => {
 
     await db.open();
 
-    expect(db.verno).toBe(21);
+    expect(db.verno).toBe(22);
 
     // The outbox is still keyed by the mutation id, which is the property the server's ledger
     // depends on: a re-send has to arrive under the id it was captured with.
@@ -1535,7 +1535,7 @@ describe("upgrading a device that never told the server its photographs arrived"
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(21);
+    expect(upgraded.verno).toBe(22);
 
     const stillWaiting = await upgraded.blobs.get("audits/audit-1/waiting.jpg");
     const alreadyGone = await upgraded.blobs.get("audits/audit-1/gone.jpg");
@@ -1614,7 +1614,7 @@ describe("upgrading a device whose orders carried no tax", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(21);
+    expect(upgraded.verno).toBe(22);
 
     const carried = await upgraded.orders.get("0195e7c4-0000-7000-8000-00000000e001");
 
@@ -1674,7 +1674,7 @@ describe("upgrading a device whose outlets carried no time zone", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(21);
+    expect(upgraded.verno).toBe(22);
 
     const held = await upgraded.outlets.get("0195e7c4-0000-7000-8000-00000000c001");
 
@@ -1733,7 +1733,7 @@ describe("upgrading a device whose round carried no reschedule window", () => {
     const upgraded = new FieldKitDatabase(name);
     await upgraded.open();
 
-    expect(upgraded.verno).toBe(21);
+    expect(upgraded.verno).toBe(22);
 
     const held = await upgraded.plannedVisits.get("0195e7c4-0000-7000-8000-00000000d001");
 

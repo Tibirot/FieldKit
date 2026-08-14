@@ -98,6 +98,7 @@ function order(overrides: Partial<LocalOrder> = {}): LocalOrder {
     visitId: "visit-1",
     outletId: "outlet-1",
     status: "submitted",
+    rejection: null,
     currencyCode: "RON",
     total: "27.00",
     taxTotal: "0",

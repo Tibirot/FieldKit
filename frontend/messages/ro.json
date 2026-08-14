@@ -1415,6 +1415,7 @@
       "stepsLabel": "Pașii vizitei",
       "captureLabel": "Ce poți înregistra la această vizită",
       "openOrder": "Ia comanda",
+      "fixOrder": "Corectează comanda refuzată",
       "openAudit": "Deschide auditul"
     },
     "checkOut": {
@@ -1551,6 +1552,17 @@
       "sent": {
         "title": "Comanda este în așteptare.",
         "body": "Ajunge la back office la următoarea sincronizare. Nimic de aici nu mai poate fi modificat."
+      },
+      "refused": {
+        "fix": "Corectează și retrimite",
+        "line": "Linia de schimbat: {product}",
+        "reason": {
+          "OffAssortment": "Acest magazin nu poate comanda unul dintre aceste produse.",
+          "OutletClosed": "Magazinul se închisese până când a ajuns comanda.",
+          "OutletOnHold": "Acestui magazin nu i se poate vinde momentan.",
+          "Other": "Back office-ul a refuzat această comandă.",
+          "unknown": "Back office-ul a refuzat această comandă."
+        }
       }
     },
     "audit": {

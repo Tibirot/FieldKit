@@ -225,7 +225,7 @@ behind `inProgress` — fails the F4 test and nothing else, which is the split d
 
 ---
 
-### F5 — `BR-ORD-9`'s rejection loop cannot complete, and the store says so — **half closed**
+### F5 — `BR-ORD-9`'s rejection loop cannot complete, and the store says so — **closed**
 
 **Where:** `frontend/lib/sync/db.ts:564`
 
@@ -271,6 +271,28 @@ The deferral itself held, which is worth recording. W11 declined the counter on 
 store with no writer is a schema version spent on nothing", and noted this one *could* arrive later
 without loss because a device that has never pulled an order has no watermark to be wrong about.
 That is exactly what happened.
+
+**F5b closes it.** `LocalOrderStatus` gains `rejected`, `LocalOrder` gains the reason (local store
+version 22), the verdict is applied onto orders the device already holds, and the rep can fix and
+resend — `submit` already mints a fresh mutation id, so `BR-ORD-9`'s terminal-id rule needed no
+change at all.
+
+**Two things it found that the plan did not contain:**
+
+- **The order screen refused a sealed visit outright**, and a rejection arrives *after* check-out
+  almost by definition. So the fix lived behind a door that is already shut — F4's finding, one
+  screen over, and it would have shipped that way. `BR-ORD-4`'s own text names the exception ("the
+  **one exception** is a server-rejected order"), so admitting it is spec-supported rather than an
+  invention.
+- **The first version of that guard was keyed on the status and was wrong.** Re-opening turns the
+  order back into a `draft`, so the guard admitted the rep and then locked them out on the next
+  render, before they had changed a line. It is keyed on the **rejection** instead, which outlives
+  the transition on purpose and means *this order is being corrected*. The door closes when the
+  server accepts the correction and the verdict clears it.
+
+The cancel path (`Rejected → Cancelled`, for a rejection with nothing to fix) is still absent. It is
+a device-owned *mutation*, so it belongs with the push arm rather than either of these slices — and
+the reachability gate will name it the day the type exists.
 
 ---
 
@@ -390,7 +412,7 @@ Three things the build settled that the recommendation did not:
 3. ~~**F3**~~ — **done.** Four fields in the end, and the W12 decision taken: an exception queue.
 4. ~~**F2**~~ — **done**, in two: the window had to reach the device before a writer could exist.
 5. ~~**The reachability gate**~~ (§6) — **done**, and it did land green: F1 and F2 were the two things standing between it and a passing run.
-6. **F5** — orders on the pull feed. **F5a done**; the device half (F5b) is what remains.
+6. ~~**F5**~~ — **done**, in two: the wire (F5a), then the device, the screen and the resubmit (F5b).
 7. **F8** — still open from R4, still small.
 
 None blocks Week 12. **F1 is the one that changes what a demo can show**, since the golden path runs

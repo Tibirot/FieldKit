@@ -94,6 +94,7 @@ function emptyPull(cursor = 0) {
       scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
       taxRates: { upserts: [], tombstones: [], cursor: 0 },
       orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
+        orders: { upserts: [], tombstones: [], cursor: 0 },
     },
     snapshotVersion: `outlets#${cursor}`,
   };
@@ -353,6 +354,7 @@ describe("one sync run", () => {
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
         taxRates: { upserts: [], tombstones: [], cursor: 0 },
         orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
+        orders: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -389,6 +391,7 @@ describe("one sync run", () => {
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
         taxRates: { upserts: [], tombstones: [], cursor: 0 },
         orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
+        orders: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -441,6 +444,7 @@ describe("one sync run", () => {
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
         taxRates: { upserts: [], tombstones: [], cursor: 0 },
         orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
+        orders: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -488,6 +492,7 @@ describe("one sync run", () => {
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
         taxRates: { upserts: [], tombstones: [], cursor: 0 },
         orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
+        orders: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -529,6 +534,7 @@ describe("one sync run", () => {
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
         taxRates: { upserts: [], tombstones: [], cursor: 0 },
         orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
+        orders: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -570,6 +576,7 @@ describe("one sync run", () => {
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
         taxRates: { upserts: [], tombstones: [], cursor: 0 },
         orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
+        orders: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -598,6 +605,7 @@ describe("one sync run", () => {
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
         taxRates: { upserts: [], tombstones: [], cursor: 0 },
         orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
+        orders: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#0",
     });
@@ -632,6 +640,7 @@ describe("one sync run", () => {
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
         taxRates: { upserts: [], tombstones: [], cursor: 0 },
         orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
+        orders: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#9",
     });
@@ -670,6 +679,7 @@ describe("one sync run", () => {
       scoreWeights: 0,
       taxRates: 0,
       orderMinimums: 0,
+      orders: 0,
     }, undefined);
 
     db.close();
@@ -903,6 +913,7 @@ describe("the assortment", () => {
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
         taxRates: { upserts: [], tombstones: [], cursor: 0 },
         orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
+        orders: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#1",
     };
@@ -1078,6 +1089,7 @@ describe("prices", () => {
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
         taxRates: { upserts: [], tombstones: [], cursor: 0 },
         orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
+        orders: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#1",
     };
@@ -1190,6 +1202,7 @@ describe("promotions", () => {
         scoreWeights: { upserts: [], tombstones: [], cursor: 0 },
         taxRates: { upserts: [], tombstones: [], cursor: 0 },
         orderMinimums: { upserts: [], tombstones: [], cursor: 0 },
+        orders: { upserts: [], tombstones: [], cursor: 0 },
       },
       snapshotVersion: "outlets#1",
     };

@@ -547,6 +547,14 @@ export type LocalOrder = {
    */
   outletId: string;
   status: LocalOrderStatus;
+  /**
+   * Why the back office refused it, or null (`BR-ORD-9`) — W12 F5b.
+   *
+   * Set from the pull feed's verdict and cleared by it: a correction returns the order to
+   * `Submitted` with no rejection, and this goes back to null. **Never written by the device on its
+   * own** — it is the one field here the server owns, which is why it and `status` move together.
+   */
+  rejection: LocalOrderRejection | null;
   /** ISO-4217, from the price list the device resolved. Every line is in it (`BR-ORD-7`). */
   currencyCode: string;
   /** The order's total as a decimal string — the sum of the rounded lines, never re-derived. */
@@ -575,12 +583,28 @@ export type LocalOrder = {
 /**
  * Where an order has got to on the device.
  *
- * <b>`draft` is `B4`'s `Draft`, and `submitted` covers everything after.</b> There is deliberately no
- * `accepted` or `rejected` here yet: what the back office made of an order arrives on the *pull*
- * feed, which does not carry orders until the Order module opts back into sync tracking. A status
- * this store could not keep true would be worse than one it does not have.
+ * <b>`draft` is `B4`'s `Draft`, `submitted` covers everything after, and `rejected` arrived in W12
+ * F5b</b> — when the pull feed finally carried orders and this store could keep the third one true.
+ * Until then it was deliberately absent: a status the device could not keep honest would be worse
+ * than one it does not have, and `BR-ORD-9`'s whole loop was unreachable because of it (F5).
+ *
+ * <b>There is still no `accepted`.</b> The server has no such state — an order is `Submitted` until
+ * somebody refuses it — so a fourth value here would be the device inventing a fact.
  */
-export type LocalOrderStatus = "draft" | "submitted";
+export type LocalOrderStatus = "draft" | "submitted" | "rejected";
+
+/**
+ * Why the back office refused an order (`ORD-12`, `F4`) — W12 F5b.
+ *
+ * <b>The reason is a code, not a sentence</b>, because the device branches on it: `OffAssortment`
+ * points at a line the rep can fix, `OutletClosed` points at nothing they can edit. The rep-facing
+ * wording is this app's, from the catalogue, the way every ADR-0012 refusal already works.
+ */
+export type LocalOrderRejection = {
+  reason: string;
+  offendingProductId: string | null;
+  note: string | null;
+};
 
 /**
  * One MSL product as the rep found it (`AUD-01`, `BR-AUD-1`) — W11 slice 9a.
@@ -1506,6 +1530,36 @@ export class FieldKitDatabase extends Dexie {
           .modify((call: Partial<ReferencePlannedVisit>) => {
             call.movableFrom ??= null;
             call.movableTo ??= null;
+          });
+      });
+
+    /*
+     * Version 22 — an order can say it was refused (`BR-ORD-9`, regression F5) — W12 F5b.
+     *
+     * `LocalOrderStatus` gains `rejected` and `LocalOrder` gains the reason. Until W12 F5a put
+     * orders on the pull feed there was no way for either to become true, and this store's own
+     * comment said so rather than shipping a status it could not keep honest.
+     *
+     * <b>No watermark to drop, and that is the difference from versions 20 and 21.</b> Those dropped
+     * one because a *field arrived on rows the device already held*; here the whole entity is new to
+     * the feed, so there is no cursor yet and `watermark()` reads a missing key as `0` — a device
+     * upgrading to 22 asks for every verdict on its next pull by the ordinary path, with nothing
+     * special done to make it.
+     *
+     * <b>Held orders back-fill to `rejection: null`, and their status is left alone.</b> Null is the
+     * true answer: nothing has been rejected, because until F5a nothing could tell this device that
+     * it had. A device that guessed `rejected` from a failed outbox entry would be conflating "the
+     * push did not land" with "the back office said no", which are the two things `OFF-09` and
+     * `ORD-12` are at pains to keep apart.
+     */
+    this.version(22)
+      .stores({})
+      .upgrade(async (tx) => {
+        await tx
+          .table("orders")
+          .toCollection()
+          .modify((order: Partial<LocalOrder>) => {
+            order.rejection ??= null;
           });
       });
 

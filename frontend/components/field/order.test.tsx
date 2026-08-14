@@ -14,6 +14,7 @@ import { businessDay } from "@/lib/pricing/business-day";
 import {
   closeDatabase,
   FieldKitDatabase,
+  type LocalOrder,
   type LocalVisit,
   type ReferenceOutlet,
   type ReferenceProduct,
@@ -81,6 +82,40 @@ function visit(overrides: Partial<LocalVisit> = {}): LocalVisit {
     outcome: null,
     outcomeReason: null,
     ...overrides,
+  };
+}
+
+/**
+ * An order the back office refused, as the pull feed would leave it (`BR-ORD-9`) — W12 F5b.
+ *
+ * Built by hand rather than by submitting and then applying a verdict: this file is about the
+ * *screen*, and routing through two other units to reach a store state would make a failure here
+ * ambiguous about which of the three broke.
+ */
+function refused(rejection: LocalOrder["rejection"]): LocalOrder {
+  return {
+    id: "order-1",
+    visitId: "visit-1",
+    outletId: "outlet-1",
+    status: "rejected",
+    rejection,
+    currencyCode: "RON",
+    total: "20.00",
+    taxTotal: "0",
+    capturedAgainst: null,
+    lines: [
+      {
+        productId: "p-1",
+        quantity: "2",
+        unitOfMeasure: "case",
+        packSize: null,
+        unitPrice: "10.00",
+        lineTotal: "20.00",
+        taxAmount: "0",
+      },
+    ],
+    capturedAtUtc: "2026-03-17T09:30:00.000Z",
+    updatedAtUtc: "2026-03-17T09:30:00.000Z",
   };
 }
 
@@ -414,6 +449,61 @@ describe("<Order> and what a rep can put on it", () => {
 
     expect(await screen.findByText("This visit is finished")).toBeTruthy();
     expect(screen.queryByRole("list", { name: "What this shop can be sold" })).toBeNull();
+  });
+
+  it("opens a refused order even though the visit is finished (BR-ORD-9)", async () => {
+    /*
+     * <b>The exception `BR-ORD-4` names, and the reason the guard above is not enough.</b>
+     *
+     * A rejection arrives after check-out almost by definition — an operator refuses the order
+     * minutes or days later — so a screen that admitted only an open visit would put the fix behind
+     * a door that is already shut. That is F4's finding, one screen over, and this is the case that
+     * would have shipped broken without it.
+     */
+    await db.visits.put(visit({ status: "checkedOut", checkedOutAtUtc: "2026-03-17T10:00:00.000Z" }));
+
+    await db.orders.add(
+      refused({ reason: "OffAssortment", offendingProductId: "p-1", note: null }),
+    );
+
+    render(<Order visitId="visit-1" />);
+
+    // Not the sealed statement.
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(screen.queryByText("This visit is finished")).toBeNull();
+
+    // The reason, in the rep's language, and the line named by the catalogue rather than by its id.
+    expect(screen.getByText("This shop cannot order one of these products.")).toBeTruthy();
+    expect(await screen.findByText("The line to change: Cola 500ml")).toBeTruthy();
+  });
+
+  it("re-opens the order for editing when the rep asks", async () => {
+    await db.visits.put(visit({ status: "checkedOut", checkedOutAtUtc: "2026-03-17T10:00:00.000Z" }));
+    await db.orders.add(refused({ reason: "OffAssortment", offendingProductId: "p-1", note: null }));
+
+    render(<Order visitId="visit-1" />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Fix and resend" }));
+
+    // The catalogue is back, on the same mounted screen — the live query flips it the moment the
+    // transaction commits, with no navigation involved.
+    expect(
+      await screen.findByRole("list", { name: "What this shop can be sold" }),
+    ).toBeTruthy();
+
+    expect((await db.orders.get("order-1"))?.status).toBe("draft");
+  });
+
+  it("shows a reason it has no wording for as the general one, never as a key", async () => {
+    // W11½ R5's finding, which cost a slice to learn: `t` renders a miss as the key *path* rather
+    // than throwing, so a server that grows a fifth reason would show a rep the path itself.
+    await db.visits.put(visit({ status: "checkedOut", checkedOutAtUtc: "2026-03-17T10:00:00.000Z" }));
+    await db.orders.add(refused({ reason: "CreditHold", offendingProductId: null, note: null }));
+
+    render(<Order visitId="visit-1" />);
+
+    expect(await screen.findByText("The back office refused this order.")).toBeTruthy();
+    expect(screen.queryByText(/refused.reason/)).toBeNull();
   });
 
   it("says so when the visit is not on this device", async () => {
