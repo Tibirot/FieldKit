@@ -3262,6 +3262,20 @@ Authorization: Bearer {{adminToken.response.body.access_token}}
 GET {{Server_HostAddress}}/api/visits?outletId={{outlet.response.body.id}}
 Authorization: Bearer {{adminToken.response.body.access_token}}
 
+### One rep, across every shop they called on — the second filter the back-office list offers.
+GET {{Server_HostAddress}}/api/visits?userId={{adminToken.response.body.access_token}}
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Unfiltered, which is what the back-office list asks on its first load (W12 slice 5a).
+###
+### **Bounded at 200, newest first.** It had no ceiling until that slice: the only caller was a
+### rep's device, which always passes a filter, so the tenant-wide case never ran — and a read whose
+### cost grows with how long the tenant has existed is an outage nobody sees in development. There
+### is no cursor and no date window; the honest answer to "I need last March" is a window, and it
+### lands when a screen asks for one.
+GET {{Server_HostAddress}}/api/visits
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
 ### Reading is visit:read — the viewer has it, so expect 200.
 GET {{Server_HostAddress}}/api/visits
 Authorization: Bearer {{viewerToken.response.body.access_token}}
