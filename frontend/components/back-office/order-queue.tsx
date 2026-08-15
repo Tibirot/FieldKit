@@ -5,9 +5,11 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
+import { OrderRejection } from "@/components/back-office/order-rejection";
 import { ApiError } from "@/lib/api/client";
 import { fetchOrders, ordersKey, type OrderStatus } from "@/lib/api/orders";
 import { fetchOutlets, outletsKey, type Outlet } from "@/lib/api/outlets";
+import { usePermissions } from "@/lib/auth/use-permissions";
 import { useBusinessDay } from "@/lib/dates";
 
 const CONTROL =
@@ -36,6 +38,7 @@ export function OrderQueue() {
   const t = useTranslations("Orders");
   const { user } = useAuth();
   const day = useBusinessDay();
+  const { has } = usePermissions();
 
   const accessToken = user?.access_token;
   const subject = user?.profile.sub;
@@ -70,6 +73,7 @@ export function OrderQueue() {
   }
 
   const shops = new Map((outlets.data?.items ?? []).map((outlet) => [outlet.id, outlet]));
+  const canReject = has("order:reject");
 
   return (
     <div className="flex flex-col gap-4">
@@ -135,6 +139,14 @@ export function OrderQueue() {
                   })}
                 </p>
               )}
+
+              {/*
+               * Only a submitted order can be refused — the server says so with a 409, and offering
+               * the control on an order already decided would be offering a door that answers back.
+               * `order:reject` is a permission an operator holds and a rep does not; hiding it is
+               * about not offering a door that will not open, never about the rule (`usePermissions`).
+               */}
+              {order.status === "Submitted" && canReject && <OrderRejection order={order} />}
             </li>
           ))}
         </ul>
