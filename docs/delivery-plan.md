@@ -1308,6 +1308,19 @@ product spec calls operational dashboards the scope and OLAP a non-goal. Date-ra
 "this cycle / this month" are the same call: a period selector is cheap to add once the aggregates
 take a window, and expensive to design before anyone has read the numbers once.
 
+**After W12 · the `AsTenant` debt, paid.** Slice 1 extracted the tenant-context test harness at its
+third caller and slice 2c corrected itself: there were five more copies, not none, because slice 1
+had followed a comment instead of searching. This is the mechanical PR that folds them in —
+`OrderRejectionTests`, `OrderRepriceTests`, `PhotoConfirmTests`, `PricingServiceTests` and
+`SyncPullOrderTests`, and **a sixth the 2c note also missed**: `RepScopeTests`, whose copy was
+written differently enough (`JwtSecurityTokenHandler`, a different authentication type, a
+`RequestServices` nothing reads) that searching for the *name* would have walked past it twice.
+Searching for what the harness *does* found it. Its principal was genuinely not identical to the
+shared one, so the difference was checked rather than assumed: only the two claims
+`KeycloakTenantContext` reads decide anything, and its own "a plain scope has no tenant" test is
+what makes that checkable. **Non-vacuity:** falsifying the tenant claim inside `AsTenant` fails
+**48 of the 53** tests in those six files at once — the five survivors never touch it.
+
 ### Week 12½ · Navigation & theme redesign
 
 **Goal:** every screen has a navigation item, and a person can choose the theme.

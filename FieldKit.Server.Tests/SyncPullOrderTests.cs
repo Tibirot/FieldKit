@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Security.Claims;
 using System.Text.Json;
 using FieldKit.Modules.Order;
 using FieldKit.Modules.Order.Contracts;
@@ -8,7 +7,6 @@ using FieldKit.Modules.Outlets;
 using FieldKit.Modules.Products;
 using FieldKit.Modules.Sync;
 using FieldKit.Modules.Visit;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FieldKit.Server.Tests;
@@ -148,10 +146,10 @@ public class SyncPullOrderTests(ServerFixture fixture)
 
         await RejectAsync(admin, orderId, products[0]);
 
-        var owner = SubjectOf(fixture.AdminAccessToken);
-        var somebodyElse = SubjectOf(fixture.AccessToken);
+        var owner = AsTenant.SubjectOf(fixture.AdminAccessToken);
+        var somebodyElse = AsTenant.SubjectOf(fixture.AccessToken);
 
-        var (mine, theirs) = await AsAsync(async services =>
+        var (mine, theirs) = await AsTenant.RunAsync(fixture, fixture.AdminAccessToken, async services =>
         {
             var feed = services.GetRequiredService<IOrderVerdictFeed>();
 
@@ -243,11 +241,11 @@ public class SyncPullOrderTests(ServerFixture fixture)
             0m,
             null);
 
-        var result = await AsAsync(async services =>
+        var result = await AsTenant.RunAsync(fixture, fixture.AdminAccessToken, async services =>
             await services.GetRequiredService<IOrderIngest>().IngestAsync(
                 captured,
                 Guid.CreateVersion7(),
-                userId ?? SubjectOf(fixture.AdminAccessToken)));
+                userId ?? AsTenant.SubjectOf(fixture.AdminAccessToken)));
 
         Assert.Equal(OrderIngestRefusal.None, result.Refusal);
 
@@ -295,45 +293,4 @@ public class SyncPullOrderTests(ServerFixture fixture)
         return ((await response.Content.ReadFromJsonAsync<VisitDetailResponse>())!.Visit.Id, products);
     }
 
-    /// <summary>
-    /// The fifth copy of this harness, and the debt `OrderRejectionTests` recorded is still unpaid.
-    /// </summary>
-    private async Task<T> AsAsync<T>(Func<IServiceProvider, Task<T>> work)
-    {
-        using var scope = fixture.Services.CreateScope();
-
-        var accessor = scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>();
-        var previous = accessor.HttpContext;
-
-        accessor.HttpContext = new DefaultHttpContext
-        {
-            User = PrincipalOf(fixture.AdminAccessToken),
-        };
-
-        try
-        {
-            return await work(scope.ServiceProvider);
-        }
-        finally
-        {
-            accessor.HttpContext = previous;
-        }
-    }
-
-    private static string SubjectOf(string token) => PrincipalOf(token).FindFirst("sub")!.Value;
-
-    private static ClaimsPrincipal PrincipalOf(string token)
-    {
-        var payload = token.Split('.')[1].Replace('-', '+').Replace('_', '/');
-        var padded = payload.PadRight(payload.Length + ((4 - (payload.Length % 4)) % 4), '=');
-
-        using var document = JsonDocument.Parse(Convert.FromBase64String(padded));
-
-        return new ClaimsPrincipal(new ClaimsIdentity(
-            [
-                new Claim("tenant", document.RootElement.GetProperty("tenant").GetString()!),
-                new Claim("sub", document.RootElement.GetProperty("sub").GetString()!),
-            ],
-            "test"));
-    }
 }

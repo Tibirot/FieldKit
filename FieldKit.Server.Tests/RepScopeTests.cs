@@ -1,12 +1,9 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Json;
-using System.Security.Claims;
 using FieldKit.Modules.Iam;
 using FieldKit.Modules.Org;
 using FieldKit.Modules.Org.Contracts;
 using FieldKit.Modules.Outlets;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FieldKit.Server.Tests;
@@ -42,29 +39,23 @@ public class RepScopeTests(ServerFixture fixture)
     /// Resolves the contract inside a scope that carries a tenant, the way a request would.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The tenant comes from the validated token's <c>tenant</c> claim through
     /// <c>IHttpContextAccessor</c> — so a plain <c>CreateScope</c> has no tenant and the query filter
-    /// refuses to run (asserted below). Rather than invent a second way to establish one, this reads
-    /// the claims out of the very token the HTTP fixture authenticates with, so the contract answers
-    /// for exactly the tenant that seeded the data.
+    /// refuses to run (asserted below). Rather than invent a second way to establish one, the
+    /// principal is rebuilt from the very token the HTTP fixture authenticates with, so the contract
+    /// answers for exactly the tenant that seeded the data.
+    /// </para>
+    /// <para>
+    /// <b>This one keeps a wrapper where the other five lost theirs.</b> It is not a copy of
+    /// <see cref="AsTenant"/> — it is a typed helper *over* it, resolving <c>IRepScope</c> so that
+    /// eight call sites read as questions about the scope rather than about the container. What it
+    /// no longer has is a second way of building the principal.
+    /// </para>
     /// </remarks>
-    private async Task<T> AsTenantAsync<T>(string accessToken, Func<IRepScope, Task<T>> ask)
-    {
-        using var scope = fixture.Services.CreateScope();
-
-        var claims = new JwtSecurityTokenHandler().ReadJwtToken(accessToken).Claims;
-        var accessor = scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>();
-
-        // "Token" as the authentication type, because `IsAuthenticated` is false without one and the
-        // tenant context treats an unauthenticated principal as no tenant at all.
-        accessor.HttpContext = new DefaultHttpContext
-        {
-            User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Token")),
-            RequestServices = scope.ServiceProvider,
-        };
-
-        return await ask(scope.ServiceProvider.GetRequiredService<IRepScope>());
-    }
+    private Task<T> AsTenantAsync<T>(string accessToken, Func<IRepScope, Task<T>> ask) =>
+        AsTenant.RunAsync(
+            fixture, accessToken, services => ask(services.GetRequiredService<IRepScope>()));
 
     private async Task<Guid> ChannelAsync(HttpClient client)
     {

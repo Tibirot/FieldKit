@@ -1,11 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Security.Claims;
-using System.Text.Json;
 using FieldKit.Modules.Outlets;
 using FieldKit.Modules.Products;
 using FieldKit.Modules.Products.Contracts;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FieldKit.Server.Tests;
@@ -21,10 +18,8 @@ namespace FieldKit.Server.Tests;
 /// price is reported rather than invented, and that the totals are the sum of the rows above them.
 /// </para>
 /// <para>
-/// Third copy of the tenant-context harness, after <c>AuditIngestTests</c> and
-/// <c>OrderIngestTests</c> — the count this codebase treats as the moment to extract. Left in place
-/// for one more slice only because 2c is a Products change and hoisting a test helper across three
-/// files belongs in its own PR.
+/// The tenant-context harness this file once carried a third copy of now lives in
+/// <see cref="AsTenant"/>. This note said the hoist belonged in its own PR; that PR happened.
 /// </para>
 /// </remarks>
 [Collection(ServerCollection.Name)]
@@ -225,7 +220,7 @@ public class PricingServiceTests(ServerFixture fixture)
     }
 
     private Task<PricedOrder?> PriceAsync(Guid outletId, IReadOnlyList<LineToPrice> lines) =>
-        AsAsync(fixture.AdminAccessToken, services => services
+        AsTenant.RunAsync(fixture, fixture.AdminAccessToken, services => services
             .GetRequiredService<IPricingService>()
             .PriceAsync(outletId, Today, lines));
 
@@ -335,39 +330,4 @@ public class PricingServiceTests(ServerFixture fixture)
 
     private sealed record CreatedId(Guid Id);
 
-    /// <summary>Runs <paramref name="work"/> in a scope whose tenant context matches a real token.</summary>
-    private async Task<T> AsAsync<T>(string token, Func<IServiceProvider, Task<T>> work)
-    {
-        using var scope = fixture.Services.CreateScope();
-
-        var accessor = scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>();
-        var previous = accessor.HttpContext;
-
-        accessor.HttpContext = new DefaultHttpContext { User = PrincipalOf(token) };
-
-        try
-        {
-            return await work(scope.ServiceProvider);
-        }
-        finally
-        {
-            accessor.HttpContext = previous;
-        }
-    }
-
-    private static ClaimsPrincipal PrincipalOf(string token)
-    {
-        var payload = token.Split('.')[1].Replace('-', '+').Replace('_', '/');
-        var padded = payload.PadRight(payload.Length + ((4 - (payload.Length % 4)) % 4), '=');
-
-        using var document = JsonDocument.Parse(Convert.FromBase64String(padded));
-
-        var claims = new List<Claim>
-        {
-            new("tenant", document.RootElement.GetProperty("tenant").GetString()!),
-            new("sub", document.RootElement.GetProperty("sub").GetString()!),
-        };
-
-        return new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
-    }
 }

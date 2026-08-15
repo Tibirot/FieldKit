@@ -1,11 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Security.Claims;
-using System.Text.Json;
 using FieldKit.Modules.Audit;
 using FieldKit.Modules.Audit.Contracts;
 using FieldKit.Modules.Configuration.Contracts;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FieldKit.Server.Tests;
@@ -47,7 +44,7 @@ public class PhotoConfirmTests(ServerFixture fixture)
         var visitId = Guid.CreateVersion7();
         var key = SomeKey();
 
-        return await AsAsync(token, async services =>
+        return await AsTenant.RunAsync(fixture, token, async services =>
         {
             var tenant = services.GetRequiredService<FieldKit.BuildingBlocks.ITenantContext>();
             var db = services.GetRequiredService<AuditDbContext>();
@@ -202,7 +199,7 @@ public class PhotoConfirmTests(ServerFixture fixture)
     }
 
     private Task<PhotoLine> ReadPhotoAsync(string token, Guid visitId) =>
-        AsAsync(token, async services =>
+        AsTenant.RunAsync(fixture, token, async services =>
         {
             var audits = services.GetRequiredService<IAuditQuery>();
             var record = await audits.ForVisitAsync(visitId);
@@ -210,46 +207,4 @@ public class PhotoConfirmTests(ServerFixture fixture)
             return record!.Photos.Single();
         });
 
-    /// <summary>
-    /// Runs <paramref name="work"/> under a tenant context built from a real token.
-    /// </summary>
-    /// <remarks>
-    /// The same approach <see cref="AuditIngestTests"/> takes, and for the same reason: the tenant
-    /// context reads the current request's principal and throws without one, so a tenant-owned query
-    /// can never run unscoped. Reaching around it with a stub would test a different tenant context
-    /// from the one that ships.
-    /// </remarks>
-    private async Task<T> AsAsync<T>(string token, Func<IServiceProvider, Task<T>> work)
-    {
-        using var scope = fixture.Services.CreateScope();
-
-        var accessor = scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>();
-        var previous = accessor.HttpContext;
-
-        accessor.HttpContext = new DefaultHttpContext { User = PrincipalOf(token) };
-
-        try
-        {
-            return await work(scope.ServiceProvider);
-        }
-        finally
-        {
-            accessor.HttpContext = previous;
-        }
-    }
-
-    private static ClaimsPrincipal PrincipalOf(string token)
-    {
-        var payload = token.Split('.')[1].Replace('-', '+').Replace('_', '/');
-        var padded = payload.PadRight(payload.Length + ((4 - (payload.Length % 4)) % 4), '=');
-
-        using var document = JsonDocument.Parse(Convert.FromBase64String(padded));
-
-        return new ClaimsPrincipal(new ClaimsIdentity(
-            [
-                new Claim("tenant", document.RootElement.GetProperty("tenant").GetString()!),
-                new Claim("sub", document.RootElement.GetProperty("sub").GetString()!),
-            ],
-            "test"));
-    }
 }

@@ -1,13 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Security.Claims;
-using System.Text.Json;
 using FieldKit.Modules.Order;
 using FieldKit.Modules.Order.Contracts;
 using FieldKit.Modules.Outlets;
 using FieldKit.Modules.Products;
 using FieldKit.Modules.Visit;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -438,43 +435,21 @@ public class OrderRepriceTests(ServerFixture fixture)
             tax,
             against);
 
-        var result = await AsAsync(async services =>
+        var result = await AsTenant.RunAsync(fixture, fixture.AdminAccessToken, async services =>
             await services.GetRequiredService<IOrderIngest>()
-                .IngestAsync(captured, Guid.CreateVersion7(), SubjectOf(fixture.AdminAccessToken)));
+                .IngestAsync(
+                    captured,
+                    Guid.CreateVersion7(),
+                    AsTenant.SubjectOf(fixture.AdminAccessToken)));
 
         Assert.Equal(OrderIngestRefusal.None, result.Refusal);
     }
 
     private Task<Order> StoredAsync(Guid visitId) =>
-        AsAsync(async services =>
+        AsTenant.RunAsync(fixture, fixture.AdminAccessToken, async services =>
             await services.GetRequiredService<OrderDbContext>().Orders
                 .Include(order => order.Lines)
                 .SingleAsync(order => order.VisitId == visitId));
-
-    /// <summary>
-    /// Runs <paramref name="work"/> under a tenant context built from the rep's real token — the
-    /// approach <see cref="AuditIngestTests"/> explains at length.
-    /// </summary>
-    private async Task<T> AsAsync<T>(Func<IServiceProvider, Task<T>> work)
-    {
-        using var scope = fixture.Services.CreateScope();
-
-        var accessor = scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>();
-        var previous = accessor.HttpContext;
-
-        accessor.HttpContext = new DefaultHttpContext { User = PrincipalOf(fixture.AdminAccessToken) };
-
-        try
-        {
-            return await work(scope.ServiceProvider);
-        }
-        finally
-        {
-            accessor.HttpContext = previous;
-        }
-    }
-
-    private static string SubjectOf(string token) => PrincipalOf(token).FindFirst("sub")!.Value;
 
     /// <summary>
     /// The order as an HTTP reader sees it — the narrow slice this file is about.
@@ -493,19 +468,4 @@ public class OrderRepriceTests(ServerFixture fixture)
         decimal? ServerTotal,
         decimal? ServerTaxTotal,
         string Agreement);
-
-    private static ClaimsPrincipal PrincipalOf(string token)
-    {
-        var payload = token.Split('.')[1].Replace('-', '+').Replace('_', '/');
-        var padded = payload.PadRight(payload.Length + ((4 - (payload.Length % 4)) % 4), '=');
-
-        using var document = JsonDocument.Parse(Convert.FromBase64String(padded));
-
-        return new ClaimsPrincipal(new ClaimsIdentity(
-            [
-                new Claim("tenant", document.RootElement.GetProperty("tenant").GetString()!),
-                new Claim("sub", document.RootElement.GetProperty("sub").GetString()!),
-            ],
-            "test"));
-    }
 }

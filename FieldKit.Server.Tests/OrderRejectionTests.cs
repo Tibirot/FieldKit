@@ -1,13 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Security.Claims;
-using System.Text.Json;
 using FieldKit.Modules.Order;
 using FieldKit.Modules.Order.Contracts;
 using FieldKit.Modules.Outlets;
 using FieldKit.Modules.Products;
 using FieldKit.Modules.Visit;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FieldKit.Server.Tests;
@@ -353,12 +350,12 @@ public class OrderRejectionTests(ServerFixture fixture)
 
     private Task<OrderIngestResult> IngestAsync(
         CapturedOrder captured, string? userId = null, Guid? mutationId = null) =>
-        AsAsync(fixture.AdminAccessToken, services => services
+        AsTenant.RunAsync(fixture, fixture.AdminAccessToken, services => services
             .GetRequiredService<IOrderIngest>()
             .IngestAsync(
                 captured,
                 mutationId ?? Guid.CreateVersion7(),
-                userId ?? SubjectOf(fixture.AdminAccessToken)));
+                userId ?? AsTenant.SubjectOf(fixture.AdminAccessToken)));
 
     /// <summary>
     /// A visit at a shop that stocks the returned products.
@@ -412,53 +409,6 @@ public class OrderRejectionTests(ServerFixture fixture)
 
         return (visit.Id, outletId, products);
     }
-
-    /// <summary>
-    /// Runs <paramref name="work"/> in a scope whose tenant context matches a real token.
-    /// </summary>
-    /// <remarks>
-    /// <b>The fourth copy of this harness</b>, after <c>AuditIngestTests</c>, <c>OrderIngestTests</c>
-    /// and <c>PricingServiceTests</c>. W10 named the third as the point to extract rather than copy
-    /// again; that point is behind us, and this copies it once more rather than refactoring four test
-    /// classes inside a slice about rejection. A debt recorded, not paid.
-    /// </remarks>
-    private async Task<T> AsAsync<T>(string token, Func<IServiceProvider, Task<T>> work)
-    {
-        using var scope = fixture.Services.CreateScope();
-
-        var accessor = scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>();
-        var previous = accessor.HttpContext;
-
-        accessor.HttpContext = new DefaultHttpContext { User = PrincipalOf(token) };
-
-        try
-        {
-            return await work(scope.ServiceProvider);
-        }
-        finally
-        {
-            accessor.HttpContext = previous;
-        }
-    }
-
-    /// <summary>The claims inside a JWT, without validating it — the server already did that.</summary>
-    private static ClaimsPrincipal PrincipalOf(string token)
-    {
-        var payload = token.Split('.')[1].Replace('-', '+').Replace('_', '/');
-        var padded = payload.PadRight(payload.Length + ((4 - (payload.Length % 4)) % 4), '=');
-
-        using var document = JsonDocument.Parse(Convert.FromBase64String(padded));
-
-        var claims = new List<Claim>
-        {
-            new("tenant", document.RootElement.GetProperty("tenant").GetString()!),
-            new("sub", document.RootElement.GetProperty("sub").GetString()!),
-        };
-
-        return new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
-    }
-
-    private static string SubjectOf(string token) => PrincipalOf(token).FindFirst("sub")!.Value;
 
     private sealed record RejectionReadback(string Reason, Guid? OffendingProductId, string? Note);
 

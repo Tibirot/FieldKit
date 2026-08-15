@@ -35,12 +35,28 @@ namespace FieldKit.Server.Tests;
 /// </para>
 /// <para>
 /// <b>Correction, W12 slice 2c: there were more copies than that note found.</b> Slice 1 followed
-/// <c>OrderIngestTests</c>' pointer, extracted the two files it named, and said so — but
-/// <c>OrderRejectionTests</c>, <c>OrderRepriceTests</c>, <c>PhotoConfirmTests</c>,
-/// <c>PricingServiceTests</c> and <c>SyncPullOrderTests</c> each carry one too, and two of those had
-/// already dropped the <c>token</c> parameter. Following a comment is not the same as searching, and
-/// the comment was written before four of the copies existed. Folding them in is a mechanical change
-/// of its own and does not belong in a slice about order value; new callers use this file.
+/// <c>OrderIngestTests</c>' pointer, extracted the two files it named, and said so — but five more
+/// files carried one, and two of those had already dropped the <c>token</c> parameter. Following a
+/// comment is not the same as searching, and the comment was written before four of the copies
+/// existed.
+/// </para>
+/// <para>
+/// <b>Paid off after W12, and the search found a sixth.</b> <c>OrderRejectionTests</c>,
+/// <c>OrderRepriceTests</c>, <c>PhotoConfirmTests</c>, <c>PricingServiceTests</c> and
+/// <c>SyncPullOrderTests</c> now call this file; so does <c>RepScopeTests</c>, which the 2c note
+/// missed because its copy was written differently — <c>JwtSecurityTokenHandler</c> for the claims,
+/// <c>"Token"</c> for the authentication type, and a <c>RequestServices</c> nothing reads. Searching
+/// for the <i>name</i> would have missed it a second time; what found it was searching for what the
+/// harness <i>does</i> (<c>IHttpContextAccessor</c>). It keeps a one-line wrapper because it resolves
+/// <c>IRepScope</c> for eight call sites — a typed helper over this one, not a copy of it.
+/// </para>
+/// <para>
+/// <b>The two principals were not identical, and the difference was checked rather than assumed.</b>
+/// <c>RepScopeTests</c> built its principal from <i>every</i> claim in the token; this file builds it
+/// from two. Both answer for the same tenant and subject because those are the only claims
+/// <c>KeycloakTenantContext</c> reads — and the file's own "a plain scope has no tenant" test still
+/// fails first when the harness is broken, which is what makes that claim checkable rather than
+/// hopeful.
 /// </para>
 /// </remarks>
 public static class AsTenant
