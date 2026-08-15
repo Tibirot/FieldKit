@@ -1546,6 +1546,31 @@ authorization rule, and both will say so in their PR rather than assuming the ex
 | | ***A docs defect of my own, four slices old.*** *Slice 1's note block was inserted **between the third metric row and the rest of the table**, which renders as two tables with the second missing its header — invisible in a diff, obvious in a browser. Moved below the table and the rows rejoined. The lesson is the same one W12½ recorded about mechanical edits: a Markdown table has no compiler, so an edit that lands in the wrong place is not caught by anything except reading the rendered page.* | | |
 | 9 | **The threat-model pass, and the isolation claims re-proven** | sec §3, §7 | 200 |
 | | *Every row of STRIDE-lite walked against the code that is supposed to mitigate it — the exercise that produced findings 1 and 4 above, done deliberately and written down. The bypass ban and the tenant filter have tests; what they lack is a statement of which threat each one answers.* | | |
+| | *Shipped as **a gate rather than a re-reading**. §7 has listed seven rows since W2, each naming a control in a sentence; every one happened to be true and **nothing checked any of them** — which is exactly the state slice 0 found two neighbouring claims in. So each row now names the test that proves it and `ThreatModelTests` **parses the table back**: a row with no citation fails, a citation naming a test that does not exist fails. Parsed rather than copied, because a copy in C# is the second list `ModuleRegistryTests` and the reachability gate exist to prevent. **What it buys is not proof the system is secure** — it is that a mitigation cannot be deleted or renamed while the security doc goes on asserting it, which is the failure mode this week found twice.* | | |
+| | *The **compile-time bypass ban is the one row with no test**, because there is nothing to run: a violation is a build error. What is asserted instead is the **wiring** — that `Directory.Build.props` hands the isolation list to every non-test project rather than each project referencing it — which is the difference between a rule a new module inherits and one somebody has to remember. Sabotaging the test exemption fails it.* | | |
+
+> **W13 closed.** Ten slices, ten PRs. The audit that opened the week found four things, and all four
+> are shut: the outbox has the dispatcher `ADR-0006` describes, `traceId` reaches a caller (on the
+> envelope this API actually uses, which the doc had wrong), health endpoints exist where W15 will
+> probe them, and the CORS claim was settled as a **corrected sentence** rather than a new policy.
+>
+> **The recurring finding was a claim with nothing behind it**, four times: a dispatcher that did not
+> run, a `traceId` that appeared nowhere, "CORS locked to known origins" with no CORS, and "rate
+> limiting on `/sync` and auth paths" where the auth paths belong to Keycloak. Every one sat in a
+> table beside claims that were true. That is what slice 9 answers — not by reading harder, but by
+> making the table executable.
+>
+> **And a recurring mistake of my own: a sabotage that passed.** Three times in ten slices, and each
+> time for the same reason — the assertion reached the right value by a route that did not pass
+> through the code under test. Slice 1 measured outside the guard; slice 2 asserted a response
+> produced by earlier middleware; slice 3 converged on zero from either of two numbers. The habit
+> that catches all three is asking **where else could this value come from** before writing the
+> assertion, and it is now the first question rather than the last.
+>
+> **Two numbers were wrong on first attempt and the tests found both.** The sync rate limit at 60/min
+> sat inside ordinary behaviour — a first sync pages ten entity feeds — and the suite tripped it doing
+> something legitimate. And `/health` was rate-limited until it became clear a 429 is an *unhealthy*
+> answer to a probe, which would let the limiter take a working instance out of rotation.
 
 **Not in W13.** Formal pen-test, SSO/SCIM and field-level encryption stay out, as
 [security §8](architecture/16-security.md#8-out-of-scope-v1-stated-honestly) already says. Dashboards
