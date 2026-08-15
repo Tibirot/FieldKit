@@ -27,6 +27,7 @@ public static class PersistenceExtensions
 
         services.AddSingleton<OutboxProcessor>();
         services.AddSingleton<OutboxMetrics>();
+        services.AddSingleton<OutboxHeartbeat>();
 
         /*
          * The dispatcher ADR-0006 describes, registered where the context is (W13 slice 3).

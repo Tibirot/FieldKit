@@ -113,22 +113,103 @@ public static class Extensions
         return builder;
     }
 
+    /// <summary>
+    /// Maps <c>/health</c> and <c>/alive</c> — in every environment, and terse outside development
+    /// (W13 slice 5).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The template mapped these only in Development</b>, with a link explaining the security
+    /// implications, and the reasoning is sound: the default response body names every check, how
+    /// long it took and what exception it threw — a description of a service's dependencies, offered
+    /// to anyone who can reach the port.
+    /// </para>
+    /// <para>
+    /// <b>What it did not survive is a deployment.</b> W15 puts this on Container Apps, which probes
+    /// an endpoint to decide whether an instance is alive and whether it may take traffic. Left as it
+    /// was, both probes would have found nothing — and the failure would have arrived as a revision
+    /// that never goes healthy, days after the code that caused it.
+    /// </para>
+    /// <para>
+    /// So both are mapped and the <i>body</i> is what changes. Outside Development the response is a
+    /// single word — <c>Healthy</c>, <c>Degraded</c>, <c>Unhealthy</c> — which is everything a probe
+    /// reads and nothing an attacker can use. The status code is identical either way, so a platform
+    /// behaves the same in both. In Development the full report stays, because that is where somebody
+    /// is looking at it with their own eyes.
+    /// </para>
+    /// </remarks>
     public static WebApplication MapDefaultEndpoints(this WebApplication app)
     {
-        // Adding health checks endpoints to applications in non-development environments has security implications.
-        // See https://aka.ms/dotnet/aspire/healthchecks for details before enabling these endpoints in non-development environments.
-        if (app.Environment.IsDevelopment())
-        {
-            // All health checks must pass for app to be considered ready to accept traffic after starting
-            app.MapHealthChecks(HealthEndpointPath);
+        var writer = HealthResponseWriter(app.Environment.IsDevelopment());
 
-            // Only health checks tagged with the "live" tag must pass for app to be considered alive
-            app.MapHealthChecks(AlivenessEndpointPath, new HealthCheckOptions
-            {
-                Predicate = r => r.Tags.Contains("live")
-            });
-        }
+        // Readiness: every check, including the dependencies FieldKit adds (`HealthChecks`).
+        app.MapHealthChecks(HealthEndpointPath, new HealthCheckOptions { ResponseWriter = writer });
+
+        // Liveness: only checks tagged `live` — this process answering, never a dependency. A
+        // liveness probe that fails on a database asks the platform to restart a working service.
+        app.MapHealthChecks(AlivenessEndpointPath, new HealthCheckOptions
+        {
+            Predicate = registration => registration.Tags.Contains("live"),
+            ResponseWriter = writer,
+        });
 
         return app;
+    }
+
+    /// <summary>
+    /// How a health response is written: a per-check report, or the status alone.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The terse form is the framework's own default, which is worth knowing before designing
+    /// around it.</b> ASP.NET's default writer emits one word — <c>Healthy</c> — and nothing else. So
+    /// the exposure the template's comment warns about is the endpoint <i>existing</i>, not the body
+    /// leaking: mapping these outside Development says "this port answers health probes" and no more
+    /// than that.
+    /// </para>
+    /// <para>
+    /// Which inverts the work. Production needed no redaction; <b>Development needed detail it did
+    /// not have</b> — "Unhealthy" with no further comment is a poor morning when three checks could
+    /// each be the reason. So the writer below exists for the environment where somebody is reading
+    /// it with their own eyes, and the other environments keep the default.
+    /// </para>
+    /// <para>
+    /// Public so the choice can be asserted directly. Standing a second host up in Production to read
+    /// one string would spend forty seconds of Testcontainers on a sentence, and would be testing the
+    /// host's environment plumbing rather than this decision.
+    /// </para>
+    /// </remarks>
+    public static Func<HttpContext, HealthReport, Task> HealthResponseWriter(bool detailed) => detailed
+        ? WriteReportAsync
+        : static (context, report) =>
+        {
+            context.Response.ContentType = "text/plain";
+            return context.Response.WriteAsync(report.Status.ToString());
+        };
+
+    /// <summary>The whole report, for a person.</summary>
+    /// <remarks>
+    /// The exception's <i>message</i> rather than the exception: a stack trace here is the framework's
+    /// own frames nine times out of ten, and the sentence — "password authentication failed" — is the
+    /// part that says what to do next.
+    /// </remarks>
+    private static Task WriteReportAsync(HttpContext context, HealthReport report)
+    {
+        context.Response.ContentType = "application/json";
+
+        return context.Response.WriteAsJsonAsync(new
+        {
+            status = report.Status.ToString(),
+            totalDurationMs = report.TotalDuration.TotalMilliseconds,
+            entries = report.Entries.ToDictionary(
+                entry => entry.Key,
+                entry => new
+                {
+                    status = entry.Value.Status.ToString(),
+                    description = entry.Value.Description,
+                    durationMs = entry.Value.Duration.TotalMilliseconds,
+                    error = entry.Value.Exception?.Message,
+                }),
+        });
     }
 }
