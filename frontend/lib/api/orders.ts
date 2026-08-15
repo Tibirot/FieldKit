@@ -1,4 +1,4 @@
-import { apiGet } from "@/lib/api/client";
+import { apiGet, apiSend } from "@/lib/api/client";
 
 /**
  * Where an order stands (`ORD-01`).
@@ -89,4 +89,42 @@ export function fetchOrders(
   const suffix = status ? `?status=${status}` : "";
 
   return apiGet<Order[]>(`/api/orders${suffix}`, accessToken, signal);
+}
+
+/** The reasons a supervisor may pick, in the order the screen offers them. */
+export const REJECTION_REASONS: readonly OrderRejectionReason[] = [
+  "OffAssortment",
+  "BelowMinimum",
+  "OutletClosed",
+  "CreditHold",
+  "Other",
+];
+
+/** What a note may hold, mirroring `OrderSubmission.MaximumNoteLength`. */
+export const MAXIMUM_NOTE = 500;
+
+export type RejectionWrite = {
+  reason: OrderRejectionReason;
+  /** A line to point at, when there is one. Half of `F4`'s reasons point at no line. */
+  offendingProductId?: string;
+  note?: string;
+};
+
+/**
+ * Refuses an order whole (`ORD-12`, `BR-ORD-9`).
+ *
+ * **Whole-order, never per line**, which is why there is no "reject these two lines" call. `BR-ORD-4`
+ * denies everybody the right to change what a rep captured: the order goes back as it was and the rep
+ * re-opens it on their device, so the offending product is a *pointer* rather than an edit.
+ *
+ * Refusals worth expecting: **409** `order.rejection.notSubmitted` when somebody else got there
+ * first, **400** `order.rejection.unknownLine` for a product not on the order, and **400**
+ * `order.rejection.noteTooLong`.
+ */
+export function rejectOrder(
+  accessToken: string,
+  orderId: string,
+  rejection: RejectionWrite,
+): Promise<Order> {
+  return apiSend<Order>("POST", `/api/orders/${orderId}/rejection`, accessToken, rejection);
 }

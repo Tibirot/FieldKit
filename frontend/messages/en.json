@@ -243,7 +243,19 @@
       "OutletClosed": "the outlet was closed",
       "CreditHold": "the account is on credit hold",
       "Other": "other"
-    }
+    },
+    "reject": "Reject",
+    "reasonLabel": "Reason",
+    "lineLabel": "Line",
+    "noLine": "No particular line",
+    "lineOption": "{quantity} {unit}",
+    "noteLabel": "Note for the rep",
+    "notePlaceholder": "What should they change? Optional.",
+    "confirmReject": "Reject the order",
+    "rejecting": "Rejecting…",
+    "cancel": "Cancel",
+    "rejectFailed": "The order could not be rejected.",
+    "alreadyDecided": "Somebody already decided this order. Reload to see where it stands."
   },
   "Theme": {
     "label": "Theme",
@@ -1241,6 +1253,13 @@
       "list": {
         "tooManyIds": "Ask for at most {max} outlets at a time.",
         "idMalformed": "That is not an outlet id."
+      }
+    },
+    "order": {
+      "rejection": {
+        "notSubmitted": "Only a submitted order can be rejected.",
+        "unknownLine": "That product is not on this order.",
+        "noteTooLong": "A note is at most 500 characters."
       }
     }
   },

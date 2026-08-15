@@ -243,7 +243,19 @@
       "OutletClosed": "magazinul era închis",
       "CreditHold": "contul este blocat la plată",
       "Other": "alt motiv"
-    }
+    },
+    "reject": "Respinge",
+    "reasonLabel": "Motiv",
+    "lineLabel": "Linie",
+    "noLine": "Nicio linie anume",
+    "lineOption": "{quantity} {unit}",
+    "noteLabel": "Notă pentru agent",
+    "notePlaceholder": "Ce ar trebui să schimbe? Opțional.",
+    "confirmReject": "Respinge comanda",
+    "rejecting": "Se respinge…",
+    "cancel": "Anulează",
+    "rejectFailed": "Comanda nu a putut fi respinsă.",
+    "alreadyDecided": "Cineva a decis deja această comandă. Reîncărcați pentru a vedea starea ei."
   },
   "Theme": {
     "label": "Temă",
@@ -1241,6 +1253,13 @@
       "list": {
         "tooManyIds": "Cereți cel mult {max} magazine odată.",
         "idMalformed": "Acesta nu este un identificator de magazin."
+      }
+    },
+    "order": {
+      "rejection": {
+        "notSubmitted": "Doar o comandă trimisă poate fi respinsă.",
+        "unknownLine": "Acel produs nu se află pe această comandă.",
+        "noteTooLong": "O notă are cel mult 500 de caractere."
       }
     }
   },
