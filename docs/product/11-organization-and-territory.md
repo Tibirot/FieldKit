@@ -144,6 +144,17 @@ sync (they receive a new outlet/journey scope).
 
 - `ITerritoryDirectory` — territory of an outlet; outlets of a territory; active rep of a
   territory.
+  > **The second of those arrived in W12 slice 3** as `OutletsInAsync(territoryId)`, and it arrived
+  > because nothing could answer it. Every reporting aggregate takes outlet ids, and when
+  > `/api/reporting/summary` came to produce that list there was no contract that could:
+  > `IOutletCatalog` resolves ids it is given, `ForOutletsAsync` maps the other way, and `IRepScope`
+  > answers about one rep on one day.
+  >
+  > Null means **every territory**, not every outlet — so a shop nobody has been made responsible for
+  > is outside every scope, including the unfiltered one. That is the honest reading of a coverage
+  > report (an unassigned shop has no round to be measured against) and it also keeps the
+  > per-territory figures adding up to the unfiltered one. An unknown or foreign territory id answers
+  > **empty** rather than erroring, so the endpoint cannot be used to probe for somebody else's.
 - `IRepScope` — resolve a rep's current offline scope (outlet ids) for Sync.
 - `IOrgHierarchy` — management line / visibility scope for a user (used by reporting & auth).
 - Publishes `RepAssignmentChanged` (integration event) → Sync/Journey react.

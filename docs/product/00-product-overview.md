@@ -137,6 +137,20 @@ metrics and custom KPIs land in Phase 3–4 ([roadmap](../roadmap.md)).
 > coverage. The other three followed in slices 2a–2c: coverage's denominator from Journey and its
 > numerator from Visit, perfect store from Audit, order value from Order.
 >
+> **The composition itself is `GET /api/reporting/summary`, built in W12 slice 3 — in the host, not
+> in a module.** It resolves a scope once and asks the four contracts the same question about the
+> same shops and the same days; the only figure it computes is coverage, because that ratio has a
+> numerator in one module and a denominator in another and neither can see the other's half.
+>
+> **It is scoped by tenant and an optional territory, and not per supervisor.** The W12 decomposition
+> assumed `IRepScope` would decide what a supervisor may total; building it found that `IRepScope`
+> answers about a *rep's* assignments, so an administrator resolves to no shops at all. The
+> visibility scope that would answer it (`BR-ORG-4`) is returned as data by
+> `/api/org/users/{id}/scope` and explicitly **not enforced** — its own note says enforcement lands
+> with `ORG-09`. Reporting is therefore scoped exactly as every other back-office read is, which is a
+> deliberate limit rather than an oversight: making it the one enforced read in the system would be
+> inconsistent as well as incomplete.
+>
 > **Promotion usage is struck through above because it cannot be reported.** Building slice 2c found
 > that an `OrderLine` records what it cost and **not which promotion made it cost that** — the device
 > applies one and sends the net. It is not recoverable by arithmetic either: `quantity × unit price`
