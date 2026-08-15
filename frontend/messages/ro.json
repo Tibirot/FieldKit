@@ -161,6 +161,59 @@
       "Open": "Încă deschisă"
     }
   },
+  "VisitDetail": {
+    "title": "Vizită",
+    "intro": "Ce i s-a cerut agentului, ce a făcut și auditul aferent.",
+    "crumb": "Vizită",
+    "loading": "Se încarcă vizita…",
+    "failed": "Vizita nu a putut fi încărcată.",
+    "forbidden": "Nu aveți permisiunea de a vedea vizitele.",
+    "missing": "Vizita nu există sau aparține altui spațiu de lucru.",
+    "theVisit": "Vizita",
+    "outcomeLabel": "Rezultat",
+    "outcome": {
+      "Productive": "Productivă",
+      "NonProductive": "Neproductivă",
+      "Open": "Încă deschisă"
+    },
+    "checkedIn": "Sosire",
+    "timeOnSite": "Timp în magazin",
+    "minutes": "{minutes} min",
+    "geofence": "Locație",
+    "atTheShop": "La magazin",
+    "awayFromTheShop": "În afara magazinului",
+    "override": "Agentul se afla în afara magazinului — {reason}",
+    "noReason": "fără motiv",
+    "outcomeReason": "Nu a rezultat nimic — {reason}",
+    "steps": "Pași",
+    "noSteps": "Această vizită nu a avut pași configurați.",
+    "mandatory": "Obligatoriu",
+    "audit": "Audit",
+    "noAudit": "Nu s-a efectuat niciun audit în această vizită.",
+    "score": "Scor magazin perfect",
+    "weighting": "Punctat cu versiunea de ponderare {version}",
+    "notMeasured": "Nemăsurat",
+    "weight": "pondere {weight}%",
+    "captured": "{availability} disponibilitate · {facings} fronturi · {prices} prețuri · {answers} răspunsuri · {photos} fotografii",
+    "stepStatus": {
+      "Pending": "Nefinalizat",
+      "Completed": "Finalizat"
+    },
+    "stepType": {
+      "Audit": "Audit",
+      "Order": "Comandă",
+      "Survey": "Chestionar",
+      "Task": "Sarcină",
+      "Photo": "Fotografie",
+      "Note": "Notă",
+      "Signature": "Semnătură"
+    },
+    "pillar": {
+      "Availability": "Disponibilitate",
+      "ShareOfShelf": "Cotă de raft",
+      "PriceCompliance": "Conformitate preț"
+    }
+  },
   "Theme": {
     "label": "Temă",
     "light": "Luminoasă",
