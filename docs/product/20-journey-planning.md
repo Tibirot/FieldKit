@@ -223,6 +223,14 @@ has a call on that day, planned or unplanned, and answered as success because th
   > deliberately still unbuilt. The screens that want it (`JRN-05`, W9) read it over HTTP, not in
   > process, and an interface method with no in-process caller is the guess this project keeps
   > declining to make. It grows one when something inside the monolith asks.
+  >
+  > **Something asked in W12 slice 2a**, and it grew `CountPlannedAsync` — how many calls a round
+  > promised at a set of shops over a window, split into the ones still standing and the ones the rep
+  > declined (`JRN-06`). It is **coverage's denominator**, and Journey cannot produce coverage itself:
+  > a planned call never learns it was visited — there is no `Visited` status and nothing here
+  > subscribes to `VisitCompleted` — so the numerator is Visit's, counted from the calls its visits
+  > claimed. `NotVisited` stays *inside* the total, because `BR-JRN-2` keeps a skipped shop on the
+  > round precisely so it cannot vanish from the promise.
 - `IReferenceChangeFeed` (sync source) — territory-scoped, row-version delta of the rep's journey
   with tombstones, for **Sync** ([module boundaries §7](../architecture/10-module-boundaries.md#7-module-registry)).
 - `IJourneyIngest` — apply pushed journey annotations (not-visited reason, unplanned visit,

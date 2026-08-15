@@ -262,6 +262,12 @@ these are reporting facts, and they never block.
   > territory: a visit knows its shop and its rep and nothing about org structure, so the caller
   > resolves scope first. Reading a **single** visit back is deliberately still absent — its caller is
   > the supervisor review screen, and it lands with it.
+  >
+  > W12 slice 2a added a **second** method, `CountFulfilledCallsAsync` — how many *planned calls*
+  > were actually made, which is **coverage's numerator**. It is separate from the outcome counts
+  > rather than a property on them because the unit differs: that record counts visits, this counts
+  > calls, **deduplicated** — two check-ins against one call still covered one call, and unplanned
+  > visits are real work that kept no promise, so they are counted there and not here.
 - `IVisitIngest` — apply a pushed visit through this module, used by **Sync** ([module boundaries §7](../architecture/10-module-boundaries.md#7-module-registry)).
 - Consumes `IJourneyQuery`, `IOutletGeofence` (Outlets — where the shop is and how close counts as
   there; separate from `IOutletCatalog` so a rep's device syncs coordinates without the commercial
