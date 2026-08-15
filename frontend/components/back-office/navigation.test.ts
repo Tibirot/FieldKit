@@ -214,6 +214,29 @@ describe("the screens inside a section", () => {
     }
   });
 
+  it("asks the predicate about one permission at a time", () => {
+    /*
+     * **The regression test for a bug every other test in this file was blind to** (slice 3).
+     *
+     * `permits` used to pass its predicate straight to `some`, which supplies `(element, index,
+     * array)`. Every fake in this file is a one-parameter arrow, so the extra arguments fell on the
+     * floor and nine assertions agreed the model was fine.
+     *
+     * The predicate the app actually ships is `usePermissions().has`, which is **variadic and means
+     * all-of** — so it was asked whether the caller holds `"product:read"` *and* `0` *and*
+     * `["product:read"]`, and answered no. Every screen was hidden from everyone; the panel rendered
+     * nothing at all and did so silently, which is how it survived a suite that was green.
+     *
+     * So this fake is variadic on purpose, in the shape of the real one. A single-argument fake
+     * cannot fail here, which is precisely what went wrong.
+     */
+    const variadic = (...required: readonly string[]) =>
+      required.every((permission) => permission === "product:read");
+
+    expect(permits([["product:read"]], variadic)).toBe(true);
+    expect(permits([["product:read"], ["channel:read"]], variadic)).toBe(false);
+  });
+
   it("reads a group as any-of and the groups as all-of", () => {
     // Territories is the any-of case — either permission opens it, because the page holds sections
     // with different ones.

@@ -158,9 +158,18 @@ export function coversPath(item: NavItem, pathname: string): boolean {
   return covers(item.section ?? item.href, pathname);
 }
 
-/** Whether a caller holding `granted` satisfies a {@link Requirement}. */
+/**
+ * Whether a caller holding `granted` satisfies a {@link Requirement}.
+ *
+ * **`granted` is called with exactly one argument, and that is load-bearing.** Passing it straight
+ * to `some` — `anyOf.some(granted)` — hands it `(permission, index, array)`, which is harmless for a
+ * single-parameter arrow and wrong for the predicate this actually ships with: `usePermissions().has`
+ * is variadic and means *all of these*, so it was being asked whether the caller holds the
+ * permission **and the number 0**. Always false. The panel rendered nothing at all, and slice 1's
+ * tests passed throughout because their fake predicate took one parameter.
+ */
 export function permits(requires: Requirement, granted: (permission: string) => boolean): boolean {
-  return requires.every((anyOf) => anyOf.some(granted));
+  return requires.every((anyOf) => anyOf.some((permission) => granted(permission)));
 }
 
 /** The screens of a section the caller may actually open, in panel order. */

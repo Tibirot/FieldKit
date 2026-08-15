@@ -162,7 +162,7 @@ should be navigation items, **six** are.
 | Screens in the app | 34 — 28 back office, 6 field |
 | Reachable from a navigation item | 6 |
 | Workspaces reachable only from a link row | 11 |
-| Record-detail screens with no breadcrumb | 11 |
+| Record-detail screens whose breadcrumb is text, not links | 11 |
 
 The link row was the right answer for one section with two pages. By W12 there are nine sections,
 five near-identical `*-actions.tsx` rows, and **two navigation items that point *into* themselves**
@@ -183,6 +183,18 @@ the rail, and a section is visible when *any* of its screens is.
 
 **The panel holds links, not records.** Putting price lists or outlets in the second column — a
 Miller-column browse — is a bigger idea that this shape leaves open and does not take.
+
+**The chrome is affordable, measured rather than assumed** (slice 3). The widest table in the app is
+the outlet list at **864px** of max-content, against **963px** available once the rail, the panel and
+the scrollbar come off a 1280 laptop — about 100px spare, and it never has to wrap. The journey plan
+grid is the one thing that cannot fit at any chrome width, and already scrolls horizontally by
+design, so the rail costs it one visible day rather than correctness.
+
+**The eleven detail screens already have a breadcrumb** — a `crumb` string per screen rendering
+`Master data / Products / Price lists / Scope`. It is a `<p>` with **no links in it**, which is why
+the audit first recorded these as having none: the trail is printed and cannot be walked. Slice 5
+makes it navigable and derives it from this model, rather than from twenty-one literal paths
+maintained in each locale.
 
 **And it is enforced rather than remembered.** `scripts/check-reachability.mjs` already failed the
 build for a mutation type with no producer or a field route nothing links to; slice 2 added the third

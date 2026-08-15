@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 
 import { useAuth } from "@/components/auth-provider";
 import { QueryProvider } from "@/components/back-office/query-provider";
+import { SectionPanel } from "@/components/back-office/section-panel";
 import { Sidebar } from "@/components/back-office/sidebar";
 import { SessionGuard } from "@/components/session-guard";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,13 @@ function BackOffice({ children }: { children: React.ReactNode }) {
     <QueryProvider>
       <div className="flex min-h-dvh flex-col md:flex-row">
         <Sidebar workspace={workspace} />
+        {/*
+          Beside the sidebar rather than replacing anything (W12½ slice 3). Two columns of chrome is
+          more than the finished shape asks for — the sidebar becomes a 68px rail in slice 4, taking
+          the pair to 254px — and this is the interim state that keeps every screen reachable at
+          every commit rather than only at the end of the stack.
+        */}
+        <SectionPanel />
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="flex items-center justify-end gap-3 border-b border-border px-6 py-3">
             <Button variant="outline" size="sm" onClick={() => void signOut()}>
