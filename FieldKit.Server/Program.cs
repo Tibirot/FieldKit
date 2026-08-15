@@ -158,6 +158,11 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 
+// After both, because the tenant comes from a token that has been validated and from nowhere else
+// (W13 slice 2). Stamping the request's own span means "everything this tenant did" is a filter
+// rather than a join, and it adds no span of its own.
+app.UseTenantTracing();
+
 app.MapAuthEndpoints();
 app.MapModules(modules);
 

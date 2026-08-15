@@ -85,9 +85,18 @@ way rather than sniffing between shapes:
     { "field": "code",                      "message": "An outlet with code 'OUT-1' already exists." },
     { "field": "customFields.chiller_count", "message": "'chiller_count' must be at most 50." },
     { "field": null,                        "message": "The file has a header but no rows." }
-  ]
+  ],
+  "traceId": "4bf92f3577b34da6a3ce929d0e0e4736"
 }
 ```
+
+- **`traceId` is the trace this response happened in** (W13 slice 2), so a refusal somebody reports
+  can be found in the traces rather than searched for by timestamp
+  ([observability §4](15-observability.md#4-correlation)). It is the **32-hex trace id**, not the
+  `00-…-01` `traceparent` — that names one span inside the trace, and pasting it into a viewer asks
+  the wrong question. **Absent when nothing was tracing**, rather than empty: a `""` is a value
+  somebody will paste into a search box and get nothing back from, while a missing property says
+  plainly that this response was not traced.
 
 - **`field` is the JSON path the caller sent** — `code`, `channelId`,
   `customFields.chiller_count`. Not a column, not a form control: the API can only promise something

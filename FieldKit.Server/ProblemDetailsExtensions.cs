@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.AspNetCore.Diagnostics;
 
@@ -36,6 +37,18 @@ public static class ProblemDetailsExtensions
     {
         builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = context =>
         {
+            /*
+             * The same trace id, spelled the same way, on the one response shape that is *not* the
+             * `{ "errors": [...] }` envelope (W13 slice 2).
+             *
+             * Two shapes are two shapes; what must not also differ is the name and the format of the
+             * id inside them. Set explicitly rather than left to the framework's default, which is
+             * `Activity.Id` — the W3C `traceparent`, identifying this one span. Both would be called
+             * `traceId` and only one of them finds the request in a trace viewer.
+             */
+            if (Activity.Current?.TraceId is { } trace && trace != default)
+                context.ProblemDetails.Extensions["traceId"] = trace.ToString();
+
             // Only for a body we could not read. A 500's message is about our internals and stays in
             // the logs, where the trace id already points.
             if (context.Exception is BadHttpRequestException { InnerException: JsonException json })

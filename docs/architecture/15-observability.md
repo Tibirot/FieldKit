@@ -4,13 +4,17 @@
 > **Decision:** [ADR-0003](adr/0003-adopt-dotnet-aspire.md) · **Foundation:** `ServiceDefaults` (scaffolded)
 
 > **What "baseline" means here, read against the code (W13 slice 0).** Every "FieldKit adds" cell in
-> §1 and every row of §2 is **specified and unbuilt** — `FieldKit.Server/Extensions.cs` is the Aspire
-> template unedited, and the solution declares no `Meter` and no `ActivitySource` of its own. Three
-> claims below are stated in the present tense and are not yet true, each now owned by a
-> [W13 slice](../delivery-plan.md#week-13--observability--security-hardening): the **outbox
-> dispatcher heartbeat** in §3 has no dispatcher to hear from (slice 3), the **`traceId` in every
-> `ProblemDetails`** in §4 appears nowhere in this repository — no test, no `.http` request, no
-> client (slice 2), and the health endpoints in §3 are mapped **only in development** (slice 5).
+> §1 and every row of §2 was **specified and unbuilt** — `FieldKit.Server/Extensions.cs` was the
+> Aspire template unedited, and the solution declared no `Meter` and no `ActivitySource` of its own.
+> Three claims below were stated in the present tense and were not yet true, each owned by a
+> [W13 slice](../delivery-plan.md#week-13--observability--security-hardening):
+>
+> - the **outbox dispatcher heartbeat** in §3 has no dispatcher to hear from — **outstanding**
+>   (slice 3);
+> - the **`traceId` in every `ProblemDetails`** in §4 appeared nowhere in this repository —
+>   **done in slice 2**, and the claim itself was wrong as well as unbuilt: this API does not answer
+>   with `ProblemDetails`, so §4 now names the envelope that carries it;
+> - the health endpoints in §3 are mapped **only in development** — **outstanding** (slice 5).
 
 FieldKit treats observability as a **default, not a retrofit** — the CV highlights performance
 work, and this is where that shows. The `ServiceDefaults` project already wires OpenTelemetry,
@@ -79,11 +83,29 @@ Aspire guidance.
 
 ## 4. Correlation
 
-- One **`traceId`** flows request → module handler → DB span → outbox, and is returned in every
-  `ProblemDetails` ([API contracts](13-api-contracts.md)) — so a user-reported error links straight
-  to its trace.
+- One **`traceId`** flows request → module handler → DB span, and is returned on **every refusal**
+  ([API contracts §3](13-api-contracts.md#3-error-model--rfc-7807-problem-details)) — so a
+  user-reported error links straight to its trace.
 - `tenantId` and (where relevant) `deviceId`/`mutationId` are span/log attributes, making it
   possible to trace **one rep's sync** end to end.
+
+> **Built in W13 slice 2, and the claim above was corrected on the way in.** It used to say the id is
+> returned in every `ProblemDetails`; this API does not answer with `ProblemDetails` — every refusal
+> it raises uses its own `{ "errors": [...] }` envelope, which had no trace id at all. The wiring now
+> exists on both shapes and the sentence names the one that carries it.
+>
+> **The tenant is stamped on the request's own span**, not on a child, so "everything this tenant did"
+> is a filter rather than a join and costs no extra span. It happens after authentication, because
+> the tenant comes from a validated token and from nowhere else.
+>
+> **`mutationId` gets a span apiece.** A push opens `sync.push`, and each mutation inside it opens
+> `sync.push.mutation` carrying the device-minted id, its type, how it was answered and — for a
+> refusal — the `ADR-0012` code. A replay answered from the ledger is tagged as a replay and is
+> **not** marked as an error: colouring a healthy retry red teaches whoever reads the trace to ignore
+> the colour.
+>
+> The **outbox dispatch** span in §1 is still outstanding: there is no dispatcher to open one
+> (slice 3).
 
 ## 5. Client-side (field app)
 
