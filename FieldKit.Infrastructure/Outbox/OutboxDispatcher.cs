@@ -1,3 +1,4 @@
+using FieldKit.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -37,6 +38,8 @@ public sealed class OutboxDispatcher<TContext>(
     IServiceProvider services,
     OutboxProcessor processor,
     OutboxMetrics metrics,
+    OutboxHeartbeat heartbeat,
+    IClock clock,
     ILogger<OutboxDispatcher<TContext>> logger) : BackgroundService
     where TContext : ModuleDbContext
 {
@@ -63,6 +66,11 @@ public sealed class OutboxDispatcher<TContext>(
                 var pending = await PendingAsync(stoppingToken);
 
                 metrics.Backlog(Module, pending);
+
+                // Stamped on a cycle that *completed*, which is why the catch below does not stamp:
+                // a dispatcher that cannot reach its outbox is not delivering, whatever its thread
+                // is doing, and a health check should read that as silence rather than as health.
+                heartbeat.Beat(Module, clock.UtcNow);
 
                 // A full batch means there is more behind it. Anything less means the queue is dry.
                 wait = processed == BatchSize ? TimeSpan.Zero : Idle;

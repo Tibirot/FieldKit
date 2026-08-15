@@ -21,6 +21,11 @@ var builder = WebApplication.CreateBuilder(args);
 // No output cache, and its absence is deliberate — see the note where `UseOutputCache` used to be.
 builder.AddServiceDefaults();
 
+// The dependency checks behind /health: Postgres, Keycloak, and the outbox dispatchers
+// (W13 slice 5). The template ships one self check tagged live and nothing else, so readiness and
+// liveness answered the same question and an instance that had lost its database reported ready.
+builder.AddFieldKitHealthChecks();
+
 // Problem details that keep a 400 a 400: an unreadable body is the caller's mistake, and the plain
 // UseExceptionHandler reported every one of them as a server fault (ProblemDetailsExtensions).
 builder.AddRequestProblemDetails();

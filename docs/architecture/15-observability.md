@@ -14,7 +14,8 @@
 > - the **`traceId` in every `ProblemDetails`** in §4 appeared nowhere in this repository —
 >   **done in slice 2**, and the claim itself was wrong as well as unbuilt: this API does not answer
 >   with `ProblemDetails`, so §4 now names the envelope that carries it;
-> - the health endpoints in §3 are mapped **only in development** — **outstanding** (slice 5).
+> - the health endpoints in §3 were mapped **only in development** — **fixed in slice 5**, and the
+>   redaction that seemed to require turned out to be the framework default.
 
 FieldKit treats observability as a **default, not a retrofit** — the CV highlights performance
 work, and this is where that shows. The `ServiceDefaults` project already wires OpenTelemetry,
@@ -108,11 +109,37 @@ These double as the **operational KPIs** behind the supervisor dashboards
 
 Per `ServiceDefaults`: `/health` (all checks — readiness) and `/alive` (liveness only). Extended
 with dependency checks: **PostgreSQL**, **Keycloak reachability**, and **outbox
-liveness** (dispatcher heartbeat). There is no Redis check because there is no Redis: the W8
+liveness** (dispatcher heartbeat).
+
+> **Built in W13 slice 5.** Before it the template's single `self` check — which returns healthy
+> unconditionally — was tagged `live` and was *all* either endpoint ran, so readiness and liveness
+> answered the same question and an instance that had lost its database reported ready.
+>
+> **None of the three dependency checks is tagged `live`**, and that is the load-bearing part: a
+> liveness probe that fails on a dependency asks the platform to restart a service that is working,
+> and restarting every instance when the database blinks is how a blip becomes an outage.
+>
+> **Postgres is checked once**, not once per module: schema-per-module ([ADR-0005](adr/0005-postgres-schema-per-module.md))
+> means eleven contexts over one database. **Keycloak is checked for reachability** by fetching the
+> `master` realm's discovery document — a 200 means it is serving OIDC rather than merely accepting
+> TCP, and it deliberately says nothing about whether a given tenant's realm exists. **A module whose
+> dispatcher has never beaten is not a failure**: a readiness check that fails during start-up keeps
+> an instance out of rotation for a reason that will pass on its own. There is no Redis check because there is no Redis: the W8
 idempotency ledger it was being held for is a Postgres table ([ADR-0007
 amendment](adr/0007-offline-sync-strategy.md#amendment-2026-08-the-ledger-is-postgres-and-there-is-no-redis)),
-so the Postgres check already covers it. Health endpoints are dev-open and locked down in non-dev per
-Aspire guidance.
+so the Postgres check already covers it.
+
+**Both endpoints answer in every environment** (W13 slice 5), because
+[W15](../delivery-plan.md#week-15--deploy-to-aca--case-study) deploys to Container Apps, which probes
+one to decide whether an instance is alive and whether it may take traffic — and the template's
+dev-only mapping would have met both probes with a 404, days after the code that caused it.
+
+The Aspire guidance this replaces is about the endpoint *existing*, not the body: **ASP.NET's default
+response writer emits one word**, so nothing about a service's dependencies leaks by default. Which
+inverted the work — production needed no redaction, and **development needed detail it did not
+have**, since "Unhealthy" with no further comment is a poor morning when three checks could each be
+the reason. The per-check body is therefore the *development* writer; every other environment keeps
+the default.
 
 ## 4. Correlation
 
