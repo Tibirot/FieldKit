@@ -100,7 +100,8 @@
       "scoreWeights": "Perfect-store weights",
       "surveys": "Surveys",
       "userList": "Users & roles",
-      "overview": "Overview"
+      "overview": "Overview",
+      "visitList": "Visits"
     },
     "openMenu": "Menu",
     "closeMenu": "Close",
@@ -136,6 +137,28 @@
       "Availability": "Availability",
       "ShareOfShelf": "Share of shelf",
       "PriceCompliance": "Price compliance"
+    }
+  },
+  "Visits": {
+    "title": "Visits",
+    "intro": "What the field recorded — read-only, because a checked-out visit is sealed.",
+    "loading": "Loading visits…",
+    "failed": "Visits could not be loaded.",
+    "forbidden": "You do not have permission to view visits.",
+    "empty": "No visits recorded yet.",
+    "outletLabel": "Outlet",
+    "allOutlets": "All outlets",
+    "repLabel": "Rep",
+    "allReps": "All reps",
+    "unknownOutlet": "Unknown outlet",
+    "elsewhere": "Checked in away from the shop — {reason}",
+    "noReason": "no reason given",
+    "offline": "Captured offline, reached the server on {recorded}",
+    "capped": "Showing the {count} most recent visits.",
+    "outcome": {
+      "Productive": "Productive",
+      "NonProductive": "Non-productive",
+      "Open": "Still open"
     }
   },
   "Theme": {

@@ -4,6 +4,7 @@ import {
   BadgePercent,
   Boxes,
   CalendarDays,
+  ClipboardCheck,
   ClipboardList,
   Coins,
   Gauge,
@@ -62,6 +63,7 @@ import { cn } from "@/lib/utils";
  */
 const ICONS: Record<NavScreenKey, React.ComponentType<{ className?: string }>> = {
   overview: LayoutDashboard,
+  visitList: ClipboardCheck,
   journeyPlans: Map,
   callFrequency: Repeat,
   workingCalendars: CalendarDays,

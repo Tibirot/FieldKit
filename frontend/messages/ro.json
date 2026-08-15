@@ -100,7 +100,8 @@
       "scoreWeights": "Ponderile magazinului perfect",
       "surveys": "Chestionare",
       "userList": "Utilizatori și roluri",
-      "overview": "Prezentare generală"
+      "overview": "Prezentare generală",
+      "visitList": "Vizite"
     },
     "openMenu": "Meniu",
     "closeMenu": "Închide",
@@ -136,6 +137,28 @@
       "Availability": "Disponibilitate",
       "ShareOfShelf": "Cotă de raft",
       "PriceCompliance": "Conformitate preţ"
+    }
+  },
+  "Visits": {
+    "title": "Vizite",
+    "intro": "Ce a înregistrat echipa din teren — doar citire, pentru că o vizită încheiată este sigilată.",
+    "loading": "Se încarcă vizitele…",
+    "failed": "Vizitele nu au putut fi încărcate.",
+    "forbidden": "Nu aveți permisiunea de a vedea vizitele.",
+    "empty": "Nicio vizită înregistrată încă.",
+    "outletLabel": "Magazin",
+    "allOutlets": "Toate magazinele",
+    "repLabel": "Agent",
+    "allReps": "Toți agenții",
+    "unknownOutlet": "Magazin necunoscut",
+    "elsewhere": "Sosire înregistrată în afara magazinului — {reason}",
+    "noReason": "fără motiv",
+    "offline": "Capturată offline, a ajuns la server pe {recorded}",
+    "capped": "Se afișează cele mai recente {count} vizite.",
+    "outcome": {
+      "Productive": "Productivă",
+      "NonProductive": "Neproductivă",
+      "Open": "Încă deschisă"
     }
   },
   "Theme": {
