@@ -24,7 +24,8 @@ namespace FieldKit.Modules.Audit;
 /// </para>
 /// </remarks>
 internal sealed class AuditIngestService(
-    AuditDbContext db, IVisitContext visits, ISurveyForms surveys, IScoreWeights weights)
+    AuditDbContext db, IVisitContext visits, ISurveyForms surveys, IScoreWeights weights,
+    PhotoMetrics photos)
     : IAuditIngest
 {
     public async Task<AuditIngestResult> IngestAsync(
@@ -139,6 +140,11 @@ internal sealed class AuditIngestService(
 
         db.Audits.Add(audit!);
         await db.SaveChangesAsync(cancellationToken);
+
+        // The other half of the photo backlog (W13 slice 4): an audit is where references are born,
+        // a confirmation is where they die, and the level only moves at those two points — so
+        // recording at both is exact, where sampling would be a guess between them.
+        await photos.ReportPendingAsync(db, cancellationToken);
 
         return AuditIngestResult.Ok();
     }

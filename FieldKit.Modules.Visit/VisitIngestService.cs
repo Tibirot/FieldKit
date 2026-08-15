@@ -22,7 +22,7 @@ namespace FieldKit.Modules.Visit;
 /// </para>
 /// </remarks>
 internal sealed class VisitIngestService(
-    VisitDbContext db, IOutletCatalog outlets) : IVisitIngest
+    VisitDbContext db, IOutletCatalog outlets, VisitMetrics metrics) : IVisitIngest
 {
     public async Task<VisitIngestResult> IngestAsync(
         CapturedVisit captured, string userId, CancellationToken cancellationToken = default)
@@ -91,6 +91,11 @@ internal sealed class VisitIngestService(
         // because the caller could not commit it anyway (see above). The visit landing without its
         // ledger entry is the window the `AlreadyExists` answer above exists to close.
         await db.SaveChangesAsync(cancellationToken);
+
+        // After the save, so a refused or failed ingest is not counted as a finished visit — and
+        // once per visit, because a device's retry of a visit that already landed is answered by the
+        // `AlreadyExists` branch above and never reaches this line.
+        metrics.Completed(db.CurrentTenantId, outcome);
 
         return VisitIngestResult.Ok();
     }

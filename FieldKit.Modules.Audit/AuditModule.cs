@@ -68,6 +68,8 @@ public sealed class AuditModule : IModule
         services.AddHostedService<ModuleMigrator<AuditDbContext>>();
 
         // Sync applies pushed audits through this rather than writing the audit schema (W10 slice 6).
+        services.AddSingleton<PhotoMetrics>();
+
         services.AddScoped<IAuditIngest, AuditIngestService>();
 
         // …and reporting reads them through this (AUD-09).

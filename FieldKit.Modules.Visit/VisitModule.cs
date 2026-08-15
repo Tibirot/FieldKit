@@ -51,6 +51,9 @@ public sealed class VisitModule : IModule
         services.AddHostedService<ModuleMigrator<VisitDbContext>>();
 
         // Sync applies pushed work through this rather than writing the visit schema (W8 slice 5).
+        // Instruments, created once and thread-safe (W13 slice 4).
+        services.AddSingleton<VisitMetrics>();
+
         services.AddScoped<IVisitIngest, VisitIngestService>();
 
         // …and Audit asks whether a visit exists, whose it is, and whether it is sealed, which is

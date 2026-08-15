@@ -82,6 +82,16 @@ public static class Telemetry
         /// </remarks>
         public const string Module = "fieldkit.module";
 
+        /// <summary>How a visit ended — the <c>VisitOutcome</c> enum, so a closed set.</summary>
+        public const string Outcome = "fieldkit.outcome";
+
+        /// <summary>
+        /// The currency an amount is in. Bounded, and <b>load-bearing rather than descriptive</b>:
+        /// a histogram mixing RON and EUR describes nothing, so an amount without this is a number
+        /// with no unit.
+        /// </summary>
+        public const string Currency = "fieldkit.currency";
+
         /*
          * Below this line: span-only. Every one of them is unbounded, which is exactly why they are
          * here rather than on an instrument — a unique value costs one trace, and being able to

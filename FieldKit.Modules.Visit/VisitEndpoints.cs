@@ -295,6 +295,7 @@ internal static class VisitEndpoints
             CheckOutRequest request,
             VisitDbContext db,
             IClock clock,
+            VisitMetrics metrics,
             CancellationToken ct) =>
         {
             if (PointProblem(request.Latitude, request.Longitude, "checkOut") is { } pointProblem)
@@ -316,6 +317,14 @@ internal static class VisitEndpoints
             if (refusal is not Visit.CheckOutRefusal.None) return CheckOutProblem(visit, refusal);
 
             await db.SaveChangesAsync(ct);
+
+            // The online half of the same count (W13 slice 4). A visit checked out at the counter and
+            // one drained from a phone are the same event to a supervisor; counting only one would
+            // turn business throughput into a measurement of how good the signal was.
+            //
+            // Past the refusal, so a second check-out — which `AlreadyCheckedOut` rejects — is not a
+            // second visit.
+            metrics.Completed(db.CurrentTenantId, visit.Outcome!.Value);
 
             return Results.Ok(Detail(visit));
         }).RequirePermission(VisitPermissions.Write);
