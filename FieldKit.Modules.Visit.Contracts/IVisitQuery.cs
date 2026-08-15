@@ -103,4 +103,39 @@ public interface IVisitQuery
         DateOnly from,
         DateOnly to,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// How many <b>planned calls</b> were actually made at these shops — coverage's numerator.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Not a property on <see cref="VisitOutcomeCounts"/>, and the reason is the unit.</b> That
+    /// record counts <i>visits</i>; this counts <i>planned calls</i>, deduplicated. Putting a number
+    /// in a different unit beside <c>Total</c> would invite exactly one division — fulfilled ÷ total
+    /// visits — which is not coverage and is not anything.
+    /// </para>
+    /// <para>
+    /// <b>Distinct, because two visits can claim one call.</b> Nothing stops a rep checking in twice
+    /// at the same shop against the same planned call, and neither should — <c>BR-VIS-2</c>'s whole
+    /// posture is to record rather than refuse. But a call that was made twice was still one call
+    /// covered, and counting visits here would let coverage exceed the round.
+    /// </para>
+    /// <para>
+    /// <b>Unplanned visits are not counted at all.</b> A rep who drops in on a shop that was not on
+    /// the round has done work, and it shows in <see cref="CountByOutcomeAsync"/>; what it has not
+    /// done is keep a promise, so it must not push coverage above 100%. That asymmetry is the
+    /// argument for this being a separate question rather than a filter the caller applies.
+    /// </para>
+    /// <para>
+    /// <b>Dated by the visit, not by the call.</b> A Tuesday call made on Wednesday counts on
+    /// Wednesday, consistently with <see cref="CountByOutcomeAsync"/>. Over a month — the window
+    /// these are asked about — the two dates agree everywhere except the edges, and dating by the
+    /// plan would mean a visit could land in a window in which nobody worked.
+    /// </para>
+    /// </remarks>
+    Task<int> CountFulfilledCallsAsync(
+        IReadOnlyCollection<Guid> outletIds,
+        DateOnly from,
+        DateOnly to,
+        CancellationToken cancellationToken = default);
 }

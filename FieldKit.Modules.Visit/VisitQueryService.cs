@@ -38,8 +38,7 @@ internal sealed class VisitQueryService(VisitDbContext db) : IVisitQuery
          * this way rather than as `.Date >= from` because a function on the column cannot use the
          * index, and this is the query a dashboard runs on every load.
          */
-        var start = new DateTimeOffset(from.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
-        var end = new DateTimeOffset(to.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        var (start, end) = Window(from, to);
 
         var counted = await db.Visits
             .AsNoTracking()
@@ -59,4 +58,38 @@ internal sealed class VisitQueryService(VisitDbContext db) : IVisitQuery
             NonProductive: Total(VisitOutcome.NonProductive),
             Open: Total(null));
     }
+
+    public async Task<int> CountFulfilledCallsAsync(
+        IReadOnlyCollection<Guid> outletIds,
+        DateOnly from,
+        DateOnly to,
+        CancellationToken cancellationToken = default)
+    {
+        if (outletIds.Count == 0) return 0;
+
+        var (start, end) = Window(from, to);
+
+        // `Distinct` on the id rather than a count of rows: two visits claiming one call is a state
+        // the system permits (`BR-VIS-2` records rather than refuses), and counting both would put
+        // coverage above the round that was promised.
+        return await db.Visits
+            .AsNoTracking()
+            .Where(visit => outletIds.Contains(visit.OutletId))
+            .Where(visit => visit.CheckedInAtUtc >= start && visit.CheckedInAtUtc < end)
+            .Where(visit => visit.PlannedVisitId != null)
+            .Select(visit => visit.PlannedVisitId)
+            .Distinct()
+            .CountAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The closed day range as half-open instants — <c>[from 00:00, the day after to)</c>.
+    /// </summary>
+    /// <remarks>
+    /// Shared by both counts so that a ratio built from them cannot be a ratio of two different
+    /// windows, which is the sort of thing an off-by-one in a copied line produces.
+    /// </remarks>
+    private static (DateTimeOffset Start, DateTimeOffset End) Window(DateOnly from, DateOnly to) => (
+        new DateTimeOffset(from.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+        new DateTimeOffset(to.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero));
 }
