@@ -256,7 +256,7 @@ the document a module author trusts when deciding what to depend on.
 | Products & Pricing | `…Modules.Products` (+ `.Contracts`) | `products` | **`IProductChangeFeed`**, **`IAssortmentChangeFeed`**, **`IPriceChangeFeed`**, **`IPromotionChangeFeed`**, **`ITaxRateChangeFeed`**, **`IOrderMinimumChangeFeed`**, **`IAssortmentService`**, **`IPricingService`**, `IProductCatalog` | `PriceListPublished`, `PromotionActivated` |
 | Configuration | `…Modules.Configuration` (+ `.Contracts`) | `config` | **`IFieldDefinitionCatalog`**, **`IVisitWorkflow`**, **`IVisitWorkflowFeed`**, **`ISurveyForms`**, **`ISurveyFormFeed`**, **`IScoreWeights`**, **`IScoreWeightFeed`** | `ConfigurationPublished` |
 | Journey | `…Modules.Journey` (+ `.Contracts`) | `journey` | **`IJourneyQuery`**, **`IJourneyChangeFeed`**, **`IJourneyIngest`** | `JourneyPublished`, `PlannedVisitMarkedNotVisited` |
-| Visit | `…Modules.Visit` (+ `.Contracts`) | `visit` | **`IVisitIngest`**, **`IVisitContext`**, `IVisitQuery` | `VisitCompleted` |
+| Visit | `…Modules.Visit` (+ `.Contracts`) | `visit` | **`IVisitIngest`**, **`IVisitContext`**, **`IVisitQuery`** | `VisitCompleted` |
 | Audit | `…Modules.Audit` (+ `.Contracts`) | `audit` | **`IAuditIngest`**, **`IAuditQuery`**, **`IPhotoEvidence`**, `IPerfectStoreScore` | `AuditCompleted` |
 | | *`IPhotoEvidence` (W11 slice 13a) is Sync telling an audit that a photograph it references reached storage. Kept apart from `IAuditIngest` so a caller that only wants to say "the bytes are there" does not acquire the ability to file audits — the same split `IAuditQuery` already makes on the read side.* | | | |
 | Order | `…Modules.Order` (+ `.Contracts`) | `ordering` | **`IOrderIngest`**, **`IOrderQuery`**, **`IOrderVerdictFeed`** | `OrderSubmitted` |
@@ -352,6 +352,26 @@ it, shaped by what it actually asks for.
 > `VisitWorkflowCatalog`, the class behind the contract, reads only Configuration's own schema. The
 > channel check lives in the authoring endpoint, which nothing calls back through.
 
+> **`IVisitQuery` is the second exception, and its reason is a different one** (W12 slice 1). The
+> rule's usual force is that a shape guessed early is one the caller has to live with; here the
+> caller is a **host composition** — `GET /api/reporting/summary`, W12 slice 3 — which cannot exist
+> until Visit, Journey, Audit and Order can each answer an aggregate question. Something has to be
+> first when four modules have to move together, and "wait for the caller" gives no way to break the
+> tie. `IVisitWorkflow` went first because a *rule* could not be implemented without it; this goes
+> first because a *composition* cannot be started without one of its parts.
+>
+> What stands in for the caller is the [KPI table](../product/00-product-overview.md#reporting--kpis-cross-cutting-read-side),
+> which fixes strike rate as *productive ÷ visits* and coverage as *actual ÷ planned* — so the return
+> is counts rather than rows, and the module that owns what "productive" means keeps the arithmetic.
+> The evidence that it is not a guess is a test over a **seeded month** rather than an empty set: an
+> aggregate is the easiest kind of query to prove vacuously, since a filter that matches nothing
+> returns zeroes and every "not counted" assertion passes.
+>
+> **W7's version of the Visit row named the wrong callers**, which is worth keeping as evidence for
+> the rule rather than against it: the note said Audit and Order would be the first consumers of
+> `IVisitQuery`. Both were built, in W10 and W11, and neither wanted it — what they needed was
+> `IVisitContext`. Three weeks later the caller turned out to be reporting.
+
 **Journey arrived in W7 as a single assembly** — the same call Organization made until W5 and
 Products is still making. What it had on day one was a **consumer** relationship rather than a
 provider one: it reads `IOutletClassification` for an outlet's segment and `IOutletCatalog` to refuse
@@ -384,8 +404,10 @@ a rule about a shop this tenant does not have.
 (Audit, Order, Sync); by this section's own rule they waited for it. **`IVisitIngest`'s caller arrived
 in W8 slice 5**, so the assembly split then and not before: `/sync/push` has to make a visit captured
 offline real, and Sync writing the `visit` schema itself would put the module that owns the rules
-outside the path that applies them. The other two are still waiting — Audit and Order have not been
-built. It also **publishes**: `VisitCompleted`
+outside the path that applies them. **`IVisitContext`'s caller arrived in W10 slice 3a** — Audit
+needs to know whether a visit exists, whose it is and whether it is sealed before attaching work to
+it (`BR-AUD-6`). **`IVisitQuery` waited until W12 slice 1 and then went first anyway**, which is the
+section's second exception and is recorded below. It also **publishes**: `VisitCompleted`
 ships with check-out (slice 9), into the same empty room `PriceListPublished` has been talking to
 since W6 — which is the asymmetry this section keeps drawing. An event is true whether or not
 anyone is listening; an interface is a promise to a caller who has not arrived. Its schema is `visit`, and the

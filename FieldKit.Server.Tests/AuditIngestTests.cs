@@ -28,7 +28,7 @@ namespace FieldKit.Server.Tests;
 /// purpose — an audit is worked at a shelf with no signal and arrives through <c>/sync/push</c>,
 /// which is wired in W10 slice 6. So these resolve <see cref="IAuditIngest"/> from the running
 /// server's own container, which means standing up a tenant context by hand: see
-/// <see cref="AsAsync"/>.
+/// <see cref="AsTenant"/>, which this file wrote and W12 slice 1 extracted at its third caller.
 /// </para>
 /// </remarks>
 [Collection(ServerCollection.Name)]
@@ -42,67 +42,6 @@ public class AuditIngestTests(ServerFixture fixture)
     private static string Unique(string label) => $"{label}-{Guid.NewGuid():N}"[..18];
 
     private HttpClient Admin() => fixture.CreateAuthenticatedClient(fixture.AdminAccessToken);
-
-    /// <summary>
-    /// Runs <paramref name="work"/> inside a scope whose tenant context matches a real token.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <c>KeycloakTenantContext</c> reads the tenant and the subject off the current request's
-    /// principal and <b>throws</b> when there is no authenticated one — deliberately, so that a
-    /// tenant-owned query can never run unscoped. That guard is what makes a plain
-    /// <c>CreateScope()</c> useless here, and reaching around it with a stub would test a different
-    /// tenant context from the one the server actually uses.
-    /// </para>
-    /// <para>
-    /// So the principal is rebuilt from the fixture's own token: the claims are the ones the server
-    /// would have seen had this arrived over HTTP, and every filter, interceptor and scope check runs
-    /// exactly as it does in production. <c>IHttpContextAccessor</c> stores its context in an
-    /// <c>AsyncLocal</c>, so setting it here reaches the scope's services and nothing outside this
-    /// call.
-    /// </para>
-    /// </remarks>
-    private async Task<T> AsAsync<T>(string token, Func<IServiceProvider, Task<T>> work)
-    {
-        using var scope = fixture.Services.CreateScope();
-
-        var accessor = scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>();
-        var previous = accessor.HttpContext;
-
-        accessor.HttpContext = new DefaultHttpContext { User = PrincipalOf(token) };
-
-        try
-        {
-            return await work(scope.ServiceProvider);
-        }
-        finally
-        {
-            accessor.HttpContext = previous;
-        }
-    }
-
-    /// <summary>The claims inside a JWT, without validating it — the server already did that.</summary>
-    private static ClaimsPrincipal PrincipalOf(string token)
-    {
-        var payload = token.Split('.')[1].Replace('-', '+').Replace('_', '/');
-        var padded = payload.PadRight(payload.Length + ((4 - (payload.Length % 4)) % 4), '=');
-
-        using var document = JsonDocument.Parse(Convert.FromBase64String(padded));
-
-        // Only the two the tenant context reads. Permissions are not needed: the service is being
-        // called directly, so no endpoint filter runs — and adding them would make this look like a
-        // test of authorization, which it is not.
-        var claims = new List<Claim>
-        {
-            new("tenant", document.RootElement.GetProperty("tenant").GetString()!),
-            new("sub", document.RootElement.GetProperty("sub").GetString()!),
-        };
-
-        return new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
-    }
-
-    private static string SubjectOf(string token) =>
-        PrincipalOf(token).FindFirst("sub")!.Value;
 
     private static async Task<Guid> OutletAsync(HttpClient client)
     {
@@ -195,9 +134,9 @@ public class AuditIngestTests(ServerFixture fixture)
     }
 
     private Task<AuditIngestResult> IngestAsync(CapturedAudit audit, string? token = null) =>
-        AsAsync(token ?? fixture.AdminAccessToken, services =>
+        AsTenant.RunAsync(fixture, token ?? fixture.AdminAccessToken, services =>
             services.GetRequiredService<IAuditIngest>()
-                .IngestAsync(audit, SubjectOf(token ?? fixture.AdminAccessToken)));
+                .IngestAsync(audit, AsTenant.SubjectOf(token ?? fixture.AdminAccessToken)));
 
     [Fact]
     public async Task An_audit_pushed_against_an_open_visit_is_stored_and_readable()

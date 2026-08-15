@@ -125,12 +125,16 @@ say "→ reporting" without a reporting module existing. The headline KPIs:
 Operational dashboards only — no OLAP/warehouse ([non-goal](#6-scope--non-goals)). Richer
 metrics and custom KPIs land in Phase 3–4 ([roadmap](../roadmap.md)).
 
-> **This describes the design, and the design is not built yet** — a distinction the sentence above
-> blurred by saying each module "already exposes" these. Decomposing W12 found that `IVisitQuery`
-> **does not exist** (the [module registry](../architecture/10-module-boundaries.md#7-module-registry)
-> lists it in plain type, meaning planned, and is the more honest of the two documents), and that the
-> three which do exist — `IOrderQuery`, `IAuditQuery`, `IJourneyQuery` — answer about **one** record:
-> `ForVisitAsync`, `ForOutletAsync`.
+> **This describes the design, and the design is only now being built** — a distinction the sentence
+> above blurred by saying each module "already exposes" these. Decomposing W12 found that
+> `IVisitQuery` **did not exist** (the [module registry](../architecture/10-module-boundaries.md#7-module-registry)
+> listed it in plain type, meaning planned, and was the more honest of the two documents), and that
+> the three which did exist — `IOrderQuery`, `IAuditQuery`, `IJourneyQuery` — answer about **one**
+> record: `ForVisitAsync`, `ForOutletAsync`.
+>
+> `IVisitQuery` landed in W12 slice 1 and answers the first aggregate — visits counted by outcome
+> over a set of shops and a window, which is the strike rate's numerator and denominator and half of
+> coverage. The other three aggregates are slice 2.
 >
 > Every KPI in the table is an aggregate over a territory and a period. Composing one from per-record
 > reads means an endpoint fetching a month of visits and adding them up in memory, which works on a

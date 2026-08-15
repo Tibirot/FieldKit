@@ -253,7 +253,15 @@ these are reporting facts, and they never block.
 ## 8. Module contract (exposed to others)
 
 - `IVisitContext` — the current/opened visit a step attaches to (used by Audit, Order).
-- `IVisitQuery` — visits for an outlet/rep/day (reporting).
+- `IVisitQuery` — how a set of visits **came out**, for reporting (`VIS-10`).
+  > Built in W12 slice 1, and narrower than this line promised. It answers **counts by outcome** over
+  > a set of outlets and a date window — productive, non-productive, and still-open kept separate —
+  > rather than "visits for an outlet/rep/day". Counts because both KPIs that want it are ratios
+  > (strike rate, coverage), and handing back rows would move the arithmetic, and with it the
+  > judgement about what *productive* means, into whoever asked. It takes **outlet ids** rather than a
+  > territory: a visit knows its shop and its rep and nothing about org structure, so the caller
+  > resolves scope first. Reading a **single** visit back is deliberately still absent — its caller is
+  > the supervisor review screen, and it lands with it.
 - `IVisitIngest` — apply a pushed visit through this module, used by **Sync** ([module boundaries §7](../architecture/10-module-boundaries.md#7-module-registry)).
 - Consumes `IJourneyQuery`, `IOutletGeofence` (Outlets — where the shop is and how close counts as
   there; separate from `IOutletCatalog` so a rep's device syncs coordinates without the commercial

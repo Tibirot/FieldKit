@@ -31,11 +31,12 @@ namespace FieldKit.Server.Tests;
 /// container, which means standing up a tenant context by hand.
 /// </para>
 /// <para>
-/// <b>That harness is copied from <c>AuditIngestTests</c>, and this is the second copy.</b> Both
-/// exist because <c>KeycloakTenantContext</c> throws without an authenticated request — deliberately,
-/// so a tenant-owned query can never run unscoped — and reaching around it with a stub would test a
-/// different tenant context from the one the server uses. A third module written only through
-/// <c>/sync/push</c> is the point at which this should be extracted rather than copied again.
+/// <b>That harness was copied from <c>AuditIngestTests</c>, and this file's note said a third caller
+/// would be the point to extract it rather than copy it again.</b> W12 slice 1 was that caller, so it
+/// now lives in <see cref="AsTenant"/> and both copies are gone. It exists at all because
+/// <c>KeycloakTenantContext</c> throws without an authenticated request — deliberately, so a
+/// tenant-owned query can never run unscoped — and reaching around it with a stub would test a
+/// different tenant context from the one the server uses.
 /// </para>
 /// </remarks>
 [Collection(ServerCollection.Name)]
@@ -193,7 +194,7 @@ public class OrderIngestTests(ServerFixture fixture)
 
         Assert.Equal(OrderIngestRefusal.None, (await IngestAsync(captured)).Refusal);
 
-        var payloads = await AsAsync(fixture.AdminAccessToken, async services =>
+        var payloads = await AsTenant.RunAsync(fixture, fixture.AdminAccessToken, async services =>
         {
             var db = services.GetRequiredService<OrderDbContext>();
 
@@ -344,12 +345,12 @@ public class OrderIngestTests(ServerFixture fixture)
     /// <summary>Ingests under a fresh mutation id unless the caller is testing a replay.</summary>
     private Task<OrderIngestResult> IngestAsync(
         CapturedOrder captured, string? userId = null, Guid? mutationId = null) =>
-        AsAsync(fixture.AdminAccessToken, services => services
+        AsTenant.RunAsync(fixture, fixture.AdminAccessToken, services => services
             .GetRequiredService<IOrderIngest>()
             .IngestAsync(
                 captured,
                 mutationId ?? Guid.CreateVersion7(),
-                userId ?? SubjectOf(fixture.AdminAccessToken)));
+                userId ?? AsTenant.SubjectOf(fixture.AdminAccessToken)));
 
     /// <summary>
     /// A visit at a shop that is allowed to buy <see cref="Assorted"/>.
@@ -419,45 +420,6 @@ public class OrderIngestTests(ServerFixture fixture)
 
         return (outletId, products);
     }
-
-    /// <summary>Runs <paramref name="work"/> in a scope whose tenant context matches a real token.</summary>
-    private async Task<T> AsAsync<T>(string token, Func<IServiceProvider, Task<T>> work)
-    {
-        using var scope = fixture.Services.CreateScope();
-
-        var accessor = scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>();
-        var previous = accessor.HttpContext;
-
-        accessor.HttpContext = new DefaultHttpContext { User = PrincipalOf(token) };
-
-        try
-        {
-            return await work(scope.ServiceProvider);
-        }
-        finally
-        {
-            accessor.HttpContext = previous;
-        }
-    }
-
-    /// <summary>The claims inside a JWT, without validating it — the server already did that.</summary>
-    private static ClaimsPrincipal PrincipalOf(string token)
-    {
-        var payload = token.Split('.')[1].Replace('-', '+').Replace('_', '/');
-        var padded = payload.PadRight(payload.Length + ((4 - (payload.Length % 4)) % 4), '=');
-
-        using var document = JsonDocument.Parse(Convert.FromBase64String(padded));
-
-        var claims = new List<Claim>
-        {
-            new("tenant", document.RootElement.GetProperty("tenant").GetString()!),
-            new("sub", document.RootElement.GetProperty("sub").GetString()!),
-        };
-
-        return new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
-    }
-
-    private static string SubjectOf(string token) => PrincipalOf(token).FindFirst("sub")!.Value;
 
     private sealed record OrderLineReadback(string UnitOfMeasure, decimal Quantity, decimal LineTotal);
 
