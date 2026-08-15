@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
+import { Breadcrumb } from "@/components/back-office/breadcrumb";
 import { OrgUnitBrowser } from "@/components/back-office/org-unit-browser";
 import { TerritoryBrowser } from "@/components/back-office/territory-browser";
 import { resolveLocale } from "@/i18n/locale";
@@ -24,7 +25,7 @@ export default async function TerritoriesPage({ params }: { params: Promise<{ lo
   return (
     <div className="flex flex-col gap-4">
       <header>
-        <p className="font-mono text-[11.5px] text-muted-foreground">{t("crumb")}</p>
+        <Breadcrumb />
         <h1 className="text-lg font-semibold tracking-tight">{t("title")}</h1>
       </header>
       <OrgUnitBrowser />

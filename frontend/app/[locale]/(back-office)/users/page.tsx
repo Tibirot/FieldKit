@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
+import { Breadcrumb } from "@/components/back-office/breadcrumb";
 import { RoleBrowser } from "@/components/back-office/role-browser";
 import { UserBrowser } from "@/components/back-office/user-browser";
 import { resolveLocale } from "@/i18n/locale";
@@ -23,7 +24,7 @@ export default async function UsersPage({ params }: { params: Promise<{ locale: 
   return (
     <div className="flex flex-col gap-4">
       <header>
-        <p className="font-mono text-[11.5px] text-muted-foreground">{t("crumb")}</p>
+        <Breadcrumb />
         <h1 className="text-lg font-semibold tracking-tight">{t("title")}</h1>
       </header>
       <UserBrowser />

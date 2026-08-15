@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
+import { Breadcrumb } from "@/components/back-office/breadcrumb";
 import { NewOutletButton } from "@/components/back-office/new-outlet-button";
 import { OutletBrowser } from "@/components/back-office/outlet-browser";
 import { resolveLocale } from "@/i18n/locale";
@@ -21,7 +22,7 @@ export default async function OutletsPage({ params }: { params: Promise<{ locale
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-mono text-[11.5px] text-muted-foreground">{t("crumb")}</p>
+          <Breadcrumb />
           <h1 className="text-lg font-semibold tracking-tight">{t("title")}</h1>
         </div>
         <NewOutletButton />

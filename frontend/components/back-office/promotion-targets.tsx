@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
+import { Breadcrumb } from "@/components/back-office/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api/client";
 import { refusalTexts } from "@/lib/api/refusals";
@@ -122,7 +123,7 @@ export function PromotionTargets() {
   return (
     <div className="flex max-w-3xl flex-col gap-4">
       <header>
-        <p className="font-mono text-[11.5px] text-muted-foreground">{t("crumb")}</p>
+        <Breadcrumb leaf={t("crumbLeaf")} />
         <h1 className="text-lg font-semibold tracking-tight">{promotion.name}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t("intro")}</p>
       </header>

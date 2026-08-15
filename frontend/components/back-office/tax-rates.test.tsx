@@ -19,6 +19,15 @@ const setTaxRates = vi.hoisted(() => vi.fn());
 vi.mock("@/components/auth-provider", () => ({ useAuth: () => auth.current }));
 vi.mock("next/navigation", () => ({ useParams: () => ({ id: "tc-1" }) }));
 
+// The header now renders a <Breadcrumb>, which reads the path through next-intl. Stubbed the way
+// the navigation's own tests stub it, so these assertions stay about this screen.
+vi.mock("@/i18n/navigation", () => ({
+  Link: ({ href, children }: { href: string; children: React.ReactNode }) => (
+    <a href={href}>{children}</a>
+  ),
+  usePathname: () => "/products/classification/tax-classes/tc-1/rates",
+}));
+
 vi.mock("@/lib/api/products", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/products")>()),
   fetchTaxClasses: (...args: unknown[]) => fetchTaxClasses(...args),
