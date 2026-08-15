@@ -37,6 +37,26 @@ The signals that tell you FieldKit is *working*, not just *up*:
 | `fieldkit.sync.push.batch_size` | histogram | Field workload per reconnect |
 | `fieldkit.sync.push.latency` | histogram | How fast a day's work reconciles |
 | `fieldkit.sync.mutations.rejected` | counter (by reason) | Data-quality / rule-rejection signal |
+
+> **The first three are built (W13 slice 1), and the rules they set stand for the rest.**
+>
+> **One meter, named `FieldKit`** ([`Telemetry`](../../FieldKit.BuildingBlocks/Telemetry.cs)). A meter
+> name is what an exporter subscribes to; one per module would be nine subscriptions to keep in step,
+> and the tenth would go missing quietly. Instruments still belong to the area that emits them.
+>
+> **Tenant is a tag, never part of a name.** "By tenant" above is a dimension of one series —
+> `fieldkit.visits.completed.acme` is a new series per customer and cannot be aggregated once.
+>
+> **Nothing unbounded may be a tag.** Not a mutation id, a device id, a subject, an outlet id, or a
+> free-text detail: each is a fresh series per value, which is how the thing meant to warn you is what
+> falls over. They belong on a **span**, where one unique value costs one trace. Tenant is the single
+> identifier admitted, and only because a tenant is a realm somebody provisions by hand. A refusal
+> **code** is admitted on the same test — `ADR-0012` codes are a closed vocabulary declared in source;
+> the sentence beside one is not.
+>
+> **Rejections are counted once per mutation, not once per attempt.** A device that cannot fix a
+> mutation retries it until something changes, and counting the replay would turn the rejection rate
+> into a measurement of that device's retry policy.
 | `fieldkit.outbox.backlog` | gauge | Cross-module event health — **alertable** ([ADR-0006](adr/0006-in-process-messaging-and-outbox.md)) |
 | `fieldkit.outbox.dispatch.latency` | histogram | Eventual-consistency lag |
 | `fieldkit.visits.completed` | counter (by tenant) | Business throughput |

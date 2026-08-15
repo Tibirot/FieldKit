@@ -48,8 +48,16 @@ public static class PushEndpoints
              *
              * The workload a reconnect carries is what the device *tried* to send, so an oversized
              * batch and an unrecognised device are measurements rather than reasons to skip one — a
-             * histogram that drops its own outliers describes a system nobody runs. `finally` is what
-             * makes that true of an exception as well as of a return.
+             * histogram that drops its own outliers describes a system nobody runs. What pins that is
+             * the recording living *outside* `PushAsync`: moving it past the guards fails
+             * `A_push_the_server_refuses_whole_is_still_measured`.
+             *
+             * `finally` rather than a straight-line call covers a *thrown* push — a database that went
+             * away mid-batch is exactly when a latency number is worth having. <b>No test provokes
+             * one.</b> Replacing this block with sequential statements was the first sabotage tried
+             * and every test still passed, because every refusal here returns rather than throws. The
+             * `finally` is a defensible belief with nothing holding it up, and saying so is cheaper
+             * than a test that fakes an exception the endpoint cannot otherwise have.
              */
             var started = Stopwatch.GetTimestamp();
 
