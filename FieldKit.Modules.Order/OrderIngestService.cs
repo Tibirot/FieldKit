@@ -36,7 +36,8 @@ internal sealed class OrderIngestService(
     IAssortmentService assortment,
     IPricingService pricing,
     IOutletCalendar calendar,
-    IClock clock)
+    IClock clock,
+    OrderMetrics metrics)
     : IOrderIngest
 {
     public async Task<OrderIngestResult> IngestAsync(
@@ -112,6 +113,10 @@ internal sealed class OrderIngestService(
             // ended in slice 0b-i. Dropping the old lines is orphan removal, which EF always handled.
             await db.SaveChangesAsync(cancellationToken);
 
+            // A correction is a submission (BR-ORD-9), so it is observed again — see OrderMetrics on
+            // why this histogram is a distribution rather than a ledger.
+            metrics.Submitted(db.CurrentTenantId, existing.CurrencyCode, existing.Total);
+
             return OrderIngestResult.Ok();
         }
 
@@ -166,6 +171,11 @@ internal sealed class OrderIngestService(
         await RepriceAsync(order!, visit.OutletId, cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
+
+        // After the save and after the gates, so an order refused by a rule is not counted as one
+        // taken — and after RepriceAsync, which does not change the number this records: BR-ORD-2
+        // flags and never applies, so the device total is still the record.
+        metrics.Submitted(db.CurrentTenantId, order!.CurrencyCode, order.Total);
 
         return OrderIngestResult.Ok();
     }

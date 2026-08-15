@@ -27,7 +27,8 @@ namespace FieldKit.Modules.Audit;
 /// the same reason the endpoint can take keys from a device without checking whose they are.
 /// </para>
 /// </remarks>
-internal sealed class PhotoEvidenceService(AuditDbContext db, IClock clock) : IPhotoEvidence
+internal sealed class PhotoEvidenceService(
+    AuditDbContext db, IClock clock, PhotoMetrics metrics) : IPhotoEvidence
 {
     /// <summary>
     /// How many keys one call may name.
@@ -72,6 +73,13 @@ internal sealed class PhotoEvidenceService(AuditDbContext db, IClock clock) : IP
          */
         var matched = entries.Select(entry => entry.ObjectKey).ToHashSet(StringComparer.Ordinal);
 
+        // The level only moves when a photograph is referenced or confirmed, so recording it at both
+        // is exact rather than sampled — and a loop could not do it at all, because `PhotoEntry` is
+        // tenant-owned and a background service has no principal to read a tenant from (W13 slice 4,
+        // see `PhotoMetrics`).
+        await metrics.ReportPendingAsync(db, cancellationToken);
+
         return new PhotoConfirmation(confirmed, keys.Count(key => !matched.Contains(key)));
     }
+
 }

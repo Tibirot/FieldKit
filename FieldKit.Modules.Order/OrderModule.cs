@@ -73,6 +73,8 @@ public sealed class OrderModule : IModule
         services.AddHostedService<ModuleMigrator<OrderDbContext>>();
 
         // Sync applies pushed orders through this rather than writing the `ordering` schema (slice 5).
+        services.AddSingleton<OrderMetrics>();
+
         services.AddScoped<IOrderIngest, OrderIngestService>();
 
         // …and reporting reads them through this.

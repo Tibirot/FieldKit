@@ -36,7 +36,8 @@ namespace FieldKit.Modules.Products;
 /// assumed and the model does not have.
 /// </para>
 /// </remarks>
-internal sealed class PricingService(ProductsDbContext db, IOutletClassification classification)
+internal sealed class PricingService(
+    ProductsDbContext db, IOutletClassification classification, PricingMetrics metrics)
     : IPricingService
 {
     public async Task<PricedOrder?> PriceAsync(
@@ -46,7 +47,32 @@ internal sealed class PricingService(ProductsDbContext db, IOutletClassification
         CancellationToken cancellationToken = default)
     {
         using var span = ProductsTracing.Pricing(outletId, lines.Count);
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
 
+        try
+        {
+            return await ResolveAsync(outletId, on, lines, cancellationToken);
+        }
+        finally
+        {
+            /*
+             * Both exits, and that is what the `finally` is for here (W13 slice 4).
+             *
+             * An outlet this tenant does not have returns after one query rather than four, and
+             * recording only the long path would bias the distribution towards the expensive case —
+             * a p95 that never sees the cheap answers is not a p95. Unlike the one in `/sync/push`,
+             * this covers a return a test actually takes.
+             */
+            metrics.Resolved(db.CurrentTenantId, System.Diagnostics.Stopwatch.GetElapsedTime(started));
+        }
+    }
+
+    private async Task<PricedOrder?> ResolveAsync(
+        Guid outletId,
+        DateOnly on,
+        IReadOnlyList<LineToPrice> lines,
+        CancellationToken cancellationToken)
+    {
         // Through the contract, because Products cannot see the outlet table (AT-1) — and
         // tenant-filtered by it, so another tenant's outlet is simply absent and reads as null here.
         var classified = await classification.ClassifyManyAsync([outletId], cancellationToken);
