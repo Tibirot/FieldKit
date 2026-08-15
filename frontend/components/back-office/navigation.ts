@@ -60,7 +60,7 @@ export type NavScreenKey =
   | "userList";
 
 /** Which week ships an unbuilt screen. Keys into `Nav.soon`, so the badge translates. */
-export type NavSoon = "week5" | "week6" | "week7" | "week9" | "week11" | "week12";
+export type NavSoon = "week12";
 
 /**
  * What a caller must hold to be shown something: **any-of within a group, all-of across groups.**
@@ -237,8 +237,8 @@ export const NAVIGATION: readonly NavGroup[] = [
           { key: "workingCalendars", href: "/journeys/calendars", requires: [["journey:read"]] },
         ],
       },
-      { key: "visits", soon: "week9" },
-      { key: "orders", soon: "week11" },
+      { key: "visits", soon: "week12" },
+      { key: "orders", soon: "week12" },
     ],
   },
   {

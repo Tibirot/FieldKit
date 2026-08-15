@@ -110,7 +110,7 @@ flowchart TB
 ### Reporting & KPIs (cross-cutting read-side)
 
 Reporting is **not** a separate write-module. Supervisor and ops dashboards are composed from
-the **query contracts** each module already exposes (`IVisitQuery`, `IAuditQuery`,
+the **query contracts** each module exposes (`IVisitQuery`, `IAuditQuery`,
 `IOrderQuery`, journey coverage, etc.) plus integration events — which is why the module specs
 say "→ reporting" without a reporting module existing. The headline KPIs:
 
@@ -124,6 +124,19 @@ say "→ reporting" without a reporting module existing. The headline KPIs:
 
 Operational dashboards only — no OLAP/warehouse ([non-goal](#6-scope--non-goals)). Richer
 metrics and custom KPIs land in Phase 3–4 ([roadmap](../roadmap.md)).
+
+> **This describes the design, and the design is not built yet** — a distinction the sentence above
+> blurred by saying each module "already exposes" these. Decomposing W12 found that `IVisitQuery`
+> **does not exist** (the [module registry](../architecture/10-module-boundaries.md#7-module-registry)
+> lists it in plain type, meaning planned, and is the more honest of the two documents), and that the
+> three which do exist — `IOrderQuery`, `IAuditQuery`, `IJourneyQuery` — answer about **one** record:
+> `ForVisitAsync`, `ForOutletAsync`.
+>
+> Every KPI in the table is an aggregate over a territory and a period. Composing one from per-record
+> reads means an endpoint fetching a month of visits and adding them up in memory, which works on a
+> demo tenant and is the wrong shape to write down. So each module gains an aggregate question of its
+> own in [W12](../delivery-plan.md#week-12--dashboards--config-builder-ui) — the module that owns the
+> data owns the arithmetic.
 
 ## 5. A day in the life (the golden path)
 

@@ -1207,6 +1207,70 @@ document explains why so nobody re-opens them.
 
 **Done when:** the dashboard reflects field activity; editing a workflow/weights/form flows to the field app on next sync. **▶ Phase 3 demo — full golden path.**
 
+#### Decomposition
+
+**Half of this week already shipped, three weeks early.** The config-driven builder UI is the
+perfect-store weights screen (W10 slice 8) and the survey editor and list (W10 slices 9a/9b). What is
+left of that bullet is nothing.
+
+**And the other half is not a week of screens** — the same trap W9 carried a warning about, arriving
+for a different reason. The dashboard is one screen and it cannot be built, because the read side it
+composes does not exist yet.
+
+**The reporting spec describes a read side that is not there.** It says dashboards are *"composed
+from the query contracts each module already exposes (`IVisitQuery`, `IAuditQuery`, `IOrderQuery`,
+journey coverage, etc.)"* — and the module registry is more honest than the spec: `IVisitQuery` is
+listed **in plain type, meaning planned**, and it has never been built. Visit exposes `IVisitIngest`
+and `IVisitContext` and nothing that reads.
+
+**The three that do exist answer the wrong shape of question.** `IOrderQuery`, `IAuditQuery` and
+`IJourneyQuery` each answer about **one** record — `ForVisitAsync`, `ForOutletAsync`. Every KPI on
+the dashboard is an aggregate over a *territory* and a *period*: coverage is planned-versus-actual
+across a cycle, strike rate is a ratio over a set of visits, order value is a sum. Composing those
+from per-record reads would mean the endpoint fetching every visit in a month and adding them up in
+memory — which works for a demo tenant and is the wrong shape to write down.
+
+So the week is: **one contract that does not exist, four that need an aggregate question, a place to
+compose them, and then the screen.** The two review screens the rail has been advertising since W9
+come with it, because a dashboard reporting order value with no way to open an order is half a
+console — and because their badges are now lying.
+
+#### Where the composition lives
+
+**Not a reporting module** — the product spec rules that out and is right to: reporting owns no
+writes, no schema and no invariants, so a module would be a package with a namespace and nothing to
+protect.
+
+**Not in a module either.** Sync composes across modules today (`PushEndpoints` calls Visit, Order
+and Audit ingests) and that is the precedent to *not* follow here: Sync is a module because it owns
+the idempotency ledger and the device registry. A dashboard owns nothing.
+
+So the endpoint lives in **`FieldKit.Server`**, beside `AuthEndpoints` — the host that already
+composes what modules expose without being one. That is a boundary decision rather than a filing
+one, and the architecture tests should be read against it before slice 3 is written.
+
+| # | Slice | Requirements | ~Size |
+|---|---|---|---|
+| 0 | **This decomposition, and the badges that expired** | — | 150 |
+| | *The rail advertises `Visits & audits · W9` and `Orders · W11`, and both weeks are done — the disabled-item design is honest only while the week badge is true, so a badge naming a date that has passed is the dead control the design exists to avoid. Re-badged with the week that will really ship them, and `Dashboard · W12` with it.* | | |
+| 1 | **`IVisitQuery`** — the contract the registry has listed as planned since W7 | `VIS-06` | 250 |
+| | *Visit exposes no read at all. The shape follows the callers rather than the noun: a visit by id for the review screen, and a **count** of visits by outcome over a territory and a window for the dashboard — not a list the caller reduces. The registry row goes bold, which `ModuleRegistryTests` will check on the next build.* | | |
+| 2 | **The four aggregate questions** — one per KPI, each answered by the module that owns it | Reporting | 400 |
+| | *Coverage from Journey, strike rate from Visit and Order, perfect store from Audit, order value from Order — the split the reporting table already dictates. **Each returns a computed figure rather than rows**: the module that owns the data owns the arithmetic, and an endpoint that sums someone else's records has taken their invariant home with it. Integration tests over a seeded month, because a KPI whose only test is a unit test on an empty set is a KPI nobody has seen work.* | | |
+| 3 | **`GET /api/reporting/summary`** — the composition, in the host | Reporting | 300 |
+| | *One request, one period, one territory scope, four contracts. Tenant-scoped and rep-scoped like everything else; `IRepScope` decides what a supervisor may total, and a supervisor who may read one territory must not learn another's numbers by asking for a wider window.* | | |
+| 4 | **The dashboard screen** | Reporting, `JRN-10`, `AUD-09` | 350 |
+| | *Coverage, strike rate, perfect store, order value; coverage by territory beneath. It is the first back-office screen that reads across every module, which makes it the honest test of whether the contracts are usable — and the first that has to say **"no activity yet"** without looking broken, since a fresh tenant is the state a reader most often meets it in.* | | |
+| 5 | **Visits & audits** (back office) — the rail's `W9` badge, four weeks late | `VIS-06`, `AUD-09` | 350 |
+| | *A supervisor can read what a rep recorded: the visit, its steps, the audit beneath it and the perfect-store score with its pillars. Read-only — nothing here writes, because a sealed visit is sealed (`VIS-05`) and an audit's score reproduces only against the weight version it was scored with.* | | |
+| 6 | **Orders** (back office) — the rail's `W11` badge | `ORD-09`, `BR-ORD-9` | 400 |
+| | *The queue a supervisor works: submitted orders, their lines and totals, and the **rejection** path that already exists end to end on the server and has never had a screen. `order:reject` was minted in W11 slice 4a and no human has ever held it — which also means the realm needs the role before this is testable, and **a realm change is not applied by deploying** (W10's finding).* | | |
+
+**Not in W12.** Richer metrics, custom KPIs and anything resembling a warehouse stay out — the
+product spec calls operational dashboards the scope and OLAP a non-goal. Date-range pickers beyond
+"this cycle / this month" are the same call: a period selector is cheap to add once the aggregates
+take a window, and expensive to design before anyone has read the numbers once.
+
 ### Week 12½ · Navigation & theme redesign
 
 **Goal:** every screen has a navigation item, and a person can choose the theme.

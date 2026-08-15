@@ -105,11 +105,6 @@
     "closeMenu": "Close",
     "trail": "Breadcrumb",
     "soon": {
-      "week5": "W5",
-      "week6": "W6",
-      "week7": "W7",
-      "week9": "W9",
-      "week11": "W11",
       "week12": "W12"
     }
   },
