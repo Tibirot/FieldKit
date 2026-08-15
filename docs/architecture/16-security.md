@@ -238,15 +238,30 @@ over plain HTTP would be a header nobody could act on.
 
 ## 7. Threat model (STRIDE-lite)
 
-| Threat | Vector | Mitigation |
-|---|---|---|
-| **Cross-tenant read/write** | Crafted ids / tenant in payload | Token-only tenant + global query filter + bypass ban (§3) |
-| **Spoofing** | Stolen token | Short TTL + refresh revocation; device deactivation |
-| **Tampering** | Replayed/duplicated sync push | Idempotency ledger; server re-validates via contracts ([sync engine](12-offline-sync-engine.md)) |
-| **Repudiation** | "I didn't submit that" | Audit stamping (actor + time) + append-only transactional data ([data](14-data-and-persistence.md)) |
-| **Info disclosure** | Lost device | Territory-scoped local data; device deactivation; encrypted transport/at-rest |
-| **Elevation** | Guessing permissions | Server-side permission checks; deny-by-default |
-| **DoS** | Sync flooding | Rate limiting; batch-size limits; scale-to-zero autoscale |
+**Every row names the test that proves it, and a gate checks that the citation resolves** — W13
+slice 9. A threat model whose mitigations are prose is a document; one whose mitigations are named
+tests is a claim CI can fail. `ThreatModelTests` parses this table, refuses a row with no citation,
+and refuses a citation naming a test that does not exist — so a mitigation cannot be deleted or
+renamed while this page goes on asserting it.
+
+| Threat | Vector | Mitigation | Proven by |
+|---|---|---|---|
+| **Cross-tenant read/write** | Crafted ids / tenant in payload | Token-only tenant + global query filter + bypass ban (§3) | `AuthorizationTests.The_tenant_comes_from_the_token_and_a_crafted_header_cannot_change_it`, `MultiIssuerTests.One_tenant_cannot_see_another_tenants_data` |
+| **Spoofing** | Stolen token | Short TTL + refresh revocation; device deactivation | `AuthenticationTests.Protected_endpoint_rejects_a_token_it_cannot_validate`, `MultiIssuerTests.A_realm_cannot_mint_a_token_for_a_tenant_it_does_not_own` |
+| **Tampering** | Replayed/duplicated sync push | Idempotency ledger; server re-validates via contracts ([sync engine](12-offline-sync-engine.md)) | `SyncPushTests.Replaying_the_same_mutation_id_changes_nothing_and_answers_the_same` |
+| **Repudiation** | "I didn't submit that" | Audit stamping (actor + time) + append-only transactional data ([data](14-data-and-persistence.md)) | `AuditRecordTests.There_is_no_way_to_change_a_stored_audit` |
+| **Info disclosure** | Lost device | Territory-scoped local data; device deactivation; encrypted transport/at-rest | `SyncPushTests.A_device_reported_compromised_cannot_push_at_all`, `DeviceRegistryTests.Binding_a_second_device_deactivates_the_first_as_swapped` |
+| **Elevation** | Guessing permissions | Server-side permission checks; deny-by-default | `AuthorizationTests.A_permission_the_caller_lacks_is_forbidden_not_unauthorized` |
+| **DoS** | Sync flooding | Rate limiting (W13 slice 6); batch-size limits; scale-to-zero autoscale | `RateLimitTests.One_rep_exhausting_their_minute_does_not_touch_another_s` |
+
+> **What the citations do not claim.** A named test proves the mitigation *works where it was
+> tested*, not that it is applied everywhere — the row for cross-tenant reads is held up by 42 test
+> files that use a second tenant's token, and the two cited are the two that state the rule most
+> directly. The one mitigation with no test at all is the compile-time bypass ban, because there is
+> nothing to run: `Directory.Build.props` hands `BannedSymbols.Isolation.txt` to every non-test
+> project, so a new module inherits it and a violation is a build error rather than a failure.
+> `ThreatModelTests` asserts that wiring by reading the props file, which is the nearest thing to a
+> test a compile-time gate can have.
 
 ## 8. Out of scope (v1, stated honestly)
 
