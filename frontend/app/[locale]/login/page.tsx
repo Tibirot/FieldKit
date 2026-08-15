@@ -2,6 +2,7 @@ import { setRequestLocale } from "next-intl/server";
 
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { LoginForm } from "@/components/login-form";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { resolveLocale } from "@/i18n/locale";
 import { readOidcSettings } from "@/lib/auth/settings";
 
@@ -29,7 +30,10 @@ export default async function LoginPage({ params }: { params: Promise<{ locale: 
   return (
     <main className="grid min-h-dvh place-items-center bg-background p-6">
       <div className="flex w-full max-w-md flex-col items-center gap-4">
-        <LocaleSwitcher />
+        <div className="flex items-center gap-2">
+          <LocaleSwitcher />
+          <ThemeToggle />
+        </div>
         <LoginForm initialWorkspace={DEV_WORKSPACE} settings={readOidcSettings()} />
       </div>
     </main>

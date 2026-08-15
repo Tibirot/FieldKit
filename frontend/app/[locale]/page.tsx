@@ -2,6 +2,7 @@ import { getFormatter, getTranslations, setRequestLocale } from "next-intl/serve
 
 import { IdentityCard } from "@/components/identity-card";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,7 +54,10 @@ export default async function Home({
   return (
     <main className="grid min-h-dvh place-items-center bg-background p-6">
       <div className="flex w-full max-w-lg flex-col items-center gap-4">
-        <LocaleSwitcher />
+        <div className="flex items-center gap-2">
+          <LocaleSwitcher />
+          <ThemeToggle />
+        </div>
 
         <Card className="w-full text-center">
           <CardHeader className="space-y-2">
