@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
+import { Link } from "@/i18n/navigation";
 import { ApiError } from "@/lib/api/client";
 import { fetchOutlets, outletsKey, type Outlet } from "@/lib/api/outlets";
 import { fetchUsers, identifying, usersKey } from "@/lib/api/users";
@@ -118,9 +119,17 @@ export function VisitList() {
           {visits.data.map((visit) => (
             <li key={visit.id} className="flex flex-col gap-1 px-4 py-3">
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span className="min-w-48 flex-1 text-sm font-medium">
+                {/*
+                 * The shop's name is the link, because it is what a reader is looking at when they
+                 * decide to open one — not a "view" button at the end of the row, which is a second
+                 * thing to find and reads as an action rather than a destination.
+                 */}
+                <Link
+                  href={`/visits/${visit.id}`}
+                  className="min-w-48 flex-1 text-sm font-medium underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                >
                   {shops.get(visit.outletId) ? naming(shops.get(visit.outletId)!) : t("unknownOutlet")}
-                </span>
+                </Link>
                 <span className="text-sm text-muted-foreground">
                   {reps.get(visit.userId) ? identifying(reps.get(visit.userId)!) : visit.userId}
                 </span>

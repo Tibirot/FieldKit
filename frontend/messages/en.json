@@ -161,6 +161,59 @@
       "Open": "Still open"
     }
   },
+  "VisitDetail": {
+    "title": "Visit",
+    "intro": "What the rep was asked to do, what they did, and the audit beneath it.",
+    "crumb": "Visit",
+    "loading": "Loading the visit…",
+    "failed": "The visit could not be loaded.",
+    "forbidden": "You do not have permission to view visits.",
+    "missing": "No such visit, or it belongs to another workspace.",
+    "theVisit": "The visit",
+    "outcomeLabel": "Outcome",
+    "outcome": {
+      "Productive": "Productive",
+      "NonProductive": "Non-productive",
+      "Open": "Still open"
+    },
+    "checkedIn": "Checked in",
+    "timeOnSite": "Time on site",
+    "minutes": "{minutes} min",
+    "geofence": "Location",
+    "atTheShop": "At the shop",
+    "awayFromTheShop": "Away from the shop",
+    "override": "The rep was away from the shop — {reason}",
+    "noReason": "no reason given",
+    "outcomeReason": "Nothing came of it — {reason}",
+    "steps": "Steps",
+    "noSteps": "This visit had no configured steps.",
+    "mandatory": "Mandatory",
+    "audit": "Audit",
+    "noAudit": "No audit was worked during this visit.",
+    "score": "Perfect-store score",
+    "weighting": "Scored against weighting version {version}",
+    "notMeasured": "Not measured",
+    "weight": "weight {weight}%",
+    "captured": "{availability} availability · {facings} facings · {prices} prices · {answers} answers · {photos} photos",
+    "stepStatus": {
+      "Pending": "Not done",
+      "Completed": "Done"
+    },
+    "stepType": {
+      "Audit": "Audit",
+      "Order": "Order",
+      "Survey": "Survey",
+      "Task": "Task",
+      "Photo": "Photo",
+      "Note": "Note",
+      "Signature": "Signature"
+    },
+    "pillar": {
+      "Availability": "Availability",
+      "ShareOfShelf": "Share of shelf",
+      "PriceCompliance": "Price compliance"
+    }
+  },
   "Theme": {
     "label": "Theme",
     "light": "Light",

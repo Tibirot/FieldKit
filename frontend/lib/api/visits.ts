@@ -46,8 +46,62 @@ export type Visit = {
   recordedAtUtc: string | null;
 };
 
+/** What the rep was asked to do at one step (`VIS-03`). */
+export type VisitStepType =
+  | "Audit"
+  | "Order"
+  | "Survey"
+  | "Task"
+  | "Photo"
+  | "Note"
+  | "Signature";
+
+/** `Pending` until the rep marks it done. An optional step may stay pending forever (`BR-VIS-3`). */
+export type VisitStepStatus = "Pending" | "Completed";
+
+/**
+ * One step, **as the rep worked it** rather than as the workflow defines it now.
+ *
+ * The label and the type are copies taken at check-in: re-reading the current workflow would
+ * re-describe a sealed visit under rules that may have been republished since, which is the same
+ * bargain `SurveyAnswerEntry` makes with its question text.
+ */
+export type VisitStep = {
+  id: string;
+  order: number;
+  type: VisitStepType;
+  mandatory: boolean;
+  label: string;
+  status: VisitStepStatus;
+  completedAtUtc: string | null;
+  notes: string | null;
+};
+
+/**
+ * A visit with its steps.
+ *
+ * `openMandatorySteps` is what stood between the rep and the door (`BR-VIS-3`). On a checked-out
+ * visit it is always empty — check-out refuses otherwise — so on this screen it is a fact about a
+ * visit still in progress.
+ */
+export type VisitDetail = {
+  visit: Visit;
+  steps: VisitStep[];
+  openMandatorySteps: VisitStep[];
+};
+
 export const visitsKey = (subject: string, outletId?: string, userId?: string) =>
   ["visits", subject, outletId ?? "all", userId ?? "all"] as const;
+
+export const visitKey = (subject: string, id: string) => ["visit", subject, id] as const;
+
+export function fetchVisit(
+  accessToken: string,
+  id: string,
+  signal?: AbortSignal,
+): Promise<VisitDetail> {
+  return apiGet<VisitDetail>(`/api/visits/${id}`, accessToken, signal);
+}
 
 /**
  * Recent visits, newest first.
