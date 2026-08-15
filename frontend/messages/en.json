@@ -101,6 +101,7 @@
       "surveys": "Surveys",
       "userList": "Users & roles"
     },
+    "trail": "Breadcrumb",
     "soon": {
       "week5": "W5",
       "week6": "W6",
@@ -114,7 +115,6 @@
     "signOut": "Sign out"
   },
   "ScoreWeights": {
-    "crumb": "Configuration / Perfect store",
     "title": "Perfect-store weights",
     "intro": "What each pillar is worth. Publishing a version freezes it — audits scored against it keep pointing at these numbers, so re-weighting means a new version rather than an edit.",
     "loading": "Loading…",
@@ -148,7 +148,6 @@
     "surveys": "Surveys"
   },
   "SurveyList": {
-    "crumb": "Configuration / Surveys",
     "title": "Surveys",
     "intro": "The questionnaires a rep can be asked to fill in at a shelf. A visit carries one at a time.",
     "loading": "Loading…",
@@ -169,7 +168,6 @@
     "cancel": "Cancel"
   },
   "Surveys": {
-    "crumb": "Configuration / Surveys",
     "newTitle": "New survey",
     "editTitle": "Survey",
     "intro": "What a rep is asked at the shelf. Questions are answered in the order they appear here.",
@@ -217,7 +215,6 @@
     }
   },
   "Outlets": {
-    "crumb": "Master data / Outlets",
     "title": "Outlets",
     "caption": "Outlets with their classification, territory and status.",
     "loading": "Loading outlets…",
@@ -255,8 +252,6 @@
     "manageCustomFields": "Custom fields"
   },
   "OutletForm": {
-    "crumbNew": "Master data / Outlets / New",
-    "crumbEdit": "Master data / Outlets / {code}",
     "titleNew": "New outlet",
     "code": "Code",
     "name": "Outlet name",
@@ -290,7 +285,8 @@
     "removeContact": "Remove",
     "removeContactNumbered": "Remove contact {number}",
     "manageAssortment": "Assortment",
-    "readOnly": "You do not have permission to change outlets."
+    "readOnly": "You do not have permission to change outlets.",
+    "crumbLeafNew": "New"
   },
   "Validation": {
     "required": "This field is required.",
@@ -305,7 +301,6 @@
     "notACountry": "Must be a two-letter country code, e.g. RO."
   },
   "OutletImport": {
-    "crumb": "Master data / Outlets / Import",
     "title": "Import outlets",
     "intro": "Upload a CSV, check what it would do, then apply it. Checking runs every rule and writes nothing.",
     "file": "File",
@@ -343,7 +338,6 @@
     "stale": "The file has changed since it was checked. Check it again before applying."
   },
   "Territories": {
-    "crumb": "Master data / Territories",
     "title": "Territories",
     "caption": "Territories, the org unit they sit in, and how many outlets each holds.",
     "loading": "Loading territories…",
@@ -408,7 +402,6 @@
     "assignOutletsFailed": "Those outlets could not be added."
   },
   "Users": {
-    "crumb": "Admin / Users & roles",
     "title": "Users & roles",
     "caption": "The people who can sign in, the roles they hold, and whether their account is on.",
     "loading": "Loading users…",
@@ -493,7 +486,6 @@
     "under": ", in {path}"
   },
   "Channels": {
-    "crumb": "Master data / Outlets / Channels",
     "title": "Trade channels",
     "intro": "Every outlet is classified as one. A channel drives assortment, pricing and the visit workflow, so a workspace needs at least one before it can have outlets.",
     "newChannel": "New channel",
@@ -516,7 +508,6 @@
     "cancel": "Cancel"
   },
   "CustomFields": {
-    "crumb": "Master data / Outlets / Custom fields",
     "title": "Outlet custom fields",
     "intro": "The fields this workspace collects on an outlet beyond the standard ones. Whatever is defined here is what the outlet form renders and what the bulk import accepts — an undescribed column is refused rather than dropped.",
     "newField": "New field",
@@ -585,7 +576,6 @@
     "moved": "{from} → {to}"
   },
   "Products": {
-    "crumb": "Master data / Products",
     "title": "Products",
     "intro": "The catalogue you sell. Assortments say which of these belong in which outlets, price lists say what they cost, and promotions discount them — all authored against products that exist first.",
     "search": "Search products",
@@ -627,7 +617,6 @@
     "manageOrderMinimums": "Order minimums"
   },
   "Classification": {
-    "crumb": "Master data / Products / Classification",
     "title": "Classification",
     "intro": "How your catalogue is organised. A category groups products for promotions and reporting, a brand says who makes them, and a tax class decides what they are taxed at. All three are optional on a product — set up what you use.",
     "name": "Name",
@@ -669,7 +658,6 @@
     "ratesNamed": "Rates for {name}"
   },
   "Assortments": {
-    "crumb": "Master data / Products / Assortments",
     "title": "Assortments",
     "intro": "Which products belong in which outlets. Authored per channel — a decision about a kind of shop rather than one shop — and read per outlet, where it drives the suggested order list and the audit availability checks.",
     "channel": "Channel",
@@ -692,7 +680,6 @@
     "unsaved": "Unsaved changes."
   },
   "OutletAssortment": {
-    "crumb": "Master data / Outlets / {code} / Assortment",
     "title": "What {name} sells",
     "intro": "Its channel — {channel} — decides the baseline. Anything set here is this shop departing from it: a product the channel does not carry, one it does that this shop will not stock, or a different must-stock decision.",
     "search": "Search products",
@@ -716,10 +703,10 @@
     "save": "Save overrides",
     "saving": "Saving…",
     "saveFailed": "These overrides could not be saved.",
-    "unsaved": "Unsaved changes."
+    "unsaved": "Unsaved changes.",
+    "crumbLeaf": "Assortment"
   },
   "PriceLists": {
-    "crumb": "Master data / Products / Price lists",
     "title": "Price lists",
     "intro": "What products cost, and when. A list carries one currency, so its prices can be compared and summed; its window is half-open, so a successor starts exactly where it stops.",
     "newList": "New price list",
@@ -744,7 +731,6 @@
     "saving": "Saving…",
     "cancel": "Cancel",
     "saveFailed": "This price list could not be saved.",
-    "pricesCrumb": "Master data / Products / Price lists / Prices",
     "pricesIntro": "Net prices in {currency}, applying {from} → {to}. Tax is added at order time from the product's tax class.",
     "pricesIntroOpen": "Net prices in {currency}, applying from {from}. Tax is added at order time from the product's tax class.",
     "search": "Search products",
@@ -758,10 +744,10 @@
     "noMatches": "No product matches “{search}”.",
     "scope": "Scope",
     "pricesNamed": "Prices in {name}",
-    "scopeNamed": "Scope of {name}"
+    "scopeNamed": "Scope of {name}",
+    "pricesCrumbLeaf": "Prices"
   },
   "PriceListScope": {
-    "crumb": "Master data / Products / Price lists / Scope",
     "intro": "Which shops pay these {currency} prices. Saving also announces the change, so devices holding this list know it moved — including when the scope is emptied, which is how a list is withdrawn.",
     "channels": "Channels",
     "channelsHint": "The ordinary case: every outlet trading in a channel is priced by the lists assigned to it.",
@@ -787,10 +773,10 @@
     "save": "Save scope",
     "saving": "Saving…",
     "saveFailed": "This scope could not be saved.",
-    "unsaved": "Unsaved changes."
+    "unsaved": "Unsaved changes.",
+    "crumbLeaf": "Scope"
   },
   "Promotions": {
-    "crumb": "Master data / Products / Promotions",
     "title": "Promotions",
     "intro": "The deals a tenant runs. Each carries its own window and priority; when two apply to the same line, the higher priority wins — never the larger discount.",
     "newPromotion": "New promotion",
@@ -853,7 +839,6 @@
     "scopeNamed": "Scope of {name}"
   },
   "PromotionTargets": {
-    "crumb": "Master data / Products / Promotions / Targets",
     "intro": "What this promotion discounts. Nothing chosen means it discounts nothing — which is how a deal is taken out of play without editing its window.",
     "categories": "Categories",
     "categoriesHint": "A category also covers everything filed below it: targeting “Beverages” catches a product filed under “Beverages / Water / Still” without naming either.",
@@ -879,10 +864,10 @@
     "save": "Save targets",
     "saving": "Saving…",
     "saveFailed": "These targets could not be saved.",
-    "unsaved": "Unsaved changes."
+    "unsaved": "Unsaved changes.",
+    "crumbLeaf": "Targets"
   },
   "PromotionTiers": {
-    "crumb": "Master data / Products / Promotions / Tiers",
     "intro": "Buy this many, get that off. A line reaching several thresholds takes the deepest one it earns; no thresholds means this promotion discounts nothing.",
     "wrongType": "Only a volume-tiered promotion has tiers. This one is {type}.",
     "kind": "What the tiers take off",
@@ -913,10 +898,10 @@
     "save": "Save tiers",
     "saving": "Saving…",
     "saveFailed": "These tiers could not be saved.",
-    "unsaved": "Unsaved changes."
+    "unsaved": "Unsaved changes.",
+    "crumbLeaf": "Tiers"
   },
   "PromotionScope": {
-    "crumb": "Master data / Products / Promotions / Scope",
     "intro": "Where this deal runs. Saving also announces the change, so devices holding it know it moved — including when the scope is emptied, which is how a promotion is taken out of play.",
     "channels": "Channels",
     "channelsHint": "The ordinary case: every outlet trading in a channel gets the deals assigned to it.",
@@ -942,7 +927,8 @@
     "save": "Save scope",
     "saving": "Saving…",
     "saveFailed": "This scope could not be saved.",
-    "unsaved": "Unsaved changes."
+    "unsaved": "Unsaved changes.",
+    "crumbLeaf": "Scope"
   },
   "Refusals": {
     "config": {
@@ -1119,7 +1105,6 @@
     }
   },
   "TaxRates": {
-    "crumb": "Master data / Products / Classification / Tax rates",
     "intro": "What this class is taxed at, per country and over time. No rates at all means unknown, not zero — a zero-rated class is a rate of 0 somebody wrote down.",
     "country": "Country",
     "rate": "Rate",
@@ -1146,10 +1131,10 @@
     "save": "Save rates",
     "saving": "Saving…",
     "saveFailed": "These rates could not be saved.",
-    "unsaved": "Unsaved changes."
+    "unsaved": "Unsaved changes.",
+    "crumbLeaf": "Tax rates"
   },
   "Frequencies": {
-    "crumb": "Field ops / Journey planning / Call frequency",
     "title": "Call frequency",
     "intro": "How often each shop is called on. A segment covers every shop in it; one shop can depart from its segment. A shop with neither rule is not planned at all — generation reports it rather than guessing.",
     "segmentsTitle": "By segment",
@@ -1190,7 +1175,6 @@
     "removeFailed": "That rule could not be removed."
   },
   "Calendars": {
-    "crumb": "Field ops / Journey planning / Working calendar",
     "title": "Working calendar",
     "intro": "When a rep works, and what nobody works. A calendar says which days of the week and how many calls a day holds — the two numbers generation turns into capacity. A rep with no calendar is not planned for at all.",
     "calendarsTitle": "By rep",
@@ -1250,7 +1234,6 @@
     "plan": "Journey plan"
   },
   "Plans": {
-    "crumb": "Field ops / Journey planning",
     "title": "Journey plan",
     "intro": "A rep’s round, generated from frequency, territory and working calendar. A plan is an experiment until it is published — and what it could not do is as important as what it did.",
     "generateTitle": "Generate a plan",
@@ -1687,7 +1670,6 @@
     }
   },
   "OrderMinimums": {
-    "crumb": "Master data / Products / Order minimums",
     "title": "Order minimums",
     "intro": "The smallest order a shop may place. A rep is told the threshold at the counter and refused below it, offline — so a minimum set here reaches devices on their next sync, and one removed stops applying on theirs.",
     "channels": "Channels",

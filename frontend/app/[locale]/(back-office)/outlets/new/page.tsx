@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
+import { Breadcrumb } from "@/components/back-office/breadcrumb";
 import { OutletForm } from "@/components/back-office/outlet-form";
 import { resolveLocale } from "@/i18n/locale";
 
@@ -13,7 +14,7 @@ export default async function NewOutletPage({ params }: { params: Promise<{ loca
   return (
     <div className="flex flex-col gap-4">
       <header>
-        <p className="font-mono text-[11.5px] text-muted-foreground">{t("crumbNew")}</p>
+        <Breadcrumb leaf={t("crumbLeafNew")} />
         <h1 className="text-lg font-semibold tracking-tight">{t("titleNew")}</h1>
       </header>
       <OutletForm />

@@ -24,6 +24,15 @@ const setOutletOverrides = vi.hoisted(() => vi.fn());
 vi.mock("@/components/auth-provider", () => ({ useAuth: () => auth.current }));
 vi.mock("next/navigation", () => ({ useParams: () => ({ id: "o-1" }) }));
 
+// The header now renders a <Breadcrumb>, which reads the path through next-intl. Stubbed the way
+// the navigation's own tests stub it, so these assertions stay about this screen.
+vi.mock("@/i18n/navigation", () => ({
+  Link: ({ href, children }: { href: string; children: React.ReactNode }) => (
+    <a href={href}>{children}</a>
+  ),
+  usePathname: () => "/outlets/o-1/assortment",
+}));
+
 vi.mock("@/lib/api/outlets", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/outlets")>()),
   fetchOutlet: (...args: unknown[]) => fetchOutlet(...args),

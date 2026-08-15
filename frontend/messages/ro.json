@@ -101,6 +101,7 @@
       "surveys": "Chestionare",
       "userList": "Utilizatori și roluri"
     },
+    "trail": "Firimituri",
     "soon": {
       "week5": "S5",
       "week6": "S6",
@@ -114,7 +115,6 @@
     "signOut": "Deconectare"
   },
   "ScoreWeights": {
-    "crumb": "Configurare / Magazin perfect",
     "title": "Ponderile magazinului perfect",
     "intro": "Cât valorează fiecare pilon. Publicarea unei versiuni o îngheață — auditurile evaluate cu ea rămân legate de aceste numere, deci o reponderare înseamnă o versiune nouă, nu o modificare.",
     "loading": "Se încarcă…",
@@ -148,7 +148,6 @@
     "surveys": "Chestionare"
   },
   "SurveyList": {
-    "crumb": "Configurare / Chestionare",
     "title": "Chestionare",
     "intro": "Chestionarele pe care un agent le poate completa la raft. O vizită poartă câte unul.",
     "loading": "Se încarcă…",
@@ -169,7 +168,6 @@
     "cancel": "Renunță"
   },
   "Surveys": {
-    "crumb": "Configurare / Chestionare",
     "newTitle": "Chestionar nou",
     "editTitle": "Chestionar",
     "intro": "Ce este întrebat agentul la raft. Întrebările sunt parcurse în ordinea de aici.",
@@ -217,7 +215,6 @@
     }
   },
   "Outlets": {
-    "crumb": "Date de bază / Puncte de vânzare",
     "title": "Puncte de vânzare",
     "caption": "Puncte de vânzare cu clasificarea, teritoriul și starea lor.",
     "loading": "Se încarcă punctele de vânzare…",
@@ -255,8 +252,6 @@
     "manageCustomFields": "Câmpuri"
   },
   "OutletForm": {
-    "crumbNew": "Date de bază / Puncte de vânzare / Nou",
-    "crumbEdit": "Date de bază / Puncte de vânzare / {code}",
     "titleNew": "Punct de vânzare nou",
     "code": "Cod",
     "name": "Denumire",
@@ -290,7 +285,8 @@
     "removeContact": "Șterge",
     "removeContactNumbered": "Șterge contactul {number}",
     "manageAssortment": "Sortiment",
-    "readOnly": "Nu aveți permisiunea de a modifica punctele de vânzare."
+    "readOnly": "Nu aveți permisiunea de a modifica punctele de vânzare.",
+    "crumbLeafNew": "Nou"
   },
   "Validation": {
     "required": "Acest câmp este obligatoriu.",
@@ -305,7 +301,6 @@
     "notACountry": "Trebuie să fie un cod de țară din două litere, de ex. RO."
   },
   "OutletImport": {
-    "crumb": "Date de bază / Puncte de vânzare / Import",
     "title": "Import puncte de vânzare",
     "intro": "Încarcă un fișier CSV, verifică ce ar face, apoi aplică-l. Verificarea rulează toate regulile și nu scrie nimic.",
     "file": "Fișier",
@@ -343,7 +338,6 @@
     "stale": "Fișierul s-a modificat de la ultima verificare. Verifică-l din nou înainte de a aplica."
   },
   "Territories": {
-    "crumb": "Date de bază / Teritorii",
     "title": "Teritorii",
     "caption": "Teritoriile, unitatea organizatorică din care fac parte și câte puncte de vânzare conțin.",
     "loading": "Se încarcă teritoriile…",
@@ -408,7 +402,6 @@
     "assignOutletsFailed": "Punctele de vânzare nu au putut fi adăugate."
   },
   "Users": {
-    "crumb": "Administrare / Utilizatori și roluri",
     "title": "Utilizatori și roluri",
     "caption": "Persoanele care se pot autentifica, rolurile pe care le dețin și dacă au contul activ.",
     "loading": "Se încarcă utilizatorii…",
@@ -493,7 +486,6 @@
     "under": ", în {path}"
   },
   "Channels": {
-    "crumb": "Date de bază / Puncte de vânzare / Canale",
     "title": "Canale de distribuție",
     "intro": "Fiecare punct de vânzare este clasificat într-unul. Canalul determină sortimentul, prețurile și fluxul vizitei, deci un spațiu de lucru are nevoie de cel puțin unul înainte de a avea puncte de vânzare.",
     "newChannel": "Canal nou",
@@ -516,7 +508,6 @@
     "cancel": "Anulează"
   },
   "CustomFields": {
-    "crumb": "Date de bază / Puncte de vânzare / Câmpuri personalizate",
     "title": "Câmpuri personalizate pentru puncte de vânzare",
     "intro": "Câmpurile pe care acest spațiu de lucru le colectează despre un punct de vânzare, dincolo de cele standard. Ce este definit aici este ce afișează formularul și ce acceptă importul în masă — o coloană nedescrisă este respinsă, nu ignorată.",
     "newField": "Câmp nou",
@@ -585,7 +576,6 @@
     "moved": "{from} → {to}"
   },
   "Products": {
-    "crumb": "Date de bază / Produse",
     "title": "Produse",
     "intro": "Catalogul pe care îl vindeți. Sortimentele spun ce produse aparțin căror puncte de vânzare, listele de prețuri spun cât costă, iar promoțiile le reduc — toate definite pe produse care există deja.",
     "search": "Caută produse",
@@ -627,7 +617,6 @@
     "manageOrderMinimums": "Comenzi minime"
   },
   "Classification": {
-    "crumb": "Date de bază / Produse / Clasificare",
     "title": "Clasificare",
     "intro": "Cum este organizat catalogul. O categorie grupează produsele pentru promoții și raportare, o marcă spune cine le produce, iar o clasă de taxare decide cum sunt impozitate. Toate trei sunt opționale pe un produs — definiți ce folosiți.",
     "name": "Denumire",
@@ -669,7 +658,6 @@
     "ratesNamed": "Cote pentru {name}"
   },
   "Assortments": {
-    "crumb": "Date de bază / Produse / Sortimente",
     "title": "Sortimente",
     "intro": "Ce produse aparțin căror puncte de vânzare. Definite per canal — o decizie despre un tip de magazin, nu despre unul anume — și citite per punct de vânzare, unde determină lista de comandă sugerată și verificările de disponibilitate din audit.",
     "channel": "Canal",
@@ -692,7 +680,6 @@
     "unsaved": "Modificări nesalvate."
   },
   "OutletAssortment": {
-    "crumb": "Date de bază / Puncte de vânzare / {code} / Sortiment",
     "title": "Ce vinde {name}",
     "intro": "Canalul său — {channel} — stabilește baza. Orice se definește aici este o abatere a acestui magazin: un produs pe care canalul nu îl are, unul pe care îl are dar acest magazin nu îl va stoca, sau o decizie diferită privind obligativitatea.",
     "search": "Caută produse",
@@ -716,10 +703,10 @@
     "save": "Salvează abaterile",
     "saving": "Se salvează…",
     "saveFailed": "Abaterile nu au putut fi salvate.",
-    "unsaved": "Modificări nesalvate."
+    "unsaved": "Modificări nesalvate.",
+    "crumbLeaf": "Sortiment"
   },
   "PriceLists": {
-    "crumb": "Date de bază / Produse / Liste de prețuri",
     "title": "Liste de prețuri",
     "intro": "Cât costă produsele și când. O listă are o singură monedă, astfel încât prețurile ei să poată fi comparate și însumate; intervalul este semideschis, deci lista următoare începe exact acolo unde se oprește aceasta.",
     "newList": "Listă de prețuri nouă",
@@ -744,7 +731,6 @@
     "saving": "Se salvează…",
     "cancel": "Anulează",
     "saveFailed": "Lista de prețuri nu a putut fi salvată.",
-    "pricesCrumb": "Date de bază / Produse / Liste de prețuri / Prețuri",
     "pricesIntro": "Prețuri nete în {currency}, valabile {from} → {to}. Taxa se adaugă la comandă, din clasa de taxare a produsului.",
     "pricesIntroOpen": "Prețuri nete în {currency}, valabile din {from}. Taxa se adaugă la comandă, din clasa de taxare a produsului.",
     "search": "Caută produse",
@@ -758,10 +744,10 @@
     "noMatches": "Niciun produs nu corespunde căutării „{search}”.",
     "scope": "Domeniu",
     "pricesNamed": "Prețuri în {name}",
-    "scopeNamed": "Domeniul listei {name}"
+    "scopeNamed": "Domeniul listei {name}",
+    "pricesCrumbLeaf": "Prețuri"
   },
   "PriceListScope": {
-    "crumb": "Date de bază / Produse / Liste de prețuri / Domeniu",
     "intro": "Ce magazine plătesc aceste prețuri în {currency}. Salvarea anunță și modificarea, astfel încât dispozitivele care au această listă să știe că s-a schimbat — inclusiv când domeniul este golit, ceea ce înseamnă retragerea listei.",
     "channels": "Canale",
     "channelsHint": "Cazul obișnuit: fiecare punct de vânzare dintr-un canal este tarifat după listele atribuite canalului.",
@@ -787,10 +773,10 @@
     "save": "Salvează domeniul",
     "saving": "Se salvează…",
     "saveFailed": "Domeniul nu a putut fi salvat.",
-    "unsaved": "Modificări nesalvate."
+    "unsaved": "Modificări nesalvate.",
+    "crumbLeaf": "Domeniu"
   },
   "Promotions": {
-    "crumb": "Date de bază / Produse / Promoții",
     "title": "Promoții",
     "intro": "Ofertele pe care le derulează un tenant. Fiecare are propria perioadă și prioritate; când două se aplică aceleiași linii, câștigă prioritatea mai mare — niciodată discountul mai mare.",
     "newPromotion": "Promoție nouă",
@@ -853,7 +839,6 @@
     "scopeNamed": "Domeniul promoției {name}"
   },
   "PromotionTargets": {
-    "crumb": "Date de bază / Produse / Promoții / Ținte",
     "intro": "Ce reduce această promoție. Dacă nu este ales nimic, nu reduce nimic — astfel se scoate o ofertă din joc fără a-i modifica perioada.",
     "categories": "Categorii",
     "categoriesHint": "O categorie acoperă și tot ce este clasificat sub ea: alegerea „Băuturi” prinde un produs din „Băuturi / Apă / Plată” fără a numi vreuna dintre ele.",
@@ -879,10 +864,10 @@
     "save": "Salvează țintele",
     "saving": "Se salvează…",
     "saveFailed": "Țintele nu au putut fi salvate.",
-    "unsaved": "Modificări nesalvate."
+    "unsaved": "Modificări nesalvate.",
+    "crumbLeaf": "Ținte"
   },
   "PromotionTiers": {
-    "crumb": "Date de bază / Produse / Promoții / Praguri",
     "intro": "Cumperi atâtea, scazi atâta. O linie care atinge mai multe praguri primește cea mai mare reducere la care ajunge; fără praguri, promoția nu reduce nimic.",
     "wrongType": "Doar o promoție cu praguri de volum are praguri. Aceasta este {type}.",
     "kind": "Ce scad pragurile",
@@ -913,10 +898,10 @@
     "save": "Salvează pragurile",
     "saving": "Se salvează…",
     "saveFailed": "Pragurile nu au putut fi salvate.",
-    "unsaved": "Modificări nesalvate."
+    "unsaved": "Modificări nesalvate.",
+    "crumbLeaf": "Praguri"
   },
   "PromotionScope": {
-    "crumb": "Date de bază / Produse / Promoții / Domeniu",
     "intro": "Unde se derulează această ofertă. Salvarea anunță și modificarea, astfel încât dispozitivele care o au să știe că s-a schimbat — inclusiv când domeniul este golit, adică promoția este scoasă din joc.",
     "channels": "Canale",
     "channelsHint": "Cazul obișnuit: fiecare punct de vânzare dintr-un canal primește ofertele atribuite canalului.",
@@ -942,7 +927,8 @@
     "save": "Salvează domeniul",
     "saving": "Se salvează…",
     "saveFailed": "Domeniul nu a putut fi salvat.",
-    "unsaved": "Modificări nesalvate."
+    "unsaved": "Modificări nesalvate.",
+    "crumbLeaf": "Domeniu"
   },
   "Refusals": {
     "config": {
@@ -1119,7 +1105,6 @@
     }
   },
   "TaxRates": {
-    "crumb": "Date de bază / Produse / Clasificare / Cote de taxare",
     "intro": "Cu cât este taxată această clasă, pe țară și în timp. Lipsa oricărei cote înseamnă necunoscut, nu zero — o clasă cu cotă zero are o cotă de 0 scrisă de cineva.",
     "country": "Țară",
     "rate": "Cotă",
@@ -1146,10 +1131,10 @@
     "save": "Salvează cotele",
     "saving": "Se salvează…",
     "saveFailed": "Cotele nu au putut fi salvate.",
-    "unsaved": "Modificări nesalvate."
+    "unsaved": "Modificări nesalvate.",
+    "crumbLeaf": "Cote de taxare"
   },
   "Frequencies": {
-    "crumb": "Operațiuni de teren / Planificare rute / Frecvență de vizitare",
     "title": "Frecvență de vizitare",
     "intro": "Cât de des este vizitat fiecare magazin. Un segment acoperă toate magazinele din el; un magazin poate face excepție de la segmentul său. Un magazin fără nicio regulă nu este planificat deloc — generarea o semnalează, nu ghicește.",
     "segmentsTitle": "Pe segment",
@@ -1190,7 +1175,6 @@
     "removeFailed": "Regula nu a putut fi eliminată."
   },
   "Calendars": {
-    "crumb": "Operațiuni de teren / Planificare rute / Calendar de lucru",
     "title": "Calendar de lucru",
     "intro": "Când lucrează un agent și când nu lucrează nimeni. Un calendar spune în ce zile ale săptămânii și câte vizite încap într-o zi — cele două numere din care generarea calculează capacitatea. Un agent fără calendar nu este planificat deloc.",
     "calendarsTitle": "Pe agent",
@@ -1250,7 +1234,6 @@
     "plan": "Plan de rută"
   },
   "Plans": {
-    "crumb": "Operațiuni de teren / Planificare rute",
     "title": "Plan de rută",
     "intro": "Runda unui agent, generată din frecvență, teritoriu și calendarul de lucru. Un plan este un experiment până când este publicat — iar ceea ce nu a putut face contează la fel de mult ca ceea ce a făcut.",
     "generateTitle": "Generează un plan",
@@ -1687,7 +1670,6 @@
     }
   },
   "OrderMinimums": {
-    "crumb": "Date de bază / Produse / Comenzi minime",
     "title": "Comenzi minime",
     "intro": "Cea mai mică comandă pe care o poate plasa un magazin. Reprezentantul vede pragul la raft și este refuzat sub el, offline — așa că un minim setat aici ajunge pe dispozitive la următoarea sincronizare, iar unul șters încetează să se aplice la a lor.",
     "channels": "Canale",

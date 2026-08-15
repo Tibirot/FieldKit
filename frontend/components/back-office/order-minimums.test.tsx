@@ -33,6 +33,15 @@ const fetchOutlet = vi.hoisted(() => vi.fn());
 
 vi.mock("@/components/auth-provider", () => ({ useAuth: () => auth.current }));
 
+// The header now renders a <Breadcrumb>, which reads the path through next-intl. Stubbed the way
+// the navigation's own tests stub it, so these assertions stay about this screen.
+vi.mock("@/i18n/navigation", () => ({
+  Link: ({ href, children }: { href: string; children: React.ReactNode }) => (
+    <a href={href}>{children}</a>
+  ),
+  usePathname: () => "/products/order-minimums",
+}));
+
 vi.mock("@/lib/api/order-minimums", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/order-minimums")>()),
   fetchOrderMinimums: (...args: unknown[]) => fetchOrderMinimums(...args),

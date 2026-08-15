@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
 
 import { useAuth } from "@/components/auth-provider";
+import { Breadcrumb } from "@/components/back-office/breadcrumb";
 import { OutletForm } from "@/components/back-office/outlet-form";
 import { OutletLifecycle } from "@/components/back-office/outlet-lifecycle";
 import { LinkButton } from "@/components/ui/link-button";
@@ -60,9 +61,7 @@ export function OutletEditor() {
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">
-          <p className="font-mono text-[11.5px] text-muted-foreground">
-            {t("crumbEdit", { code: outlet.data.code })}
-          </p>
+          <Breadcrumb leaf={outlet.data.code} />
           <h1 className="text-lg font-semibold tracking-tight">{outlet.data.name}</h1>
         </div>
 

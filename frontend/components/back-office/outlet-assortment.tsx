@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
+import { Breadcrumb } from "@/components/back-office/breadcrumb";
 import { Button } from "@/components/ui/button";
 import {
   channelAssortmentKey,
@@ -128,9 +129,8 @@ export function OutletAssortment() {
   return (
     <div className="flex max-w-4xl flex-col gap-4">
       <header>
-        <p className="font-mono text-[11.5px] text-muted-foreground">
-          {t("crumb", { code: outlet.data.code })}
-        </p>
+        {/* Two leaves: the shop, then what of it you are looking at. Both below any nav item. */}
+        <Breadcrumb leaf={[outlet.data.code, t("crumbLeaf")]} />
         <h1 className="text-lg font-semibold tracking-tight">
           {t("title", { name: outlet.data.name })}
         </h1>
