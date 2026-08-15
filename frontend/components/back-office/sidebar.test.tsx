@@ -100,9 +100,15 @@ describe("<Sidebar>", () => {
 
     render(<Sidebar workspace="fieldkit-dev" />);
 
-    expect(await screen.findByTitle("W12")).toBeTruthy();
+    /*
+     * Found by the item rather than by its badge. Three sections are scheduled for W12 now — the
+     * dashboard, and the two whose W9 and W11 badges had expired — so `getByTitle("W12")` matches
+     * several and throws. The badge is not a unique handle and never was; it only looked like one
+     * while exactly one item wore it.
+     */
+    const dashboard = (await screen.findByText("Dashboard")).closest("[aria-disabled]")!;
 
-    expect(screen.getByTitle("W12").textContent).toContain("Dashboard");
+    expect(within(dashboard as HTMLElement).getByText("W12")).toBeTruthy();
     expect(screen.queryByRole("separator")).toBeNull();
   });
 
@@ -133,9 +139,11 @@ describe("<Sidebar>", () => {
 
     const messages = (await import("@/messages/en.json")).default;
 
-    expect(screen.getByTitle(messages.Nav.soon[scheduled!.soon!]).textContent).toContain(
-      messages.Nav.items[scheduled!.key],
-    );
+    // Scoped to the item, not looked up by its badge — several sections can share a week, and the
+    // badge stopped being a unique handle the moment two did.
+    const item = screen.getByText(messages.Nav.items[scheduled!.key]).closest("[aria-disabled]")!;
+
+    expect(within(item as HTMLElement).getByText(messages.Nav.soon[scheduled!.soon!])).toBeTruthy();
   });
 
   it("does not offer a link to a screen that does not exist", () => {
