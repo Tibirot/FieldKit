@@ -57,7 +57,11 @@ public static class Extensions
             {
                 metrics.AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
-                    .AddRuntimeInstrumentation();
+                    .AddRuntimeInstrumentation()
+                    // FieldKit's own signals (W13 slice 1). One name, because a meter name is what an
+                    // exporter subscribes to: nine of them would be nine subscriptions to keep in
+                    // step, and the tenth would go missing quietly. See `Telemetry`.
+                    .AddMeter(FieldKit.BuildingBlocks.Telemetry.MeterName);
             })
             .WithTracing(tracing =>
             {
