@@ -1,3 +1,4 @@
+import type { ScorePillar } from "@/lib/api/score-weights";
 import { apiGet } from "@/lib/api/client";
 
 /**
@@ -30,7 +31,16 @@ export type VisitFigures = {
  * scoring it zero — "96%" from two audits out of forty is a pillar nobody could count.
  */
 export type PillarFigures = {
-  pillar: string;
+  /**
+   * The union rather than `string`, reusing `ScorePillar`.
+   *
+   * The server sends exactly these three names — it renders Configuration's own enum — and the
+   * screen looks each one up in the message catalogue. As a `string` that lookup is a key the
+   * compiler cannot check, which is how a renamed pillar becomes a label reading
+   * `Dashboard.pillar.SomethingElse` on screen instead of a build failure. The same argument
+   * `score-weights.ts` makes for the authoring side.
+   */
+  pillar: ScorePillar;
   average: number | null;
   measured: number;
   skipped: number;

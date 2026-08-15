@@ -148,7 +148,16 @@ export function Dashboard() {
               scored: figures.perfectStore.scored,
               audits: figures.perfectStore.audits,
             })}
-            warning={warningOf(figures.perfectStore, t)}
+            warning={
+              // The caveat that makes an average unsafe to compare with last month's: `BR-AUD-8`
+              // records the weighting each audit was scored against, and a window that mixes two of
+              // them is a mean of two rulers.
+              figures.perfectStore.comparable
+                ? undefined
+                : t("mixedWeights", {
+                    versions: figures.perfectStore.weightSetVersions.join(", "),
+                  })
+            }
           />
           <Kpi
             label={t("orderValue")}
@@ -256,12 +265,3 @@ function percent(value: number | null): string {
   return value === null ? "—" : `${value.toFixed(2)}%`;
 }
 
-/** The caveat that makes an average unsafe to compare with last month's. */
-function warningOf(
-  perfectStore: PerfectStore,
-  t: (key: string, values?: Record<string, unknown>) => string,
-): string | undefined {
-  return perfectStore.comparable
-    ? undefined
-    : t("mixedWeights", { versions: perfectStore.weightSetVersions.join(", ") });
-}
