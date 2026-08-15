@@ -896,7 +896,15 @@ export type MetaKey =
   /** The `entity#cursor` string the last pull was taken at (sync engine §3). */
   | "snapshotVersion"
   /** Epoch millis of the last completed sync run, for the "last synced" line. */
-  | "lastSyncAt";
+  | "lastSyncAt"
+  /**
+   * What has gone wrong on this device and not yet been reported (W13 slice 8).
+   *
+   * A JSON array in one row rather than a store of its own: a store means a Dexie version bump and a
+   * migration path (`OFF-13`) for data that is deleted the moment it is delivered. See
+   * `device-log.ts` for the rest of the reasoning.
+   */
+  | "deviceEvents";
 
 export type MetaEntry = { key: MetaKey; value: string };
 

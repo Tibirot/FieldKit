@@ -48,6 +48,7 @@ public sealed class SyncModule : IModule
         // Singleton, because an instrument is created once and is thread-safe. Scoped would build
         // three per request and announce three new instruments to every listener (W13 slice 1).
         services.AddSingleton<SyncMetrics>();
+        services.AddSingleton<DeviceTelemetryMetrics>();
 
         /*
          * Photo storage (`OFF-08`, W11 slice 12a).
@@ -86,6 +87,10 @@ public sealed class SyncModule : IModule
         sync.MapPullEndpoints();
         sync.MapPushEndpoints();
         sync.MapPhotoEndpoints();
+
+        // What went wrong on the device (W13 slice 8). Inside the rate-limited group with the rest:
+        // a phone in trouble reports more, not less, and the budget belongs to the rep.
+        sync.MapTelemetryEndpoints();
     }
 }
 
