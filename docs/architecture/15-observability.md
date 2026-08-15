@@ -42,6 +42,17 @@ The signals that tell you FieldKit is *working*, not just *up*:
 | `fieldkit.sync.push.batch_size` | histogram | Field workload per reconnect |
 | `fieldkit.sync.push.latency` | histogram | How fast a day's work reconciles |
 | `fieldkit.sync.mutations.rejected` | counter (by reason) | Data-quality / rule-rejection signal |
+| `fieldkit.outbox.backlog` | gauge | Cross-module event health — **alertable** ([ADR-0006](adr/0006-in-process-messaging-and-outbox.md)) |
+| `fieldkit.outbox.dispatch.latency` | histogram | Eventual-consistency lag |
+| `fieldkit.outbox.dispatch.failed` | counter (by module) | A subscriber throwing, told apart from a burst |
+| `fieldkit.visits.completed` | counter (by tenant) | Business throughput |
+| `fieldkit.orders.submitted.value` | histogram | Commercial signal |
+| `fieldkit.pricing.resolve.duration` | histogram | Perf of the hot pricing path |
+| `fieldkit.photos.upload.pending` | gauge | Binary-sync backlog |
+| `fieldkit.device.events` | counter (by kind) | A field device in trouble — the only client-side signal |
+
+These double as the **operational KPIs** behind the supervisor dashboards
+([reporting](../product/00-product-overview.md#reporting--kpis-cross-cutting-read-side)).
 
 > **The first three are built (W13 slice 1), and the rules they set stand for the rest.**
 >
@@ -94,17 +105,6 @@ The signals that tell you FieldKit is *working*, not just *up*:
 > eventual-consistency window `ADR-0006` asks a reader to accept, the second is a fact about this
 > server. `dispatch.failed` is separate from the backlog because a queue that is high from a burst
 > and one that is high from a broken handler need different answers and look identical otherwise.
-| `fieldkit.outbox.backlog` | gauge | Cross-module event health — **alertable** ([ADR-0006](adr/0006-in-process-messaging-and-outbox.md)) |
-| `fieldkit.outbox.dispatch.latency` | histogram | Eventual-consistency lag |
-| `fieldkit.outbox.dispatch.failed` | counter (by module) | A subscriber throwing, told apart from a burst |
-| `fieldkit.visits.completed` | counter (by tenant) | Business throughput |
-| `fieldkit.orders.submitted.value` | histogram | Commercial signal |
-| `fieldkit.pricing.resolve.duration` | histogram | Perf of the hot pricing path |
-| `fieldkit.photos.upload.pending` | gauge | Binary-sync backlog |
-
-These double as the **operational KPIs** behind the supervisor dashboards
-([reporting](../product/00-product-overview.md#reporting--kpis-cross-cutting-read-side)).
-
 ## 3. Health checks
 
 Per `ServiceDefaults`: `/health` (all checks — readiness) and `/alive` (liveness only). Extended
@@ -172,6 +172,24 @@ the default.
 - A lightweight client log of sync runs (counts, durations, failures) is viewable in-app
   (support) and, when online, can post anonymized sync telemetry to correlate device-side and
   server-side views of a sync.
+> **Built in W13 slice 8**, the second bullet below.  takes a batch keyed
+> to a device the rep actually has, writes one structured log per event, and counts them by kind so
+> "devices are failing" is **alertable** rather than merely searchable. It goes to the telemetry
+> pipeline rather than to a table: no schema, no migration, no retention policy to invent, because
+> this is diagnostics and not a record of work.
+>
+> **The kinds are a closed vocabulary** — unhandled error, service-worker failure, storage quota,
+> storage eviction, failed sync — and one this server does not know is **refused**, not bucketed: a
+> client shipping a typo should report nothing loudly rather than something unreadable quietly.
+>
+> **No location, structurally.** The event record has three fields, so a client that sends latitude
+> and longitude has them dropped by the deserializer before any code reads them — a stronger
+> guarantee than validation, because there is no branch to get wrong. The batch is still accepted:
+> the device is not punished for a field this server does not want.
+>
+> **The buffer keeps the oldest**, not the newest, and clears only once the server has it. A device
+> that cannot reach the server is exactly the device with something to report.
+
 - **Client crash/error telemetry** — because you can't SSH into a field fleet, the PWA captures
   unhandled errors, service-worker failures, storage-eviction/quota events, and failed-sync reasons
   and ships them (batched, on reconnect) with `deviceId` so a device that's silently failing is

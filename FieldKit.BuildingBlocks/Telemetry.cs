@@ -82,6 +82,9 @@ public static class Telemetry
         /// </remarks>
         public const string Module = "fieldkit.module";
 
+        /// <summary>What sort of thing happened — always an enum, so always a closed set.</summary>
+        public const string Kind = "fieldkit.kind";
+
         /// <summary>How a visit ended — the <c>VisitOutcome</c> enum, so a closed set.</summary>
         public const string Outcome = "fieldkit.outcome";
 

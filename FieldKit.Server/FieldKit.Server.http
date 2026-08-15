@@ -4913,3 +4913,88 @@ Authorization: Bearer {{repToken.response.body.access_token}}
 
 ### Anonymous is a **401**. What a tenant has ordered is that tenant's business.
 GET {{Server_HostAddress}}/api/orders
+
+### ── Sync · device telemetry (observability §5, W13 slice 8) ────────────────
+# What a device says when it is failing quietly. Every other signal this week counts work
+# that *arrived*; a rep whose local store was evicted, whose service worker never
+# installed, or whose sync has failed all week looks from here exactly like a rep having a
+# quiet week. There is no SSH into a field fleet.
+#
+# It goes to the telemetry pipeline rather than to a table: a structured log per event and
+# a counter by kind, correlated by the tenant and trace the rest of W13 established. No
+# schema, no migration, no retention policy to invent — this is diagnostics, not a record
+# of work.
+#
+# Bind a device first (`POST /api/sync/devices` above) and paste its id here.
+@deviceId = 00000000-0000-0000-0000-000000000000
+
+POST {{host}}/api/sync/telemetry
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceId}}",
+  "events": [
+    {
+      "kind": "StorageEvicted",
+      "occurredAtUtc": "2026-08-16T06:40:00Z",
+      "detail": "the browser discarded the local store"
+    },
+    {
+      "kind": "SyncFailed",
+      "occurredAtUtc": "2026-08-16T06:41:00Z",
+      "detail": "sync.push.deviceUnknown"
+    }
+  ]
+}
+
+### A kind this server does not know is a **400** from the binder, not a bucket. A closed
+### vocabulary on both sides: silently accepting an unknown kind would mean a client
+### shipping a typo reports nothing for a release and nobody finds out.
+POST {{host}}/api/sync/telemetry
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceId}}",
+  "events": [{ "kind": "TheBatteryFellOut", "occurredAtUtc": "2026-08-16T06:40:00Z" }]
+}
+
+### A location a client sends anyway is **discarded before anything reads it** — and the
+### batch is still accepted (`200`). `DeviceEvent` has three fields, so the deserializer
+### drops these before any code sees them: a structural guarantee rather than a validation
+### rule somebody has to remember (observability §5, security §4).
+POST {{host}}/api/sync/telemetry
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{
+  "deviceId": "{{deviceId}}",
+  "events": [
+    {
+      "kind": "UnhandledError",
+      "occurredAtUtc": "2026-08-16T06:40:00Z",
+      "detail": "boom",
+      "latitude": 44.4638,
+      "longitude": 26.0946
+    }
+  ]
+}
+
+### Somebody else's device is a **404**, the same answer `/sync/push` gives and for the
+### same reason: a device id is a guessable shape, so unknown and not-yours are one
+### response. Without this gate the endpoint is a log-injection hole with a rate limit.
+POST {{host}}/api/sync/telemetry
+Authorization: Bearer {{repToken}}
+Content-Type: application/json
+
+{
+  "deviceId": "11111111-1111-1111-1111-111111111111",
+  "events": [{ "kind": "UnhandledError", "occurredAtUtc": "2026-08-16T06:40:00Z" }]
+}
+
+### Anonymous is a **401**. Telemetry names a device, and a device belongs to a rep.
+POST {{host}}/api/sync/telemetry
+Content-Type: application/json
+
+{ "deviceId": "{{deviceId}}", "events": [] }

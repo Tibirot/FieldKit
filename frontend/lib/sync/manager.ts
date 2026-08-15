@@ -4,6 +4,7 @@ import { applyOrderVerdicts, ORDERS } from "@/lib/orders/verdicts";
 import { uploadPhotos } from "@/lib/photos/upload";
 
 import { requestPersistentStorage, type FieldKitDatabase, type OutboxEntry } from "./db";
+import { flushDeviceEvents } from "./device-log";
 import {
   markAccepted,
   markInflight,
@@ -222,6 +223,20 @@ export async function syncOnce(
    * alternative is telling a rep everything is in while the server is still expecting something.
    */
   result.awaitingUpload = photos.failed + photos.abandoned + photos.awaitingConfirmation;
+
+  /*
+   * Last, and unconditionally (`observability §5`) — W13 slice 8.
+   *
+   * <b>Last</b> because a rep's work outranks a report about a rep's device: if signal lasts for one
+   * request, it should carry a visit. <b>Unconditional</b> — including after an interrupted run —
+   * because a device that keeps failing to sync is precisely the device whose diagnostics nobody
+   * ever sees, and gating this on a clean run would silence it exactly when it matters.
+   *
+   * It cannot fail this function: `flushDeviceEvents` swallows its own errors and answers 0, which
+   * is the same posture the recorder takes. A run must not be reported as interrupted because a
+   * diagnostic report did not go through.
+   */
+  await flushDeviceEvents(db, accessToken, deviceId, signal);
 
   return result;
 }
