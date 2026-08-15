@@ -38,6 +38,36 @@ internal sealed class OrderQueryService(OrderDbContext db) : IOrderQuery
         return [.. orders.Select(order => order.Describe())];
     }
 
+    /// <summary>The most orders the queue returns, however large a limit is asked for.</summary>
+    /// <remarks>
+    /// A ceiling rather than a page size — the call <c>AuditQueryService.MaximumOutletAudits</c> made
+    /// and <c>VisitEndpoints.MaximumVisits</c> repeated. A caller asking for ten thousand is either
+    /// paging, which this deliberately does not do, or has a bug; either way the database should not
+    /// wear it.
+    /// </remarks>
+    public const int MaximumRecent = 200;
+
+    public async Task<IReadOnlyList<OrderDescriptor>> RecentAsync(
+        OrderStatus? status = null,
+        int limit = 100,
+        CancellationToken cancellationToken = default)
+    {
+        var orders = await db.Orders
+            .AsNoTracking()
+            .Include(row => row.Lines)
+            .Include(row => row.Submissions)
+            .Where(row => status == null || row.Status == status)
+
+            // By when the rep captured it, not when this server heard: a day of orders drained at
+            // once shares a `CreatedAtUtc` to the second, and ordering by that would shuffle a
+            // supervisor's queue into whatever order the outbox happened to flush.
+            .OrderByDescending(row => row.CapturedAtUtc)
+            .Take(Math.Clamp(limit, 1, MaximumRecent))
+            .ToListAsync(cancellationToken);
+
+        return [.. orders.Select(order => order.Describe())];
+    }
+
     public async Task<OrderSummary> SummariseAsync(
         IReadOnlyCollection<Guid> outletIds,
         DateOnly from,

@@ -4877,3 +4877,39 @@ Authorization: Bearer {{repToken.response.body.access_token}}
 
 ### Anonymous is a **401**. What a tenant sold last month is that tenant's business.
 GET {{host}}/api/reporting/summary
+
+###############################################################################
+# The orders queue — what a supervisor works through (W12 slice 6a)
+#
+# `IOrderQuery.RecentAsync` behind it. Bounded from the first line rather than after an outage:
+# W12 slice 5a found `GET /api/visits` unbounded because its only caller always passed a filter, so
+# the tenant-wide question went unasked. This read exists for that question.
+###############################################################################
+
+### The queue itself — what has arrived and not been dealt with. The screen's first load.
+GET {{Server_HostAddress}}/api/orders?status=Submitted
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### What was already refused, so "where did that order go" is answerable. The rejection travels with
+### the order, so a reader sees the reason without opening anything.
+GET {{Server_HostAddress}}/api/orders?status=Rejected
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### Every state. `status` defaults to nothing rather than to `Submitted`: a read whose default
+### silently hid rejected orders would make their disappearance a support question.
+GET {{Server_HostAddress}}/api/orders
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### The limit is clamped at **both** ends — `Math.Clamp(limit, 1, 200)`. Asking for none returns one
+### rather than nothing, and asking for ten thousand returns at most two hundred. A cursor is
+### deliberately absent: the honest answer to "I need last March" is a date window, and it lands when
+### a screen asks for one.
+GET {{Server_HostAddress}}/api/orders?limit=0
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### The rep holds no `visit:read` — orders are read under it, borrowed from Visit. **403**.
+GET {{Server_HostAddress}}/api/orders
+Authorization: Bearer {{repToken.response.body.access_token}}
+
+### Anonymous is a **401**. What a tenant has ordered is that tenant's business.
+GET {{Server_HostAddress}}/api/orders

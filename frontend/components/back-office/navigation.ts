@@ -43,6 +43,7 @@ export type NavKey =
 export type NavScreenKey =
   | "overview"
   | "visitList"
+  | "orderQueue"
   | "journeyPlans"
   | "callFrequency"
   | "workingCalendars"
@@ -260,7 +261,18 @@ export const NAVIGATION: readonly NavGroup[] = [
         key: "visits",
         screens: [{ key: "visitList", href: "/visits", requires: [["visit:read"]] }],
       },
-      { key: "orders", soon: "week12" },
+      /*
+       * Built in W12 slice 6a — the last item to lose its badge, after a `W11` that expired and a
+       * `W12` that replaced it.
+       *
+       * `visit:read`, because that is what reading an order costs: Order declares no read permission
+       * of its own and borrows this one, which `OrderEndpoints` explains. `order:reject` gates the
+       * *action* rather than the screen, and arrives with it in 6b.
+       */
+      {
+        key: "orders",
+        screens: [{ key: "orderQueue", href: "/orders", requires: [["visit:read"]] }],
+      },
     ],
   },
   {

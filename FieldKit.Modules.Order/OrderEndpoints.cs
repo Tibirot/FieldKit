@@ -124,9 +124,28 @@ internal static class OrderEndpoints
     /// </summary>
     private const string VisitRead = "visit:read";
 
+    /// <summary>How many orders the queue returns when the caller does not say.</summary>
+    /// <remarks>
+    /// A screenful and then some. The ceiling that actually protects the database is
+    /// <c>OrderQueryService.MaximumRecent</c>; this is only the default a caller inherits by saying
+    /// nothing, and it is deliberately well under it.
+    /// </remarks>
+    private const int DefaultRecent = 100;
+
     public static void MapOrderEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var orders = endpoints.MapGroup("/api/orders").WithTags("Order");
+
+        // The supervisor's queue (W12 slice 6a). `status` defaults to nothing rather than to
+        // `Submitted`: the screen asks for what it wants, and a read whose default silently hides
+        // rejected orders would make "where did that order go" a support question.
+        orders.MapGet("/", async (
+            OrderStatus? status, int? limit, IOrderQuery query, CancellationToken ct) =>
+        {
+            var found = await query.RecentAsync(status, limit ?? DefaultRecent, ct);
+
+            return found.Select(Respond).ToList();
+        }).RequirePermission(VisitRead);
 
         orders.MapGet("/by-visit/{visitId:guid}", async (
             Guid visitId, IOrderQuery query, CancellationToken ct) =>

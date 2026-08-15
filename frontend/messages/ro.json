@@ -101,7 +101,8 @@
       "surveys": "Chestionare",
       "userList": "Utilizatori și roluri",
       "overview": "Prezentare generală",
-      "visitList": "Vizite"
+      "visitList": "Vizite",
+      "orderQueue": "Comenzi"
     },
     "openMenu": "Meniu",
     "closeMenu": "Închide",
@@ -212,6 +213,36 @@
       "Availability": "Disponibilitate",
       "ShareOfShelf": "Cotă de raft",
       "PriceCompliance": "Conformitate preț"
+    }
+  },
+  "Orders": {
+    "title": "Comenzi",
+    "intro": "Comenzile care așteaptă o decizie și cele deja respinse.",
+    "loading": "Se încarcă comenzile…",
+    "failed": "Comenzile nu au putut fi încărcate.",
+    "forbidden": "Nu aveți permisiunea de a vedea comenzile.",
+    "statusLabel": "Afișează",
+    "allStatuses": "Toate comenzile",
+    "queueEmpty": "Nicio comandă nu așteaptă o decizie.",
+    "empty": "Nicio comandă aici.",
+    "unknownOutlet": "Magazin necunoscut",
+    "lines": "{lines, plural, one {# linie} few {# linii} other {# de linii}}",
+    "disputed": "Serverul a calculat {server} — comanda rămâne așa cum au convenit agentul și magazinul.",
+    "rejected": "Respinsă — {reason}. {note}",
+    "noNote": "Fără notă.",
+    "status": {
+      "Draft": "Ciornă",
+      "Submitted": "În așteptare",
+      "Accepted": "Acceptată",
+      "Rejected": "Respinsă",
+      "Cancelled": "Anulată"
+    },
+    "reason": {
+      "OffAssortment": "în afara sortimentului",
+      "BelowMinimum": "sub comanda minimă",
+      "OutletClosed": "magazinul era închis",
+      "CreditHold": "contul este blocat la plată",
+      "Other": "alt motiv"
     }
   },
   "Theme": {
