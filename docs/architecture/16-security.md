@@ -103,7 +103,10 @@ Per [B8](../product/decisions-and-assumptions.md#b8--privacy--gdpr-posture):
 - Validation on all inputs (FluentValidation); custom-field values validated against the
   definition catalog ([ADR-0009](adr/0009-config-driven-customization.md)).
 - Parameterized queries / EF Core (no string SQL); output encoding in React by default.
-- CORS locked to known origins, rate limiting on `/sync` and auth paths.
+- Rate limiting on `/sync`, per rep. **No CORS, because the API is never reached cross-origin** — the
+  browser calls `/api/*` on the front end's own origin and [`proxy.ts`](../../frontend/proxy.ts)
+  rewrites to the upstream. **Security headers on every API response**: `nosniff`,
+  `default-src 'none'`, a referrer policy, and `no-store`.
 
   > **Rate limiting landed in W13 slice 6 — and the sentence above names a path this server does not
   > own.** `/sync` is limited, per rep, keyed on the subject in the validated token. There are no
@@ -122,11 +125,23 @@ Per [B8](../product/decisions-and-assumptions.md#b8--privacy--gdpr-posture):
   > under exactly the load it was added for. Readiness does real work per request and is reachable in
   > every environment since slice 5; the control for that exposure is **ingress**, not a limiter.
   >
-  > And there is still no `AddCors`/`UseCors`, which is *probably right* rather than missing: the API
-  > is same-origin behind the front end's proxy, so no browser makes a cross-origin call to it, and
-  > the only CORS here (`PhotoStorageCors`) governs the **storage account** — a different control on a
-  > different origin, described in §4. If that reading holds, the sentence above is what needs
-  > correcting, not the code; slice 7 settles it with a test rather than an opinion.
+  > **Settled in slice 7: the sentence was wrong, not the code.** There is no CORS here and there
+  > should not be. A browser never reaches this API cross-origin — it calls `/api/*` on the **front
+  > end's own origin**, and `proxy.ts` rewrites to the upstream — so same-origin needs no policy, and
+  > adding one would mean naming origins that are *permitted*, which is strictly more permission than
+  > none. `SecurityHeaderTests` pins the absence: no `Access-Control-Allow-Origin` on a request
+  > carrying an `Origin`, and no answer to a preflight. The only CORS in the codebase
+  > (`PhotoStorageCors`) governs the **storage account**, a different control on a different origin,
+  > described in §4.
+  >
+  > **And the API had no security headers at all, which nobody had claimed and nobody had noticed.**
+  > `proxy.ts` sets them on documents and returns early for `/api/` — correctly, since everything it
+  > does after that point is about rendering. So the JSON side carried none until slice 7 gave it its
+  > own: `nosniff` (the one that matters for JSON — it makes the declared content type binding),
+  > `default-src 'none'; frame-ancestors 'none'` (for the response this API is not supposed to have,
+  > where something renders as HTML), the same referrer policy as the front end, and **`no-store` on
+  > every response** — what a caller may read here depends on their token, so a shared cache keyed on
+  > a URL is a cross-tenant read waiting for two people to ask the same question.
 
 ### 6.1 Content-Security-Policy
 
