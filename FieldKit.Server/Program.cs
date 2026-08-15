@@ -138,6 +138,10 @@ var app = builder.Build();
 
 app.UseRequestExceptionHandler();
 
+// The headers every API response carries (W13 slice 7). First, because they have to be on the
+// responses that never reach an endpoint too — a 401, a 429, an exception handler's 500.
+app.UseApiSecurityHeaders();
+
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
