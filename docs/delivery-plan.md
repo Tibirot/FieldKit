@@ -1216,8 +1216,14 @@ checked. The problem is **depth**: the sidebar has one level, and of the sevente
 should be navigation items, six are. Eleven are full workspaces — price lists, promotions,
 assortments, the working calendar, surveys — reachable only by landing on a section index and
 spotting the right button in a row of outline links. The eleven record-detail screens below them
-(promotion tiers, price-list scope, tax rates) have no breadcrumb and are left with the browser's
-back button.
+(promotion tiers, price-list scope, tax rates) are left with the browser's back button.
+
+> **Correction, from walking it in a browser during slice 3.** The audit said those eleven have *no
+> breadcrumb*. They have one — a `crumb` string per screen in the message catalog, rendering
+> `Master data / Products / Price lists / Scope`. It is a `<p>` containing **zero links**, so the
+> trail is printed and cannot be followed, which is why the symptom looked like absence. That
+> changes what slice 5 is: not adding breadcrumbs but making the existing one navigable, and
+> deriving it from the model rather than maintaining twenty-one literal paths across two locales.
 
 **Done when:** the rail and its section panel reach all seventeen; a back-office route with no
 navigation item fails CI; and the theme is a choice, defaulting to light.
@@ -1268,9 +1274,12 @@ navigation is what was asked for, not because anything blocks them.
 | | *Shipped, and it grew a **second direction** on the way in: a navigation item whose route does not exist is a live link to a 404, quieter than a missing item because the nav still looks whole. That is the half `R1` left out of the module registry and paid for over three drifts, so leaving it out here twice would have been a choice. **It is also the gate's one exception to being a text scan** — `NAVIGATION` is plain data in a module with no React in it, so Node's type stripping imports it as a model, and a regex over `href:` could not have named the section a missing screen belongs to. The equivalent assertion added to `navigation.test.ts` in slice 1 was **deleted rather than kept**: two implementations of one rule drift toward whichever was edited last, which is this gate's own failure mode arriving through the gate. Five sabotage passes; `28` routes across `17` screens.* | | |
 | 3 | **The section panel** — the second column, beside the sidebar that still exists | — | 220 |
 | | *Additive on purpose: the action rows stay, briefly duplicating their own links, so nothing in the stack is unreachable between two PRs. Also where the 1026px number is measured against the outlet table rather than assumed.* | | |
+| | *Shipped, and **the measurement clears concept B**. The widest table in the app is the outlet list: `864px` at max-content against `963px` available once the finished 254px of chrome and the scrollbar are taken off a 1280 laptop — about 100px of headroom, and it never has to wrap. Nothing overflowed on any screen at the **wider** interim chrome either, which is the stricter test. The journey grid was not measurable as a rep and does not need to be: it is `overflow-x-auto` by design, because a three-week plan fits at no chrome width, so the rail costs it one visible day rather than correctness.* | | |
+| | ***Building it found a bug in slice 1**, which is why the panel rendered blank on first run. `permits` passed its predicate straight to `some`, which supplies `(element, index, array)` — harmless for the one-parameter arrows every fake in `navigation.test.ts` uses, and wrong for the predicate that ships: `usePermissions().has` is **variadic and means all-of**, so it was asked whether the caller holds `product:read` *and* `0` *and* `["product:read"]`. Always false, every screen hidden from everyone, under nineteen green assertions. The regression test is variadic on purpose. Second time in three slices a convenience fake was less demanding than the real collaborator.* | | |
 | 4 | **The sidebar becomes the rail** — and the five action rows are deleted | — | 300 |
 | | *The layout switch, and a net-negative diff: five components and their tests go, their links having moved into the model in slice 1. `Journeys` and `Configuration` stop pointing into themselves — the rail selects a section, the panel's first screen is where it lands, and the `section` field that exists only to fix highlighting can go with them.* | | |
-| 5 | **Breadcrumbs** — the eleven detail screens stop being dead ends | — | 120 |
+| 5 | **A breadcrumb you can follow** — the eleven detail screens stop being dead ends | — | 120 → 200 |
+| | *Re-scoped by the correction above. The breadcrumb exists; it is a `<p>` of literal text, so the trail is printed and cannot be walked. The work is making it navigable and **deriving it from `NAVIGATION`** rather than from twenty-one hand-written `crumb` strings in each of two locales — the same one-source argument as slices 1 and 2, and the reason a screen renamed in the model would otherwise keep its old name in the trail.* | | |
 | 6 | **Responsive** — rail and panel collapse to one drawer under `md` | — | 150 |
 | | *The back office is desktop-first ([ADR-0004](architecture/adr/0004-nextjs-offline-first-frontend.md)), so this is the "does not break" bar rather than a second design. Two columns of chrome is the concept's stated cost and this is where it is paid.* | | |
 | 7 | **The theme is a choice** — light by default, dark and system offered | `CFG-08` (adjacent) | 260 |
