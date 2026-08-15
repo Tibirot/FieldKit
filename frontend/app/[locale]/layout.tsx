@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
+import { headers } from "next/headers";
 import { NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
@@ -8,6 +9,7 @@ import { ServiceWorkerRegistrar } from "@/components/service-worker-registrar";
 import { resolveLocale } from "@/i18n/locale";
 import { routing } from "@/i18n/routing";
 import { BRAND } from "@/lib/pwa/manifest";
+import { THEME_BOOTSTRAP } from "@/lib/theme/theme";
 import { cn } from "@/lib/utils";
 import "../globals.css";
 
@@ -77,8 +79,52 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
   // Opts this subtree into static rendering (see `generateStaticParams`).
   setRequestLocale(locale);
 
+  /*
+   * The nonce the proxy minted for this response, which the pre-paint script below cannot run
+   * without: `script-src` is `'self' 'nonce-…' 'strict-dynamic'`, so an un-nonced inline script is
+   * refused — and refused *silently*, leaving the theme to fall back to the device preference with
+   * nothing in the UI to say why. Read from the request header rather than regenerated, because a
+   * second nonce would match neither the policy nor Next's own bootstrap.
+   */
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
-    <html lang={locale} className={cn("font-sans", geist.variable)}>
+    /*
+     * `suppressHydrationWarning` because the script below writes to this element's class list before
+     * React sees the document, so the server's markup and the client's DOM disagree here **by
+     * design**. Scoped to `<html>` itself: it suppresses the warning for this element's attributes
+     * and not for its subtree, so a real mismatch inside the app still reports.
+     */
+    <html
+      lang={locale}
+      suppressHydrationWarning
+      className={cn("font-sans", geist.variable)}
+    >
+      <head>
+        {/*
+          Before the first paint, before the body exists, and before anything is fetched.
+
+          A module cannot do this job: it would be parsed and run *after* the document painted, so
+          the page would appear in whatever the CSS resolved to and then change colour under the
+          reader — worse than the wrong theme arriving in the first place. That is the property this
+          slice trades away by making the theme a choice at all, and this is what buys it back.
+
+          It survives the service worker because the worker caches the document *with its response
+          headers* (see `dynamic` above), so a page served from cache keeps both the script and the
+          nonce that authorises it.
+        */}
+        {/*
+          `suppressHydrationWarning` here too, and for a different reason from the one on `<html>`:
+          React deliberately does not carry `nonce` into the client tree — reading a live nonce out
+          of the DOM is exactly what a nonce is meant to prevent — so the attribute is present on the
+          server and empty on the client, every time, by design.
+        */}
+        <script
+          nonce={nonce}
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }}
+        />
+      </head>
       <body>
         <NextIntlClientProvider>
           {/*

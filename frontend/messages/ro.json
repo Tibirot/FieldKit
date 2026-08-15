@@ -113,6 +113,12 @@
       "week12": "S12"
     }
   },
+  "Theme": {
+    "label": "Temă",
+    "light": "Luminoasă",
+    "dark": "Întunecată",
+    "system": "Sistem"
+  },
   "BackOffice": {
     "signOut": "Deconectare"
   },

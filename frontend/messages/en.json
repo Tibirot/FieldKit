@@ -113,6 +113,12 @@
       "week12": "W12"
     }
   },
+  "Theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
   "BackOffice": {
     "signOut": "Sign out"
   },

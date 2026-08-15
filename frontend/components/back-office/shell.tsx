@@ -9,6 +9,7 @@ import { QueryProvider } from "@/components/back-office/query-provider";
 import { SectionPanel } from "@/components/back-office/section-panel";
 import { Sidebar } from "@/components/back-office/sidebar";
 import { SessionGuard } from "@/components/session-guard";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { usePathname } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
@@ -168,6 +169,7 @@ function BackOffice({ children }: { children: React.ReactNode }) {
         */}
         <div className="flex min-w-0 flex-1 flex-col" inert={open}>
           <header className="flex items-center justify-end gap-3 border-b border-border px-4 py-3 md:px-6">
+            <ThemeToggle />
             <Button variant="outline" size="sm" onClick={() => void signOut()}>
               {t("signOut")}
             </Button>
