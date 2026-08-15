@@ -26,6 +26,10 @@ builder.AddServiceDefaults();
 // liveness answered the same question and an instance that had lost its database reported ready.
 builder.AddFieldKitHealthChecks();
 
+// What one caller may ask for, and how often (W13 slice 6). Partitioned per rep rather than
+// globally, because 200 reps reconnecting at shift start is a documented normal.
+builder.Services.AddFieldKitRateLimits(builder.Configuration);
+
 // Problem details that keep a 400 a 400: an unreadable body is the caller's mistake, and the plain
 // UseExceptionHandler reported every one of them as a server fault (ProblemDetailsExtensions).
 builder.AddRequestProblemDetails();
@@ -167,6 +171,10 @@ app.UseAuthorization();
 // (W13 slice 2). Stamping the request's own span means "everything this tenant did" is a filter
 // rather than a join, and it adds no span of its own.
 app.UseTenantTracing();
+
+// After authentication, so a sync partition can be keyed on the subject in the token rather than on
+// whichever network the rep happens to be on.
+app.UseRateLimiter();
 
 app.MapAuthEndpoints();
 app.MapModules(modules);

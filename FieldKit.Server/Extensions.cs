@@ -142,7 +142,18 @@ public static class Extensions
     {
         var writer = HealthResponseWriter(app.Environment.IsDevelopment());
 
-        // Readiness: every check, including the dependencies FieldKit adds (`HealthChecks`).
+        /*
+         * Readiness: every check, including the dependencies FieldKit adds (`HealthChecks`).
+         *
+         * <b>Not rate-limited, and that is a decision rather than an omission (W13 slice 6).</b>
+         * Readiness is not free — a database connection and an OIDC fetch per request — and slice 5
+         * made it reachable everywhere, so a limit looked obvious. It is a bad trade: a 429 is an
+         * *unhealthy* answer to a probe, so a limiter meant to protect two dependencies would be able
+         * to take a working instance out of rotation, and would do it fastest under exactly the load
+         * it was added for. The orchestrator probes from inside the network and shares an address
+         * bucket with anything co-located there, so the control for this exposure is ingress —
+         * recorded in `security §6` rather than solved with the wrong tool.
+         */
         app.MapHealthChecks(HealthEndpointPath, new HealthCheckOptions { ResponseWriter = writer });
 
         // Liveness: only checks tagged `live` — this process answering, never a dependency. A

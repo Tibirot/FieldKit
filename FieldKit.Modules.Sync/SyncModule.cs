@@ -1,5 +1,7 @@
 using FieldKit.Infrastructure;
 using FieldKit.Web;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -71,10 +73,19 @@ public sealed class SyncModule : IModule
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapDeviceEndpoints();
-        endpoints.MapPullEndpoints();
-        endpoints.MapPushEndpoints();
-        endpoints.MapPhotoEndpoints();
+        /*
+         * Rate-limited as a group (W13 slice 6, security §7).
+         *
+         * Here rather than on each endpoint because the budget belongs to the *rep*, not to any one
+         * route: a device that has exhausted its pushes should not be able to keep pulling. Applied
+         * to the group so a route added later is limited by existing rather than by remembering.
+         */
+        var sync = endpoints.MapGroup(string.Empty).RequireRateLimiting(RateLimitPolicies.Sync);
+
+        sync.MapDeviceEndpoints();
+        sync.MapPullEndpoints();
+        sync.MapPushEndpoints();
+        sync.MapPhotoEndpoints();
     }
 }
 
