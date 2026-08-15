@@ -105,14 +105,28 @@ Per [B8](../product/decisions-and-assumptions.md#b8--privacy--gdpr-posture):
 - Parameterized queries / EF Core (no string SQL); output encoding in React by default.
 - CORS locked to known origins, rate limiting on `/sync` and auth paths.
 
-  > **Neither is built (W13 slice 0 audit).** There is no `AddRateLimiter` in the solution, so the
-  > **DoS** row of §7 cites a mitigation that does not exist — [W13 slice
-  > 6](../delivery-plan.md#week-13--observability--security-hardening) owns it. And there is no
-  > `AddCors`/`UseCors` either, which is *probably right* rather than missing: the API is same-origin
-  > behind the front end's proxy, so no browser makes a cross-origin call to it, and the only CORS
-  > here (`PhotoStorageCors`) governs the **storage account** — a different control on a different
-  > origin, described in §4. If that reading holds, the sentence above is what needs correcting, not
-  > the code; slice 7 settles it with a test rather than an opinion.
+  > **Rate limiting landed in W13 slice 6 — and the sentence above names a path this server does not
+  > own.** `/sync` is limited, per rep, keyed on the subject in the validated token. There are no
+  > **auth paths** here to limit: authentication happens at Keycloak, which the browser talks to
+  > directly ([ADR-0008](adr/0008-authentication-and-multitenancy.md)); this API only *validates*
+  > JWTs, and its single `/api/auth/*` route is an authenticated read of your own claims. Brute-force
+  > protection for sign-in is Keycloak realm configuration, not middleware here — the same species of
+  > finding as the CORS clause below, and the reason both are now stated rather than implied.
+  >
+  > **Per rep, never globally**, because [observability §6](15-observability.md#6-performance-targets-not-just-assumptions)
+  > calls 200 reps reconnecting at shift start a documented normal: a shared budget would refuse the
+  > one burst the product promises to absorb, at 07:00 on a Monday, to whoever was last.
+  >
+  > **`/health` is deliberately not limited.** A 429 is an *unhealthy* answer to a probe, so a limiter
+  > meant to protect the database and Keycloak could take a working instance out of rotation — fastest
+  > under exactly the load it was added for. Readiness does real work per request and is reachable in
+  > every environment since slice 5; the control for that exposure is **ingress**, not a limiter.
+  >
+  > And there is still no `AddCors`/`UseCors`, which is *probably right* rather than missing: the API
+  > is same-origin behind the front end's proxy, so no browser makes a cross-origin call to it, and
+  > the only CORS here (`PhotoStorageCors`) governs the **storage account** — a different control on a
+  > different origin, described in §4. If that reading holds, the sentence above is what needs
+  > correcting, not the code; slice 7 settles it with a test rather than an opinion.
 
 ### 6.1 Content-Security-Policy
 

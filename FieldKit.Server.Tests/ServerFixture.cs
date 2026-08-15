@@ -188,7 +188,26 @@ public sealed class ServerFixture : IAsyncLifetime
             "services__keycloak__http__0", _keycloak.GetBaseAddress().TrimEnd('/'));
 
         _factory = new WebApplicationFactory<Program>()
-            .WithWebHostBuilder(builder => builder.UseEnvironment(Environments.Development));
+            .WithWebHostBuilder(builder =>
+            {
+                builder.UseEnvironment(Environments.Development);
+
+                /*
+                 * The sync rate limit is lifted for the shared host, because this suite is not one
+                 * rep (W13 slice 6).
+                 *
+                 * The limiter partitions on the subject in the token, and every test here presents
+                 * the same handful of tokens — so a collection making two hundred sync calls in a
+                 * minute looks exactly like one device in a loop, which is the thing the limit exists
+                 * to stop. Leaving it on made six `SyncPullTests` fail with 429 depending on what had
+                 * run before them.
+                 *
+                 * The rule is not untested: `RateLimitTests` stands up its own host with a limit of
+                 * two, which is the only way to exercise a budget without spending one that
+                 * everything else shares.
+                 */
+                builder.UseSetting(RateLimits.SyncPerMinuteSetting, int.MaxValue.ToString());
+            });
 
         Client = _factory.CreateClient();
         AccessToken = await RequestAccessTokenAsync(_keycloak.GetBaseAddress(), RepUsername);
@@ -210,6 +229,22 @@ public sealed class ServerFixture : IAsyncLifetime
     /// event actually reached the outbox, which is invisible from the API surface.
     /// </summary>
     public IServiceProvider Services => _factory.Services;
+
+    /// <summary>A second host over the same containers, with settings of its own.</summary>
+    /// <remarks>
+    /// The containers are the expensive part and this reuses them; what it does not reuse is the
+    /// host's in-memory state. That is the point for anything <b>stateful and shared</b> — a rate
+    /// limiter's budget most obviously, where a test that spends one in the collection's own host
+    /// leaves every later test in the same minute with nothing (W13 slice 6 learned this the hard
+    /// way: six  went red).
+    /// </remarks>
+    public WebApplicationFactory<Program> WithSettings(params (string Key, string Value)[] settings) =>
+        _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment(Environments.Development);
+
+            foreach (var (key, value) in settings) builder.UseSetting(key, value);
+        });
 
     /// <summary>A client presenting a bearer token — <c>rep</c>'s unless another is given.</summary>
     public HttpClient CreateAuthenticatedClient(string? token = null)
