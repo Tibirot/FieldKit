@@ -165,7 +165,7 @@ should be navigation items, **six** are.
 | Record-detail screens whose breadcrumb is text, not links | 11 |
 
 The link row was the right answer for one section with two pages. By W12 there are nine sections,
-five near-identical `*-actions.tsx` rows, and **two navigation items that point *into* themselves**
+four near-identical `*-actions.tsx` rows, and **two navigation items that point *into* themselves**
 because their sections have no index worth landing on — each carrying a comment saying that a nav
 item should go somewhere real. Those comments are the missing level, worked around three times.
 

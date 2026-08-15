@@ -67,31 +67,35 @@ describe("<Sidebar>", () => {
     expect(screen.queryByRole("link", { name: /users/i })).toBeNull();
   });
 
-  it("drops a group heading once nothing in it is visible", async () => {
-    // Found in the browser signed in as `rep`, who holds no user or role permissions: "Users &
-    // roles" was correctly hidden and the "ADMIN" heading stayed, labelling an empty stretch of
-    // sidebar. A heading over nothing says a section exists and then refuses to say what is in it,
-    // which is the same dead label the items are filtered to avoid.
-    //
-    // The test above already produced this caller and asserted only that the links were gone —
-    // presence of one thing says nothing about the absence of another.
+  it("drops a group's divider once nothing in it is visible", async () => {
+    /*
+     * Found in the browser signed in as `rep`, who holds no user or role permissions: "Users &
+     * roles" was correctly hidden and the "ADMIN" heading stayed, labelling an empty stretch of
+     * sidebar. A heading over nothing says a section exists and then refuses to say what is in it,
+     * which is the same dead label the items are filtered to avoid.
+     *
+     * **The heading is a rule on the rail** (slice 4) — "MASTER DATA" does not fit in 68px, and
+     * abbreviating it would invent a label nobody chose. The grouping is still worth showing, so it
+     * is shown rather than said, and named for screen readers who are not short of room. The
+     * property is unchanged: no group, no divider.
+     */
     allow("outlet:read");
 
     render(<Sidebar workspace="fieldkit-dev" />);
 
     await screen.findByRole("link", { name: /outlets/i });
 
-    expect(screen.queryByText("Admin")).toBeNull();
+    expect(screen.queryByRole("separator", { name: "Admin" })).toBeNull();
 
-    // The group that still has something in it keeps its heading, so this cannot pass by hiding
-    // every heading.
-    expect(screen.getByText("Master data")).toBeTruthy();
+    // The group that still has something in it keeps its divider, so this cannot pass by dropping
+    // every divider.
+    expect(screen.getByRole("separator", { name: "Master data" })).toBeTruthy();
   });
 
   it("keeps the ungrouped scheduled items when a caller may read nothing at all", async () => {
-    // Every built item is hidden, so both headings go — but the block at the top has no heading and
+    // Every built item is hidden, so both dividers go — but the block at the top has no group and
     // holds only scheduled screens, which are a fact about the product rather than about the caller.
-    // A fix that dropped whole groups too eagerly would empty the sidebar entirely.
+    // A fix that dropped whole groups too eagerly would empty the rail entirely.
     allow();
 
     render(<Sidebar workspace="fieldkit-dev" />);
@@ -99,8 +103,7 @@ describe("<Sidebar>", () => {
     expect(await screen.findByTitle("W12")).toBeTruthy();
 
     expect(screen.getByTitle("W12").textContent).toContain("Dashboard");
-    expect(screen.queryByText("Master data")).toBeNull();
-    expect(screen.queryByText("Admin")).toBeNull();
+    expect(screen.queryByRole("separator")).toBeNull();
   });
 
   it("shows a page holding a section this caller may read", async () => {
@@ -161,11 +164,23 @@ describe("<Sidebar>", () => {
   });
 
   it("names the workspace, and says so plainly when there is not one", () => {
+    /*
+     * The rail has no room for a tenant name beside the mark, so it moved into the mark's tooltip
+     * and its screen-reader text (slice 4). Dropping it outright would have taken away the one thing
+     * on screen that says which tenant you are looking at — a real hazard in a product whose entire
+     * isolation story is per-tenant, and the reason this asserts on **both** carriers rather than
+     * only the visible one: a `title` alone is invisible to a screen reader, which is the mistake
+     * the disabled-item design already refuses one component over.
+     */
     const { rerender } = render(<Sidebar workspace="fieldkit-dev" />);
-    expect(screen.getByText("fieldkit-dev")).toBeTruthy();
+
+    expect(screen.getByTitle("fieldkit-dev")).toBeTruthy();
+    expect(screen.getByText(/fieldkit-dev/)).toBeTruthy();
 
     rerender(<Sidebar workspace={null} />);
-    expect(screen.getByText("no workspace")).toBeTruthy();
+
+    expect(screen.getByTitle("no workspace")).toBeTruthy();
+    expect(screen.getByText(/no workspace/)).toBeTruthy();
   });
 
   it("is announced as navigation", () => {
