@@ -1,7 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { CallFrequencies } from "@/components/back-office/call-frequencies";
-import { JourneyActions } from "@/components/back-office/journey-actions";
 import { resolveLocale } from "@/i18n/locale";
 
 /**
@@ -30,7 +29,6 @@ export default async function FrequenciesPage({
           <h1 className="text-lg font-semibold tracking-tight">{t("title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t("intro")}</p>
         </div>
-        <JourneyActions current="frequencies" />
       </header>
       <CallFrequencies />
     </div>

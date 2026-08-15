@@ -1,6 +1,5 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
-import { ConfigurationActions } from "@/components/back-office/configuration-actions";
 import { ScoreWeights } from "@/components/back-office/score-weights";
 import { resolveLocale } from "@/i18n/locale";
 
@@ -30,7 +29,6 @@ export default async function ScoreWeightsPage({
         <h1 className="text-lg font-semibold tracking-tight">{t("title")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t("intro")}</p>
       </header>
-      <ConfigurationActions />
       <ScoreWeights />
     </div>
   );

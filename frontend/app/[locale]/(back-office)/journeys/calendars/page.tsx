@@ -1,6 +1,5 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
-import { JourneyActions } from "@/components/back-office/journey-actions";
 import { WorkingCalendars } from "@/components/back-office/working-calendars";
 import { resolveLocale } from "@/i18n/locale";
 
@@ -29,7 +28,6 @@ export default async function CalendarsPage({
           <h1 className="text-lg font-semibold tracking-tight">{t("title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t("intro")}</p>
         </div>
-        <JourneyActions current="calendars" />
       </header>
       <WorkingCalendars />
     </div>

@@ -12,12 +12,12 @@
  * disabled item there is a dead control that explains nothing — the pattern this codebase keeps
  * rejecting elsewhere.
  *
- * **A section now carries its screens** (W12½ slice 1). Until this slice the sidebar had one level
- * and the seventeen screens below it lived in five `*-actions.tsx` rows — so of the seventeen, six
- * were in the navigation and eleven were reachable only by landing on a section index and spotting
- * the right button. Nothing was unreachable; what was missing was a level. The rows still render and
- * still hold those links: this slice moves the *knowledge* into the model so the panel (slice 3) and
- * the CI gate (slice 2) have one place to read it, and deletes the rows in slice 4.
+ * **A section carries its screens** (W12½ slices 1–4). The sidebar used to have one level, and the
+ * seventeen screens below it lived in four `*-actions.tsx` rows — so of the seventeen, six were in
+ * the navigation and eleven were reachable only by landing on a section index and spotting the right
+ * button. Nothing was unreachable; what was missing was a level. Slice 1 moved the knowledge here,
+ * slice 2 made CI enforce it, slice 3 built the panel, and slice 4 deleted the rows and the three
+ * fields on this type that duplicated what the screens already said.
  *
  * See the UX build-scope note (`docs/ux/README.md`) for the decision and the delivery plan for the
  * weeks.
@@ -66,7 +66,7 @@ export type NavSoon = "week5" | "week6" | "week7" | "week9" | "week11" | "week12
  * What a caller must hold to be shown something: **any-of within a group, all-of across groups.**
  *
  * A plain list would have been enough for the sections — `["territory:read", "orgunit:read"]` means
- * either, because a page can hold sections with different permissions. Reading the five action rows
+ * either, because a page can hold sections with different permissions. Reading the four action rows
  * to move their links in here found two screens that a plain list **cannot express**: assortments
  * and order minimums are gated on `product:read` *and* `channel:read`, because each is organised by
  * channel and a reader without the channel list gets a selector with nothing in it and no way to
@@ -91,49 +91,26 @@ export type NavScreen = {
 export type NavItem =
   | {
       readonly key: NavKey;
-      readonly href: string;
       readonly soon?: never;
       /**
-       * The route prefix this item owns, when that is not its `href`.
+       * In the order the panel lists them. **The first visible one is where the section lands**, and
+       * their routes are collectively what the section owns.
        *
-       * Two sections point at a screen *inside* themselves rather than at an index — `Journeys` at
-       * frequencies, `Configuration` at the weights — because a nav item should go somewhere real.
-       * The cost is that the obvious active test, "does the path start with the href", says no on
-       * every other screen in the section: standing on the working calendar, Journeys went unlit.
+       * Three fields went when this became the only one (W12½ slice 4). `href` said where the item
+       * navigates, `section` said which prefix it highlights on, and `permissions` said who may see
+       * it — all three now answered by the screens, and all three able to disagree with them.
        *
-       * So highlighting asks a different question from navigating. Matched on a segment boundary
-       * rather than a bare prefix, so a future `/journeys-archive` would not light this up.
-       *
-       * **Both this and `href` are on notice.** Once the rail selects a section and the panel's
-       * first visible screen is where it lands (slice 4), the destination is derived from `screens`
-       * and the prefix is the section's own — neither has to be stated, and the invariant test in
-       * `navigation.test.ts` exists to keep them honest until then.
+       * They were not redundant by accident. `Journeys` pointed at call frequency and
+       * `Configuration` at the weights, each with a comment that **a nav item should go somewhere
+       * real**, because neither section had an index worth landing on; `section` existed only
+       * because that made the obvious highlight test wrong. Both were the missing second level,
+       * worked around. With the level built, the workaround has nothing left to do.
        */
-      readonly section?: string;
-      /**
-       * Any one of these is enough to show the item.
-       *
-       * Any-of rather than all-of because a page can hold sections with different permissions:
-       * someone who may read roles but not users still has a reason to open Users & roles, and the
-       * section they cannot read refuses itself with the API's own words.
-       *
-       * Equivalent to the single-group {@link Requirement} `[permissions]`, and **derived** once the
-       * sidebar asks {@link isSectionVisible} instead (slice 4). Keeping it for now means the
-       * sidebar renders exactly what it rendered before this slice — which is the point of a slice
-       * that changes no pixels. It is not the same answer in every case: someone holding
-       * `channel:read` and not `outlet:read` sees no Outlets item today, and so cannot reach the
-       * channel list at all.
-       */
-      readonly permissions: readonly string[];
-      /** In the order the panel lists them. The first visible one is where the section lands. */
       readonly screens: readonly NavScreen[];
     }
   | {
       readonly key: NavKey;
-      readonly href?: never;
-      readonly section?: never;
       readonly soon: NavSoon;
-      readonly permissions?: never;
       readonly screens?: never;
     };
 
@@ -148,14 +125,28 @@ function covers(route: string, pathname: string): boolean {
 }
 
 /**
- * Whether a path is inside an item's section.
+ * Whether a path is inside a section — **now asked of its screens**, which is what it always meant.
  *
- * Exported for its own tests and for the sidebar.
+ * A scheduled section has none, so nothing can be inside it: the guard that used to be needed
+ * against an undefined `href` falls out of the shape instead of being remembered.
  */
 export function coversPath(item: NavItem, pathname: string): boolean {
-  if (item.href === undefined) return false;
+  return (item.screens ?? []).some((screen) => covers(screen.href, pathname));
+}
 
-  return covers(item.section ?? item.href, pathname);
+/**
+ * Where the rail sends somebody who picks this section: **its first screen they may open.**
+ *
+ * First-visible rather than first, because the two differ and the difference is the point of the
+ * permission model — somebody holding `channel:read` and not `outlet:read` lands on Channels, which
+ * is the only Outlets screen they have. Undefined when they may open none, which is exactly when
+ * {@link isSectionVisible} says not to draw the item at all.
+ */
+export function landingFor(
+  item: NavItem,
+  granted: (permission: string) => boolean,
+): string | undefined {
+  return visibleScreens(item, granted)[0]?.href;
 }
 
 /**
@@ -238,9 +229,6 @@ export const NAVIGATION: readonly NavGroup[] = [
       // somewhere real. It moves to the plan when the plan exists (W7 slice 10c).
       {
         key: "journeys",
-        href: "/journeys/frequencies",
-        section: "/journeys",
-        permissions: ["journey:read"],
         // Everything a reader can reach here refuses its own write controls, so there is nothing to
         // hide behind a second permission — the reasoning `JourneyActions` already carried.
         screens: [
@@ -258,8 +246,6 @@ export const NAVIGATION: readonly NavGroup[] = [
     items: [
       {
         key: "outlets",
-        href: "/outlets",
-        permissions: ["outlet:read"],
         /*
          * Four screens and four different permissions, which is why this section is the one that
          * proves the model is worth having. Channels are their own (`channel:write` is what the
@@ -280,8 +266,6 @@ export const NAVIGATION: readonly NavGroup[] = [
       },
       {
         key: "products",
-        href: "/products",
-        permissions: ["product:read"],
         /*
          * Ordered as the decisions are taken rather than as the action row happened to list them:
          * what a product *is*, then which shops must stock it, then what it costs, then what comes
@@ -307,8 +291,6 @@ export const NAVIGATION: readonly NavGroup[] = [
       },
       {
         key: "territories",
-        href: "/territories",
-        permissions: ["territory:read", "orgunit:read"],
         screens: [
           {
             key: "territoryList",
@@ -328,9 +310,6 @@ export const NAVIGATION: readonly NavGroup[] = [
       // slice 9b, which is what made `section` necessary.
       {
         key: "configuration",
-        href: "/configuration/score-weights",
-        section: "/configuration",
-        permissions: ["config:read"],
         screens: [
           { key: "scoreWeights", href: "/configuration/score-weights", requires: [["config:read"]] },
           { key: "surveys", href: "/configuration/surveys", requires: [["config:read"]] },
@@ -338,8 +317,6 @@ export const NAVIGATION: readonly NavGroup[] = [
       },
       {
         key: "users",
-        href: "/users",
-        permissions: ["user:read", "role:read"],
         screens: [{ key: "userList", href: "/users", requires: [["user:read", "role:read"]] }],
       },
     ],
