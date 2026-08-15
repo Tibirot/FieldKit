@@ -4823,3 +4823,43 @@ Content-Type: application/json
 {
   "objectKeys": ["00000000-0000-0000-0000-000000000001/audits/019ff9ee-0de7-7ed9-8854-88e457c80f25/019ff9ee-0de7-7ed9-8854-88e457c80f26.jpg"]
 }
+
+###############################################################################
+# Reporting — the dashboard's four KPIs over one scope and one period (W12 slice 3)
+#
+# A composition rather than a module: no schema of its own, four query contracts read side by side.
+# It needs `visit:read` **and** `journey:read` — audits and orders are already read under the first
+# (neither declares a read permission of its own), and coverage's denominator belongs to the second.
+###############################################################################
+
+### The default window: the month containing today, every territory. One bare GET, because that is
+### the dashboard's first load.
+GET {{host}}/api/reporting/summary
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### A named period. Both ends are inclusive, and every aggregate below dates by when the work was
+### done rather than when the server heard about it — a visit by check-in, an audit by capture, an
+### order by capture, a planned call by the day it was planned for.
+GET {{host}}/api/reporting/summary?from=2026-08-01&to=2026-08-31
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### One territory. `outlets` in the response says how many shops the figures are totalled over —
+### without it, "0% coverage" over four hundred shops and over none look the same.
+###
+### Replace the id with one from `GET /api/org/territories`. An id this tenant does not have answers
+### with an empty scope rather than a 404: a caller must not be able to probe for somebody else's.
+GET {{host}}/api/reporting/summary?territoryId=00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### A period that ends before it starts is a **400**. So is one longer than 366 days — a guard
+### against a caller asking for a decade, not a product decision about how far back a supervisor
+### may look.
+GET {{host}}/api/reporting/summary?from=2026-08-31&to=2026-08-01
+Authorization: Bearer {{adminToken.response.body.access_token}}
+
+### The rep holds neither read permission — a rep works a round, they do not total one. **403**.
+GET {{host}}/api/reporting/summary
+Authorization: Bearer {{repToken.response.body.access_token}}
+
+### Anonymous is a **401**. What a tenant sold last month is that tenant's business.
+GET {{host}}/api/reporting/summary

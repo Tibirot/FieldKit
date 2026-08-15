@@ -46,4 +46,26 @@ internal sealed class TerritoryDirectory(OrgDbContext db) : ITerritoryDirectory
             row => row.OutletId,
             row => new TerritoryDescriptor(row.Id, row.Name));
     }
+
+    public async Task<IReadOnlyList<Guid>> OutletsInAsync(
+        Guid? territoryId, CancellationToken cancellationToken = default)
+    {
+        // Membership rows only, with no join to `Territories`: an outlet is in a territory because a
+        // row says so, and a territory with no shops contributes nothing either way. The tenant
+        // filter on this table is what makes a foreign territory id answer empty rather than error.
+        var memberships = db.TerritoryOutlets.AsNoTracking();
+
+        if (territoryId is { } wanted)
+        {
+            memberships = memberships.Where(membership => membership.TerritoryId == wanted);
+        }
+
+        // Distinct even though `BR-ORG-1` makes an outlet's membership unique: the invariant lives in
+        // a unique index one migration away from someone relaxing it, and a duplicated id here would
+        // be counted twice by every aggregate downstream.
+        return await memberships
+            .Select(membership => membership.OutletId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+    }
 }

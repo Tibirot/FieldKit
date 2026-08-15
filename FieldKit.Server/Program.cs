@@ -161,6 +161,10 @@ app.UseAuthorization();
 app.MapAuthEndpoints();
 app.MapModules(modules);
 
+// Reporting is a composition rather than a module: no schema, no writes, and four contracts read
+// side by side. It is mapped here for the same reason it lives here — see `ReportingEndpoints`.
+app.MapReportingEndpoints();
+
 app.MapDefaultEndpoints();
 app.UseFileServer();
 

@@ -42,4 +42,39 @@ public interface ITerritoryDirectory
     /// </remarks>
     Task<IReadOnlyDictionary<Guid, TerritoryDescriptor>> ForOutletsAsync(
         IReadOnlyCollection<Guid> outletIds, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The shops in <paramref name="territoryId"/>, or in every territory when it is null — the
+    /// scope a report is totalled over (<c>ORG-05</c>) — W12 slice 3.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The other direction, and it exists because nothing could answer it.</b> Every reporting
+    /// aggregate built in W12 takes outlet ids, and when the composition in
+    /// <c>/api/reporting/summary</c> came to produce that list there was no contract that could:
+    /// <c>IOutletCatalog</c> resolves ids it is given, <see cref="ForOutletsAsync"/> maps the other
+    /// way, and <c>IRepScope</c> answers about one rep on one day. A caller reduced to enumerating
+    /// outlets over HTTP to answer a territory question is the shape this contract exists to prevent.
+    /// </para>
+    /// <para>
+    /// <b>An outlet in no territory is in no scope, including the unfiltered one.</b> Null here means
+    /// "every territory", not "every outlet" — so a shop nobody has been made responsible for is
+    /// absent from the dashboard entirely. That is the honest reading of a report about coverage: an
+    /// unassigned shop has no round to be measured against, no rep who failed to call, and putting it
+    /// in a denominator would make somebody accountable for work nobody was asked to do. It also
+    /// means the per-territory figures add up to the unfiltered one, which they would not if the
+    /// unfiltered case quietly included orphans.
+    /// </para>
+    /// <para>
+    /// <b>Ids only</b>, for <see cref="RepCoverage"/>'s reason: the caller feeds them to four
+    /// aggregates that display nothing, and a name here would be a field none of them reads.
+    /// </para>
+    /// <para>
+    /// A territory that does not exist, or belongs to another tenant, comes back <b>empty</b> rather
+    /// than as an error — the same nothing an empty territory gives. A caller cannot use this to
+    /// discover whether somebody else's territory id is real.
+    /// </para>
+    /// </remarks>
+    Task<IReadOnlyList<Guid>> OutletsInAsync(
+        Guid? territoryId, CancellationToken cancellationToken = default);
 }
