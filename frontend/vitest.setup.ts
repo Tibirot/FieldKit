@@ -56,3 +56,29 @@ if (typeof document !== "undefined") {
   const { cleanup } = await import("@testing-library/react");
   afterEach(cleanup);
 }
+
+/**
+ * `matchMedia`, which jsdom does not implement at all.
+ *
+ * A gap in the environment rather than a fact about the app, so it is filled here rather than
+ * guarded around in a component: code that asks "am I at desktop width" should not have to ask
+ * "…and does this runtime know what width is" first, and a `typeof matchMedia === "function"` in
+ * production source would be a test leaking into the thing it tests.
+ *
+ * **Reports no match**, which is the honest answer for a 1024×768 jsdom window with no CSS engine:
+ * nothing here has resolved a media query, so claiming a breakpoint matched would be inventing one.
+ * A test that cares drives the listener itself.
+ */
+if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
+  window.matchMedia = (query: string) =>
+    ({
+      media: query,
+      matches: false,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }) as unknown as MediaQueryList;
+}

@@ -115,10 +115,12 @@ export function Sidebar({ workspace }: { workspace: string | null }) {
   return (
     <nav
       aria-label={t("label")}
-      className={cn(
-        "flex shrink-0 flex-row gap-1 overflow-x-auto border-b border-border bg-muted/40 p-2",
-        "md:h-dvh md:w-[68px] md:flex-col md:overflow-x-visible md:border-r md:border-b-0",
-      )}
+      /*
+       * One shape at every width (W12½ slice 6). It used to be a horizontal strip below `md` and a
+       * column above, which is two layouts to keep working; the drawer means the column is the only
+       * one, and what changes with the breakpoint is where the container puts it.
+       */
+      className="flex w-[68px] shrink-0 flex-col gap-1 border-r border-border bg-muted/40 p-2 md:h-dvh"
     >
       {/*
         The mark keeps the workspace in its tooltip rather than beside it. 68px has no room for a
