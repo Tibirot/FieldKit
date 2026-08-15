@@ -1437,10 +1437,97 @@ Its regression test reads **source** rather than a render, in the shape `globals
 ## Phase 4 — Production polish
 
 ### Week 13 · Observability + security hardening
+
+**Goal:** the system says what it is doing, and the things the security doc claims are things the
+code performs.
+
 - Custom OTel metrics (sync push latency/size, outbox backlog, visits/orders, pricing duration) + dashboards; extended health checks ([observability](architecture/15-observability.md)).
 - Rate limiting (`/sync`, auth), security headers, CORS, secrets; verify tenant-isolation tests + the bypass ban; threat-model pass ([security](architecture/16-security.md)).
 
 **Done when:** domain metrics visible; security checklist + isolation tests green.
+
+#### What the audit found, before a line was written
+
+Both docs are marked *✅ Baseline*, which is accurate: the baseline is what `ServiceDefaults` ships
+and nothing more. `FieldKit.Server/Extensions.cs` is **the Aspire template, unedited** — ASP.NET,
+HttpClient and runtime instrumentation, one `self` liveness check. Every row of
+[observability §2](architecture/15-observability.md#2-domain-metrics-custom)'s nine domain metrics is
+unbuilt, and so is every "FieldKit adds" cell in §1. That is the week, and it was expected.
+
+Four things were not.
+
+**1. The outbox is written to and never drained.** `OutboxProcessor` claims rows with `FOR UPDATE
+SKIP LOCKED`, dispatches, marks processed — and **nothing calls it** outside
+`OutboxIntegrationTests`. It is registered as a singleton in `PersistenceExtensions` and injected
+nowhere. [ADR-0006](architecture/adr/0006-in-process-messaging-and-outbox.md) says "a background
+outbox dispatcher polls unpublished rows and invokes in-process handlers"; there is no
+`BackgroundService` in the solution. Nine integration event types are published — `VisitCompleted`,
+`OrderSubmitted`, `JourneyPublished`, `PriceListPublished`, `PromotionActivated` among them — into
+outbox tables that grow forever. **Nothing is visibly broken**, because no module implements
+`IIntegrationEventHandler` yet: outside `BuildingBlocks`, `Infrastructure` and their tests there is
+not one handler, so nothing is waiting on delivery. The absence is invisible for exactly as long as
+nobody writes the first handler, and then it is a silent no-op rather than an error. This is the CSP
+finding's species again — *a control that exists in the prose justifying something else* — and it is
+why slice 3 builds the dispatcher rather than shipping a backlog gauge over a queue nothing drains.
+
+**2. There are no health endpoints outside development.** `MapDefaultEndpoints` wraps both
+`MapHealthChecks` calls in `if (app.Environment.IsDevelopment())`, with the template's own comment
+explaining why. The reasoning is sound and the consequence has not been faced: **W15 deploys to
+Container Apps**, which probes an endpoint that will not exist. Slice 5 owns the decision rather than
+discovering it during a deploy.
+
+**3. `traceId` is claimed and appears nowhere.**
+[Observability §4](architecture/15-observability.md#4-correlation) says one `traceId` "is returned in
+every `ProblemDetails`", and `ProblemDetailsExtensions` says "the trace id already points" there.
+Whatever the framework emits by default, **no test asserts it, no `.http` request shows it, and no
+client reads it** — the string does not occur in this repository. A correlation id nobody has looked
+at is a correlation id nobody can quote down the phone.
+
+**4. "CORS locked to known origins" is not a thing this server does.** There is no `AddCors` and no
+`UseCors` anywhere. It is very likely *correct* — the API is same-origin behind the front end's
+proxy, so a browser never makes a cross-origin call to it — but then the claim is wrong rather than
+the code, and the only CORS in the codebase (`PhotoStorageCors`) governs the **storage account**,
+which is a different control on a different origin. Slice 7 settles which it is.
+
+#### Decomposition
+
+**Slice 1 lands the meter before any metric needs it**, for the reason W12½ slice 2 landed its gate
+first: the naming, the tenant dimension and the cardinality rules are one decision, and nine metrics
+authored against nine ad-hoc `Meter` instances is the shape that cannot be corrected later.
+
+**Slices 6–9 are independent of 1–5** and of each other. The security half does not wait on the
+observability half; it is numbered second because the metrics are what the week is named for.
+
+**Two slices need explicit sign-off before they start**, per `CLAUDE.md`: slice 6 puts a limiter in
+front of the auth paths, and slice 9's isolation pass reads tenant-isolation code. Neither changes an
+authorization rule, and both will say so in their PR rather than assuming the exemption.
+
+| # | Slice | Source | ~Size |
+|---|---|---|---|
+| 0 | **The decomposition and the audit behind it** — this section | — | 250 |
+| 1 | **One meter, and the sync signals under it** — `push.batch_size`, `push.latency`, `mutations.rejected` | obs §2 | 280 |
+| | *The naming decision and the first three metrics together, so the convention is reviewable against something real. **Tenant is a dimension, not a metric per tenant** — `visits.completed` is documented "by tenant" and an unbounded label is how a metrics backend falls over, so the cardinality argument is made here once and cited afterwards. `/sync/push` is where the doc's own budgets live (§6), which makes it the honest first subject.* | | |
+| 2 | **A span a tenant can be found in, and a `traceId` a caller can quote** | obs §1, §4 | 220 |
+| | *Spans for sync pull/push, outbox dispatch and pricing resolution, with `tenantId` and `mutationId` as attributes — and the correlation claim made true rather than assumed, with a test that reads the id out of an actual refusal. Finding 3 above is the reason this is a slice and not a line in slice 1.* | | |
+| 3 | **The outbox gets the dispatcher ADR-0006 describes** | ADR-0006, obs §2 | 300 |
+| | *A hosted service per module context, polling on an interval, claiming with the `SKIP LOCKED` the processor already uses so replicas do not collide. Carries `outbox.backlog` and `dispatch.latency` with it, because a gauge whose alert has no fix is worse than no gauge. **The first real handler will be the test** — at-least-once delivery is a property, and asserting it needs something on the other end.* | | |
+| 4 | **The business metrics** — visits, order value, pricing duration, photo backlog | obs §2 | 250 |
+| | *The four that make the dashboards in `00-product-overview.md` measurable, emitted from the paths that already exist. `pricing.resolve.duration` is the one with a stated budget (sub-ms on device) and therefore the one worth a threshold.* | | |
+| 5 | **Health checks that check something, and exist where they are probed** | obs §3 | 220 |
+| | *Postgres, Keycloak reachability and outbox liveness behind `/health`; `self` stays on `/alive`. And finding 2: what non-dev exposure looks like, decided here rather than during a W15 deploy.* | | |
+| 6 | **Rate limiting on `/sync` and the auth paths** | sec §6, §7 | 220 |
+| | *The DoS row of the threat model, which currently cites a mitigation that does not exist. A reconnect burst of 200 reps at shift start is a **documented normal** (obs §6), so the limit has to be shaped around it rather than tuned against an idle dev box — the interesting test is that a legitimate burst is not refused.* | | |
+| 7 | **The API's own headers, and the CORS claim settled** | sec §6 | 160 |
+| | *`nosniff` and a referrer policy on API responses, and finding 4 resolved in whichever direction the evidence points: a policy if the API is reachable cross-origin, a corrected sentence and a test pinning same-origin if it is not.* | | |
+| 8 | **What a field device says when it is failing quietly** | obs §5 | 320 |
+| | *Batched client telemetry — unhandled errors, service-worker failures, storage-eviction and quota events, failed-sync reasons — posted on reconnect with `deviceId`. The argument is the doc's own: there is no SSH into a field fleet, and a device that has silently stopped syncing looks identical to a rep having a quiet week. **No location, ever** (§5), which is a rule the endpoint enforces rather than a promise the client keeps.* | | |
+| 9 | **The threat-model pass, and the isolation claims re-proven** | sec §3, §7 | 200 |
+| | *Every row of STRIDE-lite walked against the code that is supposed to mitigate it — the exercise that produced findings 1 and 4 above, done deliberately and written down. The bypass ban and the tenant filter have tests; what they lack is a statement of which threat each one answers.* | | |
+
+**Not in W13.** Formal pen-test, SSO/SCIM and field-level encryption stay out, as
+[security §8](architecture/16-security.md#8-out-of-scope-v1-stated-honestly) already says. Dashboards
+are exported *definitions* rather than a hosted Grafana — the Aspire dashboard renders these in dev,
+and a real backend arrives with W15's deploy.
 
 ### Week 14 · E2E + seed data + polish
 - Playwright E2E: the golden path **online and offline** (network toggling) + a tenant-isolation E2E ([testing strategy](architecture/17-testing-strategy.md)).

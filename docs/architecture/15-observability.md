@@ -3,6 +3,15 @@
 > **Status:** ✅ Baseline · **Last updated:** 2026-08
 > **Decision:** [ADR-0003](adr/0003-adopt-dotnet-aspire.md) · **Foundation:** `ServiceDefaults` (scaffolded)
 
+> **What "baseline" means here, read against the code (W13 slice 0).** Every "FieldKit adds" cell in
+> §1 and every row of §2 is **specified and unbuilt** — `FieldKit.Server/Extensions.cs` is the Aspire
+> template unedited, and the solution declares no `Meter` and no `ActivitySource` of its own. Three
+> claims below are stated in the present tense and are not yet true, each now owned by a
+> [W13 slice](../delivery-plan.md#week-13--observability--security-hardening): the **outbox
+> dispatcher heartbeat** in §3 has no dispatcher to hear from (slice 3), the **`traceId` in every
+> `ProblemDetails`** in §4 appears nowhere in this repository — no test, no `.http` request, no
+> client (slice 2), and the health endpoints in §3 are mapped **only in development** (slice 5).
+
 FieldKit treats observability as a **default, not a retrofit** — the CV highlights performance
 work, and this is where that shows. The `ServiceDefaults` project already wires OpenTelemetry,
 health checks, and resilient HTTP into every service ([Extensions.cs](../../FieldKit.Server/Extensions.cs));

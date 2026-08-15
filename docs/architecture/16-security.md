@@ -105,6 +105,15 @@ Per [B8](../product/decisions-and-assumptions.md#b8--privacy--gdpr-posture):
 - Parameterized queries / EF Core (no string SQL); output encoding in React by default.
 - CORS locked to known origins, rate limiting on `/sync` and auth paths.
 
+  > **Neither is built (W13 slice 0 audit).** There is no `AddRateLimiter` in the solution, so the
+  > **DoS** row of §7 cites a mitigation that does not exist — [W13 slice
+  > 6](../delivery-plan.md#week-13--observability--security-hardening) owns it. And there is no
+  > `AddCors`/`UseCors` either, which is *probably right* rather than missing: the API is same-origin
+  > behind the front end's proxy, so no browser makes a cross-origin call to it, and the only CORS
+  > here (`PhotoStorageCors`) governs the **storage account** — a different control on a different
+  > origin, described in §4. If that reading holds, the sentence above is what needs correcting, not
+  > the code; slice 7 settles it with a test rather than an opinion.
+
 ### 6.1 Content-Security-Policy
 
 Every document response from the front end carries a **strict CSP**
