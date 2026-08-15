@@ -99,13 +99,43 @@
       "territoryList": "Territories",
       "scoreWeights": "Perfect-store weights",
       "surveys": "Surveys",
-      "userList": "Users & roles"
+      "userList": "Users & roles",
+      "overview": "Overview"
     },
     "openMenu": "Menu",
     "closeMenu": "Close",
     "trail": "Breadcrumb",
     "soon": {
       "week12": "W12"
+    }
+  },
+  "Dashboard": {
+    "title": "Dashboard",
+    "intro": "How the field is doing this month — coverage, strike rate, perfect store and order value.",
+    "loading": "Loading the dashboard…",
+    "failed": "The dashboard could not be loaded.",
+    "forbidden": "You do not have permission to view the dashboard.",
+    "territoryLabel": "Territory",
+    "allTerritories": "All territories",
+    "scope": "{outlets, plural, =0 {No outlets in scope} one {# outlet} other {# outlets}}, {from} to {to}.",
+    "noOutlets": "No outlets are in scope yet. Assign shops to a territory and the figures will follow.",
+    "noAudits": "No audits in this period, so there is no pillar breakdown yet.",
+    "coverage": "Coverage",
+    "coverageDetail": "{made} of {planned} planned calls made · {notVisited} not visited",
+    "strikeRate": "Strike rate",
+    "strikeRateDetail": "{productive} productive of {finished} finished · {open} still open",
+    "perfectStore": "Perfect store",
+    "perfectStoreDetail": "{scored} of {audits} audits scored",
+    "orderValue": "Order value",
+    "orderValueDetail": "{orders} orders · {lines} lines · {rejected} rejected",
+    "disputed": "{disputed} orders priced differently by the server",
+    "mixedWeights": "Averaged across weighting versions {versions} — not comparable",
+    "pillars": "Pillar breakdown",
+    "pillarDetail": "{measured} measured · {skipped} skipped",
+    "pillar": {
+      "Availability": "Availability",
+      "ShareOfShelf": "Share of shelf",
+      "PriceCompliance": "Price compliance"
     }
   },
   "Theme": {

@@ -99,13 +99,43 @@
       "territoryList": "Teritorii",
       "scoreWeights": "Ponderile magazinului perfect",
       "surveys": "Chestionare",
-      "userList": "Utilizatori și roluri"
+      "userList": "Utilizatori și roluri",
+      "overview": "Prezentare generală"
     },
     "openMenu": "Meniu",
     "closeMenu": "Închide",
     "trail": "Firimituri",
     "soon": {
       "week12": "S12"
+    }
+  },
+  "Dashboard": {
+    "title": "Tablou de bord",
+    "intro": "Cum merge activitatea în teren luna aceasta — acoperire, rata de succes, magazin perfect și valoarea comenzilor.",
+    "loading": "Se încarcă tabloul de bord…",
+    "failed": "Tabloul de bord nu a putut fi încărcat.",
+    "forbidden": "Nu aveți permisiunea de a vedea tabloul de bord.",
+    "territoryLabel": "Teritoriu",
+    "allTerritories": "Toate teritoriile",
+    "scope": "{outlets, plural, =0 {Niciun magazin în scop} one {# magazin} few {# magazine} other {# de magazine}}, {from} – {to}.",
+    "noOutlets": "Niciun magazin nu este încă în scop. Alocați magazine unui teritoriu și cifrele vor urma.",
+    "noAudits": "Niciun audit în această perioadă, deci nu există încă o defalcare pe piloni.",
+    "coverage": "Acoperire",
+    "coverageDetail": "{made} din {planned} vizite planificate · {notVisited} nevizitate",
+    "strikeRate": "Rata de succes",
+    "strikeRateDetail": "{productive} productive din {finished} încheiate · {open} încă deschise",
+    "perfectStore": "Magazin perfect",
+    "perfectStoreDetail": "{scored} din {audits} audituri punctate",
+    "orderValue": "Valoarea comenzilor",
+    "orderValueDetail": "{orders} comenzi · {lines} linii · {rejected} respinse",
+    "disputed": "{disputed} comenzi preţuite diferit de server",
+    "mixedWeights": "Medie pe versiunile de ponderare {versions} — necomparabilă",
+    "pillars": "Defalcare pe piloni",
+    "pillarDetail": "{measured} măsurate · {skipped} omise",
+    "pillar": {
+      "Availability": "Disponibilitate",
+      "ShareOfShelf": "Cotă de raft",
+      "PriceCompliance": "Conformitate preţ"
     }
   },
   "Theme": {

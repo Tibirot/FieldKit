@@ -41,6 +41,7 @@ export type NavKey =
  * under Outlets and another under Products is a name that gets looked up wrong exactly once.
  */
 export type NavScreenKey =
+  | "overview"
   | "journeyPlans"
   | "callFrequency"
   | "workingCalendars"
@@ -223,7 +224,18 @@ export const NAVIGATION: readonly NavGroup[] = [
   {
     key: null,
     items: [
-      { key: "dashboard", soon: "week12" },
+      /*
+       * Built in W12 slice 4, after three weeks of wearing a badge. Both permissions, because the
+       * endpoint behind it requires both and a nav item that leads to a 403 is the dead control the
+       * whole disabled-item design exists to avoid: `visit:read` covers visits, audits and orders,
+       * and coverage's denominator is Journey's.
+       */
+      {
+        key: "dashboard",
+        screens: [
+          { key: "overview", href: "/dashboard", requires: [["visit:read"], ["journey:read"]] },
+        ],
+      },
       // Points at frequencies rather than at a section index: it is the first journey screen that
       // exists, and the same reasoning that lands sign-in on Outlets applies — a nav item should go
       // somewhere real. It moves to the plan when the plan exists (W7 slice 10c).

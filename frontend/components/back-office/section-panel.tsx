@@ -8,6 +8,7 @@ import {
   Coins,
   Gauge,
   Grid2x2,
+  LayoutDashboard,
   Map,
   Package,
   Repeat,
@@ -60,6 +61,7 @@ import { cn } from "@/lib/utils";
  * page — and reusing `Boxes` would have put the same glyph on the catalogue and on assortments.
  */
 const ICONS: Record<NavScreenKey, React.ComponentType<{ className?: string }>> = {
+  overview: LayoutDashboard,
   journeyPlans: Map,
   callFrequency: Repeat,
   workingCalendars: CalendarDays,
