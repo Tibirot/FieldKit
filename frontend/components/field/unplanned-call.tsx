@@ -8,7 +8,8 @@ import { useSync } from "@/components/sync/sync-provider";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import { useLive } from "@/lib/sync/live";
-import { callableOutlets, matching } from "@/lib/visits/unplanned";
+import { matching } from "@/lib/sync/reference";
+import { callableOutlets } from "@/lib/visits/unplanned";
 
 /**
  * Starting a call at a shop that is not on today's round (`JRN-06`, `BR-JRN-4`) — W11½ R4.

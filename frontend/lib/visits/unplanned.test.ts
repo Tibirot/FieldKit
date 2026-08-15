@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { closeDatabase, FieldKitDatabase, type ReferenceOutlet } from "@/lib/sync/db";
 import { pending } from "@/lib/sync/outbox";
-import { addUnplanned, callableOutlets, matching, queuedUnplanned } from "@/lib/visits/unplanned";
+import { matching } from "@/lib/sync/reference";
+import { addUnplanned, callableOutlets, queuedUnplanned } from "@/lib/visits/unplanned";
 
 /**
  * A call the rep made that nobody planned (`JRN-06`, `BR-JRN-4`) — W11½ R4.

@@ -174,6 +174,24 @@ export function outlets(db: FieldKitDatabase): Promise<ReferenceOutlet[]> {
   return db.outlets.orderBy("name").toArray();
 }
 
+/**
+ * The shops matching what the rep has typed, by name or by code.
+ *
+ * <b>Code as well as name, and that is not a nicety.</b> A chain puts twenty shops called *Mega
+ * Image* on one territory, and the code is the only thing that tells them apart — which is why it
+ * travels to the device at all and why the picker prints it under every row.
+ */
+export function matching(outlets: readonly ReferenceOutlet[], search: string): ReferenceOutlet[] {
+  const wanted = search.trim().toLocaleLowerCase();
+  if (!wanted) return [...outlets];
+
+  return outlets.filter(
+    (outlet) =>
+      outlet.name.toLocaleLowerCase().includes(wanted) ||
+      outlet.code.toLocaleLowerCase().includes(wanted),
+  );
+}
+
 /** One outlet, or undefined if this device does not hold it. */
 export function outlet(db: FieldKitDatabase, id: string): Promise<ReferenceOutlet | undefined> {
   return db.outlets.get(id);

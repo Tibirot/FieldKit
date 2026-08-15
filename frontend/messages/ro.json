@@ -1341,8 +1341,7 @@
         "worked": "Lucrat",
         "notVisited": "Nevizitat"
       },
-      "movedTo": "Ai mutat această vizită pe {date}. Rămâne aici până când supervizorul o primește.",
-      "openDevice": "Acest dispozitiv"
+      "movedTo": "Ai mutat această vizită pe {date}. Rămâne aici până când supervizorul o primește."
     },
     "checkIn": {
       "opening": "Se deschide magazinul…",
@@ -1664,6 +1663,23 @@
           "PriceCompliance": "Preț"
         }
       }
+    },
+    "tabs": {
+      "label": "Aplicația de teren",
+      "today": "Azi",
+      "outlets": "Puncte",
+      "device": "Dispozitiv"
+    },
+    "outlets": {
+      "title": "Puncte de vânzare",
+      "intro": "Toate magazinele din teritoriul tău, indiferent dacă sunt în ruta de azi.",
+      "search": {
+        "label": "Caută",
+        "placeholder": "Cod sau nume…"
+      },
+      "loading": "Se încarcă…",
+      "none": "Niciun magazin găsit.",
+      "count": "{count, plural, one {# magazin} few {# magazine} other {# de magazine}}"
     }
   },
   "Guard": {
