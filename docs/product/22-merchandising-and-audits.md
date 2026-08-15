@@ -400,6 +400,20 @@ presigned URLs, retried independently of the JSON push ([B5](decisions-and-assum
 
 - `IAuditQuery` — audits for a visit, or an outlet's recent ones, newest first by **when the rep
   measured** (reporting). Read-only; everything that creates an audit goes through `IAuditIngest`.
+  > **W12 slice 2b added `SummariseAsync`** — perfect store across a set of shops and a window, the
+  > "own question" the outlet read's note said the trend views would ask. It returns the **KPI, not
+  > the audits**: an average score, a per-pillar average, and the **weight-set versions** it mixed.
+  >
+  > That last one is the honest part. `BR-AUD-8` records the weighting each audit was scored against
+  > because a re-weighting cannot be undone; an average across two of them is an average of two
+  > rulers. The contract reports the versions rather than refusing the number — a supervisor whose
+  > weights changed mid-month still needs the month — so `Comparable` is the question a reader has.
+  >
+  > Per pillar, the **skipped** count travels beside the average, because `BR-AUD-2` renormalises a
+  > skipped pillar away rather than scoring it zero: "share of shelf 96%" from two audits out of
+  > forty is a pillar nobody could count, not a triumph. The average is rounded half-up to two places
+  > (`BR-PRD-9`) — the same policy the scores carry, and what makes the figure the same whether the
+  > mean was taken in Postgres or in memory.
 - `IPerfectStoreScore` — score computation (shared server/device, decimal-parity per BR-AUD-5/12).
 - `IAuditIngest` — apply a pushed audit through this module, used by **Sync** ([module boundaries §7](../architecture/10-module-boundaries.md#7-module-registry)).
 - Consumes `IAssortmentService`, `IPricingService` (MSL + expected price), `IVisitContext`, and

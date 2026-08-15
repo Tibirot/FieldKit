@@ -123,6 +123,86 @@ public sealed record AuditRecord(
     IReadOnlyList<ScoredPillarLine> ScoredPillars);
 
 /// <summary>
+/// How one pillar did across a population of audits (<c>AUD-06</c>, <c>AUD-09</c>) — W12 slice 2b.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b><see cref="Skipped"/> is reported, not smoothed away, and it is the number that stops this
+/// record lying.</b> A skipped pillar is renormalised out of its audit's score rather than counted as
+/// zero (<c>BR-AUD-2</c>, W10 slice 0), so the average below is over the audits that <i>measured</i>
+/// it. Without the count beside it, "share of shelf: 96%" from two audits out of forty reads as a
+/// triumph instead of as a pillar nobody could count.
+/// </para>
+/// <para>
+/// <b>A mean of percentages, not a percentage of totals.</b> Each audit's pillar figure is already
+/// normalised against what that shop was asked to stock, so re-deriving one from raw counts would
+/// weight a hypermarket's MSL above a kiosk's. The question a supervisor asks — "how are my shops
+/// doing on availability" — is about shops, and every shop counts once.
+/// </para>
+/// </remarks>
+/// <param name="Pillar">
+/// <c>Availability</c>, <c>ShareOfShelf</c> or <c>PriceCompliance</c> — a string for the reason
+/// <see cref="ScoredPillarLine.Pillar"/> gives.
+/// </param>
+/// <param name="Average"><c>0</c>–<c>100</c> over the audits that measured it, or null if none did.</param>
+/// <param name="Measured">How many audits scored this pillar.</param>
+/// <param name="Skipped">How many renormalised it away — <c>BR-AUD-2</c>, and never a zero.</param>
+public sealed record PillarAverage(string Pillar, decimal? Average, int Measured, int Skipped);
+
+/// <summary>
+/// Perfect-store performance across a set of shops and a window (<c>AUD-09</c>) — W12 slice 2b.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b><see cref="WeightSetVersions"/> is here because an average of scores from different weight sets
+/// is an average of two different rulers.</b> <c>BR-AUD-8</c> stores the version each audit was
+/// scored against precisely because a re-weighting cannot be undone afterwards; the honest thing for
+/// an aggregate is therefore to say which versions it mixed rather than to hide the mixing behind one
+/// number. <see cref="Comparable"/> is the question a caller actually has.
+/// </para>
+/// <para>
+/// It does <b>not</b> refuse to average across versions, and that is a decision rather than an
+/// omission. A supervisor whose weights changed mid-month still needs to see the month; what they
+/// must not do is read a five-point movement across that boundary as a change in their shops. The
+/// contract's job is to make the boundary visible, not to withhold the number.
+/// </para>
+/// <para>
+/// <b><see cref="AverageScore"/> is null rather than zero when nothing was scored</b>, for the reason
+/// <c>Audit.Score</c> is: a zero is a claim about a shop, and "nobody has audited these yet" is not
+/// one. The same distinction <c>VisitOutcomeCounts.StrikeRate</c> makes.
+/// </para>
+/// </remarks>
+/// <param name="Audits">Audits captured at these shops in the window, scored or not.</param>
+/// <param name="Scored">
+/// How many carried a score. An audit with nothing measured — or with every measured pillar weighted
+/// zero — has none, and averaging it in as zero would be the claim above.
+/// </param>
+/// <param name="AverageScore">
+/// The mean of the scores that exist, <c>0</c>–<c>100</c>, or null. <b>Rounded half-up to two
+/// places</b> — <c>BR-PRD-9</c>'s policy, which every score being averaged already carries, and
+/// which is also what makes the figure the same whether the mean was taken in Postgres or in memory.
+/// </param>
+/// <param name="Pillars">One entry per pillar that any audit in the window carried.</param>
+/// <param name="WeightSetVersions">Every weight-set version present, ascending.</param>
+public sealed record PerfectStoreSummary(
+    int Audits,
+    int Scored,
+    decimal? AverageScore,
+    IReadOnlyList<PillarAverage> Pillars,
+    IReadOnlyList<int> WeightSetVersions)
+{
+    /// <summary>
+    /// Whether <see cref="AverageScore"/> compares like with like — one weight set, or none.
+    /// </summary>
+    /// <remarks>
+    /// True for an empty window as well as for a single-version one. An average that does not exist
+    /// cannot be misleading, and a caller that has to special-case "no data" before asking this
+    /// would have two branches where one will do.
+    /// </remarks>
+    public bool Comparable => WeightSetVersions.Count <= 1;
+}
+
+/// <summary>
 /// Audits for an outlet or a visit (<c>AUD-09</c>).
 /// </summary>
 /// <remarks>
@@ -147,4 +227,31 @@ public interface IAuditQuery
     /// </remarks>
     Task<IReadOnlyList<AuditRecord>> ForOutletAsync(
         Guid outletId, int limit, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Perfect store across these shops over a closed date range — the KPI, not the audits.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is the "own question" <see cref="ForOutletAsync"/>'s note promised.</b> That read is
+    /// bounded at a hundred audits because it answers "how has this shop been trending"; a month of a
+    /// supervisor's territory is a different question, and reducing a list of records to a mean in
+    /// the caller would both ship every line over the wire and put the skipped-versus-zero rule
+    /// (<c>BR-AUD-2</c>) in a module that does not own it.
+    /// </para>
+    /// <para>
+    /// <b>Dated by capture, not by arrival.</b> An audit worked yesterday and pushed today is a
+    /// record of yesterday — the rule <c>Audit.CapturedAtUtc</c> already states, and the same choice
+    /// <c>IVisitQuery</c> makes in dating a visit by check-in. Both ends inclusive, in UTC.
+    /// </para>
+    /// <para>
+    /// An empty <paramref name="outletIds"/> answers an empty summary rather than the tenant's, for
+    /// the reason its two siblings give.
+    /// </para>
+    /// </remarks>
+    Task<PerfectStoreSummary> SummariseAsync(
+        IReadOnlyCollection<Guid> outletIds,
+        DateOnly from,
+        DateOnly to,
+        CancellationToken cancellationToken = default);
 }
