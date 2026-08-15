@@ -18,10 +18,18 @@ namespace FieldKit.Modules.Visit;
 /// the rep, always record".
 /// </para>
 /// <para>
-/// <b>Two public contracts, and each only because a consumer asked.</b> Sync needs to apply visits a
-/// device captured offline, so <c>IVisitIngest</c> exists (W8 slice 5); Audit needs to know whether a
-/// visit is open before attaching work to it, so <c>IVisitContext</c> exists (W10 slice 3a).
-/// <c>IVisitQuery</c> still does not — Order is W11.
+/// <b>Three public contracts, and the first two only because a consumer asked.</b> Sync needs to
+/// apply visits a device captured offline, so <c>IVisitIngest</c> exists (W8 slice 5); Audit needs to
+/// know whether a visit is open before attaching work to it, so <c>IVisitContext</c> exists (W10
+/// slice 3a).
+/// </para>
+/// <para>
+/// <b><c>IVisitQuery</c> is the exception</b> (W12 slice 1). This note used to say it "still does not
+/// [exist] — Order is W11", and Order arrived without ever wanting it: what Order needed was
+/// <c>IVisitContext</c>. The caller turned out to be reporting, and reporting is a composition in the
+/// host that cannot exist until four modules each answer — so one had to go first. The shape is
+/// pinned by the KPI table in the product overview and by an integration test over a seeded month,
+/// which is the most a contract built ahead of its caller can do. See <c>IVisitQuery</c>'s own note.
 /// </para>
 /// </remarks>
 public sealed class VisitModule : IModule
@@ -48,6 +56,11 @@ public sealed class VisitModule : IModule
         // …and Audit asks whether a visit exists, whose it is, and whether it is sealed, which is
         // every input `BR-AUD-6` needs (W10 slice 3a).
         services.AddScoped<IVisitContext, VisitContextService>();
+
+        // …and reporting asks how a set of visits came out, which is the strike rate's numerator and
+        // half of coverage (W12 slice 1). Counts rather than rows, so the judgement about what
+        // "productive" means stays in this module — see `IVisitQuery`.
+        services.AddScoped<IVisitQuery, VisitQueryService>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints) => endpoints.MapVisitEndpoints();
