@@ -62,6 +62,30 @@ The signals that tell you FieldKit is *working*, not just *up*:
 > mutation retries it until something changes, and counting the replay would turn the rejection rate
 > into a measurement of that device's retry policy.
 >
+> **The four business signals landed in slice 4, emitted where the work happens.** Visit and Order
+> both raise integration events that something now delivers, so a handler was the tempting shape and
+> is wrong twice: business throughput must not depend on the outbox draining — a stalled dispatcher
+> would flatten "visits completed", which reads as *reps have stopped working* — and neither event
+> carries a tenant, so a handler could not tag by tenant without changing a published event for a
+> metric's convenience.
+>
+> `visits.completed` counts **both** paths that finish a visit, the check-out at the counter and the
+> ingest from a phone, because they are one event to a supervisor. `orders.submitted.value` carries
+> its **currency**, without which a histogram's buckets are the same numbers with different meanings,
+> and records the **device's** total (`BR-ORD-2`) — it is a distribution, not a ledger, so a
+> correction under `BR-ORD-9` is observed twice because it was submitted twice.
+> `pricing.resolve.duration` is timed on **both** exits, including the outlet a tenant does not have:
+> a p95 that never sees the cheap answers is not a p95. And `photos.upload.pending` is a level
+> recorded at the two events that move it — an audit arriving and a photograph confirmed — rather
+> than sampled.
+>
+> **That last one could not have been sampled.** `PhotoEntry` is `ITenantOwned`, so the global query
+> filter reads the ambient tenant and a background service has no principal to read one from;
+> counting across tenants from a loop would need `IgnoreQueryFilters`, which the build bans. The
+> outbox escaped that only because `OutboxMessage` is not tenant-owned. **The isolation control that
+> makes the app safe is the same thing that makes a tenant-wide aggregate impossible from outside a
+> request** — worth knowing before the next gauge over a tenant-owned table is designed.
+>
 > **The outbox trio landed in slice 3, with the dispatcher.** `backlog` is what a module is *left*
 > holding, not what the last cycle handled — the two agree whenever a queue drains and disagree
 > exactly when it matters, which is a subscriber throwing. `dispatch.latency` is the **lag** between
