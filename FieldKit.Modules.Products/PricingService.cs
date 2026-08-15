@@ -45,6 +45,8 @@ internal sealed class PricingService(ProductsDbContext db, IOutletClassification
         IReadOnlyList<LineToPrice> lines,
         CancellationToken cancellationToken = default)
     {
+        using var span = ProductsTracing.Pricing(outletId, lines.Count);
+
         // Through the contract, because Products cannot see the outlet table (AT-1) — and
         // tenant-filtered by it, so another tenant's outlet is simply absent and reads as null here.
         var classified = await classification.ClassifyManyAsync([outletId], cancellationToken);

@@ -61,6 +61,11 @@ public static class PushEndpoints
              */
             var started = Stopwatch.GetTimestamp();
 
+            // Opened here rather than inside `PushAsync` so the refusals are inside the span too: a
+            // push rejected for an unknown device is a thing that happened to a device, and a trace
+            // that only covers the accepted path answers questions nobody is asking (W13 slice 2).
+            using var span = SyncTracing.Push(request.DeviceId, request.Mutations.Count);
+
             try
             {
                 return await PushAsync(
@@ -117,16 +122,25 @@ public static class PushEndpoints
 
         foreach (var mutation in request.Mutations)
         {
+            using var span = SyncTracing.Mutation(mutation.MutationId, mutation.Type);
+
             // Asked first, every time. A retry is answered with what happened the first time
             // rather than re-applied — exactly-once effect over at-least-once delivery.
             if (await ledger.FindAsync(device.Id, mutation.MutationId, ct) is { } prior)
             {
+                // Marked as the replay it is. A trace that showed the second attempt doing the work
+                // would describe a protocol this one deliberately does not have.
+                span?.SetTag("fieldkit.sync.mutation.replayed", true);
+                span.Answered(prior);
+
                 results.Add(MutationResult.From(mutation.MutationId, prior));
                 continue;
             }
 
             var outcome = await ApplyAsync(
                 mutation, visits, journeys, audits, orders, tenant.UserId, ct);
+
+            span.Answered(outcome);
 
             // Counted here rather than where the refusal is decided, because a *replay* of a
             // rejection is not a second rejection: the branch above answers from the ledger and

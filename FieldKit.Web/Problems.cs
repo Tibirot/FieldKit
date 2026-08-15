@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http;
 
@@ -72,13 +73,45 @@ public sealed record FieldProblem(
 /// </remarks>
 public static class Problems
 {
+    /// <summary>
+    /// The refusal envelope, with the trace this response belongs to (W13 slice 2).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The correlation id, on the responses that actually carry one.</b>
+    /// <c>observability §4</c> said a <c>traceId</c> "is returned in every <c>ProblemDetails</c>" —
+    /// and this API does not answer with <c>ProblemDetails</c>. Every refusal it raises deliberately
+    /// uses the <c>{ "errors": [...] }</c> envelope above (<c>api-contracts §3</c>), which had no
+    /// trace id in it; the W13 slice 0 audit found the word did not occur anywhere in the repository.
+    /// So the claim is made true where the refusals are, rather than where the doc guessed they were.
+    /// </para>
+    /// <para>
+    /// <b>The 32-hex trace id, not the W3C <c>traceparent</c>.</b> <c>Activity.Id</c> is
+    /// <c>00-{trace}-{span}-01</c> — it identifies this one span, and pasting it into a trace viewer
+    /// asks the wrong question. What a person reads down a phone line, and what finds every span of
+    /// the request, is the trace id alone.
+    /// </para>
+    /// <para>
+    /// <b>Absent rather than empty when nothing is tracing.</b> With no listener there is no activity,
+    /// which is the ordinary state of a unit test — and <c>"traceId": ""</c> is a value somebody will
+    /// eventually paste into a search box and get nothing back from. A missing property says "this
+    /// response was not traced"; an empty one says "it was, and here is the id", falsely.
+    /// </para>
+    /// </remarks>
+    private static object Envelope(params FieldProblem[] problems) => Envelope((IReadOnlyList<FieldProblem>)problems);
+
+    private static object Envelope(IReadOnlyList<FieldProblem> problems) =>
+        Activity.Current?.TraceId is { } trace && trace != default
+            ? new { errors = problems, traceId = trace.ToString() }
+            : new { errors = problems };
+
     /// <summary>Refuses a request because of one field.</summary>
     public static IResult BadRequest(string field, string message) =>
-        Results.BadRequest(new { errors = new[] { new FieldProblem(field, message) } });
+        Results.BadRequest(Envelope(new FieldProblem(field, message)));
 
     /// <summary>Refuses a request for a reason that is not about any one field.</summary>
     public static IResult BadRequest(string message) =>
-        Results.BadRequest(new { errors = new[] { new FieldProblem(null, message) } });
+        Results.BadRequest(Envelope(new FieldProblem(null, message)));
 
     /// <summary>
     /// Refuses a request, naming the rule that was broken (<c>ADR-0012</c>).
@@ -99,7 +132,7 @@ public static class Problems
     /// </remarks>
     public static IResult BadRequest(
         string? field, string message, string code, IReadOnlyDictionary<string, string>? args = null) =>
-        Results.BadRequest(new { errors = new[] { new FieldProblem(field, message, code, args) } });
+        Results.BadRequest(Envelope(new FieldProblem(field, message, code, args)));
 
     /// <summary>
     /// Refuses a request with everything wrong with it.
@@ -109,7 +142,7 @@ public static class Problems
     /// returning one problem at a time turns a six-field form into six round trips.
     /// </remarks>
     public static IResult BadRequest(IReadOnlyList<FieldProblem> problems) =>
-        Results.BadRequest(new { errors = problems });
+        Results.BadRequest(Envelope(problems));
 
     /// <summary>
     /// Refuses a write that collides with something already stored.
@@ -120,16 +153,16 @@ public static class Problems
     /// under the code box.
     /// </remarks>
     public static IResult Conflict(string field, string message) =>
-        Results.Conflict(new { errors = new[] { new FieldProblem(field, message) } });
+        Results.Conflict(Envelope(new FieldProblem(field, message)));
 
     /// <summary>Refuses a write that collides with something already stored, with no one field at fault.</summary>
     public static IResult Conflict(string message) =>
-        Results.Conflict(new { errors = new[] { new FieldProblem(null, message) } });
+        Results.Conflict(Envelope(new FieldProblem(null, message)));
 
     /// <summary>Refuses a colliding write, naming the rule (<c>ADR-0012</c>).</summary>
     public static IResult Conflict(
         string? field, string message, string code, IReadOnlyDictionary<string, string>? args = null) =>
-        Results.Conflict(new { errors = new[] { new FieldProblem(field, message, code, args) } });
+        Results.Conflict(Envelope(new FieldProblem(field, message, code, args)));
 
     /// <summary>
     /// Refuses a request with a status this class has no name for.
@@ -140,11 +173,10 @@ public static class Problems
     /// every refusal is the whole point.
     /// </remarks>
     public static IResult Refuse(int statusCode, string message) =>
-        Results.Json(new { errors = new[] { new FieldProblem(null, message) } }, statusCode: statusCode);
+        Results.Json(Envelope(new FieldProblem(null, message)), statusCode: statusCode);
 
     /// <summary>Refuses with an unnamed status, naming the rule (<c>ADR-0012</c>).</summary>
     public static IResult Refuse(
         int statusCode, string message, string code, IReadOnlyDictionary<string, string>? args = null) =>
-        Results.Json(
-            new { errors = new[] { new FieldProblem(null, message, code, args) } }, statusCode: statusCode);
+        Results.Json(Envelope(new FieldProblem(null, message, code, args)), statusCode: statusCode);
 }

@@ -52,6 +52,8 @@ public static class PullEndpoints
             IClock clock,
             CancellationToken ct) =>
         {
+            using var span = SyncTracing.Pull(request.DeviceId);
+
             var device = await db.Devices
                 .SingleOrDefaultAsync(candidate => candidate.Id == request.DeviceId, ct);
 

@@ -65,7 +65,10 @@ public static class Extensions
             })
             .WithTracing(tracing =>
             {
-                tracing.AddSource(builder.Environment.ApplicationName)
+                // FieldKit's own spans (W13 slice 2), beside the host's. Same name as the meter,
+                // because they are two subscriptions to one product — see `Telemetry`.
+                tracing.AddSource(FieldKit.BuildingBlocks.Telemetry.ActivitySourceName)
+                    .AddSource(builder.Environment.ApplicationName)
                     .AddAspNetCoreInstrumentation(tracing =>
                         // Exclude health check requests from tracing
                         tracing.Filter = context =>

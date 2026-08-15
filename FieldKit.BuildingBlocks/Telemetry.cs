@@ -46,7 +46,20 @@ public static class Telemetry
     /// </remarks>
     public const string MeterName = "FieldKit";
 
-    /// <summary>The tag keys a FieldKit instrument may use.</summary>
+    /// <summary>
+    /// What <c>AddSource</c> is given in the host, and the name every FieldKit span is created under.
+    /// </summary>
+    /// <remarks>
+    /// <b>Deliberately the same string as <see cref="MeterName"/>.</b> They are separate
+    /// subscriptions — a meter and an activity source are different registries — and naming them
+    /// differently would mean an operator who found the metrics still had to be told a second word to
+    /// find the traces beside them. One product, one name, two subscriptions.
+    /// </remarks>
+    public const string ActivitySourceName = MeterName;
+
+    /// <summary>
+    /// The tag keys a FieldKit instrument may use — and, where noted, a span.
+    /// </summary>
     /// <remarks>
     /// Constants rather than literals so a typo is a build error rather than a second series with a
     /// name one character off the first — the failure mode that makes a graph look half-empty and a
@@ -59,5 +72,27 @@ public static class Telemetry
 
         /// <summary>An <c>ADR-0012</c> refusal code. A closed vocabulary, never a sentence.</summary>
         public const string Reason = "fieldkit.reason";
+
+        /*
+         * Below this line: span-only. Every one of them is unbounded, which is exactly why they are
+         * here rather than on an instrument — a unique value costs one trace, and being able to
+         * follow *one* rep's sync is the reason the doc asks for them at all (observability §4).
+         *
+         * Putting any of these on a metric is the mistake this file exists to prevent. They are kept
+         * in the same class as the two above so that the boundary is visible when somebody reaches
+         * for a tag name, rather than discoverable by reading two files.
+         */
+
+        /// <summary>The authenticated subject. <b>Span only.</b></summary>
+        public const string Subject = "fieldkit.subject";
+
+        /// <summary>The device a rep is syncing from. <b>Span only.</b></summary>
+        public const string Device = "fieldkit.device";
+
+        /// <summary>The device-minted id of one pushed mutation. <b>Span only.</b></summary>
+        public const string Mutation = "fieldkit.mutation";
+
+        /// <summary>The outlet a question is about. <b>Span only.</b></summary>
+        public const string Outlet = "fieldkit.outlet";
     }
 }
