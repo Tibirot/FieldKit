@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
+import { FieldTabs } from "@/components/field/tabs";
 import { SessionGuard } from "@/components/session-guard";
 import { SyncIndicator } from "@/components/sync/sync-indicator";
 import { SyncProvider, useSync } from "@/components/sync/sync-provider";
@@ -171,7 +172,13 @@ function FieldFrame({
 
   if (outcome !== "deviceRejected") {
     return (
-      <div className="flex min-h-dvh flex-col">
+      /*
+        One viewport, with the middle scrolling — the shape the back office took in W12½ and for the
+        same reason: chrome that scrolls away is chrome a rep has to scroll back to find. Here it
+        also means the tab bar sits on the bottom edge without `position: fixed`, so nothing has to
+        reserve padding for it and no screen can end up underneath it.
+      */
+      <div className="flex h-dvh flex-col">
         <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-2">
           {/*
             The wordmark goes home, which on this app is the rep's round rather than a landing page.
@@ -182,20 +189,18 @@ function FieldFrame({
             {t("title")}
           </Link>
 
-          <div className="flex items-center gap-2">
-            <SyncIndicator />
-
-            {/* The device screen, one tap from anywhere. It used to *be* the home screen; what it
-                answers — "has my work gone in" — is a real question, just not the first one. */}
-            <Link
-              href="/field/device"
-              className="rounded-lg border border-border px-2 py-1 text-xs text-muted-foreground"
-            >
-              {t("journey.openDevice")}
-            </Link>
-          </div>
+          {/*
+            Sync stays in the header and is deliberately *not* a tab. It is a status and an action —
+            "has my work gone in", and a button that makes it go — and a tab bar is a list of places.
+            Mixing the two would put a control in the bar that navigates nowhere, which is the dead
+            control this codebase keeps refusing.
+          */}
+          <SyncIndicator />
         </header>
-        <main className="min-w-0 flex-1 p-4">{children}</main>
+
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4">{children}</main>
+
+        <FieldTabs />
       </div>
     );
   }

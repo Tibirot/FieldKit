@@ -1341,8 +1341,7 @@
         "worked": "Worked",
         "notVisited": "Not visited"
       },
-      "movedTo": "You moved this call to {date}. It stays here until your supervisor has it.",
-      "openDevice": "This device"
+      "movedTo": "You moved this call to {date}. It stays here until your supervisor has it."
     },
     "checkIn": {
       "opening": "Opening this shop…",
@@ -1664,6 +1663,23 @@
           "PriceCompliance": "Price"
         }
       }
+    },
+    "tabs": {
+      "label": "Field app",
+      "today": "Today",
+      "outlets": "Outlets",
+      "device": "Device"
+    },
+    "outlets": {
+      "title": "Outlets",
+      "intro": "Every shop in your territory, whether or not it is on today’s round.",
+      "search": {
+        "label": "Search",
+        "placeholder": "Code or name…"
+      },
+      "loading": "Loading…",
+      "none": "No shops match.",
+      "count": "{count, plural, one {# shop} other {# shops}}"
     }
   },
   "Guard": {
