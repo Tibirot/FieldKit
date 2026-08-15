@@ -276,6 +276,23 @@ server **rejects** the order, it re-opens editable on the device for correction 
 ## 8. Module contract (exposed to others)
 
 - `IOrderQuery` — orders for an outlet/visit/rep (reporting), including the current rejection.
+  > **W12 slice 2c added `SummariseAsync`** — order capture across a set of shops and a window:
+  > standing orders and their lines, the rejected and cancelled counts, how many the server disputes,
+  > and the **value per currency**. Money is split by currency because adding two of them is not
+  > arithmetic; the value is the **device's** total, because `BR-ORD-2` re-prices and *flags*, never
+  > applies — reporting the server's would report a figure nobody at the counter agreed to.
+  >
+  > **Promotion usage is not in it**, and cannot be until the schema changes. The
+  > [KPI table](00-product-overview.md#reporting--kpis-cross-cutting-read-side) lists it under Order,
+  > but an `OrderLine` records what it cost and **not which promotion made it cost that** — the device
+  > applies one and sends the net. It could be inferred from `quantity × unit price` exceeding the
+  > line total, except that both sides are rounded independently, so a line rounded down would report
+  > a discount nobody gave. A KPI with a tolerance in it is a KPI nobody can act on.
+  >
+  > **`Accepted` and `Cancelled` are counted but unreachable.** The only transition the server has is
+  > rejection, so no order can be in either state today and neither count is covered by a test. They
+  > are classified anyway, so that a state arriving with the back office (W12 slice 6) does not fall
+  > silently out of both the value and the counts.
 - `IOrderIngest` — apply a pushed order (create/resubmit) through this module, used by **Sync** so
   domain rules run server-side ([module boundaries §7](../architecture/10-module-boundaries.md#7-module-registry)).
 - Consumes `IAssortmentService`, `IPricingService`, `IVisitContext`, and `IFieldDefinitionCatalog`

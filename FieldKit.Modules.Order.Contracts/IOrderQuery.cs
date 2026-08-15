@@ -123,6 +123,101 @@ public sealed record OrderDescriptor(
     decimal? ServerTaxTotal = null,
     PriceAgreement Agreement = PriceAgreement.NotRepriced);
 
+/// <summary>
+/// What was ordered in one currency (<c>ORD-09</c>) — W12 slice 2c.
+/// </summary>
+/// <remarks>
+/// <b>Money is reported per currency because adding two of them is not arithmetic.</b> An order
+/// carries the currency it was taken in, and a tenant selling across a border has both; a single
+/// <c>Total</c> summed over them would be a number with no unit. This is the same posture
+/// <c>PerfectStoreSummary.WeightSetVersions</c> takes towards weight sets — except that mixing
+/// rulers gives a misleading figure, and mixing currencies gives a meaningless one, so this is a
+/// split rather than a warning.
+/// </remarks>
+/// <param name="CurrencyCode">ISO 4217, as the order stored it.</param>
+/// <param name="Net">The device's net, summed — what the reps and the shopkeepers settled.</param>
+/// <param name="Tax">The device's tax, summed, beside the net rather than inside it.</param>
+/// <param name="Orders">How many orders in this currency stand behind the figures.</param>
+public sealed record OrderValue(string CurrencyCode, decimal Net, decimal Tax, int Orders)
+{
+    /// <summary>Net plus tax — what the shopkeeper owes.</summary>
+    public decimal Gross => Net + Tax;
+}
+
+/// <summary>
+/// Order capture across a set of shops and a window (<c>ORD-09</c>) — W12 slice 2c.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Only orders that stand are counted as value.</b> <c>Submitted</c> and <c>Accepted</c> are
+/// orders somebody expects to be delivered; <c>Rejected</c> and <c>Cancelled</c> are not, and adding
+/// them to a territory's number would report revenue the back office has already refused. They are
+/// counted separately rather than dropped, because a territory writing a tenth of its orders off is
+/// a fact about that territory — and a rejection rate is what <c>BR-ORD-9</c>'s whole re-open path
+/// exists to move.
+/// </para>
+/// <para>
+/// <b>The value is the <i>device's</i> total, and that is <c>BR-ORD-2</c> rather than an oversight.</b>
+/// The server re-prices and <i>flags</i>, never applies: the order is what the rep and the shopkeeper
+/// settled on at the counter. Reporting the server's total would report a number nobody agreed to.
+/// <see cref="PriceDisagreements"/> is how the disagreement stays visible — a territory where a
+/// third of orders disagree has a pricing-data problem, and a KPI that quietly averaged over it
+/// would hide the one thing worth acting on.
+/// </para>
+/// <para>
+/// <b>Promotion usage is not here, and it is not an omission I can fix in this module.</b> The
+/// [KPI table](../../docs/product/00-product-overview.md#reporting--kpis-cross-cutting-read-side)
+/// lists it under Order, but an <c>OrderLine</c> records what it cost and <b>not which promotion made
+/// it cost that</b>: the device applies one and sends the net. It could be inferred from
+/// <c>quantity × unit price</c> exceeding the line total — except that both sides are rounded
+/// independently, so a line rounded down would report a discount nobody gave. A KPI with a tolerance
+/// in it is a KPI nobody can act on, so the honest answer is that the schema has to carry the
+/// promotion before the report can name it.
+/// </para>
+/// </remarks>
+/// <param name="Orders">Orders that stand — submitted or accepted.</param>
+/// <param name="Lines">Their lines, summed. The "lines per order" the KPI table asks for.</param>
+/// <param name="Rejected">Refused whole-order by the back office (<c>BR-ORD-9</c>).</param>
+/// <param name="Cancelled">
+/// Abandoned rather than corrected.
+/// <para>
+/// <b>Neither <c>Accepted</c> nor <c>Cancelled</c> is reachable today</b>, and this is the first
+/// thing to know about these two numbers. The only transition the server has is rejection
+/// (<c>POST /api/orders/{id}/rejection</c>); nothing sets either of the other two, so a real tenant
+/// sees submitted and rejected and nothing else, and these counts are consequently <b>not covered by
+/// a test</b> — there is no way to produce one to count. They are classified rather than ignored
+/// because the alternative is worse: an accepted order arriving after W12 slice 6 builds the back
+/// office would otherwise fall out of both the value and the counts, and a KPI that silently drops a
+/// state is harder to notice than one that reports zero.
+/// </para>
+/// </param>
+/// <param name="PriceDisagreements">
+/// Standing orders the server re-priced and disagreed with (<c>PriceAgreement.Differs</c>). Orders it
+/// could not re-price at all are not counted here — an unresolved price list is a different problem
+/// from a wrong price, and folding the two together would make neither actionable.
+/// </param>
+/// <param name="Value">One entry per currency present, ascending by code.</param>
+public sealed record OrderSummary(
+    int Orders,
+    int Lines,
+    int Rejected,
+    int Cancelled,
+    int PriceDisagreements,
+    IReadOnlyList<OrderValue> Value)
+{
+    /// <summary>
+    /// Lines per standing order, or <c>null</c> when none stands.
+    /// </summary>
+    /// <remarks>
+    /// Null rather than zero, for the reason <c>VisitOutcomeCounts.StrikeRate</c> gives: "no orders
+    /// yet" and "orders with nothing on them" are different weeks, and an order with no lines is a
+    /// state <c>Order</c> refuses to store in the first place.
+    /// </remarks>
+    public decimal? LinesPerOrder => Orders == 0
+        ? null
+        : Math.Round((decimal)Lines / Orders, 2, MidpointRounding.AwayFromZero);
+}
+
 /// <summary>Reading what was ordered (<c>ORD-01</c>, reporting read-side).</summary>
 public interface IOrderQuery
 {
@@ -132,5 +227,24 @@ public interface IOrderQuery
     /// <summary>This outlet's orders, newest first.</summary>
     Task<IReadOnlyList<OrderDescriptor>> ForOutletAsync(
         Guid outletId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Order capture across these shops over a closed date range — the KPI, not the orders.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Dated by capture, in UTC, both ends inclusive</b> — the choice its three siblings make. An
+    /// order taken at a counter with no signal is a record of the day it was taken, not of the day
+    /// the phone found a network, and <c>Order.CapturedAtUtc</c> is the column that says so.
+    /// </para>
+    /// <para>
+    /// An empty <paramref name="outletIds"/> answers an empty summary rather than the tenant's.
+    /// </para>
+    /// </remarks>
+    Task<OrderSummary> SummariseAsync(
+        IReadOnlyCollection<Guid> outletIds,
+        DateOnly from,
+        DateOnly to,
+        CancellationToken cancellationToken = default);
 }
 
