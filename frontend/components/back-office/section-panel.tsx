@@ -111,18 +111,11 @@ export function SectionPanel() {
       // Named for its section rather than "section navigation", because a screen reader listing
       // landmarks should be able to tell this apart from the sidebar without entering either.
       aria-label={t(`items.${here.item.key}`)}
-      className={cn(
-        "flex shrink-0 gap-1 overflow-x-auto border-b border-border bg-background p-3",
-        "md:h-dvh md:w-48 md:flex-col md:overflow-x-visible md:border-r md:border-b-0",
-      )}
+      // One shape at every width (W12½ slice 6), for the reason the rail gives: the drawer is what
+      // changes below `md`, not the column inside it.
+      className="flex w-48 shrink-0 flex-col gap-1 border-r border-border bg-background p-3 md:h-dvh"
     >
-      {/*
-        Hidden on mobile, where the panel is a horizontal strip and a heading above it would cost a
-        line of vertical space on the smallest screen to repeat what `aria-label` already says.
-      */}
-      <span className="hidden px-2.5 pb-2 text-sm font-semibold md:block">
-        {t(`items.${here.item.key}`)}
-      </span>
+      <span className="px-2.5 pb-2 text-sm font-semibold">{t(`items.${here.item.key}`)}</span>
 
       {screens.map((screen) => {
         const Icon = ICONS[screen.key];

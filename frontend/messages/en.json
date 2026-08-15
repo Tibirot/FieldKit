@@ -101,6 +101,8 @@
       "surveys": "Surveys",
       "userList": "Users & roles"
     },
+    "openMenu": "Menu",
+    "closeMenu": "Close",
     "trail": "Breadcrumb",
     "soon": {
       "week5": "W5",
