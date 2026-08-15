@@ -89,17 +89,20 @@ public class TracingTests(ServerFixture fixture)
         /*
          * `ITenantContext` throws when there is no authenticated principal — deliberately, so a
          * tenant-owned query can never run unscoped. Asking it for a tenant on the way past would
-         * therefore turn every anonymous 401 into a 500, which is the failure this asserts is absent.
+         * turn a legitimately anonymous request into a 500, which is what this asserts is absent.
          *
-         * It is the test I would have written after the incident rather than before it, so it is here
-         * before.
+         * <b>Against `/alive`, and the first version of this test was wrong.</b> It used an
+         * unauthenticated `/sync/push` and asserted the 401 — which passes with the guard removed,
+         * because `UseAuthorization` short-circuits *before* this middleware and it never runs at all
+         * on that path. The guard only matters where a request is allowed through **without** a
+         * principal, so the test has to use an endpoint that is. Found by sabotage: deleting the
+         * condition changed nothing.
          */
         using var listening = Listening();
 
-        var response = await fixture.Client.PostAsJsonAsync(
-            "/api/sync/push", new PushRequest(Guid.CreateVersion7(), []));
+        var response = await fixture.Client.GetAsync("/alive");
 
-        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
         Assert.DoesNotContain(listening.Finished, span => span.GetTagItem(Telemetry.Tags.Tenant) is not null);
     }
 
