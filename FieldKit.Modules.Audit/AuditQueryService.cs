@@ -49,6 +49,114 @@ internal sealed class AuditQueryService(AuditDbContext db, IClock clock) : IAudi
         return [.. audits.Select(audit => audit.Describe(clock.UtcNow))];
     }
 
+    public async Task<PerfectStoreSummary> SummariseAsync(
+        IReadOnlyCollection<Guid> outletIds,
+        DateOnly from,
+        DateOnly to,
+        CancellationToken cancellationToken = default)
+    {
+        // Nothing in scope is not the same as no filter — the decision `VisitQueryService` and
+        // `JourneyQueries` both make, said here rather than left to a provider's translation.
+        if (outletIds.Count == 0) return Empty;
+
+        // `CapturedAtUtc` is when the rep measured, so the window is half-open over instants for the
+        // same reason the visit side is: a function on the column cannot use an index, and this is a
+        // query a dashboard runs on every load.
+        var start = new DateTimeOffset(from.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        var end = new DateTimeOffset(to.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+
+        var audits = db.Audits
+            .AsNoTracking()
+            .Where(audit => outletIds.Contains(audit.OutletId))
+            .Where(audit => audit.CapturedAtUtc >= start && audit.CapturedAtUtc < end);
+
+        /*
+         * Three aggregates rather than one, and none of them ships a row.
+         *
+         * `Average` over a nullable column ignores nulls in SQL, which is exactly the rule this needs
+         * — an unscored audit must not average in as zero — but it is a coincidence of SQL semantics
+         * rather than something a reader can see, so `Scored` is counted separately and the two are
+         * asserted against each other in the tests.
+         */
+        var scores = await audits
+            .GroupBy(_ => 1)
+            .Select(group => new
+            {
+                Audits = group.Count(),
+                Scored = group.Count(audit => audit.Score != null),
+                Average = group.Average(audit => audit.Score),
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (scores is null) return Empty;
+
+        var versions = await audits
+            .Select(audit => audit.WeightSetVersion)
+            .Distinct()
+            .OrderBy(version => version)
+            .ToListAsync(cancellationToken);
+
+        // A pillar's average is over the audits that *measured* it, and the skipped ones are counted
+        // rather than dropped: `BR-AUD-2` renormalises a skipped pillar away instead of scoring it
+        // zero, so an average with no count beside it cannot be read safely.
+        var pillars = await audits
+            .SelectMany(audit => audit.ScoredPillars)
+            .GroupBy(pillar => pillar.Pillar)
+            .Select(group => new
+            {
+                Pillar = group.Key,
+                Average = group.Average(pillar => pillar.Percentage),
+                Measured = group.Count(pillar => pillar.Percentage != null),
+                Skipped = group.Count(pillar => pillar.Percentage == null),
+            })
+            .ToListAsync(cancellationToken);
+
+        return new PerfectStoreSummary(
+            Audits: scores.Audits,
+            Scored: scores.Scored,
+            AverageScore: Round(scores.Average),
+            Pillars:
+            [
+                .. pillars
+                    .OrderBy(row => row.Pillar)
+                    .Select(row => new PillarAverage(
+                        row.Pillar.ToString(), Round(row.Average), row.Measured, row.Skipped)),
+            ],
+            WeightSetVersions: versions);
+    }
+
+    /// <summary>
+    /// Half-up (away from zero) to two places — the policy <see cref="PerfectStoreScore"/> already
+    /// applies to every score this averages.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Rounded here rather than left to the caller, because an unrounded average is not
+    /// reproducible.</b> Postgres computes <c>avg(numeric)</c> at its own scale and returns a
+    /// different tail from the same mean taken in C# — the two agreed to sixteen digits and disagreed
+    /// after, which is enough to make an equality assertion fail and not nearly enough to matter to
+    /// anybody reading a percentage. Rounding at the boundary makes the number the same wherever it
+    /// was computed.
+    /// </para>
+    /// <para>
+    /// Two places, half-up, because that is <c>BR-PRD-9</c>'s policy and the scores being averaged
+    /// are already rounded to it. A mean carried to twenty places out of inputs carried to two is
+    /// precision this module never had.
+    /// </para>
+    /// </remarks>
+    private static decimal? Round(decimal? value) =>
+        value is { } number ? Math.Round(number, 2, MidpointRounding.AwayFromZero) : null;
+
+    /// <summary>
+    /// No audits, and therefore no score, no pillars and no weight sets to disagree about.
+    /// </summary>
+    /// <remarks>
+    /// A summary rather than a null, because "nobody has audited these shops" is an answer a
+    /// dashboard has to render either way — and a nullable return would make every caller write the
+    /// empty state twice.
+    /// </remarks>
+    private static PerfectStoreSummary Empty => new(0, 0, null, [], []);
+
     private IQueryable<Audit> Query() => db.Audits
         .Include(audit => audit.Availability)
         .Include(audit => audit.Facings)
