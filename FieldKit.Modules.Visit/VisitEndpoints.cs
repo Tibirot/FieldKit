@@ -118,6 +118,29 @@ public sealed record CheckOutRequest(
 /// </remarks>
 internal static class VisitEndpoints
 {
+    /// <summary>The most visits the list returns, however the caller filters — W12 slice 5a.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A ceiling rather than a page size</b>, the call <c>AuditQueryService.MaximumOutletAudits</c>
+    /// already made. The question this read answers is "what has been recorded lately" — for a shop,
+    /// for a rep, or for the tenant — and a supervisor reading it scrolls a screen rather than paging
+    /// a year.
+    /// </para>
+    /// <para>
+    /// <b>It had none until now, and that was the bug.</b> Unfiltered, this returned every visit the
+    /// tenant had ever recorded: harmless for the rep's device, which always passes a filter, and
+    /// quietly unbounded for the back-office list that W12 slice 5a puts in front of it. The cost
+    /// grows with how long the tenant has existed, which is the shape of an outage nobody sees in
+    /// development.
+    /// </para>
+    /// <para>
+    /// Paging is deliberately not here. A cursor is machinery for a screen that scrolls forever, and
+    /// the honest answer to "I need last March" is a date window — which lands when a screen asks
+    /// for one rather than being guessed at now.
+    /// </para>
+    /// </remarks>
+    public const int MaximumVisits = 200;
+
     public static void MapVisitEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var visits = endpoints.MapGroup("/api/visits").WithTags("Visit");
@@ -127,7 +150,12 @@ internal static class VisitEndpoints
             await db.Visits
                 .Where(visit => (outletId == null || visit.OutletId == outletId)
                     && (userId == null || visit.UserId == userId))
+
+                // Newest first, by when the rep arrived rather than when the server heard: a day of
+                // offline visits drained at once shares a `CreatedAtUtc` to the second, and ordering
+                // by that would put a shop's history in whatever order the outbox happened to flush.
                 .OrderByDescending(visit => visit.CheckedInAtUtc)
+                .Take(MaximumVisits)
                 .Select(visit => Respond(visit))
                 .ToListAsync(ct))
             .RequirePermission(VisitPermissions.Read);

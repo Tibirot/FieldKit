@@ -42,6 +42,7 @@ export type NavKey =
  */
 export type NavScreenKey =
   | "overview"
+  | "visitList"
   | "journeyPlans"
   | "callFrequency"
   | "workingCalendars"
@@ -249,7 +250,16 @@ export const NAVIGATION: readonly NavGroup[] = [
           { key: "workingCalendars", href: "/journeys/calendars", requires: [["journey:read"]] },
         ],
       },
-      { key: "visits", soon: "week12" },
+      /*
+       * Built in W12 slice 5a, after a `W9` badge that expired and a `W12` one that replaced it.
+       *
+       * `visit:read` alone: audits are read under it too — the Audit module declares no read
+       * permission of its own — so the detail screen that lands in 5b needs nothing further.
+       */
+      {
+        key: "visits",
+        screens: [{ key: "visitList", href: "/visits", requires: [["visit:read"]] }],
+      },
       { key: "orders", soon: "week12" },
     ],
   },
