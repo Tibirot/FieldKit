@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using FieldKit.BuildingBlocks;
 using FieldKit.Modules.Audit.Contracts;
 using FieldKit.Modules.Order.Contracts;
@@ -39,58 +40,108 @@ public static class PushEndpoints
             IAuditIngest audits,
             IOrderIngest orders,
             ITenantContext tenant,
+            SyncMetrics metrics,
             CancellationToken ct) =>
         {
-            if (request.Mutations.Count > MaximumBatch)
+            /*
+             * Measured around everything, refusals included (W13 slice 1).
+             *
+             * The workload a reconnect carries is what the device *tried* to send, so an oversized
+             * batch and an unrecognised device are measurements rather than reasons to skip one — a
+             * histogram that drops its own outliers describes a system nobody runs. What pins that is
+             * the recording living *outside* `PushAsync`: moving it past the guards fails
+             * `A_push_the_server_refuses_whole_is_still_measured`.
+             *
+             * `finally` rather than a straight-line call covers a *thrown* push — a database that went
+             * away mid-batch is exactly when a latency number is worth having. <b>No test provokes
+             * one.</b> Replacing this block with sequential statements was the first sabotage tried
+             * and every test still passed, because every refusal here returns rather than throws. The
+             * `finally` is a defensible belief with nothing holding it up, and saying so is cheaper
+             * than a test that fakes an exception the endpoint cannot otherwise have.
+             */
+            var started = Stopwatch.GetTimestamp();
+
+            try
             {
-                return Problems.BadRequest(
-                    "mutations",
-                    $"A push carries at most {MaximumBatch} mutations; split the batch.",
-                    "sync.push.batchTooLarge");
+                return await PushAsync(
+                    request, db, ledger, visits, journeys, audits, orders, tenant, metrics, ct);
             }
-
-            var device = await db.Devices
-                .SingleOrDefaultAsync(candidate => candidate.Id == request.DeviceId, ct);
-
-            if (device is null || device.UserId != tenant.UserId)
+            finally
             {
-                return Problems.Refuse(
-                    StatusCodes.Status404NotFound,
-                    "That device is not registered to you.",
-                    "sync.push.deviceUnknown");
+                metrics.PushObserved(
+                    tenant.TenantId, request.Mutations.Count, Stopwatch.GetElapsedTime(started));
             }
-
-            if (device.DeactivatedBecause == DeactivationReason.Compromised)
-            {
-                return Problems.Refuse(
-                    StatusCodes.Status403Forbidden,
-                    "This device was reported lost or stolen and cannot send work.",
-                    "sync.push.deviceCompromised");
-            }
-
-            var results = new List<MutationResult>(request.Mutations.Count);
-
-            foreach (var mutation in request.Mutations)
-            {
-                // Asked first, every time. A retry is answered with what happened the first time
-                // rather than re-applied — exactly-once effect over at-least-once delivery.
-                if (await ledger.FindAsync(device.Id, mutation.MutationId, ct) is { } prior)
-                {
-                    results.Add(MutationResult.From(mutation.MutationId, prior));
-                    continue;
-                }
-
-                var outcome = await ApplyAsync(
-                    mutation, visits, journeys, audits, orders, tenant.UserId, ct);
-
-                ledger.Record(device.Id, mutation.MutationId, outcome);
-                results.Add(MutationResult.From(mutation.MutationId, outcome));
-            }
-
-            await db.SaveChangesAsync(ct);
-
-            return Results.Ok(new PushResponse(results));
         }).RequireAuthorization();
+    }
+
+    private static async Task<IResult> PushAsync(
+        PushRequest request,
+        SyncDbContext db,
+        IMutationLedger ledger,
+        IVisitIngest visits,
+        IJourneyIngest journeys,
+        IAuditIngest audits,
+        IOrderIngest orders,
+        ITenantContext tenant,
+        SyncMetrics metrics,
+        CancellationToken ct)
+    {
+        if (request.Mutations.Count > MaximumBatch)
+        {
+            return Problems.BadRequest(
+                "mutations",
+                $"A push carries at most {MaximumBatch} mutations; split the batch.",
+                "sync.push.batchTooLarge");
+        }
+
+        var device = await db.Devices
+            .SingleOrDefaultAsync(candidate => candidate.Id == request.DeviceId, ct);
+
+        if (device is null || device.UserId != tenant.UserId)
+        {
+            return Problems.Refuse(
+                StatusCodes.Status404NotFound,
+                "That device is not registered to you.",
+                "sync.push.deviceUnknown");
+        }
+
+        if (device.DeactivatedBecause == DeactivationReason.Compromised)
+        {
+            return Problems.Refuse(
+                StatusCodes.Status403Forbidden,
+                "This device was reported lost or stolen and cannot send work.",
+                "sync.push.deviceCompromised");
+        }
+
+        var results = new List<MutationResult>(request.Mutations.Count);
+
+        foreach (var mutation in request.Mutations)
+        {
+            // Asked first, every time. A retry is answered with what happened the first time
+            // rather than re-applied — exactly-once effect over at-least-once delivery.
+            if (await ledger.FindAsync(device.Id, mutation.MutationId, ct) is { } prior)
+            {
+                results.Add(MutationResult.From(mutation.MutationId, prior));
+                continue;
+            }
+
+            var outcome = await ApplyAsync(
+                mutation, visits, journeys, audits, orders, tenant.UserId, ct);
+
+            // Counted here rather than where the refusal is decided, because a *replay* of a
+            // rejection is not a second rejection: the branch above answers from the ledger and
+            // never reaches this line, so a device retrying a doomed mutation forever moves the
+            // counter once. Otherwise the rejection rate would measure a device's retry policy.
+            if (outcome.Status == MutationStatus.Rejected)
+                metrics.MutationRejected(tenant.TenantId, outcome.ReasonCode ?? "sync.push.refused");
+
+            ledger.Record(device.Id, mutation.MutationId, outcome);
+            results.Add(MutationResult.From(mutation.MutationId, outcome));
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        return Results.Ok(new PushResponse(results));
     }
 
     /// <summary>

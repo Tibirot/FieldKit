@@ -43,6 +43,10 @@ public sealed class SyncModule : IModule
         // caller can commit them with the work they describe (W8 slice 4).
         services.AddScoped<IMutationLedger, MutationLedger>();
 
+        // Singleton, because an instrument is created once and is thread-safe. Scoped would build
+        // three per request and announce three new instruments to every listener (W13 slice 1).
+        services.AddSingleton<SyncMetrics>();
+
         /*
          * Photo storage (`OFF-08`, W11 slice 12a).
          *
