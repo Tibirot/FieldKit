@@ -10,6 +10,9 @@
   <ItemGroup>
     <PackageReference Include="coverlet.collector" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <!-- A real host, so `OutboxDispatcherTests` starts the hosted service the way production does
+         rather than calling the loop it is testing (W13 slice 3). -->
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="xunit" />

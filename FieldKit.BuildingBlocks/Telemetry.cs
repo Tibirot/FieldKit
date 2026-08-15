@@ -73,6 +73,15 @@ public static class Telemetry
         /// <summary>An <c>ADR-0012</c> refusal code. A closed vocabulary, never a sentence.</summary>
         public const string Reason = "fieldkit.reason";
 
+        /// <summary>
+        /// Which module a measurement is about — one per <c>ModuleDbContext</c> in the solution.
+        /// </summary>
+        /// <remarks>
+        /// Bounded by the same test as <see cref="Tenant"/>, and more obviously: the value set is a
+        /// list of projects, and adding to it is a pull request rather than a customer signing up.
+        /// </remarks>
+        public const string Module = "fieldkit.module";
+
         /*
          * Below this line: span-only. Every one of them is unbounded, which is exactly why they are
          * here rather than on an instrument — a unique value costs one trace, and being able to
