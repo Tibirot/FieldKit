@@ -113,7 +113,7 @@ export function SectionPanel() {
       aria-label={t(`items.${here.item.key}`)}
       // One shape at every width (W12½ slice 6), for the reason the rail gives: the drawer is what
       // changes below `md`, not the column inside it.
-      className="flex w-48 shrink-0 flex-col gap-1 border-r border-border bg-background p-3 md:h-dvh"
+      className="flex w-48 shrink-0 flex-col gap-1 overflow-y-auto border-r border-border bg-background p-3 md:h-full"
     >
       <span className="px-2.5 pb-2 text-sm font-semibold">{t(`items.${here.item.key}`)}</span>
 

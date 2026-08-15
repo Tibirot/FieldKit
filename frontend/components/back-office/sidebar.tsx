@@ -120,7 +120,7 @@ export function Sidebar({ workspace }: { workspace: string | null }) {
        * column above, which is two layouts to keep working; the drawer means the column is the only
        * one, and what changes with the breakpoint is where the container puts it.
        */
-      className="flex w-[68px] shrink-0 flex-col gap-1 border-r border-border bg-muted/40 p-2 md:h-dvh"
+      className="flex w-[68px] shrink-0 flex-col gap-1 overflow-y-auto border-r border-border bg-muted/40 p-2 md:h-full"
     >
       {/*
         The mark keeps the workspace in its tooltip rather than beside it. 68px has no room for a

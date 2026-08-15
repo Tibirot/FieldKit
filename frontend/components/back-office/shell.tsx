@@ -97,7 +97,24 @@ function BackOffice({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryProvider>
-      <div className="flex min-h-dvh flex-col md:flex-row">
+      {/*
+        **A shell of exactly one viewport, with the content column as the scroller.**
+
+        It was `min-h-dvh` with the *page* scrolling, and that left the rail and the panel — both
+        `h-dvh` — ending at 800px on a 2,400px outlet table. Scroll past the first screenful and the
+        navigation is simply gone: the left 260px becomes empty page, and the row at that boundary
+        reads as floating, which is how this was noticed.
+
+        `position: sticky` is the usual answer and does not work here. `globals.css` sets
+        `overflow-x: hidden` on `html, body`, which makes `body` a scroll container — so a sticky
+        descendant sticks to *body's* scrollport, and body never scrolls. Fixing that would mean
+        unpicking a rule that exists to stop horizontal overflow.
+
+        So the chrome is a fixed-height row and the content scrolls inside it, which is what a
+        console with a permanent rail wants anyway: the navigation is reachable from the bottom of a
+        long table without scrolling back up to find it.
+      */}
+      <div className="flex h-dvh flex-col md:flex-row">
         {/*
           The mobile bar, and the only thing on this screen that is *not* also on the desktop one.
           The back office is desktop-first (ADR-0004), so this is the "works on a phone" bar rather
@@ -167,7 +184,12 @@ function BackOffice({ children }: { children: React.ReactNode }) {
           tabbing past the last screen in the panel walks into the sign-out button and the table
           behind, both invisible. The backdrop stops a mouse; only this stops a keyboard.
         */}
-        <div className="flex min-w-0 flex-1 flex-col" inert={open}>
+        {/*
+          The scroller. `min-h-0` because a flex item's default `min-height: auto` refuses to shrink
+          below its content — without it this column is as tall as the table and `overflow-y` never
+          has anything to do, which is the same bug one level in.
+        */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto" inert={open}>
           <header className="flex items-center justify-end gap-3 border-b border-border px-4 py-3 md:px-6">
             <ThemeToggle />
             <Button variant="outline" size="sm" onClick={() => void signOut()}>
