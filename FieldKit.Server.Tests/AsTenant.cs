@@ -29,11 +29,18 @@ namespace FieldKit.Server.Tests;
 /// <c>AsyncLocal</c>, so setting it here reaches the scope's services and nothing outside this call.
 /// </para>
 /// <para>
-/// <b>This is a file rather than a third copy.</b> <c>AuditIngestTests</c> wrote it in W10,
+/// <b>This is a file rather than another copy.</b> <c>AuditIngestTests</c> wrote it in W10,
 /// <c>OrderIngestTests</c> copied it in W11 and left a note naming the extraction as due at the next
-/// caller, and W12 slice 1 is that caller. Copied a third time it would be four places to fix when
-/// the tenant context changes shape — and the whole point of the harness is that it stays honest
-/// about which context the server uses.
+/// caller, and W12 slice 1 was that caller.
+/// </para>
+/// <para>
+/// <b>Correction, W12 slice 2c: there were more copies than that note found.</b> Slice 1 followed
+/// <c>OrderIngestTests</c>' pointer, extracted the two files it named, and said so — but
+/// <c>OrderRejectionTests</c>, <c>OrderRepriceTests</c>, <c>PhotoConfirmTests</c>,
+/// <c>PricingServiceTests</c> and <c>SyncPullOrderTests</c> each carry one too, and two of those had
+/// already dropped the <c>token</c> parameter. Following a comment is not the same as searching, and
+/// the comment was written before four of the copies existed. Folding them in is a mechanical change
+/// of its own and does not belong in a slice about order value; new callers use this file.
 /// </para>
 /// </remarks>
 public static class AsTenant

@@ -119,7 +119,7 @@ say "→ reporting" without a reporting module existing. The headline KPIs:
 | Coverage / visit compliance (planned vs. actual, frequency adherence) | Journey, Visit |
 | Strike rate (productive visits ÷ visits) | Visit, Order |
 | Perfect-store score & pillar breakdown | Audit |
-| Order value / lines / promotion usage | Order |
+| Order value / lines / ~~promotion usage~~ | Order |
 | Outlet / territory health | Outlets, Organization |
 
 Operational dashboards only — no OLAP/warehouse ([non-goal](#6-scope--non-goals)). Richer
@@ -134,7 +134,15 @@ metrics and custom KPIs land in Phase 3–4 ([roadmap](../roadmap.md)).
 >
 > `IVisitQuery` landed in W12 slice 1 and answers the first aggregate — visits counted by outcome
 > over a set of shops and a window, which is the strike rate's numerator and denominator and half of
-> coverage. The other three aggregates are slice 2.
+> coverage. The other three followed in slices 2a–2c: coverage's denominator from Journey and its
+> numerator from Visit, perfect store from Audit, order value from Order.
+>
+> **Promotion usage is struck through above because it cannot be reported.** Building slice 2c found
+> that an `OrderLine` records what it cost and **not which promotion made it cost that** — the device
+> applies one and sends the net. It is not recoverable by arithmetic either: `quantity × unit price`
+> exceeding the line total looks like a discount, but both sides are rounded independently, so a line
+> rounded down would report one nobody gave. The line has to carry the promotion's identity before
+> this row can come back, which is a schema change and a slice of its own.
 >
 > Every KPI in the table is an aggregate over a territory and a period. Composing one from per-record
 > reads means an endpoint fetching a month of visits and adding them up in memory, which works on a
