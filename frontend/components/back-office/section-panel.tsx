@@ -13,6 +13,7 @@ import {
   Map,
   Package,
   Repeat,
+  ShoppingCart,
   SlidersHorizontal,
   Store,
   Tag,
@@ -64,6 +65,7 @@ import { cn } from "@/lib/utils";
 const ICONS: Record<NavScreenKey, React.ComponentType<{ className?: string }>> = {
   overview: LayoutDashboard,
   visitList: ClipboardCheck,
+  orderQueue: ShoppingCart,
   journeyPlans: Map,
   callFrequency: Repeat,
   workingCalendars: CalendarDays,

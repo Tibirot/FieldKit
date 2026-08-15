@@ -229,6 +229,35 @@ public interface IOrderQuery
         Guid outletId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// The orders a supervisor works through, newest first — the queue (<c>ORD-09</c>) — W12 slice 6a.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Bounded, and the bound is in the signature rather than left to the caller's discipline.</b>
+    /// W12 slice 5a found <c>GET /api/visits</c> unbounded for exactly this reason — its only caller
+    /// always passed a filter, so the tenant-wide question was never asked until a back-office screen
+    /// asked it. This read exists <i>because</i> a screen wants the tenant-wide question, so it
+    /// carries its ceiling from the first line.
+    /// </para>
+    /// <para>
+    /// <b><paramref name="status"/> is optional, and the queue's default is not "everything".</b> The
+    /// job is working through what has arrived and not been dealt with, which is
+    /// <c>OrderStatus.Submitted</c> — but a supervisor also wants to see what they rejected last
+    /// week, so the filter is a parameter rather than a rule baked into the read.
+    /// </para>
+    /// <para>
+    /// No cursor. The honest answer to "I need last March" is a date window, and it lands when a
+    /// screen asks for one — the same call <c>VisitEndpoints.MaximumVisits</c> made.
+    /// </para>
+    /// </remarks>
+    /// <param name="status">Only orders in this state, or every state when null.</param>
+    /// <param name="limit">At most this many, clamped by the implementation's own ceiling.</param>
+    Task<IReadOnlyList<OrderDescriptor>> RecentAsync(
+        OrderStatus? status = null,
+        int limit = 100,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Order capture across these shops over a closed date range — the KPI, not the orders.
     /// </summary>
     /// <remarks>

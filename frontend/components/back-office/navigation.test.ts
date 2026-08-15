@@ -12,6 +12,7 @@ import {
   NAVIGATION,
   permits,
   visibleScreens,
+  type NavItem,
 } from "@/components/back-office/navigation";
 import { routing } from "@/i18n/routing";
 
@@ -44,13 +45,38 @@ const holding = (...granted: readonly string[]) => (permission: string) =>
 const holdingAllBut = (...withheld: readonly string[]) =>
   holding(...ALL_PERMISSIONS.filter((permission) => !withheld.includes(permission)));
 
+/**
+ * A scheduled item, synthesised rather than found.
+ *
+ * **The product has none as of W12 slice 6a** — the orders queue took the last badge off the rail.
+ * The behaviour is still the nav's, and W13 will schedule something again, so the tests that pin it
+ * use this instead of hunting `NAVIGATION` for an instance that no longer exists.
+ *
+ * Typed as `NavItem` so the union still checks it: an item with neither `screens` nor `soon` is the
+ * one state the model refuses, and this fixture cannot drift into it without a compile error.
+ */
+const SCHEDULED: NavItem = { key: "dashboard", soon: "week12" };
+
 describe("back-office navigation", () => {
-  it("names every destination the product will have, not just the built ones", () => {
-    // The decision this encodes: a nav listing only what exists misrepresents the product, and live
-    // links to nothing would lie. Both halves must be present for the disabled-item design to mean
-    // anything — a nav that quietly became all-built would pass a weaker assertion.
+  it("names every destination as either built or scheduled, and never as neither", () => {
+    /*
+     * **This assertion changed shape in W12 slice 6a, because the product ran out of unbuilt
+     * screens.** It used to require that *some* item was scheduled — the disabled-item design is
+     * only meaningful when something is disabled — and that was true from W1 until the orders queue
+     * landed and took the last badge off the rail.
+     *
+     * Requiring a scheduled item now would be requiring the product to be unfinished. What survives
+     * is the invariant the type already enforces and this pins from the outside: every item is one
+     * or the other, and none is neither. The *rendering* of a scheduled item is still tested — see
+     * the synthetic one below and in `sidebar.test.tsx` — so the behaviour outlives its last real
+     * instance and is ready for whatever W13 schedules.
+     */
+    expect(items).not.toHaveLength(0);
     expect(items.filter((item) => item.screens)).not.toHaveLength(0);
-    expect(items.filter((item) => item.soon)).not.toHaveLength(0);
+
+    for (const item of items) {
+      expect(Boolean(item.screens) !== Boolean(item.soon)).toBe(true);
+    }
   });
 
   it("lands somewhere that exists", () => {
@@ -118,7 +144,7 @@ describe("back-office navigation", () => {
     // A scheduled item has no screens, so nothing can be inside it. That used to need a guard
     // against an undefined `href`; now it falls out of the shape, and this pins the behaviour rather
     // than the guard.
-    const scheduled = items.find((item) => item.soon !== undefined)!;
+    const scheduled = SCHEDULED;
 
     expect(coversPath(scheduled, "/outlets")).toBe(false);
     expect(coversPath(scheduled, "/")).toBe(false);
@@ -275,7 +301,7 @@ describe("the screens inside a section", () => {
 
   it("hides a section only when every screen in it is hidden", () => {
     const outlets = items.find((item) => item.key === "outlets")!;
-    const scheduled = items.find((item) => item.soon !== undefined)!;
+    const scheduled = SCHEDULED;
 
     // Four screens, four different permissions: holding any one of them is a reason to draw Outlets.
     expect(isSectionVisible(outlets, holding("channel:read"))).toBe(true);

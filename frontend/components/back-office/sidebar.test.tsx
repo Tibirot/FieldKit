@@ -1,13 +1,11 @@
 // @vitest-environment jsdom
 
-import { screen, within } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AuthContextValue } from "@/components/auth-provider";
-import { NAVIGATION } from "@/components/back-office/navigation";
 import { Sidebar } from "@/components/back-office/sidebar";
 import { fetchIdentity } from "@/lib/api/identity";
-import messages from "@/messages/en.json";
 import { render } from "@/test/render";
 
 // The nav asks the API what this caller may do, which needs somebody signed in to ask about.
@@ -31,26 +29,19 @@ vi.mock("@/i18n/navigation", () => ({
   usePathname: () => "/outlets",
 }));
 
-/**
- * Whichever item is still scheduled, rather than a hard-coded one.
+/*
+ * **The four disabled-item tests moved out in W12 slice 6a**, to `sidebar-scheduled.test.tsx`.
  *
- * Three tests in this file used to name the Dashboard, and W12 slice 4 shipping it broke all three
- * at once. A test about "an item that is not built yet" cannot name one: building it is the plan.
+ * They looked for a scheduled item in the real `NAVIGATION` and there is no longer one: the orders
+ * queue was the last unbuilt screen, so building it took the final badge off the rail and failed
+ * all four at once. The behaviour is a promise about future weeks rather than a fact about this
+ * one, so it now runs against a mocked nav that still has a scheduled item, and this file keeps
+ * testing the rail against the product's own data.
+ *
+ * Slice 4 had already made those tests *derive* their subject instead of naming it, which bought
+ * two slices; the note there said it "survives every screen landing except the last". This was the
+ * last.
  */
-function scheduled() {
-  return NAVIGATION.flatMap((group) => group.items).find((item) => item.soon);
-}
-
-/** The scheduled item's row, once the nav has settled. */
-async function scheduledItemAsync(): Promise<HTMLElement> {
-  const item = scheduled();
-
-  expect(item).toBeDefined();
-
-  const label = await screen.findByText(messages.Nav.items[item!.key]);
-
-  return label.closest("[aria-disabled]") as HTMLElement;
-}
 
 /** Signs the caller in with exactly these permissions and nothing else. */
 function allow(...permissions: string[]) {
@@ -114,29 +105,6 @@ describe("<Sidebar>", () => {
     expect(screen.getByRole("separator", { name: "Master data" })).toBeTruthy();
   });
 
-  it("keeps the ungrouped scheduled items when a caller may read nothing at all", async () => {
-    // Every built item is hidden, so both dividers go — but the block at the top has no group and
-    // holds only scheduled screens, which are a fact about the product rather than about the caller.
-    // A fix that dropped whole groups too eagerly would empty the rail entirely.
-    allow();
-
-    render(<Sidebar workspace="fieldkit-dev" />);
-
-    /*
-     * Found by the item rather than by its badge. Several sections share a week, so
-     * `getByTitle("W12")` matches more than one and throws — the badge is not a unique handle and
-     * never was; it only looked like one while exactly one item wore it.
-     *
-     * **Derived rather than named**, since W12 slice 4 built the Dashboard and broke the three tests
-     * in this file that used it as their example of a scheduled item. That is the same trap the
-     * badge test below already escaped, and this is the rest of the file catching up: an assertion
-     * about "a scheduled item" must not name one, because shipping it is the goal.
-     */
-    const item = await scheduledItemAsync();
-
-    expect(within(item).getByText(messages.Nav.soon[scheduled()!.soon!])).toBeTruthy();
-    expect(screen.queryByRole("separator")).toBeNull();
-  });
 
   it("shows a page holding a section this caller may read", async () => {
     // Users & roles holds two sections behind different permissions. Someone who may read roles has
@@ -149,53 +117,8 @@ describe("<Sidebar>", () => {
     expect(await screen.findByRole("link", { name: /users/i })).toBeTruthy();
   });
 
-  it("shows a scheduled screen to everyone, whatever they may read", async () => {
-    // The disabled-with-a-week-badge item is about the product's shape, so it does not depend on the
-    // caller at all.
-    allow();
 
-    // Whichever item is still scheduled, rather than a hard-coded one. This test named Journeys and
-    // W7 until W7 built it — so shipping the screen the badge was advertising broke the test that
-    // proved badges work. Derived, it survives every screen landing except the last.
-    const item = scheduled();
 
-    expect(item).toBeDefined();
-
-    render(<Sidebar workspace="fieldkit-dev" />);
-
-    // Scoped to the item, not looked up by its badge — several sections can share a week, and the
-    // badge stopped being a unique handle the moment two did.
-    const row = screen.getByText(messages.Nav.items[item!.key]).closest("[aria-disabled]")!;
-
-    expect(within(row as HTMLElement).getByText(messages.Nav.soon[item!.soon!])).toBeTruthy();
-  });
-
-  it("does not offer a link to a screen that does not exist", () => {
-    // The load-bearing assertion of the whole disabled-nav design. An `<a>` with no href, or a
-    // button that does nothing, would look identical in a screenshot and be reachable by keyboard —
-    // a person tabbing through the sidebar would land on it and press Enter for nothing.
-    render(<Sidebar workspace="fieldkit-dev" />);
-
-    const name = messages.Nav.items[scheduled()!.key];
-
-    expect(screen.queryByRole("link", { name })).toBeNull();
-
-    const item = screen.getByText(name).closest("[aria-disabled]");
-
-    expect(item).not.toBeNull();
-    expect(item!.hasAttribute("href")).toBe(false);
-    expect((item as HTMLElement).tabIndex).toBeLessThan(0);
-  });
-
-  it("says when an unbuilt screen arrives, in text rather than only a tooltip", () => {
-    // A `title` alone is invisible to a keyboard and to a screen reader. Someone who cannot see the
-    // hover state should still learn the screen is coming rather than broken.
-    render(<Sidebar workspace="fieldkit-dev" />);
-
-    const item = screen.getByText(messages.Nav.items[scheduled()!.key]).closest("[aria-disabled]")!;
-
-    expect(within(item as HTMLElement).getByText(messages.Nav.soon[scheduled()!.soon!])).toBeTruthy();
-  });
 
   it("names the workspace, and says so plainly when there is not one", () => {
     /*

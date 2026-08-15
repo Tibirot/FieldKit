@@ -101,7 +101,8 @@
       "surveys": "Surveys",
       "userList": "Users & roles",
       "overview": "Overview",
-      "visitList": "Visits"
+      "visitList": "Visits",
+      "orderQueue": "Orders"
     },
     "openMenu": "Menu",
     "closeMenu": "Close",
@@ -212,6 +213,36 @@
       "Availability": "Availability",
       "ShareOfShelf": "Share of shelf",
       "PriceCompliance": "Price compliance"
+    }
+  },
+  "Orders": {
+    "title": "Orders",
+    "intro": "The orders waiting on a decision, and the ones already refused.",
+    "loading": "Loading orders…",
+    "failed": "Orders could not be loaded.",
+    "forbidden": "You do not have permission to view orders.",
+    "statusLabel": "Show",
+    "allStatuses": "All orders",
+    "queueEmpty": "Nothing is waiting on a decision.",
+    "empty": "No orders here.",
+    "unknownOutlet": "Unknown outlet",
+    "lines": "{lines, plural, one {# line} other {# lines}}",
+    "disputed": "The server priced this at {server} — the order stands as the rep and the shop agreed it.",
+    "rejected": "Rejected — {reason}. {note}",
+    "noNote": "No note.",
+    "status": {
+      "Draft": "Draft",
+      "Submitted": "Waiting",
+      "Accepted": "Accepted",
+      "Rejected": "Rejected",
+      "Cancelled": "Cancelled"
+    },
+    "reason": {
+      "OffAssortment": "off assortment",
+      "BelowMinimum": "below the order minimum",
+      "OutletClosed": "the outlet was closed",
+      "CreditHold": "the account is on credit hold",
+      "Other": "other"
     }
   },
   "Theme": {
