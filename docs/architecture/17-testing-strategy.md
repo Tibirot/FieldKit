@@ -58,6 +58,19 @@ flowchart TB
   - jsdom is **opt-in per file** (`@vitest-environment jsdom`). Most of this suite asserts over pure
     modules and has no use for a DOM; making every file pay for one costs seconds on a suite that
     runs in single digits.
+  - **jsdom has a DOM and no layout** — no heights, no scrollports, no `position: sticky` — so a
+    whole class of defect is invisible to it. A test that renders a shell cannot tell a scrolling
+    page from a scrolling column, and one written as though it could is worse than none.
+    > Where the rule still matters, state it **at the source**, as
+    > [`globals.test.ts`](../../frontend/app/globals.test.ts) does for cascade layers and
+    > [`shell-layout.test.ts`](../../frontend/components/back-office/shell-layout.test.ts) does for
+    > the back office's scroll contract. Three defects now share the species — *shipped, and
+    > invisible to a build, a type-check and a lint run* — and all three were found by eye. The
+    > guard's own comment must say what it cannot check; that it *looks* right is §6's Playwright
+    > job. A source guard also has to strip comments before matching, which sounds fussy and is
+    > not: a file that explains the defect it was fixed for contains the very string the guard
+    > forbids, and a guard that fails on its own documentation teaches the next person to delete
+    > the explanation.
 
 ## 3. Integration tests (some) — real Postgres
 

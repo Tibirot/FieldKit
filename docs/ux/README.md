@@ -122,7 +122,7 @@ Three decisions taken with it:
   product; a full nav with live links to nothing would lie. A visibly disabled item does neither, and
   it shows the shape of what is coming — which is the honest version for a portfolio.
 - **No tenant slug in the URL.** The wireframes show `app.fieldkit.io/veridian/dashboard`, but the
-  tenant comes from the token's realm ([ADR-0008](../architecture/adr/0008-keycloak-identity.md)) and
+  tenant comes from the token's realm ([ADR-0008](../architecture/adr/0008-authentication-and-multitenancy.md)) and
   a slug would need a slug→realm mapping that buys nothing. Routes stay `/[locale]/…`.
 - **Primary territory is a real server-side field, not a client-side join.** It needs
   `ITerritoryDirectory` — Organization's contract for the fact it owns — which lands with the outlets
@@ -157,12 +157,15 @@ and what changed is the size of the thing it was reasoning about — see the nex
 checked. What is missing is a level: the sidebar has one, and of the **seventeen** screens that
 should be navigation items, **six** are.
 
-| | |
-|---|---|
-| Screens in the app | 34 — 28 back office, 6 field |
-| Reachable from a navigation item | 6 |
-| Workspaces reachable only from a link row | 11 |
-| Record-detail screens whose breadcrumb is text, not links | 11 |
+| | Before W12½ | After |
+|---|---|---|
+| Screens in the app | 34 — 28 back office, 6 field | 35 — 28 back office, 7 field |
+| Reachable from a navigation item | 6 | **17** |
+| Workspaces reachable only from a link row | 11 | 0 |
+| Record-detail screens whose breadcrumb is text, not links | 11 | 0 |
+| Back-office chrome / clear for the widest table | 224px / — | 254px / 963px |
+| Mobile chrome | 165px | 45px |
+| Hand-written crumb paths, per locale | 27 | 8 leaves |
 
 The link row was the right answer for one section with two pages. By W12 there are nine sections,
 four near-identical `*-actions.tsx` rows, and **two navigation items that point *into* themselves**
@@ -189,6 +192,25 @@ the outlet list at **864px** of max-content, against **963px** available once th
 the scrollbar come off a 1280 laptop — about 100px spare, and it never has to wrap. The journey plan
 grid is the one thing that cannot fit at any chrome width, and already scrolls horizontally by
 design, so the rail costs it one visible day rather than correctness.
+
+## The field app's navigation
+
+**It had none.** Six screens, two links in the header — the wordmark home and the device page — and
+everything else a linear flow leaving through `router.replace`. That serves the golden path and
+strands anyone who steps off it.
+
+**A bottom bar rather than a drawer**, unlike the back office, because three destinations do not need
+a menu and a rep works one-handed with a phone in a shop: the bottom edge is the reachable one, and a
+tap that needs a menu opened first is two taps.
+
+**Today, Outlets, Device — and not Sync.** The wireframe drew four tabs and the fourth was Sync; it
+is a status and a button (*has my work gone in*, and a way to make it go), so a tab for it would
+navigate nowhere. It stays in the header where it already lived.
+
+**Outlets is the new screen and the actual gap.** A rep needing a shop today's plan does not name had
+one door — *Add an unplanned call* — which lists only the shops **not** already planned, because that
+is the question it is asking. Right for "where could I add a call?", useless for "where is that
+shop?", so a shop planned for Thursday was unreachable on Tuesday.
 
 **The eleven detail screens already have a breadcrumb** — a `crumb` string per screen rendering
 `Master data / Products / Price lists / Scope`. It is a `<p>` with **no links in it**, which is why
