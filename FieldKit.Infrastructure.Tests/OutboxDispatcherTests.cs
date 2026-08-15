@@ -88,6 +88,32 @@ public class OutboxDispatcherTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_backlog_shows_what_is_stuck_rather_than_what_was_handled()
+    {
+        /*
+         * <b>The test above cannot tell those two apart, and sabotage proved it.</b> Reporting
+         * `processed` instead of `pending` still converges on zero once a queue drains, so "reaches
+         * zero" passes either way. The distinction only shows where the two numbers disagree — and
+         * the case that matters is exactly the one the alert exists for: a subscriber that is
+         * throwing, where nothing is ever handled and the queue never empties.
+         *
+         * So this is the alert, written as a test. A dispatcher reporting its own throughput would
+         * say **zero** here, at the moment a module has stopped delivering entirely.
+         */
+        using var host = Host(handler: new Angry());
+        using var recorded = new MeterRecorder();
+
+        await CommitAWidgetAsync(host.Services);
+        await host.StartAsync();
+
+        await Eventually(
+            () => recorded.Latest("fieldkit.outbox.backlog") == 1,
+            "the stuck message to be reported as backlog");
+
+        await host.StopAsync();
+    }
+
+    [Fact]
     public async Task Dispatch_latency_measures_the_wait_rather_than_the_work()
     {
         /*

@@ -9,8 +9,8 @@
 > Three claims below were stated in the present tense and were not yet true, each owned by a
 > [W13 slice](../delivery-plan.md#week-13--observability--security-hardening):
 >
-> - the **outbox dispatcher heartbeat** in §3 has no dispatcher to hear from — **outstanding**
->   (slice 3);
+> - the **outbox dispatcher heartbeat** in §3 had no dispatcher to hear from — **the dispatcher
+>   landed in slice 3**; the health check that listens for it is slice 5;
 > - the **`traceId` in every `ProblemDetails`** in §4 appeared nowhere in this repository —
 >   **done in slice 2**, and the claim itself was wrong as well as unbuilt: this API does not answer
 >   with `ProblemDetails`, so §4 now names the envelope that carries it;
@@ -61,8 +61,17 @@ The signals that tell you FieldKit is *working*, not just *up*:
 > **Rejections are counted once per mutation, not once per attempt.** A device that cannot fix a
 > mutation retries it until something changes, and counting the replay would turn the rejection rate
 > into a measurement of that device's retry policy.
+>
+> **The outbox trio landed in slice 3, with the dispatcher.** `backlog` is what a module is *left*
+> holding, not what the last cycle handled — the two agree whenever a queue drains and disagree
+> exactly when it matters, which is a subscriber throwing. `dispatch.latency` is the **lag** between
+> committing an event and delivering it, not the time a batch took: the first is the
+> eventual-consistency window `ADR-0006` asks a reader to accept, the second is a fact about this
+> server. `dispatch.failed` is separate from the backlog because a queue that is high from a burst
+> and one that is high from a broken handler need different answers and look identical otherwise.
 | `fieldkit.outbox.backlog` | gauge | Cross-module event health — **alertable** ([ADR-0006](adr/0006-in-process-messaging-and-outbox.md)) |
 | `fieldkit.outbox.dispatch.latency` | histogram | Eventual-consistency lag |
+| `fieldkit.outbox.dispatch.failed` | counter (by module) | A subscriber throwing, told apart from a burst |
 | `fieldkit.visits.completed` | counter (by tenant) | Business throughput |
 | `fieldkit.orders.submitted.value` | histogram | Commercial signal |
 | `fieldkit.pricing.resolve.duration` | histogram | Perf of the hot pricing path |
