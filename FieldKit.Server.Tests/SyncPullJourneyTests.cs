@@ -386,7 +386,30 @@ public class SyncPullJourneyTests(ServerFixture fixture)
         var first = await PullAsync(rep, device);
         var mine = await CallIdsAsync(admin, planId);
 
-        var call = Calls(first).First(sent => mine.Contains(sent.GetProperty("id").GetGuid()));
+        /*
+         * A call whose cycle ends **before the plan does**, and picking one deliberately is the fix
+         * for a flake this test carried from the start (found by CI on W12 slice 5a).
+         *
+         * It used to take the first call the feed happened to return. The assertion below moves the
+         * call one day past its *cycle* and expects `outsideCycle` — but `TryReschedule` checks the
+         * *plan's* window first, so a call in the last cycle, whose `movableTo` is the plan's own
+         * `ToDate`, answers `outsideWindow` instead. Both are correct refusals; only one is the one
+         * this test is about. Locally the feed's order gave an early call and it passed for months;
+         * in CI it gave a late one.
+         *
+         * The precondition is asserted rather than assumed, so if a future plan shape leaves no such
+         * call the test says *that* rather than failing on a confusing refusal code.
+         */
+        var candidates = Calls(first)
+            .Where(sent => mine.Contains(sent.GetProperty("id").GetGuid()))
+            .Where(sent => Movable(sent).To is { } movableTo && movableTo < To)
+            .ToList();
+
+        Assert.True(
+            candidates.Count > 0,
+            "no call has a cycle ending before the plan does, so the cycle bound cannot be told from the plan's");
+
+        var call = candidates[0];
 
         var id = call.GetProperty("id").GetGuid();
         var window = Movable(call);
