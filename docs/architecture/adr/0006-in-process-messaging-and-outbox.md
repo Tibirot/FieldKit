@@ -39,6 +39,16 @@ failure, and it participates in the **same transaction**.
   and the event persist, or neither does. **Dual-write eliminated.**
 - A background **outbox dispatcher** polls unpublished rows and invokes in-process handlers,
   marking each row processed. Handlers are **idempotent** and dispatch is **at-least-once**.
+
+  > **Status, 2026-08 (W13 audit): the polling half of this is not built.**
+  > [`OutboxProcessor`](../../../FieldKit.Infrastructure/Outbox/OutboxProcessor.cs) does everything
+  > the paragraph above describes — claim, dispatch, mark — and **nothing calls it at runtime**: it
+  > is registered as a singleton and invoked only by `OutboxIntegrationTests`. Events reach their
+  > outbox tables and stay there. Nothing is currently mis-delivered, because no module implements
+  > `IIntegrationEventHandler` yet, so there is nothing on the other end to starve; the absence
+  > becomes a silent no-op the moment somebody writes the first handler. **W13 slice 3** builds the
+  > hosted service. Recorded here rather than only in the plan, because this file is where a reader
+  > goes to learn what the outbox does.
 - Handlers run in their **own** transaction (a subscriber failure never rolls back the
   publisher's committed work).
 - **Under multiple server replicas** each runs a dispatcher, so polling claims rows with
