@@ -252,6 +252,31 @@ one-way publish legible rather than merely enforced:
   on hidden-versus-disabled. It is reached from an Admin **Configuration** nav item that the
   wireframes do not draw — the reasoning is in that same note.
 
+### 6.5 Authoring visit workflows (not yet built)
+
+`CFG-03` is a `Must` and is **half built**, and this section exists because nothing said so. The
+server side is complete and has been since W7 slice 6: `GET/PUT/DELETE
+/api/config/visit-workflows/{channelId}` behind `config:read` / `config:write`, row-versioned, on the
+change feed the device pulls, backing `IVisitWorkflow` and `IVisitWorkflowFeed`. What does not exist
+is **the screen** — there is no `/configuration/visit-workflows` route and no navigation item, so a
+tenant's per-channel step sequences are authored by HTTP request and by nothing an administrator can
+press. `F2` above describes the builder as though both halves were there; they are not.
+
+**How it stayed invisible.** Two documents disagreed and neither was read against the other: the
+[roadmap](../roadmap.md#phase-3--in-store-depth-audits-and-orders-complete-with-one-requirement-open--cfg-03)
+scheduled the step builder for W12, and [W12's decomposition](../delivery-plan.md#week-12--dashboards--config-builder-ui)
+declared the config-builder bullet already satisfied by the weights screen and the survey editor. Both
+statements were written down; only one could be true.
+
+**And the gate that ought to have caught it cannot.**
+[`check-reachability.mjs`](../../scripts/check-reachability.mjs) asserts that every back-office route
+has a navigation item and every navigation item a route — an endpoint with no route at all is outside
+what it can see. That is worth knowing before the next capability is called finished: the gate proves
+nothing built is *unreachable*, not that everything specified is *built*.
+
+**No week is assigned here**, deliberately. Naming a second date in the documents that got the first
+one wrong is the mechanism by which it slipped, not the fix for it.
+
 ## 7. Offline behavior
 
 All config is **reference data**: pulled (territory/tenant-scoped) and read-only on device, applied
