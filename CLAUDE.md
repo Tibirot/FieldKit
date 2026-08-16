@@ -43,10 +43,11 @@ The system is orchestrated by Aspire: `dotnet run --project FieldKit.AppHost`. T
 (from `frontend/`). Cross-language parity vectors run in their own CI job — a change to pricing,
 tax or the perfect-store score has to pass in **both** languages.
 
-**Phases 0–2 are complete and the system is deployed** ([runbook](docs/engineering/deploying.md)).
-Phase 3 is in flight. The [delivery plan](docs/delivery-plan.md) is the authority on what each week
-actually shipped — including where it departed from the plan — and is more current than any summary,
-including this one.
+**Phases 0–3 are complete and the system is deployed** ([runbook](docs/engineering/deploying.md)).
+Phase 4 is in flight: W13 landed, W14 (E2E + seed data) and W15 (deploy + case study) remain, and one
+Phase-3 requirement is open — `CFG-03`, the visit-workflow builder, has an API and no screen. The
+[delivery plan](docs/delivery-plan.md) is the authority on what each week actually shipped —
+including where it departed from the plan — and is more current than any summary, including this one.
 
 ## Working conventions
 

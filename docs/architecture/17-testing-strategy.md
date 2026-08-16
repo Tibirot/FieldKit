@@ -183,11 +183,20 @@ and visual regression beyond a smoke level. Effort concentrates on the correctne
 
 ## 8. CI
 
-GitHub Actions on every PR: **build → unit → architecture tests → integration (Testcontainers) →
-E2E (golden path)**. Architecture and tenant-isolation tests are **required checks** — a boundary
-or isolation regression cannot merge ([roadmap Phase 0](../roadmap.md)).
+GitHub Actions on every PR, in **four jobs**: `dotnet` (build → unit → architecture tests →
+tenant-isolation → integration on Testcontainers), `frontend` (lint → typecheck → production build →
+Vitest, with the service-worker artefact read back), `parity` (the C#≡TS vectors, both languages), and
+`reachability` (nothing built that nobody can reach). Architecture and tenant-isolation tests are
+**required checks** — a boundary or isolation regression cannot merge ([roadmap Phase 0](../roadmap.md)).
 
-**Two of those steps check their own output, and one used not to.** The frontend job has always run
+> **This sentence used to end "→ E2E (golden path)", and no such job has ever run.** §6's Playwright
+> suite is W14 work and is not built: there is no Playwright dependency, no spec file, and no E2E job
+> in [`ci.yml`](../../.github/workflows/ci.yml). The claim sat in the present tense beside four that
+> were true, which is the species of defect [W13 slice 0](../delivery-plan.md#week-13--observability--security-hardening)
+> found four times in one week — a control that exists only in the prose describing it. §6 was always
+> written as the plan and stays as it is; this section is where it read as a fact.
+
+**Two of those jobs check their own output, and one used not to.** The frontend job has always run
 the production build; [`check-service-worker.mjs`](../../frontend/scripts/check-service-worker.mjs)
 (W12) is what reads it back — `public/sw.js` exists only in a production build, so before this the
 offline shell was built on every PR and inspected on none. It checks the **artefact**: placeholders
