@@ -37,7 +37,7 @@ sliced into **~1-week work packages**, each sized to a part-time solo cadence.
 | 12 | Dashboards + config-builder UI | 3 | **Full golden path offline → reconcile** (Phase 3 demo) |
 | 12½ | Navigation & theme redesign | 3 | Every screen has a nav item; the theme is a choice |
 | 13 | Observability + security hardening | 4 | Domain metrics in dashboard; isolation tests green |
-| 14 | E2E + seed data + polish | 4 | Playwright golden path (online + offline) green in CI |
+| 14 ⚠︎ | E2E + seed data + the workflow builder | 4 | Playwright golden path (online + offline) green in CI; a channel's steps authored on screen |
 | 15 | Deploy to ACA + case-study | 4 | **Clickable live demo**; README sells it |
 
 **Seventeen rows for a fifteen-week plan.** `W11½` and `W12½` were inserted mid-flight — one to clear
@@ -1586,13 +1586,29 @@ authorization rule, and both will say so in their PR rather than assuming the ex
 are exported *definitions* rather than a hosted Grafana — the Aspire dashboard renders these in dev,
 and a real backend arrives with W15's deploy.
 
-### Week 14 · E2E + seed data + polish
+### Week 14 · E2E + seed data + the workflow builder ⚠︎
 - Playwright E2E: the golden path **online and offline** (network toggling) + a tenant-isolation E2E ([testing strategy](architecture/17-testing-strategy.md)).
 - Polished seed/demo data (believable Veridian tenant) for a live demo — loaded **through the bulk
   import** (`OUT-05`), so the demo data proves the path a customer would actually use.
+- **The per-channel visit-workflow builder** (`CFG-03`) — the screen behind
+  `GET/PUT/DELETE /api/config/visit-workflows/{channelId}`, which has had no caller since W7 slice 6
+  ([configuration §6.5](product/14-configuration.md#65-authoring-visit-workflows-not-yet-built)).
 - UI polish: accessibility, empty/error states, i18n coverage.
 
-**Done when:** E2E green in CI; demo data loads; the app feels finished.
+**Done when:** E2E green in CI; demo data loads; an administrator can author a channel's visit steps
+without a REST client; the app feels finished.
+
+**⚠︎ added when `CFG-03` was scheduled into it**, and the badge is the honest part of that decision.
+This week already carried the E2E suite — the hardest testing work in the plan, since the offline half
+means driving network conditions — plus seed data and a polish pass. A screen is not free on top of
+that, and a week that silently absorbs a fourth thing is how W11 became W11½. Decompose it with the
+builder counted as its own slice rather than as part of "polish", and expect ~1.5 weeks.
+
+**Two orderings that matter.** The builder wants to land **before** the seed data, so a believable
+tenant's workflows are authored through the screen rather than by the fixture that will be replaced —
+the same argument `OUT-05` already makes for loading outlets through the bulk import. And the golden
+path E2E walks config-driven visit steps, so it reads what this screen writes: building the screen
+first gives that test a way to arrange its fixture through the product.
 
 ### Week 15 · Deploy to ACA + case-study
 - `aspire deploy` → **Azure Container Apps**; managed Postgres + Blob + Keycloak; scale-to-zero; OTLP
@@ -1611,15 +1627,22 @@ and a real backend arrives with W15's deploy.
 
 - **Critical path** runs through the sync engine (W8). It's the highest-risk, highest-value
   package — protect its buffer; don't let W6/W7 slip into it.
-- **The ⚠︎ weeks** (W2, W4, W6, W7, W8, W9, W11) carry most of the schedule risk. If time is tight,
-  they are where a second week gets spent — plan for it rather than compressing them.
+- **The ⚠︎ weeks** (W2, W4, W6, W7, W8, W9, W11, W14) carry most of the schedule risk. If time is
+  tight, they are where a second week gets spent — plan for it rather than compressing them.
 
   This line used to say "the four ⚠︎ weeks (W2, W7, W8, W11)" while the overview table marked six,
   which is the kind of drift a plan accumulates when the table is edited and the prose is not. **W9
-  is the new one**, added when it was decomposed: it reads like a week of screens and is not. It
-  carries a parity-engine slice of the kind W6 and W7 each spent several on, two local-store
+  was the first correction**, added when it was decomposed: it reads like a week of screens and is
+  not. It carries a parity-engine slice of the kind W6 and W7 each spent several on, two local-store
   versions, and the first entity the device authors rather than copies — and it ends in the Phase 2
   demo, so it is also the week with the least room to quietly slip.
+
+  **W14 is the second, and it was badged the same day its scope grew** rather than at decomposition —
+  which is the lesson from the first correction applied rather than merely recorded. `CFG-03` was
+  scheduled into a week that already held the E2E suite, the seed data and a polish pass; a fourth
+  item arriving without the badge is how a week becomes a week-and-a-half that nobody planned for.
+  Both the table and this list were edited in the same change, since that is the precise drift the
+  paragraph above exists to describe.
 - **Demo-driven checkpoints** at W5, W9, W12, W15 are natural places to stop, record a GIF, and
   bank a portfolio-ready milestone even if later phases slip.
 - **First portfolio-viable cut** is end of **W9** (offline field round-trip). Everything after

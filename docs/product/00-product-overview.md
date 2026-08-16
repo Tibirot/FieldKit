@@ -33,7 +33,7 @@ gaps and adding modern, in-demand skills:
 | Cloud-native .NET | **.NET Aspire** orchestrating the API, front end, PostgreSQL and Keycloak with first-class observability |
 | Modern front end | **Next.js** (App Router) as an installable, **offline-first PWA** |
 | Hard distributed-systems problem | A purpose-built **offline sync engine** — local store, outbox, delta pull, idempotent push, conflict resolution |
-| Production discipline | OpenTelemetry, health checks, architecture tests, integration tests on real Postgres, cross-language parity vectors, CI/CD *(E2E is [W14](../delivery-plan.md#week-14--e2e--seed-data--polish), not yet built)* |
+| Production discipline | OpenTelemetry, health checks, architecture tests, integration tests on real Postgres, cross-language parity vectors, CI/CD *(E2E is [W14](../delivery-plan.md#week-14--e2e--seed-data--the-workflow-builder-), not yet built)* |
 
 The domain is not incidental: field sales is a genuinely offline, genuinely multi-tenant,
 genuinely rules-heavy problem. It justifies the architecture instead of decorating it.
