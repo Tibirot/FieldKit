@@ -268,9 +268,15 @@ module contract sections — the functional "what" and the technical "how" stay 
 
 **Each module is two assemblies:** `FieldKit.Modules.X` (implementation, private) and
 `FieldKit.Modules.X.Contracts` (its only public surface). IAM is the first built this way and sets
-the pattern; **Products is still a single assembly**, for the same reason Organization was until W5
-— it has no consumer yet, and `IProductCatalog` designed before Journey, Visit or Order asks for
-anything is a guess three modules would have to live with.
+the pattern.
+
+> **This paragraph used to end "Products is still a single assembly", and had been wrong since W8.**
+> It split the moment it had a consumer — `IProductChangeFeed` for the device catalogue (W8 slice 8c),
+> `IPricingService` when Order needed a price (W11 slice 2c), eight contracts by now — which is
+> exactly what the sentence said *should* happen and nobody came back to record. The registry table
+> above was right the whole time, because `ModuleRegistryTests` reads it; the prose beside it was not,
+> because nothing reads prose. **Sync is the one module that is a single assembly today**, and for the
+> original reason: nothing outside it calls it, so its public surface would be a guess.
 
 > **`IOutletClassification` grew a second dimension in W6, and the record shape is why that was
 > free.** Tax (`PRD-07`) keys a rate by `(tax class, country)`, and the country lives on the outlet's

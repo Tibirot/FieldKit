@@ -30,10 +30,10 @@ gaps and adding modern, in-demand skills:
 | Capability demonstrated | How FieldKit shows it |
 |---|---|
 | System architecture at scale | A **modular monolith** with enforced module boundaries, DDD-style domains, and a monolith-first / microservices-ready posture |
-| Cloud-native .NET | **.NET Aspire** orchestrating the API, front end, PostgreSQL, and Redis with first-class observability |
+| Cloud-native .NET | **.NET Aspire** orchestrating the API, front end, PostgreSQL and Keycloak with first-class observability |
 | Modern front end | **Next.js** (App Router) as an installable, **offline-first PWA** |
 | Hard distributed-systems problem | A purpose-built **offline sync engine** — local store, outbox, delta pull, idempotent push, conflict resolution |
-| Production discipline | OpenTelemetry, health checks, architecture tests, integration tests on real Postgres, E2E, CI/CD |
+| Production discipline | OpenTelemetry, health checks, architecture tests, integration tests on real Postgres, cross-language parity vectors, CI/CD *(E2E is [W14](../delivery-plan.md#week-14--e2e--seed-data--polish), not yet built)* |
 
 The domain is not incidental: field sales is a genuinely offline, genuinely multi-tenant,
 genuinely rules-heavy problem. It justifies the architecture instead of decorating it.
