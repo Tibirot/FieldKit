@@ -23,6 +23,21 @@ namespace FieldKit.Server.Tests;
 /// <b>null</b> in a process with no exporter, so a test that forgot the listener would assert nothing
 /// and say so as a pass.
 /// </para>
+/// <para>
+/// <b>The rule in this file: never read <c>Finished</c> without first waiting for what you are about
+/// to assert on.</b> A response reaching the client does not mean the span has been collected — the
+/// request's own span is stopped by the hosting layer as the pipeline unwinds, which is *after* the
+/// client's <c>await</c> returns. Every test here therefore calls
+/// <c>WaitForAsync</c> and then asserts, and the two do different jobs: the wait establishes that the
+/// span arrived, the assertion says what is true of it.
+/// </para>
+/// <para>
+/// It is a blanket rule rather than a case-by-case one on purpose. Only the request span is racy
+/// today — the domain spans below stop inside their handlers, before a byte of response is written —
+/// but that is a fact about where those <c>using</c> blocks currently end, held up by nothing, and
+/// "which spans are safe to read immediately" is not a question a reader should have to re-derive.
+/// It cost one flaky test and one assertion that could pass over an empty list to learn once.
+/// </para>
 /// </remarks>
 [Collection(ServerCollection.Name)]
 public class TracingTests(ServerFixture fixture)
@@ -73,9 +88,21 @@ public class TracingTests(ServerFixture fixture)
          * `Microsoft.AspNetCore.Hosting.HttpRequestIn` for every request it serves, so filtering on
          * it would have selected the whole conversation. That cost a diagnostic run to learn, and it
          * is the sort of thing a comment saves the next reader.
+         *
+         * <b>Waited for rather than read.</b> This is the one assertion in the file about the
+         * *request's* span, and that span is stopped by the hosting layer as the pipeline unwinds —
+         * after the response has reached the client. `await GetAsync` therefore does not mean the
+         * span has been collected, and reading the list straight afterwards is a race this test lost
+         * roughly one CI run in twenty while passing every time locally. The domain spans below are
+         * not exposed to it: they stop inside the handler, before the response is written.
+         *
+         * `Assert.Single` stays, because the wait and the assertion are different claims — that the
+         * span arrived, and that there was exactly one of it.
          */
-        var request = Assert.Single(
-            listening.Finished.Where(span => span.DisplayName == "GET /api/auth/whoami"));
+        var whoami = Route("GET /api/auth/whoami");
+        var request = await listening.WaitForAsync(whoami, "for GET /api/auth/whoami");
+
+        Assert.Single(listening.Finished, whoami);
 
         // The tenant is on the *request's own* span, not on a child of it — which is what makes
         // "everything this tenant did" a filter rather than a join.
@@ -97,12 +124,34 @@ public class TracingTests(ServerFixture fixture)
          * on that path. The guard only matters where a request is allowed through **without** a
          * principal, so the test has to use an endpoint that is. Found by sabotage: deleting the
          * condition changed nothing.
+         *
+         * <b>And it could pass without the span existing at all.</b> This asserted
+         * `DoesNotContain(Finished, has a tenant)` over a list that is *empty* until the request span
+         * is collected — which happens after the response arrives, so the empty case was reachable on
+         * exactly the timing that made the neighbouring test flake. "Nothing here has a tenant" is
+         * trivially true of nothing. It now waits for the span and asserts about **that span**, which
+         * is what the test name has always claimed: traced, and without a tenant.
          */
         using var listening = Listening();
 
         var response = await fixture.Client.GetAsync("/alive");
 
         Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+
+        /*
+         * <b>Waited for by operation name, not route, and that is a fact about `/alive`.</b> A
+         * diagnostic run for this fix found its span is `Microsoft.AspNetCore.Hosting.HttpRequestIn`
+         * carrying **no attributes at all** — because `/alive` and `/health` are excluded from tracing
+         * by the instrumentation filter in `Extensions.cs`, and it is that instrumentation, not the
+         * hosting layer, which rewrites `DisplayName` to the route and hangs the attributes on. So
+         * `Route("GET /alive")` matches nothing here, however much it looks like it should.
+         *
+         * The tenant assertion still means something on an unenriched span: `TenantTracing` sets its
+         * tag on `Activity.Current` directly, so a stamp applied to an anonymous request would appear
+         * here regardless of what the exporter would later do with the span.
+         */
+        await listening.WaitForAsync(AnyRequest, "for the anonymous request");
+
         Assert.DoesNotContain(listening.Finished, span => span.GetTagItem(Telemetry.Tags.Tenant) is not null);
     }
 
@@ -123,8 +172,11 @@ public class TracingTests(ServerFixture fixture)
         await rep.PostAsJsonAsync("/api/sync/push", new PushRequest(
             device, [new PushedMutation(mutationId, "SomethingThisServerHasNeverHeardOf")]));
 
-        var span = Assert.Single(
-            listening.Finished.Where(candidate => candidate.OperationName == "sync.push.mutation"));
+        var mutationSpan = Named("sync.push.mutation");
+        var span = await listening.WaitForAsync(mutationSpan, "named 'sync.push.mutation'");
+
+        // ...and exactly one of it, which is what `Assert.Single` was always claiming here.
+        Assert.Single(listening.Finished, mutationSpan);
 
         Assert.Equal(mutationId.ToString(), span.GetTagItem(Telemetry.Tags.Mutation));
         Assert.Equal("Rejected", span.GetTagItem("fieldkit.sync.mutation.status"));
@@ -155,8 +207,10 @@ public class TracingTests(ServerFixture fixture)
 
         await rep.PostAsJsonAsync("/api/sync/push", new PushRequest(device, [mutation]));
 
-        var span = Assert.Single(
-            listening.Finished.Where(candidate => candidate.OperationName == "sync.push.mutation"));
+        var mutationSpan = Named("sync.push.mutation");
+        var span = await listening.WaitForAsync(mutationSpan, "named 'sync.push.mutation'");
+
+        Assert.Single(listening.Finished, mutationSpan);
 
         Assert.Equal(true, span.GetTagItem("fieldkit.sync.mutation.replayed"));
     }
@@ -171,8 +225,10 @@ public class TracingTests(ServerFixture fixture)
 
         await rep.PostAsJsonAsync("/api/sync/pull", new PullRequest(device, null));
 
-        var span = Assert.Single(
-            listening.Finished.Where(candidate => candidate.OperationName == "sync.pull"));
+        var pullSpan = Named("sync.pull");
+        var span = await listening.WaitForAsync(pullSpan, "named 'sync.pull'");
+
+        Assert.Single(listening.Finished, pullSpan);
 
         Assert.Equal(device.ToString(), span.GetTagItem(Telemetry.Tags.Device));
     }
@@ -203,6 +259,25 @@ public class TracingTests(ServerFixture fixture)
     /// <summary>Collects finished spans for as long as it is alive.</summary>
     private static Listener Listening() => new();
 
+    /// <summary>A domain span by the name it was opened under.</summary>
+    private static Predicate<Activity> Named(string operation) =>
+        span => span.OperationName == operation;
+
+    /// <summary>
+    /// A request span by its route — <c>DisplayName</c>, never <c>OperationName</c>. The latter is
+    /// ASP.NET's constant <c>Microsoft.AspNetCore.Hosting.HttpRequestIn</c> for every request it
+    /// serves, so matching on it selects the whole conversation. That cost a diagnostic run to learn
+    /// in W13 slice 2, and naming the two helpers apart is what stops it being learned twice.
+    /// </summary>
+    private static Predicate<Activity> Route(string route) => span => span.DisplayName == route;
+
+    /// <summary>
+    /// Any request span, matched on ASP.NET's own operation name — for the one endpoint whose span
+    /// never acquires a route, because tracing is filtered off it (see the anonymous test).
+    /// </summary>
+    private static readonly Predicate<Activity> AnyRequest =
+        Named("Microsoft.AspNetCore.Hosting.HttpRequestIn");
+
     /// <summary>
     /// An <c>ActivityListener</c> over every source, because two are in play.
     /// </summary>
@@ -214,8 +289,11 @@ public class TracingTests(ServerFixture fixture)
     /// </remarks>
     private sealed class Listener : IDisposable
     {
+        private static readonly TimeSpan Patience = TimeSpan.FromSeconds(5);
+
         private readonly ActivityListener _listener;
         private readonly List<Activity> _finished = [];
+        private readonly List<Waiter> _waiting = [];
         private readonly Lock _gate = new();
 
         public Listener()
@@ -225,10 +303,7 @@ public class TracingTests(ServerFixture fixture)
                 ShouldListenTo = _ => true,
                 Sample = (ref ActivityCreationOptions<ActivityContext> _) =>
                     ActivitySamplingResult.AllDataAndRecorded,
-                ActivityStopped = activity =>
-                {
-                    lock (_gate) _finished.Add(activity);
-                },
+                ActivityStopped = Collect,
             };
 
             ActivitySource.AddActivityListener(_listener);
@@ -239,6 +314,88 @@ public class TracingTests(ServerFixture fixture)
             get { lock (_gate) return _finished.ToList(); }
         }
 
+        /// <summary>
+        /// The first span matching <paramref name="match"/>, waiting up to five seconds for one.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>Synchronisation, not assertion.</b> This exists so a test can be sure the span it is
+        /// about to assert on has arrived; what it then asserts — one span, this tag, that status —
+        /// stays in the test where a reader can see it. In particular it does not replace
+        /// <c>Assert.Single</c>: "the request produced exactly one span for this route" is a claim
+        /// worth making, and returning the first match would quietly stop making it.
+        /// </para>
+        /// <para>
+        /// <b>Five seconds is a deadline, not a delay.</b> A span that has already arrived returns
+        /// immediately — the common case, and the only case on a machine that is not loaded. The wait
+        /// exists for the interval between a response reaching the client and the server finishing
+        /// with the request, which is microseconds when nothing else is happening and is not bounded
+        /// by anything when a CI runner is oversubscribed.
+        /// </para>
+        /// </remarks>
+        public async Task<Activity> WaitForAsync(Predicate<Activity> match, string describing)
+        {
+            Waiter waiter;
+
+            lock (_gate)
+            {
+                var already = _finished.FirstOrDefault(span => match(span));
+                if (already is not null) return already;
+
+                waiter = new Waiter(match, new TaskCompletionSource<Activity>(
+                    TaskCreationOptions.RunContinuationsAsynchronously));
+
+                _waiting.Add(waiter);
+            }
+
+            if (await Task.WhenAny(waiter.Arrived.Task, Task.Delay(Patience)) == waiter.Arrived.Task)
+            {
+                return await waiter.Arrived.Task;
+            }
+
+            lock (_gate) _waiting.Remove(waiter);
+
+            /*
+             * The message matters more than usual here. The failure this replaces read "collection was
+             * empty", which describes the assertion rather than the system and sent a previous
+             * diagnostic run looking for a missing tenant stamp that was never missing (W13 slice 2).
+             * Naming what was waited for, and listing what did arrive, is the difference between a
+             * failure that points at the bug and one that points at the test.
+             */
+            var collected = Finished;
+
+            Assert.Fail(
+                $"No span {describing} within {Patience.TotalSeconds:0}s. "
+                + $"{collected.Count} span(s) finished: "
+                + string.Join(", ", collected.Select(span => $"'{span.DisplayName}'").Distinct()));
+
+            throw new UnreachableException();
+        }
+
         public void Dispose() => _listener.Dispose();
+
+        private void Collect(Activity activity)
+        {
+            List<Waiter>? ready = null;
+
+            lock (_gate)
+            {
+                _finished.Add(activity);
+
+                for (var i = _waiting.Count - 1; i >= 0; i--)
+                {
+                    if (!_waiting[i].Match(activity)) continue;
+
+                    (ready ??= []).Add(_waiting[i]);
+                    _waiting.RemoveAt(i);
+                }
+            }
+
+            // Completed outside the lock: a continuation running inline under it would hold the gate
+            // through arbitrary test code, and `ActivityStopped` is on the request's own thread.
+            foreach (var waiter in ready ?? []) waiter.Arrived.TrySetResult(activity);
+        }
+
+        private sealed record Waiter(Predicate<Activity> Match, TaskCompletionSource<Activity> Arrived);
     }
 }
