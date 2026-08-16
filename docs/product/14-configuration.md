@@ -274,8 +274,14 @@ has a navigation item and every navigation item a route — an endpoint with no 
 what it can see. That is worth knowing before the next capability is called finished: the gate proves
 nothing built is *unreachable*, not that everything specified is *built*.
 
-**No week is assigned here**, deliberately. Naming a second date in the documents that got the first
-one wrong is the mechanism by which it slipped, not the fix for it.
+**It is [W14](../delivery-plan.md#week-14--e2e--seed-data--the-workflow-builder-).** This section first
+argued for leaving it unscheduled — naming a second date inside the documents that got the first one
+wrong is the mechanism by which it slipped, not the fix for it. That was overruled on review, and the
+reason is better than the objection: *unscheduled* is how a `Must` decays into a `Won't` without anyone
+deciding it should, and the remaining work is one screen against an API that has been complete since
+W7. The failure being guarded against was not "a date existed" but "two documents held different dates
+and nothing reconciled them" — which is answered by this section and the roadmap now pointing at the
+same week and at each other, not by refusing to pick one.
 
 ## 7. Offline behavior
 

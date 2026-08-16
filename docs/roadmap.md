@@ -163,7 +163,7 @@ vectors ran.
 - [ ] **Config-driven builder** — visit-workflow steps, perfect-store weights, survey forms
   ([ADR-0009](architecture/adr/0009-config-driven-customization.md)) — *weights (W10 slice 8) and
   survey forms (W10 slices 9a/9b) shipped as their own screens; the **per-channel visit-workflow step
-  builder** (`CFG-03`) has an API and no screen — see below*
+  builder** (`CFG-03`) has an API and no screen, and is **[W14](delivery-plan.md#week-14--e2e--seed-data--the-workflow-builder-)*** — see below
 - [x] **Sync engine v2** — conflict rules for transactional data; out-of-band photo upload *(W11)*
 - [x] **Supervisor dashboards** — coverage & compliance (reporting read-side) *(W12 — the four
   aggregate reads, the composition in the host, the dashboard, and the visits/orders review screens)*
@@ -183,9 +183,12 @@ What exists is the server half — `GET/PUT/DELETE /api/config/visit-workflows/{
 slice 6, row-versioned and on the change feed — so a tenant's workflows are authored by request and
 not by anybody in the back office
 ([configuration §6.5](product/14-configuration.md#65-authoring-visit-workflows-not-yet-built)).
-**Deliberately not given a week here:** it is a `Must` that has slipped once already, and assigning it
-a second date in the same document that got the first one wrong is how it slips again. It is scheduled
-when someone schedules it.
+**It is now [W14](delivery-plan.md#week-14--e2e--seed-data--the-workflow-builder-)**, and the way that
+date was set is the point. This page originally proposed leaving it unscheduled — a `Must` that has
+slipped once is not made safer by a second date written into the same document that got the first one
+wrong. The counter-argument won: *unscheduled* is how a `Must` becomes a `Won't` by attrition, and the
+gap here is one screen against an API that has been complete since W7. A date somebody chose, knowing
+the first one failed, is a different object from a date nobody revisited.
 
 The mechanism that catches this class of thing does not reach it. The reachability gate
 ([`check-reachability.mjs`](../scripts/check-reachability.mjs)) checks that every back-office *route*

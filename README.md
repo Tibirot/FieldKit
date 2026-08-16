@@ -163,9 +163,10 @@ runbook: **[docs/engineering/deploying.md](docs/engineering/deploying.md)**.
   proves it and fails CI if that test is renamed away.
 
 **In flight (W14–W15):** the Playwright E2E suite over the golden path online and offline, a seeded
-demo tenant loaded through the bulk import, and the case-study polish. One Phase-3 requirement is
-still open and named as such: **`CFG-03`**, the per-channel visit-workflow builder, has its API and
-no screen ([configuration §6.5](docs/product/14-configuration.md#65-authoring-visit-workflows-not-yet-built)).
+demo tenant loaded through the bulk import, the case-study polish, and the one Phase-3 requirement
+still open — **`CFG-03`**, the per-channel visit-workflow builder, which has its API and no screen
+([configuration §6.5](docs/product/14-configuration.md#65-authoring-visit-workflows-not-yet-built)).
+It is scheduled into W14 rather than left to find a week, which is what let it slip past W12.
 
 Progress is tracked week by week in the **[delivery plan](docs/delivery-plan.md)**, which records what
 each slice actually shipped — including where it departed from the plan and why. The

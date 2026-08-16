@@ -44,8 +44,9 @@ The system is orchestrated by Aspire: `dotnet run --project FieldKit.AppHost`. T
 tax or the perfect-store score has to pass in **both** languages.
 
 **Phases 0–3 are complete and the system is deployed** ([runbook](docs/engineering/deploying.md)).
-Phase 4 is in flight: W13 landed, W14 (E2E + seed data) and W15 (deploy + case study) remain, and one
-Phase-3 requirement is open — `CFG-03`, the visit-workflow builder, has an API and no screen. The
+Phase 4 is in flight: W13 landed, W14 and W15 remain. W14 is **⚠︎ heavy** — the E2E suite, the seed
+data, a polish pass, and the one open Phase-3 requirement scheduled into it: `CFG-03`, the
+visit-workflow builder, which has had an API and no screen since W7 slice 6. The
 [delivery plan](docs/delivery-plan.md) is the authority on what each week actually shipped —
 including where it departed from the plan — and is more current than any summary, including this one.
 
