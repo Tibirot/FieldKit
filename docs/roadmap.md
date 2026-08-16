@@ -21,13 +21,15 @@ is the **phase-level** view; the **[delivery plan](delivery-plan.md)** breaks ea
 - **Boundaries from day one.** Architecture tests exist before there are two modules to
   keep apart.
 
-## Phase 0 — Foundation *(complete, one item deferred)*
+## Phase 0 — Foundation *(complete)*
 
 Turn the scaffold into a clean skeleton the rest hangs off.
 
-The one unticked box is **row-version stamping**, and it is deferred rather than outstanding: its
-only consumer is the sync engine, so building it now would mean shipping a primitive designed
-against a protocol that does not exist yet. It lands with the W8 sync slices.
+**Row-version stamping** was the one box left open here, and it was deferred rather than outstanding:
+its only consumer is the sync engine, so building it in Phase 0 would have meant shipping a primitive
+designed against a protocol that did not exist yet. It landed with the W8 sync slices, and the shape
+it took — a transactional counter rather than a sequence — needed a decision of its own
+([ADR-0013](architecture/adr/0013-sync-row-version.md)).
 
 - [x] Aspire solution scaffolded (AppHost + Server + Redis — *Redis was removed before deploying: it
   backed an output cache nothing ever opted into, and would have cost more per month than the
@@ -53,7 +55,9 @@ against a protocol that does not exist yet. It lands with the W8 sync slices.
   Postgres and `POST/GET /api/products` answers from the module — verified end-to-end with
   `WebApplicationFactory<Program>` + real Postgres. A temporary `DevTenantContext` stood in until
   Keycloak landed (below). — *[module-hosting slice]* **← the modular monolith now runs.**
-- [ ] **Per-tenant row-version stamping** (the `IReferenceChangeFeed` primitive) — lands with the sync slices
+- [x] **Per-tenant row-version stamping** (the `IReferenceChangeFeed` primitive) — landed with the W8
+  sync slices as the deferral above intended; what the counter means is
+  [ADR-0013](architecture/adr/0013-sync-row-version.md)
 - [x] **Per-module EF migrations** — `ModuleMigrator<TContext>` applies each module's migrations on
   startup (`MigrateAsync`); each keeps its own `__EFMigrationsHistory` in its own schema, so contexts
   sharing the database don't collide. Replaces the temporary `EnsureCreated`; verified end-to-end.
@@ -148,19 +152,21 @@ that both languages read and CI compares. It has since caught real divergence ra
 hypothetical: a wrong hand-written expectation, and a serialization bug the first time the wire
 vectors ran.
 
-## Phase 3 — In-store depth: audits and orders *(in progress)*
+## Phase 3 — In-store depth: audits and orders *(complete, with one requirement open — `CFG-03`)*
 
 - [x] **Audit** — structured shelf capture: MSL availability, **share-of-shelf**, price check,
   photos, and the configurable **weighted perfect-store score**
   ([A2](product/decisions-and-assumptions.md#a2--audit--perfect-store-structured-checks--share-of-shelf--photo)) —
   *not* coordinate planograms ([`AUD-10 = Won't v1`](product/22-merchandising-and-audits.md#6-requirements)) *(W10 — the
   engine, the score in both languages, and the push path; the **capture screen** is W11)*
-- [ ] **Order** — capture against assortment & price, on-device promotion application, lifecycle *(W11)*
+- [x] **Order** — capture against assortment & price, on-device promotion application, lifecycle *(W11)*
 - [ ] **Config-driven builder** — visit-workflow steps, perfect-store weights, survey forms
-  ([ADR-0009](architecture/adr/0009-config-driven-customization.md)) — *weights and survey forms
-  shipped in W10; the **visit-workflow step builder** is W12*
-- [ ] **Sync engine v2** — conflict rules for transactional data; out-of-band photo upload *(W11)*
-- [ ] **Supervisor dashboards** — coverage & compliance (reporting read-side) *(W12)*
+  ([ADR-0009](architecture/adr/0009-config-driven-customization.md)) — *weights (W10 slice 8) and
+  survey forms (W10 slices 9a/9b) shipped as their own screens; the **per-channel visit-workflow step
+  builder** (`CFG-03`) has an API and no screen — see below*
+- [x] **Sync engine v2** — conflict rules for transactional data; out-of-band photo upload *(W11)*
+- [x] **Supervisor dashboards** — coverage & compliance (reporting read-side) *(W12 — the four
+  aggregate reads, the composition in the host, the dashboard, and the visits/orders review screens)*
 
 **W10's shape is worth recording**, because it is the one the plan got wrong twice. The audit
 *engine* and the audit *screen* are different weeks: the score, its weighting, the parity vectors and
@@ -169,15 +175,38 @@ order capture in W11 — the two are the same offline-screen problem and sharing
 meant solving it twice. Both surviving W10 slices split (3a/3b, 9a/9b) split on a rule the *server*
 imposed rather than on size.
 
+**`CFG-03` is the one requirement this phase did not close, and two documents disagreed about it.**
+This page said the visit-workflow step builder was W12; W12's own decomposition said the
+config-builder bullet had nothing left in it, counting the weights screen and the survey editor as the
+whole of it. Both were written down, neither was reconciled, and W12 closed without the screen.
+What exists is the server half — `GET/PUT/DELETE /api/config/visit-workflows/{channelId}` since W7
+slice 6, row-versioned and on the change feed — so a tenant's workflows are authored by request and
+not by anybody in the back office
+([configuration §6.5](product/14-configuration.md#65-authoring-visit-workflows-not-yet-built)).
+**Deliberately not given a week here:** it is a `Must` that has slipped once already, and assigning it
+a second date in the same document that got the first one wrong is how it slips again. It is scheduled
+when someone schedules it.
+
+The mechanism that catches this class of thing does not reach it. The reachability gate
+([`check-reachability.mjs`](../scripts/check-reachability.mjs)) checks that every back-office *route*
+has a navigation item and every navigation item a route — it cannot see an **endpoint** with no route
+at all, which is the shape of this gap.
+
 **Demo:** the full golden path from the [product overview](product/00-product-overview.md#5-a-day-in-the-life-the-golden-path),
 offline, reconciled on reconnect.
 
-## Phase 4 — Production polish *(stretch)*
+## Phase 4 — Production polish *(in progress — W13 landed; W14 and W15 remain)*
 
-- [ ] Observability: custom domain metrics + dashboards (visits synced, sync latency, order value)
-  ([observability](architecture/15-observability.md))
-- [ ] Security hardening + threat-model verification ([security](architecture/16-security.md))
-- [ ] E2E suite (Playwright) covering the golden path online **and** offline
+- [x] Observability: custom domain metrics + dashboards (visits synced, sync latency, order value)
+  ([observability](architecture/15-observability.md)) — *(W13 — eleven instruments under one meter, the
+  outbox dispatcher `ADR-0006` describes, spans carrying tenant and mutation, dependency health checks,
+  and batched device telemetry)*
+- [x] Security hardening + threat-model verification ([security](architecture/16-security.md)) —
+  *(W13 — a per-rep rate limit on `/sync`, the API's own security headers, the CORS claim settled as a
+  corrected sentence rather than a policy, and a STRIDE-lite table `ThreatModelTests` parses so a
+  mitigation cannot be renamed while this doc goes on asserting it)*
+- [ ] E2E suite (Playwright) covering the golden path online **and** offline *(W14 — not started;
+  there is no Playwright suite and no E2E job in CI today)*
 - [ ] **Seed/demo-data** harness (a believable tenant) so the live demo has something to show —
   scheduled with the E2E suite in [W14](delivery-plan.md), which is what needs a deterministic
   fixture. It sat under Phase 0 until the pre-Phase-2 audit found it listed in two phases at once;
@@ -189,7 +218,7 @@ offline, reconciled on reconnect.
   directory naming a Windows path, every OIDC origin hardcoded to `localhost:3000`, and a Keycloak
   that could not see its own public address). Redeployed with W9+W10 on 2026-08-11 —
   see the [runbook](engineering/deploying.md)*
-- [ ] Case-study polish: screenshots/GIFs in the README
+- [ ] Case-study polish: screenshots/GIFs in the README *(W15)*
 
 ## Out of scope
 

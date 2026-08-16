@@ -86,7 +86,7 @@ Full write-up: **[docs/architecture/00-architecture-overview.md](docs/architectu
 | Frontend | Next.js (App Router) · React 19 · TypeScript · TanStack Query |
 | Offline | Service worker (Workbox) · IndexedDB (Dexie) · PWA |
 | Observability | OpenTelemetry → Aspire dashboard |
-| Testing | xUnit · Testcontainers · NetArchTest · Playwright · Vitest |
+| Testing | xUnit · Testcontainers · NetArchTest · Vitest *(Playwright E2E — W14, not yet built)* |
 | CI/CD | GitHub Actions |
 
 ## Documentation
@@ -111,9 +111,10 @@ FieldKit/
 ├─ FieldKit.SharedKernel/    # value objects (Money, GeoPoint, IClock, Result, TenantId)
 ├─ FieldKit.BuildingBlocks/  # pure abstractions (messaging, tenancy, AggregateRoot)
 ├─ FieldKit.Infrastructure/  # EF base (schema-per-module), interceptors, outbox
-├─ FieldKit.Modules.*/       # the domain modules — Iam, Org, Outlets, Products, Configuration,
-│                            # Journey, Visit, Audit, Sync (+ Order, W11). Each with a
-│                            # `.Contracts` sibling: the only thing another module may reference
+├─ FieldKit.Modules.*/       # the ten domain modules — Iam, Org, Outlets, Products, Configuration,
+│                            # Journey, Visit, Audit, Order, Sync. Each with a `.Contracts`
+│                            # sibling — the only thing another module may reference. Sync has
+│                            # none: nothing outside it calls it
 ├─ frontend/                 # Next.js field app + back office
 ├─ vectors/                  # cross-language parity fixtures (C# ↔ TypeScript)
 ├─ docs/                     # functional + technical documentation
@@ -135,25 +136,36 @@ runbook: **[docs/engineering/deploying.md](docs/engineering/deploying.md)**.
 
 ## Status
 
-🚧 **Phase 3 — in-store depth.** Phases 0 through 2 are complete and the system is deployed.
+🚧 **Phase 4 — production polish.** Phases 0 through 3 are complete and the system is deployed.
 
 **What works today**, end to end:
 
 - **Back office** — identity and permissions (Keycloak, realm-per-tenant), org and territories,
   outlets with a tenant-defined custom-field catalogue and bulk import, the product catalogue with
-  assortments/MSL, price lists, promotions and tax, journey planning, and the config builders for
-  perfect-store weights and survey forms.
+  assortments/MSL, price lists, promotions and tax, journey planning, the config builders for
+  perfect-store weights and survey forms, and a **supervisor console**: a coverage / strike-rate /
+  perfect-store / order-value dashboard composed from four modules, the visit and audit review
+  screens beneath it, and the orders queue a supervisor rejects from.
 - **The field app** — an installable PWA that pulls a rep's journey, workflows, catalogue, prices and
   promotions into IndexedDB, then works **fully offline**: geofenced check-in, config-driven visit
-  steps, check-out, and an outbox that pushes idempotently on reconnect.
+  steps, the shelf audit with its live perfect-store score, order capture priced on the device,
+  check-out, and an outbox that pushes idempotently on reconnect — with photographs uploaded
+  out of band and a rep able to correct an order the server refused.
 - **A pricing engine written twice** — the resolver for prices, promotions and tax exists in C# for
   the server and TypeScript for the device, and CI refuses a build where the two disagree on a
   shared corpus of generated vectors. The perfect-store score is held to the same standard.
-- **Ten modules** with enforced boundaries, a schema each, a transactional outbox, and architecture
-  tests that fail the build on a cross-module reference — all verified against real Postgres in CI.
+- **Ten modules** with enforced boundaries, a schema each, a transactional outbox with the background
+  dispatcher that drains it, and architecture tests that fail the build on a cross-module
+  reference — all verified against real Postgres in CI.
+- **It says what it is doing** — eleven domain metrics under one meter, spans carrying the tenant and
+  a `traceId` a caller can quote, dependency health checks, batched device telemetry from the field,
+  a per-rep rate limit on `/sync`, and a threat-model table whose every row names the test that
+  proves it and fails CI if that test is renamed away.
 
-**In flight (W11):** order capture, the offline audit and order screens, sync v2's conflict rules,
-and out-of-band photo upload.
+**In flight (W14–W15):** the Playwright E2E suite over the golden path online and offline, a seeded
+demo tenant loaded through the bulk import, and the case-study polish. One Phase-3 requirement is
+still open and named as such: **`CFG-03`**, the per-channel visit-workflow builder, has its API and
+no screen ([configuration §6.5](docs/product/14-configuration.md#65-authoring-visit-workflows-not-yet-built)).
 
 Progress is tracked week by week in the **[delivery plan](docs/delivery-plan.md)**, which records what
 each slice actually shipped — including where it departed from the plan and why. The

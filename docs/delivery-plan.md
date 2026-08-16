@@ -33,10 +33,19 @@ sliced into **~1-week work packages**, each sized to a part-time solo cadence.
 | 9 ⚠︎ | Field PWA + offline journey/visit | 2 | **Sync → offline visits → reconcile** (Phase 2 demo) |
 | 10 | Audit + config-builder backend | 3 | On-device perfect-store score == server; forms are config |
 | 11 ⚠︎ | Order + offline UIs + sync v2 + photos | 3 | Offline order+audit captured, reconciled, photos uploaded |
+| 11½ | Regression remediation | 3 | A rep with no planned call can work a shop; both sides agree what day it is |
 | 12 | Dashboards + config-builder UI | 3 | **Full golden path offline → reconcile** (Phase 3 demo) |
+| 12½ | Navigation & theme redesign | 3 | Every screen has a nav item; the theme is a choice |
 | 13 | Observability + security hardening | 4 | Domain metrics in dashboard; isolation tests green |
 | 14 | E2E + seed data + polish | 4 | Playwright golden path (online + offline) green in CI |
 | 15 | Deploy to ACA + case-study | 4 | **Clickable live demo**; README sells it |
+
+**Seventeen rows for a fifteen-week plan.** `W11½` and `W12½` were inserted mid-flight — one to clear
+what a regression sweep found before W12 built a dashboard on top of it, one when a navigation audit
+turned up eleven screens reachable only by landing on a section index. Both had full sections in this
+document for weeks before they had a row in this table, which is the same drift the
+[sequencing notes](#sequencing--risk-notes) record about the ⚠︎ list: the prose gets edited and the
+table does not.
 
 ---
 
@@ -1586,7 +1595,11 @@ and a real backend arrives with W15's deploy.
 **Done when:** E2E green in CI; demo data loads; the app feels finished.
 
 ### Week 15 · Deploy to ACA + case-study
-- `aspire deploy` → **Azure Container Apps**; managed Postgres/Redis/Blob + Keycloak; scale-to-zero; OTLP export ([ADR-0011](architecture/adr/0011-deployment-azure-container-apps.md)).
+- `aspire deploy` → **Azure Container Apps**; managed Postgres + Blob + Keycloak; scale-to-zero; OTLP
+  export ([ADR-0011](architecture/adr/0011-deployment-azure-container-apps.md)). *This line read
+  "Postgres/**Redis**/Blob" until now, and there is no Redis: it was removed before the first deploy
+  and the idempotency ledger is a Postgres table
+  ([ADR-0007 amendment](architecture/adr/0007-offline-sync-strategy.md#amendment-2026-08-the-ledger-is-postgres-and-there-is-no-redis)).*
 - CI/CD: build → test → arch-test → image → deploy.
 - README case-study polish: screenshots/GIFs from the **real** app; live-demo link.
 

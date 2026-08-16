@@ -58,7 +58,8 @@ docs/
 │     ├─ 0009-config-driven-customization.md
 │     ├─ 0010-internationalization.md
 │     ├─ 0011-deployment-azure-container-apps.md
-│     └─ 0012-server-message-localization.md
+│     ├─ 0012-server-message-localization.md
+│     └─ 0013-sync-row-version.md
 │
 ├─ engineering/                  ← how we work
 │  ├─ pull-requests.md           ← PR rules for humans & agents (small · tested · docs-in-lockstep)
@@ -129,10 +130,13 @@ Legend: ✅ written · 🚧 draft in progress · ⬜ planned
 - ✅ 0010 Internationalization (currency & language)
 - ✅ 0011 Deployment target: Azure Container Apps
 - ✅ 0012 Server message localization (refusal codes resolved client-side)
+- ✅ 0013 The sync row version is a transactional counter, not a sequence
 
 ### UX (ux/)
 - ✅ Wireframes — field-app golden path (5 screens) + back office (7 views: dashboard, outlets, products/pricing, territories, journey planning, users/roles, workflow builder), with an interactive Artifact
 
 ### Delivery
 - ✅ Roadmap — phase-level plan mapping features to build increments
-- ✅ Delivery plan — 15 week-sized work packages (~12–15h each), sequenced with demos
+- ✅ Delivery plan — 17 week-sized work packages (~12–15h each), sequenced with demos. Fifteen were
+  planned; **W11½ and W12½** were inserted when a regression sweep and a navigation audit each found
+  more than a slice's worth of work
