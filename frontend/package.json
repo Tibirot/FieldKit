@@ -60,7 +60,7 @@
     "jsdom": "^30.0.1",
     "postcss": "^8.5.18",
     "typescript": "^6",
-    "vitest": "^4.1.10",
+    "vitest": "^5.0.2",
     "workbox-build": "^7.4.1",
     "workbox-cacheable-response": "^7.4.1",
     "workbox-core": "^7.4.1",
