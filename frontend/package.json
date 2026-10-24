@@ -33,7 +33,7 @@
     "decimal.js": "^10.6.0",
     "dexie": "^4.4.4",
     "lucide-react": "^1.28.0",
-    "next": "16.2.12",
+    "next": "16.4.3",
     "next-intl": "^4.13.4",
     "oidc-client-ts": "^3.5.0",
     "react": "19.2.8",
