@@ -130,7 +130,7 @@
       API-compatible. Drop this entry once Aspire itself declares a patched version.
       Rationale: docs/architecture/16-security.md §6.
     -->
-    <PackageVersion Include="MessagePack" Version="2.5.302" />
+    <PackageVersion Include="MessagePack" Version="3.1.12" />
   </ItemGroup>
 
 </Project>
