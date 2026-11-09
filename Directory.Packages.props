@@ -78,7 +78,7 @@
       "Smith, Jones & Co" — and the rejected-rows file this import hands back has to quote correctly
       on the way out too. Apache-2.0 / MS-PL, which matters for a repo meant to be readable.
     -->
-    <PackageVersion Include="CsvHelper" Version="33.1.0" />
+    <PackageVersion Include="CsvHelper" Version="34.0.0" />
   </ItemGroup>
 
   <ItemGroup Label="ASP.NET Core &amp; Microsoft.Extensions">
